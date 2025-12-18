@@ -1,0 +1,37 @@
+# Rust
+/target/
+Cargo.lock
+
+# Node
+node_modules/
+ui/node_modules/
+
+# Build outputs
+/ui/dist/
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Tauri
+/src-tauri/target/
+
+# Test coverage
+coverage/
+*.lcov
+
+# Temporary files
+*.tmp
+*.temp

@@ -1,0 +1,79 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "K8s GUI",
+  "version": "0.1.0",
+  "identifier": "com.k8s-gui.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "K8s GUI",
+        "width": 1400,
+        "height": 900,
+        "minWidth": 1024,
+        "minHeight": 768,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true,
+        "decorations": true,
+        "transparent": false,
+        "titleBarStyle": "Visible"
+      }
+    ],
+    "security": {
+      "csp": null
+    },
+    "trayIcon": null
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": [],
+    "externalBin": [],
+    "copyright": "© 2024 K8s GUI",
+    "category": "DeveloperTool",
+    "shortDescription": "Kubernetes GUI Client",
+    "longDescription": "A modern, cross-platform Kubernetes GUI client built with Tauri and Rust",
+    "macOS": {
+      "entitlements": null,
+      "exceptionDomain": null,
+      "frameworks": [],
+      "providerShortName": null,
+      "signingIdentity": null,
+      "minimumSystemVersion": "10.13"
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    },
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": false
+      },
+      "deb": {
+        "depends": []
+      },
+      "rpm": {
+        "release": "1"
+      }
+    }
+  },
+  "plugins": {
+    "shell": {
+      "open": true
+    }
+  }
+}

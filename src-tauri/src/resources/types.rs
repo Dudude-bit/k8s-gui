@@ -1,0 +1,662 @@
+//! Resource type definitions for frontend communication
+
+use chrono::{DateTime, Utc};
+use k8s_openapi::api::apps::v1::{Deployment, DeploymentStatus};
+use k8s_openapi::api::core::v1::{
+    ConfigMap, Container, Event, Namespace, Node, NodeCondition, Pod, PodCondition,
+    PodStatus, Secret, Service, ServicePort,
+};
+use kube::ResourceExt;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+
+/// Simplified pod information for frontend
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PodInfo {
+    pub name: String,
+    pub namespace: String,
+    pub uid: String,
+    pub status: PodStatusInfo,
+    pub node_name: Option<String>,
+    pub pod_ip: Option<String>,
+    pub host_ip: Option<String>,
+    pub containers: Vec<ContainerInfo>,
+    pub labels: BTreeMap<String, String>,
+    pub annotations: BTreeMap<String, String>,
+    pub created_at: Option<DateTime<Utc>>,
+    pub restart_count: i32,
+}
+
+impl From<&Pod> for PodInfo {
+    fn from(pod: &Pod) -> Self {
+        let status = pod.status.as_ref();
+        let spec = pod.spec.as_ref();
+        
+        let containers = spec
+            .map(|s| {
+                s.containers
+                    .iter()
+                    .map(|c| ContainerInfo::from_container(c, status))
+                    .collect()
+            })
+            .unwrap_or_default();
+        
+        let restart_count = status
+            .and_then(|s| s.container_statuses.as_ref())
+            .map(|cs| cs.iter().map(|c| c.restart_count).sum())
+            .unwrap_or(0);
+        
+        Self {
+            name: pod.name_any(),
+            namespace: pod.namespace().unwrap_or_default(),
+            uid: pod.uid().unwrap_or_default(),
+            status: PodStatusInfo::from_pod_status(status),
+            node_name: spec.and_then(|s| s.node_name.clone()),
+            pod_ip: status.and_then(|s| s.pod_ip.clone()),
+            host_ip: status.and_then(|s| s.host_ip.clone()),
+            containers,
+            labels: pod.labels().clone(),
+            annotations: pod.annotations().clone(),
+            created_at: pod.creation_timestamp().map(|t| t.0),
+            restart_count,
+        }
+    }
+}
+
+/// Pod status information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PodStatusInfo {
+    pub phase: String,
+    pub ready: bool,
+    pub conditions: Vec<ConditionInfo>,
+    pub message: Option<String>,
+    pub reason: Option<String>,
+}
+
+impl PodStatusInfo {
+    fn from_pod_status(status: Option<&PodStatus>) -> Self {
+        let status = match status {
+            Some(s) => s,
+            None => {
+                return Self {
+                    phase: "Unknown".to_string(),
+                    ready: false,
+                    conditions: vec![],
+                    message: None,
+                    reason: None,
+                }
+            }
+        };
+        
+        let ready = status
+            .conditions
+            .as_ref()
+            .map(|conds| {
+                conds
+                    .iter()
+                    .any(|c| c.type_ == "Ready" && c.status == "True")
+            })
+            .unwrap_or(false);
+        
+        let conditions = status
+            .conditions
+            .as_ref()
+            .map(|conds| conds.iter().map(ConditionInfo::from).collect())
+            .unwrap_or_default();
+        
+        Self {
+            phase: status.phase.clone().unwrap_or_else(|| "Unknown".to_string()),
+            ready,
+            conditions,
+            message: status.message.clone(),
+            reason: status.reason.clone(),
+        }
+    }
+}
+
+/// Condition information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConditionInfo {
+    pub type_: String,
+    pub status: String,
+    pub reason: Option<String>,
+    pub message: Option<String>,
+    pub last_transition_time: Option<DateTime<Utc>>,
+}
+
+impl From<&PodCondition> for ConditionInfo {
+    fn from(cond: &PodCondition) -> Self {
+        Self {
+            type_: cond.type_.clone(),
+            status: cond.status.clone(),
+            reason: cond.reason.clone(),
+            message: cond.message.clone(),
+            last_transition_time: cond.last_transition_time.as_ref().map(|t| t.0),
+        }
+    }
+}
+
+impl From<&NodeCondition> for ConditionInfo {
+    fn from(cond: &NodeCondition) -> Self {
+        Self {
+            type_: cond.type_.clone(),
+            status: cond.status.clone(),
+            reason: cond.reason.clone(),
+            message: cond.message.clone(),
+            last_transition_time: cond.last_transition_time.as_ref().map(|t| t.0),
+        }
+    }
+}
+
+/// Container information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContainerInfo {
+    pub name: String,
+    pub image: String,
+    pub ready: bool,
+    pub state: ContainerState,
+    pub restart_count: i32,
+    pub ports: Vec<ContainerPortInfo>,
+}
+
+impl ContainerInfo {
+    fn from_container(container: &Container, pod_status: Option<&PodStatus>) -> Self {
+        let container_status = pod_status
+            .and_then(|s| s.container_statuses.as_ref())
+            .and_then(|cs| cs.iter().find(|c| c.name == container.name));
+        
+        let (ready, state, restart_count) = if let Some(cs) = container_status {
+            let state = if cs.state.as_ref().and_then(|s| s.running.as_ref()).is_some() {
+                ContainerState::Running
+            } else if let Some(waiting) = cs.state.as_ref().and_then(|s| s.waiting.as_ref()) {
+                ContainerState::Waiting {
+                    reason: waiting.reason.clone(),
+                }
+            } else if let Some(terminated) = cs.state.as_ref().and_then(|s| s.terminated.as_ref()) {
+                ContainerState::Terminated {
+                    exit_code: terminated.exit_code,
+                    reason: terminated.reason.clone(),
+                }
+            } else {
+                ContainerState::Unknown
+            };
+            
+            (cs.ready, state, cs.restart_count)
+        } else {
+            (false, ContainerState::Unknown, 0)
+        };
+        
+        let ports = container
+            .ports
+            .as_ref()
+            .map(|ps| {
+                ps.iter()
+                    .map(|p| ContainerPortInfo {
+                        name: p.name.clone(),
+                        container_port: p.container_port,
+                        protocol: p.protocol.clone().unwrap_or_else(|| "TCP".to_string()),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        
+        Self {
+            name: container.name.clone(),
+            image: container.image.clone().unwrap_or_default(),
+            ready,
+            state,
+            restart_count,
+            ports,
+        }
+    }
+}
+
+/// Container state
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum ContainerState {
+    Running,
+    Waiting { reason: Option<String> },
+    Terminated { exit_code: i32, reason: Option<String> },
+    Unknown,
+}
+
+/// Container port information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContainerPortInfo {
+    pub name: Option<String>,
+    pub container_port: i32,
+    pub protocol: String,
+}
+
+/// Deployment information for frontend
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeploymentInfo {
+    pub name: String,
+    pub namespace: String,
+    pub uid: String,
+    pub replicas: ReplicaInfo,
+    pub strategy: Option<String>,
+    pub labels: BTreeMap<String, String>,
+    pub annotations: BTreeMap<String, String>,
+    pub created_at: Option<DateTime<Utc>>,
+    pub conditions: Vec<ConditionInfo>,
+}
+
+/// Replica information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReplicaInfo {
+    pub desired: i32,
+    pub ready: i32,
+    pub available: i32,
+    pub updated: i32,
+}
+
+impl From<&Deployment> for DeploymentInfo {
+    fn from(deployment: &Deployment) -> Self {
+        let status = deployment.status.as_ref();
+        let spec = deployment.spec.as_ref();
+        
+        let replicas = ReplicaInfo {
+            desired: spec.and_then(|s| s.replicas).unwrap_or(0),
+            ready: status.and_then(|s| s.ready_replicas).unwrap_or(0),
+            available: status.and_then(|s| s.available_replicas).unwrap_or(0),
+            updated: status.and_then(|s| s.updated_replicas).unwrap_or(0),
+        };
+        
+        let conditions = status
+            .and_then(|s| s.conditions.as_ref())
+            .map(|conds| {
+                conds
+                    .iter()
+                    .map(|c| ConditionInfo {
+                        type_: c.type_.clone(),
+                        status: c.status.clone(),
+                        reason: c.reason.clone(),
+                        message: c.message.clone(),
+                        last_transition_time: c.last_transition_time.as_ref().map(|t| t.0),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        
+        Self {
+            name: deployment.name_any(),
+            namespace: deployment.namespace().unwrap_or_default(),
+            uid: deployment.uid().unwrap_or_default(),
+            replicas,
+            strategy: spec
+                .and_then(|s| s.strategy.as_ref())
+                .and_then(|s| s.type_.clone()),
+            labels: deployment.labels().clone(),
+            annotations: deployment.annotations().clone(),
+            created_at: deployment.creation_timestamp().map(|t| t.0),
+            conditions,
+        }
+    }
+}
+
+/// Service information for frontend
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceInfo {
+    pub name: String,
+    pub namespace: String,
+    pub uid: String,
+    pub type_: String,
+    pub cluster_ip: Option<String>,
+    pub external_ips: Vec<String>,
+    pub ports: Vec<ServicePortInfo>,
+    pub selector: BTreeMap<String, String>,
+    pub labels: BTreeMap<String, String>,
+    pub created_at: Option<DateTime<Utc>>,
+}
+
+/// Service port information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServicePortInfo {
+    pub name: Option<String>,
+    pub port: i32,
+    pub target_port: String,
+    pub node_port: Option<i32>,
+    pub protocol: String,
+}
+
+impl From<&Service> for ServiceInfo {
+    fn from(service: &Service) -> Self {
+        let spec = service.spec.as_ref();
+        
+        let ports = spec
+            .and_then(|s| s.ports.as_ref())
+            .map(|ps| {
+                ps.iter()
+                    .map(|p| ServicePortInfo {
+                        name: p.name.clone(),
+                        port: p.port,
+                        target_port: p
+                            .target_port
+                            .as_ref()
+                            .map(|tp| match tp {
+                                k8s_openapi::apimachinery::pkg::util::intstr::IntOrString::Int(i) => {
+                                    i.to_string()
+                                }
+                                k8s_openapi::apimachinery::pkg::util::intstr::IntOrString::String(s) => {
+                                    s.clone()
+                                }
+                            })
+                            .unwrap_or_default(),
+                        node_port: p.node_port,
+                        protocol: p.protocol.clone().unwrap_or_else(|| "TCP".to_string()),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        
+        Self {
+            name: service.name_any(),
+            namespace: service.namespace().unwrap_or_default(),
+            uid: service.uid().unwrap_or_default(),
+            type_: spec
+                .and_then(|s| s.type_.clone())
+                .unwrap_or_else(|| "ClusterIP".to_string()),
+            cluster_ip: spec.and_then(|s| s.cluster_ip.clone()),
+            external_ips: spec
+                .and_then(|s| s.external_ips.clone())
+                .unwrap_or_default(),
+            ports,
+            selector: spec.and_then(|s| s.selector.clone()).unwrap_or_default(),
+            labels: service.labels().clone(),
+            created_at: service.creation_timestamp().map(|t| t.0),
+        }
+    }
+}
+
+/// Node information for frontend
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeInfo {
+    pub name: String,
+    pub uid: String,
+    pub status: NodeStatusInfo,
+    pub roles: Vec<String>,
+    pub version: String,
+    pub os: String,
+    pub arch: String,
+    pub container_runtime: String,
+    pub labels: BTreeMap<String, String>,
+    pub taints: Vec<TaintInfo>,
+    pub capacity: ResourceQuantities,
+    pub allocatable: ResourceQuantities,
+    pub created_at: Option<DateTime<Utc>>,
+}
+
+/// Node status information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeStatusInfo {
+    pub ready: bool,
+    pub conditions: Vec<ConditionInfo>,
+    pub addresses: Vec<NodeAddressInfo>,
+}
+
+/// Node address information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeAddressInfo {
+    pub type_: String,
+    pub address: String,
+}
+
+/// Taint information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaintInfo {
+    pub key: String,
+    pub value: Option<String>,
+    pub effect: String,
+}
+
+/// Resource quantities
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ResourceQuantities {
+    pub cpu: Option<String>,
+    pub memory: Option<String>,
+    pub pods: Option<String>,
+    pub ephemeral_storage: Option<String>,
+}
+
+impl From<&Node> for NodeInfo {
+    fn from(node: &Node) -> Self {
+        let status = node.status.as_ref();
+        let spec = node.spec.as_ref();
+        
+        let node_info = status.and_then(|s| s.node_info.as_ref());
+        
+        let ready = status
+            .and_then(|s| s.conditions.as_ref())
+            .map(|conds| {
+                conds
+                    .iter()
+                    .any(|c| c.type_ == "Ready" && c.status == "True")
+            })
+            .unwrap_or(false);
+        
+        let conditions = status
+            .and_then(|s| s.conditions.as_ref())
+            .map(|conds| conds.iter().map(ConditionInfo::from).collect())
+            .unwrap_or_default();
+        
+        let addresses = status
+            .and_then(|s| s.addresses.as_ref())
+            .map(|addrs| {
+                addrs
+                    .iter()
+                    .map(|a| NodeAddressInfo {
+                        type_: a.type_.clone(),
+                        address: a.address.clone(),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        
+        let roles: Vec<String> = node
+            .labels()
+            .iter()
+            .filter_map(|(k, _)| {
+                if k.starts_with("node-role.kubernetes.io/") {
+                    Some(k.trim_start_matches("node-role.kubernetes.io/").to_string())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        
+        let taints = spec
+            .and_then(|s| s.taints.as_ref())
+            .map(|ts| {
+                ts.iter()
+                    .map(|t| TaintInfo {
+                        key: t.key.clone(),
+                        value: t.value.clone(),
+                        effect: t.effect.clone(),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        
+        let capacity = status
+            .and_then(|s| s.capacity.as_ref())
+            .map(|c| ResourceQuantities {
+                cpu: c.get("cpu").map(|q| q.0.clone()),
+                memory: c.get("memory").map(|q| q.0.clone()),
+                pods: c.get("pods").map(|q| q.0.clone()),
+                ephemeral_storage: c.get("ephemeral-storage").map(|q| q.0.clone()),
+            })
+            .unwrap_or_default();
+        
+        let allocatable = status
+            .and_then(|s| s.allocatable.as_ref())
+            .map(|a| ResourceQuantities {
+                cpu: a.get("cpu").map(|q| q.0.clone()),
+                memory: a.get("memory").map(|q| q.0.clone()),
+                pods: a.get("pods").map(|q| q.0.clone()),
+                ephemeral_storage: a.get("ephemeral-storage").map(|q| q.0.clone()),
+            })
+            .unwrap_or_default();
+        
+        Self {
+            name: node.name_any(),
+            uid: node.uid().unwrap_or_default(),
+            status: NodeStatusInfo {
+                ready,
+                conditions,
+                addresses,
+            },
+            roles,
+            version: node_info
+                .map(|ni| ni.kubelet_version.clone())
+                .unwrap_or_default(),
+            os: node_info
+                .map(|ni| ni.os_image.clone())
+                .unwrap_or_default(),
+            arch: node_info
+                .map(|ni| ni.architecture.clone())
+                .unwrap_or_default(),
+            container_runtime: node_info
+                .map(|ni| ni.container_runtime_version.clone())
+                .unwrap_or_default(),
+            labels: node.labels().clone(),
+            taints,
+            capacity,
+            allocatable,
+            created_at: node.creation_timestamp().map(|t| t.0),
+        }
+    }
+}
+
+/// Namespace information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NamespaceInfo {
+    pub name: String,
+    pub uid: String,
+    pub status: String,
+    pub labels: BTreeMap<String, String>,
+    pub created_at: Option<DateTime<Utc>>,
+}
+
+impl From<&Namespace> for NamespaceInfo {
+    fn from(ns: &Namespace) -> Self {
+        Self {
+            name: ns.name_any(),
+            uid: ns.uid().unwrap_or_default(),
+            status: ns
+                .status
+                .as_ref()
+                .and_then(|s| s.phase.clone())
+                .unwrap_or_else(|| "Active".to_string()),
+            labels: ns.labels().clone(),
+            created_at: ns.creation_timestamp().map(|t| t.0),
+        }
+    }
+}
+
+/// ConfigMap information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConfigMapInfo {
+    pub name: String,
+    pub namespace: String,
+    pub uid: String,
+    pub data_keys: Vec<String>,
+    pub labels: BTreeMap<String, String>,
+    pub created_at: Option<DateTime<Utc>>,
+}
+
+impl From<&ConfigMap> for ConfigMapInfo {
+    fn from(cm: &ConfigMap) -> Self {
+        Self {
+            name: cm.name_any(),
+            namespace: cm.namespace().unwrap_or_default(),
+            uid: cm.uid().unwrap_or_default(),
+            data_keys: cm
+                .data
+                .as_ref()
+                .map(|d| d.keys().cloned().collect())
+                .unwrap_or_default(),
+            labels: cm.labels().clone(),
+            created_at: cm.creation_timestamp().map(|t| t.0),
+        }
+    }
+}
+
+/// Secret information (without sensitive data)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecretInfo {
+    pub name: String,
+    pub namespace: String,
+    pub uid: String,
+    pub type_: String,
+    pub data_keys: Vec<String>,
+    pub labels: BTreeMap<String, String>,
+    pub created_at: Option<DateTime<Utc>>,
+}
+
+impl From<&Secret> for SecretInfo {
+    fn from(secret: &Secret) -> Self {
+        Self {
+            name: secret.name_any(),
+            namespace: secret.namespace().unwrap_or_default(),
+            uid: secret.uid().unwrap_or_default(),
+            type_: secret.type_.clone().unwrap_or_else(|| "Opaque".to_string()),
+            data_keys: secret
+                .data
+                .as_ref()
+                .map(|d| d.keys().cloned().collect())
+                .unwrap_or_default(),
+            labels: secret.labels().clone(),
+            created_at: secret.creation_timestamp().map(|t| t.0),
+        }
+    }
+}
+
+/// Event information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventInfo {
+    pub name: String,
+    pub namespace: String,
+    pub uid: String,
+    pub type_: String,
+    pub reason: Option<String>,
+    pub message: Option<String>,
+    pub source: Option<String>,
+    pub involved_object: InvolvedObjectInfo,
+    pub count: Option<i32>,
+    pub first_timestamp: Option<DateTime<Utc>>,
+    pub last_timestamp: Option<DateTime<Utc>>,
+}
+
+/// Involved object information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InvolvedObjectInfo {
+    pub kind: String,
+    pub name: String,
+    pub namespace: Option<String>,
+    pub uid: Option<String>,
+}
+
+impl From<&Event> for EventInfo {
+    fn from(event: &Event) -> Self {
+        Self {
+            name: event.name_any(),
+            namespace: event.namespace().unwrap_or_default(),
+            uid: event.uid().unwrap_or_default(),
+            type_: event.type_.clone().unwrap_or_default(),
+            reason: event.reason.clone(),
+            message: event.message.clone(),
+            source: event.source.as_ref().and_then(|s| s.component.clone()),
+            involved_object: InvolvedObjectInfo {
+                kind: event.involved_object.kind.clone().unwrap_or_default(),
+                name: event.involved_object.name.clone().unwrap_or_default(),
+                namespace: event.involved_object.namespace.clone(),
+                uid: event.involved_object.uid.clone(),
+            },
+            count: event.count,
+            first_timestamp: event.first_timestamp.as_ref().map(|t| t.0),
+            last_timestamp: event.last_timestamp.as_ref().map(|t| t.0),
+        }
+    }
+}
