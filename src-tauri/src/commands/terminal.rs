@@ -54,10 +54,13 @@ pub async fn exec_in_pod(
 pub async fn terminal_input(
     session_id: String,
     data: String,
-    _state: State<'_, AppState>,
+    state: State<'_, AppState>,
 ) -> Result<(), String> {
-    // Stub: would send input to PTY
-    tracing::debug!("Terminal input for session {}: {} bytes", session_id, data.len());
+    if let Some(input_tx) = state.terminal_inputs.get(&session_id) {
+        input_tx.send(data).await.map_err(|e| format!("Failed to send input: {}", e))?;
+    } else {
+        tracing::warn!("No input channel found for session {}", session_id);
+    }
     Ok(())
 }
 
@@ -69,7 +72,7 @@ pub async fn terminal_resize(
     rows: u16,
     _state: State<'_, AppState>,
 ) -> Result<(), String> {
-    // Stub: would resize PTY
+    // TODO: Implement terminal resize when PTY support is added
     tracing::debug!("Terminal resize for session {}: {}x{}", session_id, cols, rows);
     Ok(())
 }
@@ -78,10 +81,15 @@ pub async fn terminal_resize(
 #[tauri::command]
 pub async fn close_terminal(
     session_id: String,
-    _state: State<'_, AppState>,
+    state: State<'_, AppState>,
 ) -> Result<(), String> {
-    // Stub: would close PTY and cleanup
-    tracing::debug!("Closing terminal session: {}", session_id);
+    // Remove input channel (this will cause the stdin writer task to exit)
+    state.terminal_inputs.remove(&session_id);
+    
+    // Remove session info
+    state.terminal_sessions.remove(&session_id);
+    
+    tracing::info!("Terminal session {} closed", session_id);
     Ok(())
 }
 
@@ -112,16 +120,106 @@ pub async fn open_shell(
     pod: String,
     container: Option<String>,
     shell: Option<String>,
-    _state: State<'_, AppState>,
+    state: State<'_, AppState>,
 ) -> Result<String, String> {
-    let _shell_cmd = shell.unwrap_or_else(|| "/bin/sh".to_string());
-    // Return a session ID
-    Ok(format!(
-        "shell-{}-{}-{}",
-        namespace,
-        pod,
-        container.unwrap_or_else(|| "default".to_string())
-    ))
+    use kube::api::AttachParams;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use crate::state::AppEvent;
+    
+    let context = state.get_current_context()
+        .ok_or_else(|| "No cluster connected".to_string())?;
+    
+    let client = state.client_manager.get_client(&context)
+        .ok_or_else(|| "Client not found".to_string())?;
+    
+    let api: kube::Api<k8s_openapi::api::core::v1::Pod> = 
+        kube::Api::namespaced((*client).clone(), &namespace);
+    
+    // Get first container if not specified
+    let container_name = if let Some(c) = container {
+        c
+    } else {
+        let pod_obj = api.get(&pod).await.map_err(|e| e.to_string())?;
+        pod_obj.spec
+            .and_then(|s| s.containers.first().map(|c| c.name.clone()))
+            .unwrap_or_else(|| "".to_string())
+    };
+    
+    let shell_cmd = shell.unwrap_or_else(|| "/bin/sh".to_string());
+    let session_id = format!("shell-{}-{}-{}", namespace, pod, uuid::Uuid::new_v4());
+    
+    let params = AttachParams::default()
+        .container(&container_name)
+        .stdin(true)
+        .stdout(true)
+        .stderr(true)
+        .tty(true);
+    
+    let mut attached = api.exec(&pod, vec![&shell_cmd], &params)
+        .await
+        .map_err(|e| format!("Failed to exec into pod: {}", e))?;
+    
+    let event_tx = state.event_tx.clone();
+    let session_id_clone = session_id.clone();
+    
+    // Handle stdout
+    if let Some(mut stdout) = attached.stdout() {
+        let event_tx = event_tx.clone();
+        let session_id = session_id_clone.clone();
+        
+        tokio::spawn(async move {
+            let mut buf = vec![0u8; 4096];
+            loop {
+                match stdout.read(&mut buf).await {
+                    Ok(0) => break,
+                    Ok(n) => {
+                        let data = String::from_utf8_lossy(&buf[..n]).to_string();
+                        let _ = event_tx.send(AppEvent::TerminalOutput {
+                            session_id: session_id.clone(),
+                            data,
+                        });
+                    }
+                    Err(e) => {
+                        tracing::error!("Stdout read error: {}", e);
+                        break;
+                    }
+                }
+            }
+        });
+    }
+    
+    // Store stdin for later input
+    let stdin = attached.stdin();
+    if let Some(stdin_writer) = stdin {
+        let (input_tx, mut input_rx) = tokio::sync::mpsc::channel::<String>(100);
+        
+        // Store the input channel
+        state.terminal_inputs.insert(session_id.clone(), input_tx);
+        
+        // Spawn task to handle stdin
+        tokio::spawn(async move {
+            let mut stdin_writer = stdin_writer;
+            while let Some(data) = input_rx.recv().await {
+                if let Err(e) = stdin_writer.write_all(data.as_bytes()).await {
+                    tracing::error!("Failed to write to stdin: {}", e);
+                    break;
+                }
+                let _ = stdin_writer.flush().await;
+            }
+        });
+    }
+    
+    // Store session info
+    let terminal_session = crate::state::TerminalSession {
+        id: session_id.clone(),
+        pod: pod.clone(),
+        container: container_name,
+        namespace: namespace.clone(),
+        created_at: chrono::Utc::now(),
+    };
+    state.terminal_sessions.insert(session_id.clone(), terminal_session);
+    
+    Ok(session_id)
 }
 
 /// Run a command in a pod (non-interactive)

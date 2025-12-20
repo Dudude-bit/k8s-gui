@@ -1,0 +1,174 @@
+import { useQuery } from '@tanstack/react-query';
+import { invoke } from '@tauri-apps/api/core';
+import { useClusterStore } from '@/stores/clusterStore';
+import { DataTable } from '@/components/ui/data-table';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { ColumnDef } from '@tanstack/react-table';
+import { MoreHorizontal, Eye, Trash2, RefreshCw, Layers, Star } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+
+interface StorageClassInfo {
+  name: string;
+  provisioner: string;
+  reclaim_policy: string;
+  volume_binding_mode: string;
+  allow_volume_expansion: boolean;
+  is_default: boolean;
+  parameters: Record<string, string>;
+  age: string;
+}
+
+const columns: ColumnDef<StorageClassInfo>[] = [
+  {
+    accessorKey: 'name',
+    header: 'Name',
+    cell: ({ row }) => (
+      <div className="flex items-center gap-2">
+        <Layers className="h-4 w-4 text-muted-foreground" />
+        <span className="font-medium">{row.original.name}</span>
+        {row.original.is_default && (
+          <Tooltip>
+            <TooltipTrigger>
+              <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+            </TooltipTrigger>
+            <TooltipContent>Default Storage Class</TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+    ),
+  },
+  {
+    accessorKey: 'provisioner',
+    header: 'Provisioner',
+    cell: ({ row }) => (
+      <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+        {row.original.provisioner}
+      </code>
+    ),
+  },
+  {
+    accessorKey: 'reclaim_policy',
+    header: 'Reclaim Policy',
+    cell: ({ row }) => (
+      <Badge variant="outline">{row.original.reclaim_policy}</Badge>
+    ),
+  },
+  {
+    accessorKey: 'volume_binding_mode',
+    header: 'Binding Mode',
+    cell: ({ row }) => (
+      <Badge variant="secondary">{row.original.volume_binding_mode}</Badge>
+    ),
+  },
+  {
+    accessorKey: 'allow_volume_expansion',
+    header: 'Expansion',
+    cell: ({ row }) => (
+      <Badge variant={row.original.allow_volume_expansion ? 'default' : 'outline'}>
+        {row.original.allow_volume_expansion ? 'Allowed' : 'Disabled'}
+      </Badge>
+    ),
+  },
+  {
+    accessorKey: 'parameters',
+    header: 'Parameters',
+    cell: ({ row }) => {
+      const params = row.original.parameters;
+      const paramCount = Object.keys(params).length;
+      if (paramCount === 0) return '-';
+      return (
+        <Tooltip>
+          <TooltipTrigger>
+            <Badge variant="outline">{paramCount} params</Badge>
+          </TooltipTrigger>
+          <TooltipContent>
+            <div className="space-y-1">
+              {Object.entries(params).map(([key, value]) => (
+                <div key={key} className="text-xs">
+                  <span className="font-medium">{key}:</span> {value}
+                </div>
+              ))}
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      );
+    },
+  },
+  {
+    accessorKey: 'age',
+    header: 'Age',
+  },
+  {
+    id: 'actions',
+    cell: () => (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem>
+            <Eye className="mr-2 h-4 w-4" />
+            View Details
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem className="text-destructive">
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ),
+  },
+];
+
+export function StorageClassList() {
+  const { isConnected } = useClusterStore();
+
+  const { data: storageClasses = [], isLoading, refetch } = useQuery({
+    queryKey: ['storage-classes'],
+    queryFn: async () => {
+      const result = await invoke<StorageClassInfo[]>('list_storage_classes');
+      return result;
+    },
+    enabled: isConnected,
+  });
+
+  if (!isConnected) {
+    return (
+      <div className="flex h-full items-center justify-center text-muted-foreground">
+        Connect to a cluster to view storage classes
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Storage Classes</h1>
+          <p className="text-sm text-muted-foreground">
+            Describes the classes of storage available in the cluster
+          </p>
+        </div>
+        <Button variant="outline" size="icon" onClick={() => refetch()}>
+          <RefreshCw className="h-4 w-4" />
+        </Button>
+      </div>
+      <DataTable columns={columns} data={storageClasses} isLoading={isLoading} searchKey="name" />
+    </div>
+  );
+}

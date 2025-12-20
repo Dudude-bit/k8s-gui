@@ -103,7 +103,7 @@ export function Terminal({
       fitAddon.fit();
       if (sessionId) {
         invoke('terminal_resize', {
-          sessionId,
+          session_id: sessionId,
           cols: xterm.cols,
           rows: xterm.rows,
         }).catch(console.error);
@@ -116,18 +116,25 @@ export function Terminal({
     // Start shell session
     const startSession = async () => {
       try {
+        xterm.writeln(`\x1b[33mConnecting to ${podName}/${containerName}...\x1b[0m\r\n`);
+        
+        console.log('Opening shell:', { pod: podName, namespace, container: containerName });
+        
         const newSessionId = await invoke<string>('open_shell', {
           pod: podName,
           namespace,
           container: containerName,
+          shell: null,
         });
 
+        console.log('Shell session opened:', newSessionId);
         xterm.writeln(`\x1b[32mConnected to ${podName}/${containerName}\x1b[0m\r\n`);
 
         // Listen for terminal output
         const unlisten = await listen<{ session_id: string; data: string }>(
           'terminal-output',
           (event) => {
+            console.log('Terminal output event:', event.payload.session_id, 'expected:', newSessionId);
             if (event.payload.session_id === newSessionId) {
               xterm.write(event.payload.data);
             }
@@ -135,20 +142,28 @@ export function Terminal({
         );
 
         // Handle user input
-        xterm.onData((data) => {
+        const disposeData = xterm.onData((data) => {
+          console.log('Sending input:', data);
           invoke('terminal_input', {
-            sessionId: newSessionId,
+            session_id: newSessionId,
             data,
-          }).catch(console.error);
+          }).catch((err) => {
+            console.error('Failed to send input:', err);
+            xterm.writeln(`\x1b[31mInput error: ${err}\x1b[0m`);
+          });
         });
 
         // Cleanup on unmount
         return () => {
+          console.log('Cleaning up terminal session:', newSessionId);
+          disposeData.dispose();
           unlisten();
-          invoke('close_terminal', { sessionId: newSessionId }).catch(console.error);
+          invoke('close_terminal', { session_id: newSessionId }).catch(console.error);
         };
       } catch (error) {
+        console.error('Failed to open shell:', error);
         xterm.writeln(`\x1b[31mFailed to connect: ${error}\x1b[0m`);
+        xterm.writeln(`\x1b[33mMake sure the pod is running and the container exists.\x1b[0m`);
         return () => {};
       }
     };

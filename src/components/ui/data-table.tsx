@@ -23,10 +23,13 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
 
+import { cn } from '@/lib/utils';
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   isLoading?: boolean;
+  isFetching?: boolean;
   searchKey?: string;
   searchPlaceholder?: string;
 }
@@ -35,6 +38,7 @@ export function DataTable<TData, TValue>({
   columns,
   data,
   isLoading = false,
+  isFetching = false,
   searchKey: _searchKey,
   searchPlaceholder = 'Search...',
 }: DataTableProps<TData, TValue>) {
@@ -63,7 +67,7 @@ export function DataTable<TData, TValue>({
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 animate-in fade-in duration-200">
         <div className="flex items-center gap-2">
           <Skeleton className="h-10 w-64" />
         </div>
@@ -76,7 +80,7 @@ export function DataTable<TData, TValue>({
             </div>
           </div>
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="flex h-16 items-center gap-4 border-b px-4">
+            <div key={i} className="flex h-16 items-center gap-4 border-b px-4 last:border-0">
               {columns.map((_, j) => (
                 <Skeleton key={j} className="h-4 w-24" />
               ))}
@@ -100,7 +104,10 @@ export function DataTable<TData, TValue>({
           />
         </div>
       </div>
-      <div className="rounded-md border">
+      <div className={cn(
+        "rounded-md border transition-opacity duration-200",
+        isFetching && "opacity-60"
+      )}>
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (

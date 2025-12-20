@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useToast } from '@/components/ui/use-toast';
 import {
   Download,
   Pause,
@@ -18,6 +19,7 @@ import {
   Search,
   Trash2,
   ArrowDown,
+  Loader2,
 } from 'lucide-react';
 
 interface LogViewerProps {
@@ -25,12 +27,16 @@ interface LogViewerProps {
   namespace: string;
   containers: string[];
   initialContainer?: string;
+  onPodNotFound?: () => void;
 }
 
 interface LogLine {
-  timestamp: string;
+  timestamp: string | null;
   message: string;
-  container?: string;
+  level?: string;
+  pod: string;
+  container: string;
+  namespace: string;
 }
 
 export function LogViewer({
@@ -38,17 +44,22 @@ export function LogViewer({
   namespace,
   containers,
   initialContainer,
+  onPodNotFound,
 }: LogViewerProps) {
+  const { toast } = useToast();
   const [selectedContainer, setSelectedContainer] = useState(
     initialContainer || containers[0]
   );
   const [logs, setLogs] = useState<LogLine[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [tailLines, setTailLines] = useState(100);
   const [autoScroll, setAutoScroll] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const streamIdRef = useRef<string | null>(null);
+  const unlistenRef = useRef<(() => void) | null>(null);
 
   // Filter logs based on search
   const filteredLogs = searchQuery
@@ -65,55 +76,100 @@ export function LogViewer({
   }, [logs, autoScroll]);
 
   // Start streaming logs
-  const startStreaming = async () => {
+  const startStreaming = useCallback(async () => {
+    if (isConnecting || isStreaming) return;
+    
     try {
-      setIsStreaming(true);
+      setIsConnecting(true);
+      setError(null);
+      
+      console.log('Starting log stream for', podName, selectedContainer);
       
       const streamId = await invoke<string>('stream_pod_logs', {
-        pod: podName,
-        namespace,
-        container: selectedContainer,
-        tailLines,
-        follow: true,
+        config: {
+          pod_name: podName,
+          namespace,
+          container: selectedContainer,
+          tail_lines: tailLines,
+          follow: true,
+          timestamps: true,
+          previous: false,
+        },
       });
       
+      console.log('Got stream ID:', streamId);
       streamIdRef.current = streamId;
 
       // Listen for log events
-      const unlisten = await listen<{ stream_id: string; line: string }>(
+      const unlisten = await listen<{ 
+        stream_id: string; 
+        line: string;
+        pod: string;
+        container: string;
+        message: string;
+        timestamp: string | null;
+      }>(
         'log-line',
         (event) => {
           if (event.payload.stream_id === streamId) {
-            const parts = event.payload.line.split(' ');
-            const timestamp = parts[0] || new Date().toISOString();
-            const message = parts.slice(1).join(' ') || event.payload.line;
-            
             setLogs((prev) => [
               ...prev,
-              { timestamp, message, container: selectedContainer },
+              { 
+                timestamp: event.payload.timestamp, 
+                message: event.payload.message, 
+                pod: event.payload.pod,
+                container: event.payload.container,
+                namespace,
+              },
             ]);
           }
         }
       );
 
-      return unlisten;
-    } catch (error) {
-      console.error('Failed to start log streaming:', error);
+      unlistenRef.current = unlisten;
+      setIsStreaming(true);
+      setIsConnecting(false);
+    } catch (err) {
+      console.error('Failed to start log streaming:', err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      
+      // Check if pod was not found
+      const isPodNotFound = errorMsg.includes('not found') || errorMsg.includes('NotFound');
+      
+      setError(errorMsg);
+      setIsConnecting(false);
       setIsStreaming(false);
+      
+      if (isPodNotFound && onPodNotFound) {
+        onPodNotFound();
+      } else {
+        toast({
+          title: 'Log streaming failed',
+          description: errorMsg,
+          variant: 'destructive',
+        });
+      }
     }
-  };
+  }, [podName, namespace, selectedContainer, tailLines, isConnecting, isStreaming, toast, onPodNotFound]);
 
-  const stopStreaming = async () => {
+  const stopStreaming = useCallback(async () => {
+    // Unlisten from events first
+    if (unlistenRef.current) {
+      unlistenRef.current();
+      unlistenRef.current = null;
+    }
+    
     if (streamIdRef.current) {
       try {
-        await invoke('stop_log_stream', { streamId: streamIdRef.current });
-      } catch (error) {
-        console.error('Failed to stop log streaming:', error);
+        await invoke('stop_log_stream', { stream_id: streamIdRef.current });
+      } catch (err) {
+        console.error('Failed to stop log streaming:', err);
       }
       streamIdRef.current = null;
     }
     setIsStreaming(false);
-  };
+    setIsConnecting(false);
+  }, []);
 
   const toggleStreaming = () => {
     if (isStreaming) {
@@ -129,13 +185,16 @@ export function LogViewer({
 
   const downloadLogs = async () => {
     try {
-      const content = await invoke<string>('download_pod_logs', {
-        pod: podName,
+      const logs = await invoke<LogLine[]>('get_pod_logs', {
+        pod_name: podName,
         namespace,
         container: selectedContainer,
-        tailLines: 10000,
+        tail_lines: 10000,
+        since_seconds: null,
+        previous: false,
       });
       
+      const content = logs.map(log => `${log.timestamp || ''} ${log.message}`).join('\n');
       const blob = new Blob([content], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -150,12 +209,14 @@ export function LogViewer({
     }
   };
 
-  // Cleanup on unmount
+  // Auto-start streaming on mount
   useEffect(() => {
+    startStreaming();
+    
     return () => {
       stopStreaming();
     };
-  }, []);
+  }, []);  // Only run on mount/unmount
 
   // Restart streaming when container changes
   useEffect(() => {
@@ -169,7 +230,8 @@ export function LogViewer({
     }
   }, [selectedContainer]);
 
-  const formatTimestamp = (timestamp: string) => {
+  const formatTimestamp = (timestamp: string | null) => {
+    if (!timestamp) return '--:--:--';
     try {
       const date = new Date(timestamp);
       return date.toLocaleTimeString();
@@ -249,8 +311,14 @@ export function LogViewer({
             variant={isStreaming ? 'destructive' : 'default'}
             size="sm"
             onClick={toggleStreaming}
+            disabled={isConnecting}
           >
-            {isStreaming ? (
+            {isConnecting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                Connecting
+              </>
+            ) : isStreaming ? (
               <>
                 <Pause className="h-4 w-4 mr-1" />
                 Stop
@@ -272,9 +340,19 @@ export function LogViewer({
           className="p-4 font-mono text-xs leading-relaxed"
           style={{ minHeight: '100%' }}
         >
-          {filteredLogs.length === 0 ? (
+          {error ? (
+            <div className="text-center py-8">
+              <p className="text-destructive mb-2">Failed to stream logs</p>
+              <p className="text-muted-foreground text-xs mb-4">{error}</p>
+              <Button variant="outline" size="sm" onClick={() => { setError(null); startStreaming(); }}>
+                Retry
+              </Button>
+            </div>
+          ) : filteredLogs.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">
-              {isStreaming
+              {isConnecting
+                ? 'Connecting to log stream...'
+                : isStreaming
                 ? 'Waiting for logs...'
                 : 'Click "Stream" to start viewing logs'}
             </div>

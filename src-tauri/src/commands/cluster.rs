@@ -44,6 +44,13 @@ pub async fn switch_context(context: String, state: State<'_, AppState>) -> Resu
         state.client_manager.disconnect(&current);
     }
 
+    // Load kubeconfig if not already loaded
+    state
+        .client_manager
+        .load_kubeconfig()
+        .await
+        .map_err(|e| e.to_string())?;
+
     // Connect to new context
     state
         .client_manager
@@ -92,7 +99,6 @@ pub async fn connect_cluster(context: String, state: State<'_, AppState>) -> Res
         connected: true,
     });
 
-    tracing::info!("Connected to cluster: {}", context);
     Ok(info)
 }
 

@@ -1,8 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
 import { useClusterStore } from '@/stores/clusterStore';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Card,
   CardContent,
@@ -18,38 +19,47 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useState } from 'react';
-import { RefreshCw, AlertTriangle, Info, Clock } from 'lucide-react';
+import { RefreshCw, AlertTriangle, Info, Clock, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+interface InvolvedObjectInfo {
+  kind: string;
+  name: string;
+  namespace: string | null;
+  uid: string | null;
+}
 
 interface EventInfo {
   name: string;
   namespace: string;
-  event_type: string | null;
+  uid: string;
+  type_: string;
   reason: string | null;
   message: string | null;
+  source: string | null;
+  involved_object: InvolvedObjectInfo;
+  count: number | null;
   first_timestamp: string | null;
   last_timestamp: string | null;
-  count: number | null;
-  involved_object_kind: string | null;
-  involved_object_name: string | null;
 }
 
 export function Events() {
   const { isConnected, currentNamespace } = useClusterStore();
   const [eventType, setEventType] = useState<string>('all');
 
-  const { data: events = [], isLoading, refetch } = useQuery({
+  const { data: events = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ['events', currentNamespace, eventType],
     queryFn: async () => {
-      const filters = {
-        namespace: currentNamespace,
+      const ns = currentNamespace || null;
+      const result = await invoke<EventInfo[]>('list_events', { 
+        namespace: ns,
         event_type: eventType === 'all' ? null : eventType,
-      };
-      const result = await invoke<EventInfo[]>('list_events', { filters });
+      });
       return result;
     },
     enabled: isConnected,
     refetchInterval: 5000, // Auto-refresh every 5 seconds
+    placeholderData: keepPreviousData,
   });
 
   if (!isConnected) {
@@ -60,14 +70,20 @@ export function Events() {
     );
   }
 
-  const warningCount = events.filter((e) => e.event_type === 'Warning').length;
-  const normalCount = events.filter((e) => e.event_type === 'Normal').length;
+  const warningCount = events.filter((e) => e.type_ === 'Warning').length;
+  const normalCount = events.filter((e) => e.type_ === 'Normal').length;
+  const showSkeleton = isLoading && events.length === 0;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-in fade-in duration-200">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Events</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">Events</h1>
+          {isFetching && !isLoading && (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <Select value={eventType} onValueChange={setEventType}>
             <SelectTrigger className="w-32">
@@ -79,8 +95,13 @@ export function Events() {
               <SelectItem value="Normal">Normal</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="icon" onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4" />
+          <Button 
+            variant="outline" 
+            size="icon" 
+            onClick={() => refetch()}
+            disabled={isFetching}
+          >
+            <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </div>
@@ -98,17 +119,19 @@ export function Events() {
       </div>
 
       {/* Events List */}
-      <Card>
+      <Card className={cn("transition-opacity duration-200", isFetching && "opacity-70")}>
         <CardHeader>
           <CardTitle>Recent Events</CardTitle>
           <CardDescription>
-            Events from namespace {currentNamespace}
+            Events from {currentNamespace || 'all namespaces'}
           </CardDescription>
         </CardHeader>
         <CardContent className="max-h-[600px] overflow-y-auto scrollbar-thin">
-          {isLoading ? (
-            <div className="py-8 text-center text-muted-foreground">
-              Loading events...
+          {showSkeleton ? (
+            <div className="space-y-2">
+              {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} className="h-20" />
+              ))}
             </div>
           ) : events.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">
@@ -128,7 +151,7 @@ export function Events() {
 }
 
 function EventItem({ event }: { event: EventInfo }) {
-  const isWarning = event.event_type === 'Warning';
+  const isWarning = event.type_ === 'Warning';
 
   return (
     <div
@@ -146,7 +169,7 @@ function EventItem({ event }: { event: EventInfo }) {
           )}
           <span className="font-medium">{event.reason}</span>
           <Badge variant="outline" className="text-xs">
-            {event.involved_object_kind}/{event.involved_object_name}
+            {event.involved_object.kind}/{event.involved_object.name}
           </Badge>
         </div>
         <div className="flex items-center gap-1 text-xs text-muted-foreground">

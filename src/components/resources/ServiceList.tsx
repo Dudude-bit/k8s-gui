@@ -15,15 +15,55 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+interface ServicePortInfo {
+  name: string | null;
+  port: number;
+  target_port: string;
+  node_port: number | null;
+  protocol: string;
+}
+
 interface ServiceInfo {
   name: string;
   namespace: string;
-  service_type: string;
-  cluster_ip: string;
-  external_ip: string | null;
-  ports: string[];
+  uid: string;
+  type_: string;
+  cluster_ip: string | null;
+  external_ips: string[];
+  ports: ServicePortInfo[];
   selector: Record<string, string>;
-  age: string;
+  labels: Record<string, string>;
+  created_at: string | null;
+}
+
+// Helper to calculate age from timestamp
+function formatAge(createdAt: string | null): string {
+  if (!createdAt) return 'Unknown';
+  const created = new Date(createdAt);
+  const now = new Date();
+  const diffMs = now.getTime() - created.getTime();
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  
+  if (diffDays > 0) return `${diffDays}d`;
+  if (diffHours > 0) return `${diffHours}h`;
+  if (diffMins > 0) return `${diffMins}m`;
+  return `${diffSecs}s`;
+}
+
+// Format port for display
+function formatPort(port: ServicePortInfo): string {
+  let result = `${port.port}`;
+  if (port.target_port && port.target_port !== String(port.port)) {
+    result += `:${port.target_port}`;
+  }
+  if (port.node_port) {
+    result += `:${port.node_port}`;
+  }
+  result += `/${port.protocol}`;
+  return result;
 }
 
 const columns: ColumnDef<ServiceInfo>[] = [
@@ -44,37 +84,39 @@ const columns: ColumnDef<ServiceInfo>[] = [
     header: 'Namespace',
   },
   {
-    accessorKey: 'service_type',
+    id: 'type',
     header: 'Type',
     cell: ({ row }) => (
-      <Badge variant="outline">{row.original.service_type}</Badge>
+      <Badge variant="outline">{row.original.type_}</Badge>
     ),
   },
   {
-    accessorKey: 'cluster_ip',
+    id: 'cluster_ip',
     header: 'Cluster IP',
+    cell: ({ row }) => row.original.cluster_ip || '-',
   },
   {
-    accessorKey: 'external_ip',
+    id: 'external_ip',
     header: 'External IP',
-    cell: ({ row }) => row.original.external_ip || '-',
+    cell: ({ row }) => row.original.external_ips.length > 0 ? row.original.external_ips.join(', ') : '-',
   },
   {
-    accessorKey: 'ports',
+    id: 'ports',
     header: 'Ports',
     cell: ({ row }) => (
       <div className="flex flex-wrap gap-1">
         {row.original.ports.map((port, i) => (
           <Badge key={i} variant="secondary" className="text-xs">
-            {port}
+            {formatPort(port)}
           </Badge>
         ))}
       </div>
     ),
   },
   {
-    accessorKey: 'age',
+    id: 'age',
     header: 'Age',
+    cell: ({ row }) => formatAge(row.original.created_at),
   },
   {
     id: 'actions',

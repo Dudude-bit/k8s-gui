@@ -16,7 +16,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Search, Moon, Sun, Monitor, RefreshCw, Command } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { Search, Moon, Sun, Monitor, RefreshCw, Command, AlertCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
@@ -27,6 +32,8 @@ export function Header() {
     currentContext,
     currentNamespace,
     isConnected,
+    isLoading,
+    error,
     loadContexts,
     switchContext,
     switchNamespace,
@@ -34,10 +41,20 @@ export function Header() {
   } = useClusterStore();
   const { theme, setTheme } = useThemeStore();
 
-  // Load contexts on mount
+  // Load contexts on mount and auto-connect
   useEffect(() => {
-    loadContexts();
+    const initConnection = async () => {
+      await loadContexts();
+    };
+    initConnection();
   }, [loadContexts]);
+
+  // Auto-connect when currentContext is set but not connected
+  useEffect(() => {
+    if (currentContext && !isConnected && !isLoading && !error) {
+      connect(currentContext);
+    }
+  }, [currentContext, isConnected, isLoading, error, connect]);
 
   // Fetch namespaces when connected
   const { data: namespaces = [], refetch: refetchNamespaces } = useQuery({
@@ -77,13 +94,40 @@ export function Header() {
               ))}
             </SelectContent>
           </Select>
-          <div
-            className={cn(
-              'h-2 w-2 rounded-full',
-              isConnected ? 'bg-green-500' : 'bg-gray-400'
-            )}
-            title={isConnected ? 'Connected' : 'Disconnected'}
-          />
+          
+          {/* Connection status indicator */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-1.5">
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                ) : error ? (
+                  <AlertCircle className="h-4 w-4 text-red-500" />
+                ) : (
+                  <div
+                    className={cn(
+                      'h-2.5 w-2.5 rounded-full',
+                      isConnected ? 'bg-green-500' : 'bg-gray-400'
+                    )}
+                  />
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-xs">
+              {isLoading ? (
+                <span>Connecting to cluster...</span>
+              ) : error ? (
+                <div className="space-y-1">
+                  <div className="font-medium text-red-500">Connection Error</div>
+                  <div className="text-xs text-muted-foreground break-words">{error}</div>
+                </div>
+              ) : isConnected ? (
+                <span className="text-green-500">Connected to {currentContext}</span>
+              ) : (
+                <span>Not connected. Select a cluster to connect.</span>
+              )}
+            </TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Namespace selector */}
@@ -91,13 +135,16 @@ export function Header() {
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Namespace:</span>
             <Select
-              value={currentNamespace}
-              onValueChange={switchNamespace}
+              value={currentNamespace || '__all__'}
+              onValueChange={(value) => switchNamespace(value === '__all__' ? '' : value)}
             >
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Select namespace" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="__all__">
+                  <span className="font-medium">All namespaces</span>
+                </SelectItem>
                 {namespaces.map((ns) => (
                   <SelectItem key={ns} value={ns}>
                     {ns}

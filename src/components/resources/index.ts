@@ -4,3 +4,8 @@ export { ServiceList } from './ServiceList';
 export { ConfigMapList } from './ConfigMapList';
 export { SecretList } from './SecretList';
 export { NodeList } from './NodeList';
+export { PersistentVolumeList } from './PersistentVolumeList';
+export { PersistentVolumeClaimList } from './PersistentVolumeClaimList';
+export { StorageClassList } from './StorageClassList';
+export { IngressList } from './IngressList';
+export { EndpointsList } from './EndpointsList';

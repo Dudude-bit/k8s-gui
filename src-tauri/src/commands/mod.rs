@@ -16,6 +16,10 @@ pub mod terminal;
 pub mod plugins;
 pub mod settings;
 pub mod auth;
+pub mod storage;
+pub mod network;
+pub mod stats;
+pub mod workloads;
 
 // Re-export all commands for easy registration
 pub use cluster::*;
@@ -32,3 +36,7 @@ pub use terminal::*;
 pub use plugins::*;
 pub use settings::*;
 pub use auth::*;
+pub use storage::*;
+pub use network::*;
+pub use stats::*;
+pub use workloads::*;

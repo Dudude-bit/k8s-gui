@@ -27,7 +27,7 @@ interface ClusterState {
 export const useClusterStore = create<ClusterState>((set, get) => ({
   contexts: [],
   currentContext: null,
-  currentNamespace: 'default',
+  currentNamespace: '', // Empty string means all namespaces
   isConnected: false,
   isLoading: false,
   error: null,
@@ -47,19 +47,23 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await invoke('switch_context', { context });
-      set({ currentContext: context, currentNamespace: 'default', isLoading: false });
+      set({ currentContext: context, currentNamespace: '', isLoading: false }); // Reset to all namespaces
     } catch (error) {
       set({ error: String(error), isLoading: false });
     }
   },
 
   switchNamespace: async (namespace: string) => {
-    set({ isLoading: true, error: null });
+    // Don't set isLoading for namespace switch - it causes flickering
+    // Just update the namespace immediately, queries will refetch automatically
     try {
-      await invoke('switch_namespace', { namespace });
-      set({ currentNamespace: namespace, isLoading: false });
+      // Only call backend if namespace is set (not "all")
+      if (namespace) {
+        await invoke('switch_namespace', { namespace });
+      }
+      set({ currentNamespace: namespace });
     } catch (error) {
-      set({ error: String(error), isLoading: false });
+      set({ error: String(error) });
     }
   },
 

@@ -44,6 +44,7 @@ pub enum AppEvent {
     },
     /// Log message received
     LogMessage {
+        stream_id: String,
         pod: String,
         container: String,
         message: String,
@@ -83,7 +84,6 @@ pub struct TerminalSession {
     pub pod: String,
     pub container: String,
     pub namespace: String,
-    pub input_tx: tokio::sync::mpsc::Sender<String>,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -135,6 +135,9 @@ pub struct AppState {
     /// Active terminal sessions
     pub terminal_sessions: DashMap<String, TerminalSession>,
     
+    /// Terminal input channels
+    pub terminal_inputs: DashMap<String, tokio::sync::mpsc::Sender<String>>,
+    
     /// Active watch subscriptions
     pub watch_subscriptions: DashMap<String, WatchSubscription>,
     
@@ -166,6 +169,7 @@ impl AppState {
             current_context: Arc::new(RwLock::new(None)),
             namespaces: DashMap::new(),
             terminal_sessions: DashMap::new(),
+            terminal_inputs: DashMap::new(),
             watch_subscriptions: DashMap::new(),
             log_streams: DashMap::new(),
             event_tx,

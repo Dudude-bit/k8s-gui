@@ -234,6 +234,7 @@ impl LogStreamer {
                             );
                             
                             let _ = self.event_tx.send(AppEvent::LogMessage {
+                                stream_id: stream_id.clone(),
                                 pod: pod.clone(),
                                 container: container.clone(),
                                 message: log_line.message.clone(),

@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
-import { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,21 +18,22 @@ import {
   RefreshCw,
   Copy,
   Activity,
+  AlertCircle,
+  Search,
 } from 'lucide-react';
 
-interface PodInfo {
-  name: string;
-  namespace: string;
+interface PodCondition {
+  type_: string;
   status: string;
-  phase: string;
-  node_name: string | null;
-  pod_ip: string | null;
-  host_ip: string | null;
-  start_time: string | null;
-  containers: ContainerInfo[];
-  labels: Record<string, string>;
-  annotations: Record<string, string>;
-  conditions: PodCondition[];
+  last_transition_time: string | null;
+  reason: string | null;
+  message: string | null;
+}
+
+interface ContainerState {
+  type: 'running' | 'waiting' | 'terminated' | 'unknown';
+  reason?: string | null;
+  exit_code?: number;
 }
 
 interface ContainerInfo {
@@ -40,16 +41,31 @@ interface ContainerInfo {
   image: string;
   ready: boolean;
   restart_count: number;
-  state: string;
+  state: ContainerState;
   started_at: string | null;
 }
 
-interface PodCondition {
-  type: string;
-  status: string;
-  last_transition_time: string | null;
-  reason: string | null;
+interface PodStatusInfo {
+  phase: string;
+  ready: boolean;
+  conditions: PodCondition[];
   message: string | null;
+  reason: string | null;
+}
+
+interface PodInfo {
+  name: string;
+  namespace: string;
+  uid: string;
+  status: PodStatusInfo;
+  node_name: string | null;
+  pod_ip: string | null;
+  host_ip: string | null;
+  containers: ContainerInfo[];
+  labels: Record<string, string>;
+  annotations: Record<string, string>;
+  created_at: string | null;
+  restart_count: number;
 }
 
 const getStatusColor = (status: string) => {
@@ -74,15 +90,97 @@ export function PodDetail() {
   const [activeTab, setActiveTab] = useState('overview');
   const [showTerminal, setShowTerminal] = useState(false);
   const [selectedContainer, setSelectedContainer] = useState<string | null>(null);
+  const [podKey, setPodKey] = useState(0); // Used to force LogViewer remount
+  const [isSearchingReplacement, setIsSearchingReplacement] = useState(false);
+  const [savedLabels, setSavedLabels] = useState<Record<string, string> | null>(null);
 
   const { data: pod, isLoading, error } = useQuery({
     queryKey: ['pod', namespace, name],
     queryFn: async () => {
       const result = await invoke<PodInfo>('get_pod', { name, namespace });
+      // Save labels for replacement search
+      if (result.labels && Object.keys(result.labels).length > 0) {
+        setSavedLabels(result.labels);
+      }
       return result;
     },
     enabled: !!namespace && !!name,
+    retry: (failureCount, error) => {
+      // Don't retry if pod not found (404)
+      const errorStr = String(error);
+      if (errorStr.includes('not found') || errorStr.includes('NotFound')) {
+        return false;
+      }
+      return failureCount < 3;
+    },
   });
+
+  // Find replacement pod by labels
+  const findReplacementPod = useCallback(async (labelsToUse?: Record<string, string>) => {
+    const labels = labelsToUse || savedLabels;
+    console.log('findReplacementPod called with labels:', labels, 'namespace:', namespace);
+    
+    if (!labels || !namespace) {
+      console.log('No labels or namespace, returning null');
+      return null;
+    }
+    
+    setIsSearchingReplacement(true);
+    
+    try {
+      // Build label selector from pod's labels (use app/component labels)
+      // Also include pod-template-hash for deployments
+      const importantLabels = ['app', 'app.kubernetes.io/name', 'app.kubernetes.io/instance', 'component', 'pod-template-hash'];
+      const labelParts: string[] = [];
+      
+      for (const label of importantLabels) {
+        if (labels[label]) {
+          labelParts.push(`${label}=${labels[label]}`);
+        }
+      }
+      
+      if (labelParts.length === 0) {
+        console.log('No matching labels found, returning null');
+        setIsSearchingReplacement(false);
+        return null;
+      }
+      
+      const labelSelector = labelParts.join(',');
+      console.log('Label selector:', labelSelector);
+      
+      interface PodListItem {
+        name: string;
+        namespace: string;
+        status: {
+          phase: string;
+        };
+      }
+      
+      const pods = await invoke<PodListItem[]>('list_pods', {
+        filters: {
+          namespace,
+          label_selector: labelSelector,
+        },
+      });
+      
+      console.log('Found pods:', pods);
+      
+      // Find a running pod that's not the current one
+      // status.phase is the phase string (Running, Pending, etc.)
+      const replacement = pods.find(
+        (p) => p.name !== name && p.status.phase === 'Running'
+      );
+      
+      console.log('Replacement pod:', replacement);
+      
+      return replacement || null;
+    } catch (err) {
+      console.error('Failed to find replacement pod:', err);
+      return null;
+    } finally {
+      setIsSearchingReplacement(false);
+    }
+  }, [savedLabels, namespace, name]);
 
   const { data: podYaml } = useQuery({
     queryKey: ['pod-yaml', namespace, name],
@@ -158,13 +256,55 @@ export function PodDetail() {
   }
 
   if (error || !pod) {
+    const errorStr = String(error || '');
+    const isPodNotFound = errorStr.includes('not found') || errorStr.includes('NotFound');
+    
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <p className="text-destructive">Failed to load pod details</p>
-        <Button variant="outline" onClick={() => navigate(-1)}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Go Back
-        </Button>
+        <AlertCircle className="h-12 w-12 text-destructive" />
+        <p className="text-destructive text-lg font-medium">
+          {isPodNotFound ? 'Pod not found' : 'Failed to load pod details'}
+        </p>
+        {isPodNotFound && (
+          <p className="text-muted-foreground text-sm">
+            The pod may have been deleted or restarted with a new name
+          </p>
+        )}
+        {isSearchingReplacement && (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <RefreshCw className="h-4 w-4 animate-spin" />
+            <span>Looking for replacement...</span>
+          </div>
+        )}
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => navigate(-1)}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Go Back
+          </Button>
+          {isPodNotFound && savedLabels && (
+            <Button 
+              onClick={() => findReplacementPod().then((replacement) => {
+                if (replacement) {
+                  toast({
+                    title: 'Found replacement pod',
+                    description: `Switching to ${replacement.name}`,
+                  });
+                  navigate(`/pods/${replacement.namespace}/${replacement.name}`, { replace: true });
+                } else {
+                  toast({
+                    title: 'No replacement found',
+                    description: 'No other running pods with matching labels',
+                    variant: 'destructive',
+                  });
+                }
+              })} 
+              disabled={isSearchingReplacement}
+            >
+              <Search className="mr-2 h-4 w-4" />
+              {isSearchingReplacement ? 'Searching...' : 'Find Replacement'}
+            </Button>
+          )}
+        </div>
       </div>
     );
   }
@@ -181,7 +321,7 @@ export function PodDetail() {
             <h1 className="text-2xl font-bold">{pod.name}</h1>
             <p className="text-muted-foreground">{pod.namespace}</p>
           </div>
-          <Badge variant={getStatusColor(pod.status) as any}>{pod.status}</Badge>
+          <Badge variant={getStatusColor(pod.status.phase) as any}>{pod.status.phase}</Badge>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -238,7 +378,7 @@ export function PodDetail() {
               <CardContent className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Phase</span>
-                  <span>{pod.phase}</span>
+                  <span>{pod.status.phase}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Node</span>
@@ -302,20 +442,27 @@ export function PodDetail() {
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Image</span>
-                    <span className="font-mono text-xs">{container.image}</span>
+                    <span className="font-mono text-xs max-w-md truncate">{container.image}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">State</span>
-                    <span>{container.state}</span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={container.state.type === 'running' ? 'success' : container.state.type === 'waiting' ? 'warning' : 'secondary'}>
+                        {container.state.type}
+                      </Badge>
+                      {container.state.reason && (
+                        <span className="text-xs text-muted-foreground">({container.state.reason})</span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Restarts</span>
-                    <span>{container.restart_count}</span>
+                    <span className={container.restart_count > 5 ? 'text-yellow-500' : ''}>{container.restart_count}</span>
                   </div>
                   {container.started_at && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Started At</span>
-                      <span>{container.started_at}</span>
+                      <span>{new Date(container.started_at).toLocaleString()}</span>
                     </div>
                   )}
                 </CardContent>
@@ -328,10 +475,15 @@ export function PodDetail() {
           <Card className="h-[500px]">
             <CardContent className="p-0 h-full">
               <LogViewer
+                key={podKey}
                 podName={pod.name}
                 namespace={pod.namespace}
                 containers={pod.containers.map((c) => c.name)}
                 initialContainer={pod.containers[0]?.name}
+                onPodNotFound={() => {
+                  // Refetch to check if pod still exists
+                  refetch();
+                }}
               />
             </CardContent>
           </Card>
@@ -363,7 +515,7 @@ export function PodDetail() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {pod.conditions.map((condition, index) => (
+                {pod.status.conditions.map((condition, index) => (
                   <div
                     key={index}
                     className="flex items-center justify-between p-2 rounded-md bg-muted/50"
@@ -372,7 +524,7 @@ export function PodDetail() {
                       <Badge
                         variant={condition.status === 'True' ? 'success' : 'secondary'}
                       >
-                        {condition.type}
+                        {condition.type_}
                       </Badge>
                       <span className="text-sm">{condition.status}</span>
                     </div>

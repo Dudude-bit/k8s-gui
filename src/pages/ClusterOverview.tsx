@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
 import { useClusterStore } from '@/stores/clusterStore';
 import {
@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -26,36 +27,66 @@ interface ClusterInfo {
   version: string;
 }
 
-interface OverviewStats {
-  pods: { total: number; running: number; pending: number; failed: number };
-  deployments: { total: number; available: number; unavailable: number };
-  services: { total: number };
-  nodes: { total: number; ready: number };
+interface PodStats {
+  total: number;
+  running: number;
+  pending: number;
+  failed: number;
+  succeeded: number;
+}
+
+interface DeploymentStats {
+  total: number;
+  available: number;
+  unavailable: number;
+  progressing: number;
+}
+
+interface ServiceStats {
+  total: number;
+  cluster_ip: number;
+  node_port: number;
+  load_balancer: number;
+}
+
+interface NodeStats {
+  total: number;
+  ready: number;
+  not_ready: number;
+}
+
+interface ClusterStats {
+  pods: PodStats;
+  deployments: DeploymentStats;
+  services: ServiceStats;
+  nodes: NodeStats;
 }
 
 export function ClusterOverview() {
-  const { isConnected, currentContext } = useClusterStore();
+  const { isConnected, currentContext, currentNamespace } = useClusterStore();
 
   const { data: clusterInfo, isLoading: isLoadingCluster } = useQuery({
     queryKey: ['cluster-info', currentContext],
     queryFn: async () => invoke<ClusterInfo>('get_cluster_info'),
     enabled: isConnected,
+    placeholderData: keepPreviousData,
   });
 
-  // In a real implementation, these would be separate queries
-  const { data: stats, isLoading: isLoadingStats } = useQuery({
-    queryKey: ['overview-stats', currentContext],
+  // Single efficient stats call with smooth transitions
+  const { data: stats, isLoading: isLoadingStats, isFetching } = useQuery({
+    queryKey: ['overview-stats', currentContext, currentNamespace],
     queryFn: async () => {
-      // Mock data for now - would aggregate from actual API calls
-      return {
-        pods: { total: 24, running: 20, pending: 2, failed: 2 },
-        deployments: { total: 8, available: 7, unavailable: 1 },
-        services: { total: 12 },
-        nodes: { total: 3, ready: 3 },
-      } as OverviewStats;
+      // Empty string means all namespaces
+      const ns = currentNamespace || null;
+      return invoke<ClusterStats>('get_cluster_stats', { namespace: ns });
     },
     enabled: isConnected,
+    staleTime: 10000, // 10 seconds cache
+    placeholderData: keepPreviousData, // Keep showing previous data while loading
   });
+
+  // Only show skeleton on initial load, not on refetch
+  const showSkeleton = (isLoadingCluster || isLoadingStats) && !stats;
 
   if (!isConnected) {
     return (
@@ -72,9 +103,9 @@ export function ClusterOverview() {
     );
   }
 
-  if (isLoadingCluster || isLoadingStats) {
+  if (showSkeleton) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 animate-in fade-in duration-200">
         <Skeleton className="h-8 w-48" />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[...Array(4)].map((_, i) => (
@@ -86,19 +117,26 @@ export function ClusterOverview() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-200">
       {/* Cluster Info Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{currentContext}</h1>
-        <p className="text-muted-foreground">
-          {clusterInfo?.server || 'Connected cluster'}
-        </p>
+      <div className="flex items-center gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{currentContext}</h1>
+          <p className="text-muted-foreground">
+            {clusterInfo?.server || 'Connected cluster'}
+            {currentNamespace && ` • ${currentNamespace}`}
+            {!currentNamespace && ' • All namespaces'}
+          </p>
+        </div>
+        {isFetching && (
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        )}
       </div>
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {/* Pods Card */}
-        <Card>
+        <Card className={cn("transition-all duration-200", isFetching && "opacity-70")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pods</CardTitle>
             <Box className="h-4 w-4 text-muted-foreground" />
@@ -127,7 +165,7 @@ export function ClusterOverview() {
         </Card>
 
         {/* Deployments Card */}
-        <Card>
+        <Card className={cn("transition-all duration-200", isFetching && "opacity-70")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Deployments</CardTitle>
             <Box className="h-4 w-4 text-muted-foreground" />
@@ -150,7 +188,7 @@ export function ClusterOverview() {
         </Card>
 
         {/* Services Card */}
-        <Card>
+        <Card className={cn("transition-all duration-200", isFetching && "opacity-70")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Services</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
@@ -164,7 +202,7 @@ export function ClusterOverview() {
         </Card>
 
         {/* Nodes Card */}
-        <Card>
+        <Card className={cn("transition-all duration-200", isFetching && "opacity-70")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Nodes</CardTitle>
             <Server className="h-4 w-4 text-muted-foreground" />

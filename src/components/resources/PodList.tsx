@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
 import { useClusterStore } from '@/stores/clusterStore';
 import { DataTable } from '@/components/ui/data-table';
@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ColumnDef } from '@tanstack/react-table';
 import { Link } from 'react-router-dom';
-import { MoreHorizontal, Eye, Trash2, Terminal, FileText, RefreshCw } from 'lucide-react';
+import { MoreHorizontal, Eye, Trash2, Terminal, FileText, RefreshCw, Loader2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,16 +16,63 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { getStatusColor } from '@/lib/utils';
 
+interface ContainerState {
+  type: 'running' | 'waiting' | 'terminated' | 'unknown';
+  reason?: string | null;
+  exit_code?: number;
+}
+
+interface ContainerInfo {
+  name: string;
+  image: string;
+  ready: boolean;
+  state: ContainerState;
+  restart_count: number;
+}
+
+interface PodStatusInfo {
+  phase: string;
+  ready: boolean;
+  message: string | null;
+  reason: string | null;
+}
+
 interface PodInfo {
   name: string;
   namespace: string;
-  status: string;
-  ready: string;
-  restarts: number;
-  node: string;
-  ip: string | null;
-  age: string;
-  containers: string[];
+  uid: string;
+  status: PodStatusInfo;
+  node_name: string | null;
+  pod_ip: string | null;
+  host_ip: string | null;
+  containers: ContainerInfo[];
+  labels: Record<string, string>;
+  annotations: Record<string, string>;
+  created_at: string | null;
+  restart_count: number;
+}
+
+// Helper to calculate age from timestamp
+function formatAge(createdAt: string | null): string {
+  if (!createdAt) return 'Unknown';
+  const created = new Date(createdAt);
+  const now = new Date();
+  const diffMs = now.getTime() - created.getTime();
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  
+  if (diffDays > 0) return `${diffDays}d`;
+  if (diffHours > 0) return `${diffHours}h`;
+  if (diffMins > 0) return `${diffMins}m`;
+  return `${diffSecs}s`;
+}
+
+// Helper to format ready containers count
+function formatReady(containers: ContainerInfo[]): string {
+  const ready = containers.filter(c => c.ready).length;
+  return `${ready}/${containers.length}`;
 }
 
 const columns: ColumnDef<PodInfo>[] = [
@@ -46,38 +93,42 @@ const columns: ColumnDef<PodInfo>[] = [
     header: 'Namespace',
   },
   {
-    accessorKey: 'status',
+    id: 'status',
     header: 'Status',
     cell: ({ row }) => (
-      <Badge className={getStatusColor(row.original.status)}>
-        {row.original.status}
+      <Badge className={getStatusColor(row.original.status.phase)}>
+        {row.original.status.phase}
       </Badge>
     ),
   },
   {
-    accessorKey: 'ready',
+    id: 'ready',
     header: 'Ready',
+    cell: ({ row }) => formatReady(row.original.containers),
   },
   {
-    accessorKey: 'restarts',
+    id: 'restarts',
     header: 'Restarts',
     cell: ({ row }) => (
-      <span className={row.original.restarts > 5 ? 'text-yellow-500' : ''}>
-        {row.original.restarts}
+      <span className={row.original.restart_count > 5 ? 'text-yellow-500' : ''}>
+        {row.original.restart_count}
       </span>
     ),
   },
   {
-    accessorKey: 'node',
+    id: 'node',
     header: 'Node',
+    cell: ({ row }) => row.original.node_name || '-',
   },
   {
-    accessorKey: 'ip',
+    id: 'ip',
     header: 'IP',
+    cell: ({ row }) => row.original.pod_ip || '-',
   },
   {
-    accessorKey: 'age',
+    id: 'age',
     header: 'Age',
+    cell: ({ row }) => formatAge(row.original.created_at),
   },
   {
     id: 'actions',
@@ -117,14 +168,16 @@ const columns: ColumnDef<PodInfo>[] = [
 export function PodList() {
   const { isConnected, currentNamespace } = useClusterStore();
 
-  const { data: pods = [], isLoading, refetch } = useQuery({
+  const { data: pods = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ['pods', currentNamespace],
     queryFn: async () => {
-      const filters = { namespace: currentNamespace };
-      const result = await invoke<PodInfo[]>('list_pods', { filters });
+      const ns = currentNamespace || null;
+      const result = await invoke<PodInfo[]>('list_pods', { namespace: ns });
       return result;
     },
     enabled: isConnected,
+    placeholderData: keepPreviousData,
+    staleTime: 5000,
   });
 
   if (!isConnected) {
@@ -135,15 +188,33 @@ export function PodList() {
     );
   }
 
+  // Only show loading skeleton on initial load
+  const showSkeleton = isLoading && pods.length === 0;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-in fade-in duration-200">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Pods</h1>
-        <Button variant="outline" size="icon" onClick={() => refetch()}>
-          <RefreshCw className="h-4 w-4" />
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">Pods</h1>
+          {isFetching && !isLoading && (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          )}
+        </div>
+        <Button 
+          variant="outline" 
+          size="icon" 
+          onClick={() => refetch()}
+          disabled={isFetching}
+        >
+          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
         </Button>
       </div>
-      <DataTable columns={columns} data={pods} isLoading={isLoading} />
+      <DataTable 
+        columns={columns} 
+        data={pods} 
+        isLoading={showSkeleton}
+        isFetching={isFetching && !isLoading}
+      />
     </div>
   );
 }

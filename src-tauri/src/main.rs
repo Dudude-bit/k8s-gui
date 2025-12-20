@@ -6,10 +6,15 @@
 )]
 
 use k8s_gui_lib::{commands, state::AppState};
-use tauri::Manager;
+use tauri::{Manager, Emitter};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 fn main() {
+    // Install rustls crypto provider before any TLS operations
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
+
     // Initialize tracing
     tracing_subscriber::registry()
         .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
@@ -26,6 +31,53 @@ fn main() {
         .setup(|app| {
             // Initialize application state
             let state = AppState::new()?;
+            
+            // Subscribe to events and forward to frontend
+            let mut event_rx = state.subscribe();
+            let app_handle = app.handle().clone();
+            
+            tauri::async_runtime::spawn(async move {
+                use k8s_gui_lib::state::AppEvent;
+                
+                while let Ok(event) = event_rx.recv().await {
+                    let event_name = match &event {
+                        AppEvent::LogMessage { .. } => "log-line",
+                        AppEvent::TerminalOutput { .. } => "terminal-output",
+                        AppEvent::ConnectionStatusChanged { .. } => "connection-status",
+                        AppEvent::ResourceCreated { .. } => "resource-created",
+                        AppEvent::ResourceUpdated { .. } => "resource-updated",
+                        AppEvent::ResourceDeleted { .. } => "resource-deleted",
+                        AppEvent::Error { .. } => "app-error",
+                        AppEvent::WatchEvent { .. } => "watch-event",
+                    };
+                    
+                    // Transform event payload for frontend
+                    let payload = match &event {
+                        AppEvent::LogMessage { stream_id, pod, container, message, timestamp } => {
+                            serde_json::json!({
+                                "stream_id": stream_id,
+                                "line": format!("{} {}", timestamp.clone().unwrap_or_default(), message),
+                                "pod": pod,
+                                "container": container,
+                                "message": message,
+                                "timestamp": timestamp
+                            })
+                        },
+                        AppEvent::TerminalOutput { session_id, data } => {
+                            serde_json::json!({
+                                "session_id": session_id,
+                                "data": data
+                            })
+                        },
+                        _ => serde_json::to_value(&event).unwrap_or_default(),
+                    };
+                    
+                    if let Err(e) = app_handle.emit(event_name, payload) {
+                        tracing::error!("Failed to emit event {}: {}", event_name, e);
+                    }
+                }
+            });
+            
             app.manage(state);
             
             tracing::info!("Application state initialized");
@@ -200,6 +252,24 @@ fn main() {
             commands::auth::save_credentials,
             commands::auth::delete_credentials,
             commands::auth::logout,
+            
+            // Storage commands
+            commands::storage::list_persistent_volumes,
+            commands::storage::list_persistent_volume_claims,
+            commands::storage::list_storage_classes,
+            
+            // Network commands
+            commands::network::list_ingresses,
+            commands::network::list_endpoints,
+            
+            // Stats commands
+            commands::stats::get_cluster_stats,
+            
+            // Workloads commands
+            commands::workloads::list_statefulsets,
+            commands::workloads::list_daemonsets,
+            commands::workloads::list_jobs,
+            commands::workloads::list_cronjobs,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

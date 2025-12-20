@@ -8,6 +8,7 @@ ui/node_modules/
 
 # Build outputs
 /ui/dist/
+/dist/
 *.log
 
 # IDE

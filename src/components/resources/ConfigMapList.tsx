@@ -18,8 +18,27 @@ import { useToast } from '@/components/ui/use-toast';
 interface ConfigMapInfo {
   name: string;
   namespace: string;
+  uid: string;
   data_keys: string[];
-  age: string;
+  labels: Record<string, string>;
+  created_at: string | null;
+}
+
+// Helper to calculate age from timestamp
+function formatAge(createdAt: string | null): string {
+  if (!createdAt) return 'Unknown';
+  const created = new Date(createdAt);
+  const now = new Date();
+  const diffMs = now.getTime() - created.getTime();
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  
+  if (diffDays > 0) return `${diffDays}d`;
+  if (diffHours > 0) return `${diffHours}h`;
+  if (diffMins > 0) return `${diffMins}m`;
+  return `${diffSecs}s`;
 }
 
 export function ConfigMapList() {
@@ -126,8 +145,9 @@ export function ConfigMapList() {
       ),
     },
     {
-      accessorKey: 'age',
+      id: 'age',
       header: 'Age',
+      cell: ({ row }) => formatAge(row.original.created_at),
     },
     {
       id: 'actions',

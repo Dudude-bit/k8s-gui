@@ -10,7 +10,9 @@ export function Layout() {
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header />
         <main className="flex-1 overflow-auto scrollbar-thin p-4">
-          <Outlet />
+          <div className="animate-in fade-in duration-200">
+            <Outlet />
+          </div>
         </main>
       </div>
       <CommandPalette />

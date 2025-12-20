@@ -28,20 +28,19 @@ import {
   RotateCcw,
 } from 'lucide-react';
 
-interface DeploymentInfo {
-  name: string;
-  namespace: string;
-  replicas: number;
-  ready_replicas: number;
-  available_replicas: number;
-  unavailable_replicas: number;
-  strategy: string;
-  selector: Record<string, string>;
-  labels: Record<string, string>;
-  annotations: Record<string, string>;
-  containers: ContainerSpec[];
-  conditions: DeploymentCondition[];
-  created_at: string | null;
+interface ConditionInfo {
+  type_: string;
+  status: string;
+  reason: string | null;
+  message: string | null;
+  last_transition_time: string | null;
+}
+
+interface ReplicaInfo {
+  desired: number;
+  ready: number;
+  available: number;
+  updated: number;
 }
 
 interface ContainerSpec {
@@ -54,12 +53,16 @@ interface ContainerSpec {
   };
 }
 
-interface DeploymentCondition {
-  type: string;
-  status: string;
-  reason: string | null;
-  message: string | null;
-  last_update_time: string | null;
+interface DeploymentInfo {
+  name: string;
+  namespace: string;
+  uid: string;
+  replicas: ReplicaInfo;
+  strategy: string | null;
+  labels: Record<string, string>;
+  annotations: Record<string, string>;
+  created_at: string | null;
+  conditions: ConditionInfo[];
 }
 
 interface PodInfo {
@@ -229,7 +232,7 @@ export function DeploymentDetail() {
 
   const openScaleDialog = () => {
     if (deployment) {
-      setNewReplicas(deployment.replicas);
+      setNewReplicas(deployment.replicas.desired);
       setScaleDialogOpen(true);
     }
   };
@@ -275,8 +278,8 @@ export function DeploymentDetail() {
             <h1 className="text-2xl font-bold">{deployment.name}</h1>
             <p className="text-muted-foreground">{deployment.namespace}</p>
           </div>
-          <Badge variant={deployment.ready_replicas === deployment.replicas ? 'success' : 'warning'}>
-            {deployment.ready_replicas}/{deployment.replicas} ready
+          <Badge variant={deployment.replicas.ready === deployment.replicas.desired ? 'success' : 'warning'}>
+            {deployment.replicas.ready}/{deployment.replicas.desired} ready
           </Badge>
           {isRolloutInProgress && (
             <Badge variant="secondary" className="animate-pulse">
@@ -344,19 +347,19 @@ export function DeploymentDetail() {
               <CardContent className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Strategy</span>
-                  <span>{deployment.strategy}</span>
+                  <span>{deployment.strategy || 'RollingUpdate'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Replicas</span>
-                  <span>{deployment.replicas}</span>
+                  <span>{deployment.replicas.desired}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Ready</span>
-                  <span>{deployment.ready_replicas}</span>
+                  <span>{deployment.replicas.ready}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Available</span>
-                  <span>{deployment.available_replicas}</span>
+                  <span>{deployment.replicas.available}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Created</span>
@@ -508,7 +511,7 @@ export function DeploymentDetail() {
                       <Badge
                         variant={condition.status === 'True' ? 'success' : 'secondary'}
                       >
-                        {condition.type}
+                        {condition.type_}
                       </Badge>
                       <span className="text-sm">{condition.status}</span>
                     </div>
