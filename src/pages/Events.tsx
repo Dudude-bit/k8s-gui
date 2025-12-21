@@ -1,27 +1,27 @@
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
-import { useClusterStore } from '@/stores/clusterStore';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ConnectClusterEmptyState } from '@/components/ui/connect-cluster-empty-state';
-import { Skeleton } from '@/components/ui/skeleton';
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
+import { useClusterStore } from "@/stores/clusterStore";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
+} from "@/components/ui/card";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { useState } from 'react';
-import { RefreshCw, AlertTriangle, Info, Clock, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/select";
+import { useState } from "react";
+import { RefreshCw, AlertTriangle, Info, Clock, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface InvolvedObjectInfo {
   kind: string;
@@ -46,17 +46,22 @@ interface EventInfo {
 
 export function Events() {
   const { isConnected, currentNamespace } = useClusterStore();
-  const [eventType, setEventType] = useState<string>('all');
-  const [eventLimit, setEventLimit] = useState<string>('500');
+  const [eventType, setEventType] = useState<string>("all");
+  const [eventLimit, setEventLimit] = useState<string>("500");
 
-  const { data: events = [], isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['events', currentNamespace, eventType, eventLimit],
+  const {
+    data: events = [],
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey: ["events", currentNamespace, eventType, eventLimit],
     queryFn: async () => {
-      const limit = eventLimit === 'all' ? null : Number(eventLimit);
-      const result = await invoke<EventInfo[]>('list_events', {
+      const limit = eventLimit === "all" ? null : Number(eventLimit);
+      const result = await invoke<EventInfo[]>("list_events", {
         filters: {
           namespace: currentNamespace,
-          event_type: eventType === 'all' ? null : eventType,
+          event_type: eventType === "all" ? null : eventType,
           limit,
         },
       });
@@ -73,8 +78,8 @@ export function Events() {
     return <ConnectClusterEmptyState resourceLabel="events" />;
   }
 
-  const warningCount = events.filter((e) => e.type_ === 'Warning').length;
-  const normalCount = events.filter((e) => e.type_ === 'Normal').length;
+  const warningCount = events.filter((e) => e.type_ === "Warning").length;
+  const normalCount = events.filter((e) => e.type_ === "Normal").length;
   const showSkeleton = isLoading && events.length === 0;
 
   return (
@@ -110,13 +115,15 @@ export function Events() {
               <SelectItem value="all">All</SelectItem>
             </SelectContent>
           </Select>
-          <Button 
-            variant="outline" 
-            size="icon" 
+          <Button
+            variant="outline"
+            size="icon"
             onClick={() => refetch()}
             disabled={isFetching}
           >
-            <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+            />
           </Button>
         </div>
       </div>
@@ -134,12 +141,17 @@ export function Events() {
       </div>
 
       {/* Events List */}
-      <Card className={cn("transition-opacity duration-200", isFetching && "opacity-70")}>
+      <Card
+        className={cn(
+          "transition-opacity duration-200",
+          isFetching && "opacity-70",
+        )}
+      >
         <CardHeader>
           <CardTitle>Recent Events</CardTitle>
           <CardDescription>
-            Events from {currentNamespace || 'all namespaces'}
-            {eventLimit !== 'all' && ` • Limit ${eventLimit}`}
+            Events from {currentNamespace || "all namespaces"}
+            {eventLimit !== "all" && ` • Limit ${eventLimit}`}
           </CardDescription>
         </CardHeader>
         <CardContent className="max-h-[600px] overflow-y-auto scrollbar-thin">
@@ -167,13 +179,13 @@ export function Events() {
 }
 
 function EventItem({ event }: { event: EventInfo }) {
-  const isWarning = event.type_ === 'Warning';
+  const isWarning = event.type_ === "Warning";
 
   return (
     <div
       className={cn(
-        'rounded-lg border p-3',
-        isWarning ? 'border-yellow-500/50 bg-yellow-500/5' : 'border-border'
+        "rounded-lg border p-3",
+        isWarning ? "border-yellow-500/50 bg-yellow-500/5" : "border-border",
       )}
     >
       <div className="flex items-start justify-between">
@@ -192,7 +204,7 @@ function EventItem({ event }: { event: EventInfo }) {
           <Clock className="h-3 w-3" />
           {event.last_timestamp
             ? new Date(event.last_timestamp).toLocaleString()
-            : 'Unknown'}
+            : "Unknown"}
           {(event.count || 0) > 1 && (
             <Badge variant="secondary" className="ml-2">
               x{event.count}

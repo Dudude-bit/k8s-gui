@@ -1,20 +1,20 @@
-import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 export function formatBytes(bytes: number, decimals = 2): string {
-  if (bytes === 0) return '0 Bytes';
+  if (bytes === 0) return "0 Bytes";
 
   const k = 1024;
   const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  const sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB"];
 
   const i = Math.floor(Math.log(bytes) / Math.log(k));
 
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
 }
 
 const BINARY_UNITS: Record<string, number> = {
@@ -51,12 +51,12 @@ export function parseKubernetesQuantity(value: string): number | null {
     return null;
   }
 
-  const unit = match[2] ?? '';
+  const unit = match[2] ?? "";
   if (!unit) {
     return amount;
   }
 
-  if (unit === 'm') {
+  if (unit === "m") {
     return amount / 1000;
   }
 
@@ -71,9 +71,12 @@ export function parseKubernetesQuantity(value: string): number | null {
   return null;
 }
 
-export function formatKubernetesBytes(value: string | null | undefined, decimals = 1): string {
+export function formatKubernetesBytes(
+  value: string | null | undefined,
+  decimals = 1,
+): string {
   if (!value) {
-    return '-';
+    return "-";
   }
 
   const bytes = parseKubernetesQuantity(value);
@@ -99,7 +102,7 @@ export function formatDuration(seconds: number): string {
 }
 
 export function formatAge(createdAt: string | null): string {
-  if (!createdAt) return 'Unknown';
+  if (!createdAt) return "Unknown";
 
   const created = new Date(createdAt);
   const now = new Date();
@@ -117,32 +120,50 @@ export function formatAge(createdAt: string | null): string {
 
 export function getStatusColor(status: string): string {
   const statusLower = status.toLowerCase();
-  
-  if (['running', 'ready', 'available', 'active', 'succeeded'].includes(statusLower)) {
-    return 'text-green-500';
-  } else if (['pending', 'waiting', 'progressing'].includes(statusLower)) {
-    return 'text-blue-500';
-  } else if (['warning', 'degraded'].includes(statusLower)) {
-    return 'text-yellow-500';
-  } else if (['error', 'failed', 'crashloopbackoff', 'evicted', 'oomkilled'].includes(statusLower)) {
-    return 'text-red-500';
-  } else if (['terminated', 'completed'].includes(statusLower)) {
-    return 'text-gray-500';
+
+  if (
+    ["running", "ready", "available", "active", "succeeded"].includes(
+      statusLower,
+    )
+  ) {
+    return "text-green-500";
+  } else if (["pending", "waiting", "progressing"].includes(statusLower)) {
+    return "text-blue-500";
+  } else if (["warning", "degraded"].includes(statusLower)) {
+    return "text-yellow-500";
+  } else if (
+    ["error", "failed", "crashloopbackoff", "evicted", "oomkilled"].includes(
+      statusLower,
+    )
+  ) {
+    return "text-red-500";
+  } else if (["terminated", "completed"].includes(statusLower)) {
+    return "text-gray-500";
   }
-  
-  return 'text-muted-foreground';
+
+  return "text-muted-foreground";
 }
 
-export function getStatusBadgeVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
+export function getStatusBadgeVariant(
+  status: string,
+): "default" | "secondary" | "destructive" | "outline" {
   const statusLower = status.toLowerCase();
-  
-  if (['running', 'ready', 'available', 'active', 'succeeded'].includes(statusLower)) {
-    return 'default';
-  } else if (['error', 'failed', 'crashloopbackoff', 'evicted', 'oomkilled'].includes(statusLower)) {
-    return 'destructive';
-  } else if (['pending', 'waiting', 'progressing'].includes(statusLower)) {
-    return 'secondary';
+
+  if (
+    ["running", "ready", "available", "active", "succeeded"].includes(
+      statusLower,
+    )
+  ) {
+    return "default";
+  } else if (
+    ["error", "failed", "crashloopbackoff", "evicted", "oomkilled"].includes(
+      statusLower,
+    )
+  ) {
+    return "destructive";
+  } else if (["pending", "waiting", "progressing"].includes(statusLower)) {
+    return "secondary";
   }
-  
-  return 'outline';
+
+  return "outline";
 }

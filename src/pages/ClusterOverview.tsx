@@ -1,15 +1,15 @@
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
-import { useClusterStore } from '@/stores/clusterStore';
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
+import { useClusterStore } from "@/stores/clusterStore";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Box,
   Server,
@@ -18,9 +18,9 @@ import {
   CheckCircle,
   Clock,
   Loader2,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Link } from 'react-router-dom';
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Link } from "react-router-dom";
 
 interface ClusterInfo {
   name: string;
@@ -67,17 +67,23 @@ export function ClusterOverview() {
   const { isConnected, currentContext, currentNamespace } = useClusterStore();
 
   const { data: clusterInfo, isLoading: isLoadingCluster } = useQuery({
-    queryKey: ['cluster-info', currentContext],
-    queryFn: async () => invoke<ClusterInfo>('get_cluster_info'),
+    queryKey: ["cluster-info", currentContext],
+    queryFn: async () => invoke<ClusterInfo>("get_cluster_info"),
     enabled: isConnected,
     placeholderData: keepPreviousData,
   });
 
   // Single efficient stats call with smooth transitions
-  const { data: stats, isLoading: isLoadingStats, isFetching } = useQuery({
-    queryKey: ['overview-stats', currentContext, currentNamespace],
+  const {
+    data: stats,
+    isLoading: isLoadingStats,
+    isFetching,
+  } = useQuery({
+    queryKey: ["overview-stats", currentContext, currentNamespace],
     queryFn: async () => {
-      return invoke<ClusterStats>('get_cluster_stats', { namespace: currentNamespace });
+      return invoke<ClusterStats>("get_cluster_stats", {
+        namespace: currentNamespace,
+      });
     },
     enabled: isConnected,
     staleTime: 10000, // 10 seconds cache
@@ -120,11 +126,13 @@ export function ClusterOverview() {
       {/* Cluster Info Header */}
       <div className="flex items-center gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{currentContext}</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {currentContext}
+          </h1>
           <p className="text-muted-foreground">
-            {clusterInfo?.server || 'Connected cluster'}
+            {clusterInfo?.server || "Connected cluster"}
             {currentNamespace && ` • ${currentNamespace}`}
-            {!currentNamespace && ' • All namespaces'}
+            {!currentNamespace && " • All namespaces"}
           </p>
         </div>
         {isFetching && (
@@ -135,7 +143,12 @@ export function ClusterOverview() {
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {/* Pods Card */}
-        <Card className={cn("transition-all duration-200", isFetching && "opacity-70")}>
+        <Card
+          className={cn(
+            "transition-all duration-200",
+            isFetching && "opacity-70",
+          )}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pods</CardTitle>
             <Box className="h-4 w-4 text-muted-foreground" />
@@ -164,13 +177,20 @@ export function ClusterOverview() {
         </Card>
 
         {/* Deployments Card */}
-        <Card className={cn("transition-all duration-200", isFetching && "opacity-70")}>
+        <Card
+          className={cn(
+            "transition-all duration-200",
+            isFetching && "opacity-70",
+          )}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Deployments</CardTitle>
             <Box className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.deployments.total || 0}</div>
+            <div className="text-2xl font-bold">
+              {stats?.deployments.total || 0}
+            </div>
             <div className="mt-2 flex gap-2 text-xs">
               <Badge variant="default" className="gap-1">
                 <CheckCircle className="h-3 w-3" />
@@ -187,13 +207,20 @@ export function ClusterOverview() {
         </Card>
 
         {/* Services Card */}
-        <Card className={cn("transition-all duration-200", isFetching && "opacity-70")}>
+        <Card
+          className={cn(
+            "transition-all duration-200",
+            isFetching && "opacity-70",
+          )}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Services</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.services.total || 0}</div>
+            <div className="text-2xl font-bold">
+              {stats?.services.total || 0}
+            </div>
             <p className="mt-2 text-xs text-muted-foreground">
               Active services in namespace
             </p>
@@ -201,7 +228,12 @@ export function ClusterOverview() {
         </Card>
 
         {/* Nodes Card */}
-        <Card className={cn("transition-all duration-200", isFetching && "opacity-70")}>
+        <Card
+          className={cn(
+            "transition-all duration-200",
+            isFetching && "opacity-70",
+          )}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Nodes</CardTitle>
             <Server className="h-4 w-4 text-muted-foreground" />
@@ -225,9 +257,21 @@ export function ClusterOverview() {
           <CardDescription>Common tasks and shortcuts</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-2 md:grid-cols-3">
-          <QuickActionButton icon={Box} label="View Pods" href="/workloads/pods" />
-          <QuickActionButton icon={Box} label="View Deployments" href="/workloads/deployments" />
-          <QuickActionButton icon={Activity} label="View Events" href="/events" />
+          <QuickActionButton
+            icon={Box}
+            label="View Pods"
+            href="/workloads/pods"
+          />
+          <QuickActionButton
+            icon={Box}
+            label="View Deployments"
+            href="/workloads/deployments"
+          />
+          <QuickActionButton
+            icon={Activity}
+            label="View Events"
+            href="/events"
+          />
         </CardContent>
       </Card>
     </div>
@@ -247,8 +291,8 @@ function QuickActionButton({
     <Link
       to={href}
       className={cn(
-        'flex items-center gap-2 rounded-lg border border-border p-3',
-        'transition-colors hover:bg-accent'
+        "flex items-center gap-2 rounded-lg border border-border p-3",
+        "transition-colors hover:bg-accent",
       )}
     >
       <Icon className="h-4 w-4 text-muted-foreground" />

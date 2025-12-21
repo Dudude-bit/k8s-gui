@@ -1,5 +1,5 @@
-import { Copy, FileJson } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Copy, FileJson } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -7,11 +7,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { useToast } from '@/components/ui/use-toast';
-import { useYamlViewerStore } from '@/stores/yamlViewerStore';
+} from "@/components/ui/dialog";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/components/ui/use-toast";
+import { useYamlViewerStore } from "@/stores/yamlViewerStore";
 
 interface YamlViewerActionProps {
   title: string;
@@ -24,7 +24,7 @@ export function YamlViewerAction({
   title,
   description,
   fetchYaml,
-  menuLabel = 'View YAML',
+  menuLabel = "View YAML",
 }: YamlViewerActionProps) {
   const { toast } = useToast();
   const openViewer = useYamlViewerStore((state) => state.openViewer);
@@ -34,9 +34,9 @@ export function YamlViewerAction({
       await openViewer({ title, description, fetchYaml });
     } catch (error) {
       toast({
-        title: 'Error',
+        title: "Error",
         description: `Failed to load YAML: ${error}`,
-        variant: 'destructive',
+        variant: "destructive",
       });
     }
   };
@@ -62,8 +62,8 @@ export function YamlViewerDialog() {
     }
     await navigator.clipboard.writeText(content);
     toast({
-      title: 'Copied',
-      description: 'YAML copied to clipboard.',
+      title: "Copied",
+      description: "YAML copied to clipboard.",
     });
   };
 
@@ -76,7 +76,7 @@ export function YamlViewerDialog() {
         </DialogHeader>
         <ScrollArea className="h-[60vh] rounded-md border">
           <pre className="whitespace-pre-wrap p-4 text-xs font-mono">
-            {isLoading ? 'Loading...' : content}
+            {isLoading ? "Loading..." : content}
           </pre>
         </ScrollArea>
         <DialogFooter>

@@ -1,38 +1,47 @@
 # K8s GUI
 
-A modern, production-ready Kubernetes GUI application built with Rust and Tauri. Features a minimalist Lens-inspired interface with comprehensive cluster management capabilities.
+A cross-platform Kubernetes GUI built with Tauri, Rust, and React. It focuses on fast cluster navigation, operational tooling, and a visual Infrastructure Builder with YAML sync.
 
 ![K8s GUI](https://img.shields.io/badge/Tauri-2.1-blue)
 ![Rust](https://img.shields.io/badge/Rust-1.70+-orange)
 ![React](https://img.shields.io/badge/React-18-61dafb)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
+## Highlights
+
+- Visual Infrastructure Builder with drag-and-drop and YAML mode.
+- Logs, exec terminal, and port-forwarding.
+- Multi-context authentication (kubeconfig, OIDC, EKS, tokens).
+- Rust backend with Tauri IPC and real-time events.
+
 ## Features
 
-### Authentication
-- **Kubeconfig**: Automatic detection and support for multiple contexts
-- **Bearer Token**: Direct token-based authentication
-- **Client Certificates**: X.509 certificate authentication
-- **OIDC**: OpenID Connect with PKCE flow support
-- **AWS EKS**: Native AWS IAM authentication for EKS clusters
-- **Secure Credential Storage**: Uses system keyring for secure credential storage
+### Authentication and Security
+- **Kubeconfig**: Auto-detect and switch contexts
+- **Bearer Token**: Direct token auth
+- **Client Certificates**: X.509 auth
+- **OIDC**: OpenID Connect with PKCE
+- **AWS EKS**: IAM auth flow
+- **Secure Storage**: System keyring for credentials
 
-### Resource Management
-- **Full CRUD Operations**: Create, read, update, delete Kubernetes resources
-- **Real-time Watching**: Live resource updates via Kubernetes watch API
-- **Multi-namespace Support**: Manage resources across namespaces
-- **YAML Editor**: View and edit resources in YAML format
+### Infrastructure Builder
+- **Visual canvas** (React Flow) with drag-and-drop resources
+- **YAML editor** (CodeMirror) with two-way sync
+- **Import from cluster** to canvas
+- **Validate / Apply** via `kubectl`
+- **Templates** for common stacks
+- **Selection tools**: lasso, delete selection, select-all, invert selection
+- **Safety**: imported resources excluded from Apply/Validate by default
 
 ### Workloads
-- Pods: View, logs, exec/shell, delete, restart
-- Deployments: Scale, restart, rollback, update images
-- StatefulSets, DaemonSets, ReplicaSets
-- Jobs and CronJobs
+- Pods: status, logs, exec/shell, delete, restart
+- Deployments: scale, restart, image updates, view pods
+- StatefulSets, DaemonSets, Jobs, CronJobs
 
 ### Networking
-- Services: View endpoints, port forwarding
-- Ingresses: Traffic routing configuration
-- Network Policies
+- Services: endpoints, pod selection, port-forward
+- Ingresses: rules and routes
+- Endpoints: subsets and target refs
 
 ### Storage
 - Persistent Volumes (PV)
@@ -40,32 +49,23 @@ A modern, production-ready Kubernetes GUI application built with Rust and Tauri.
 - Storage Classes
 
 ### Configuration
-- ConfigMaps: View, edit, create
-- Secrets: Secure viewing and management
+- ConfigMaps: CRUD and YAML view
+- Secrets: CRUD and YAML view (without exposing values)
 
 ### Cluster Operations
-- Nodes: Resource monitoring, cordon/uncordon, drain
-- Events: Real-time event streaming and filtering
-- Namespaces: Switch and manage namespaces
+- Nodes: resources, conditions, pods, cordon/uncordon, drain
+- Events: live and filtered views
+- Namespaces: scope resources
+
+### Observability and Ops
+- Log streaming with follow mode
+- Terminal exec sessions
+- Copy files to/from containers
+- Port-forward manager with saved profiles and auto-reconnect
 
 ### Plugin System
-- **kubectl Plugins**: Discover and execute kubectl plugins
-- **Helm Integration**: Full Helm 3 support (list, install, upgrade, rollback)
-- **Context Menu Extensions**: Custom actions for resources
-- **Resource Renderers**: Custom resource visualization
-
-### Log Streaming
-- Real-time log streaming with follow mode
-- Multi-container log viewing
-- Search and filter logs
-- Download logs to file
-- Syntax highlighting
-
-### Terminal/Exec
-- Interactive shell access to containers
-- Command execution in pods
-- File copy to/from containers
-- Resize support
+- **kubectl plugins**: discover and execute installed plugins
+- **Helm**: list releases, inspect manifests, rollback, uninstall
 
 ## Architecture
 
@@ -76,30 +76,39 @@ A modern, production-ready Kubernetes GUI application built with Rust and Tauri.
 │  │   TanStack   │  │    Radix     │  │    Zustand   │              │
 │  │    Query     │  │     UI       │  │    State     │              │
 │  └──────────────┘  └──────────────┘  └──────────────┘              │
-│  ┌──────────────────────────────────────────────────────┐          │
-│  │                    xterm.js                          │          │
-│  └──────────────────────────────────────────────────────┘          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐              │
+│  │  React Flow  │  │  CodeMirror  │  │   xterm.js   │              │
+│  └──────────────┘  └──────────────┘  └──────────────┘              │
 └────────────────────────────┬────────────────────────────────────────┘
                              │ Tauri IPC
 ┌────────────────────────────┴────────────────────────────────────────┐
 │                         Backend (Rust)                              │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐              │
 │  │    kube-rs   │  │   AWS SDK    │  │   Keyring    │              │
-│  │              │  │              │  │              │              │
 │  └──────────────┘  └──────────────┘  └──────────────┘              │
 │  ┌──────────────────────────────────────────────────────┐          │
-│  │                  Plugin System                        │          │
-│  │    kubectl plugins │ Helm │ Context Menus            │          │
+│  │      Tauri Commands + Events + Plugin System         │          │
+│  │     kubectl plugins │ Helm │ Context Menus           │          │
 │  └──────────────────────────────────────────────────────┘          │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
+## Tech Stack
+
+- **Frontend**: React, TypeScript, Vite, Tailwind CSS, Radix UI
+- **State/Data**: Zustand, TanStack Query
+- **Canvas/Editor**: React Flow, CodeMirror
+- **Charts/Terminal**: Recharts, xterm.js
+- **Backend**: Rust, Tauri 2, tokio, kube-rs, k8s-openapi
+- **Auth/Cloud**: AWS SDK, OIDC
+
 ## Prerequisites
 
-- **Rust**: 1.70 or later
-- **Node.js**: 18 or later
-- **pnpm**: 8 or later (or npm/yarn)
+- **Rust** 1.70+
+- **Node.js** 18+
 - **Tauri CLI**: `cargo install tauri-cli`
+- **kubectl** (required for manifest validate/apply)
+- **helm** (optional, for Helm features)
 
 ### Platform-specific
 
@@ -119,52 +128,48 @@ sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget libssl-dev \
 - Visual Studio Build Tools with C++ workload
 - WebView2 (usually pre-installed on Windows 10/11)
 
-## Installation
+## Development
 
-### From Source
-
-1. Clone the repository:
+Install frontend dependencies:
 ```bash
-git clone https://github.com/yourusername/k8s-gui.git
-cd k8s-gui
+npm install
 ```
 
-2. Install frontend dependencies:
-```bash
-cd ui
-pnpm install
-cd ..
-```
-
-3. Build and run in development mode:
+Run in dev mode:
 ```bash
 cargo tauri dev
 ```
 
-4. Build for production:
+Build frontend only:
+```bash
+npm run build
+```
+
+Lint:
+```bash
+npm run lint
+```
+
+## Build (Release)
+
 ```bash
 cargo tauri build
 ```
 
-The built application will be in `target/release/bundle/`.
+The bundled app will be in `target/release/bundle/`.
 
 ## Configuration
 
-### Application Configuration
-
-The app stores configuration in the following locations:
-
+### Application config paths
 - **macOS**: `~/Library/Application Support/com.k8s-gui.app/`
 - **Linux**: `~/.config/k8s-gui/`
-- **Windows**: `%APPDATA%\k8s-gui\`
+- **Windows**: `%APPDATA%\\k8s-gui\\`
 
-### Kubeconfig
-
-The app automatically detects kubeconfig from:
-1. `KUBECONFIG` environment variable
+### Kubeconfig resolution
+1. `KUBECONFIG` env var
 2. `~/.kube/config`
 
-### Environment Variables
+### Environment variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -172,134 +177,18 @@ The app automatically detects kubeconfig from:
 | `K8S_GUI_LOG` | Log level (error, warn, info, debug, trace) | `info` |
 | `K8S_GUI_CACHE_TTL` | Cache TTL in seconds | `300` |
 
-## Usage
+## Usage Tips
 
-### Connecting to a Cluster
-
-1. Launch the application
-2. Click "Connect" in the header
-3. Select a context from your kubeconfig, or configure a new connection
-4. For EKS clusters, choose "AWS EKS" and select your cluster
-
-### Viewing Resources
-
-- Use the sidebar to navigate between resource types
-- Click on a resource to view details
-- Use the search bar to filter resources
-
-### Managing Pods
-
-- **View Logs**: Click the logs icon or use the action menu
-- **Shell Access**: Click "Shell" to open an interactive terminal
-- **Delete**: Use the action menu to delete pods
-
-### Scaling Deployments
-
-1. Navigate to Workloads > Deployments
-2. Click on a deployment
-3. Use the "Scale" button to adjust replicas
-
-### Port Forwarding
-
-1. Navigate to Network > Services
-2. Click on a service
-3. Click "Port Forward" and configure local port
-
-### Helm Operations
-
-1. Navigate to Helm in the sidebar
-2. View installed releases
-3. Use actions to upgrade, rollback, or uninstall
-
-## Keyboard Shortcuts
-
-| Shortcut | Action |
-|----------|--------|
-| `Cmd/Ctrl + K` | Open command palette |
-| `Cmd/Ctrl + ,` | Open settings |
-| `Cmd/Ctrl + Shift + P` | Open command palette |
-| `Cmd/Ctrl + /` | Toggle sidebar |
-| `Escape` | Close modals/panels |
-
-## Plugin Development
-
-### kubectl Plugins
-
-The app automatically discovers kubectl plugins in your PATH. Plugins should follow the kubectl plugin naming convention: `kubectl-<name>`.
-
-### Custom Resource Renderers
-
-Create custom renderers for CRDs by implementing the `ResourceRenderer` trait:
-
-```rust
-pub struct MyCustomRenderer;
-
-impl ResourceRenderer for MyCustomRenderer {
-    fn name(&self) -> &str {
-        "my-custom-renderer"
-    }
-    
-    fn can_render(&self, resource: &DynamicObject) -> bool {
-        resource.types.as_ref()
-            .map(|t| t.kind == "MyCustomResource")
-            .unwrap_or(false)
-    }
-    
-    fn render(&self, resource: &DynamicObject) -> Result<String, Error> {
-        // Return custom HTML/markdown
-    }
-}
-```
+- **Command palette**: `Cmd/Ctrl + K`
+- **Builder shortcuts**: Delete/Backspace removes selection, `Cmd/Ctrl + A` selects all, `Cmd/Ctrl + Shift + I` inverts selection.
+- Imported resources are excluded from Apply/Validate by default; toggle "Include imported" to override.
 
 ## Security
 
-- Credentials are stored securely using the system keyring
-- OIDC uses PKCE flow for enhanced security
-- No credentials are stored in plain text
-- TLS verification is enabled by default
-
-## Troubleshooting
-
-### Connection Issues
-
-1. Verify your kubeconfig is valid: `kubectl cluster-info`
-2. Check network connectivity to the cluster
-3. Ensure your credentials haven't expired
-
-### EKS Authentication
-
-1. Ensure AWS CLI is configured: `aws sts get-caller-identity`
-2. Verify IAM permissions for EKS access
-3. Check the cluster's aws-auth ConfigMap
-
-### Performance
-
-- Large clusters may experience slower initial load
-- Use namespace filtering to reduce resource count
-- Adjust cache TTL in settings if needed
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Commit changes: `git commit -am 'Add my feature'`
-4. Push to branch: `git push origin feature/my-feature`
-5. Submit a pull request
-
-### Development Guidelines
-
-- Follow Rust idioms and best practices
-- Use meaningful commit messages
-- Add tests for new functionality
-- Update documentation as needed
+- Credentials stored via system keyring
+- OIDC uses PKCE
+- No secrets stored in plain text
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
-
-## Acknowledgments
-
-- [Tauri](https://tauri.app/) - Cross-platform app framework
-- [kube-rs](https://github.com/kube-rs/kube) - Kubernetes client for Rust
-- [Lens](https://k8slens.dev/) - UI inspiration
-- [shadcn/ui](https://ui.shadcn.com/) - UI components
+MIT

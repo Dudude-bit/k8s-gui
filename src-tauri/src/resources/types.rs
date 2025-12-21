@@ -365,6 +365,7 @@ pub struct ServiceInfo {
     pub namespace: String,
     pub uid: String,
     pub type_: String,
+    pub session_affinity: String,
     pub cluster_ip: Option<String>,
     pub external_ips: Vec<String>,
     pub ports: Vec<ServicePortInfo>,
@@ -421,6 +422,9 @@ impl From<&Service> for ServiceInfo {
             type_: spec
                 .and_then(|s| s.type_.clone())
                 .unwrap_or_else(|| "ClusterIP".to_string()),
+            session_affinity: spec
+                .and_then(|s| s.session_affinity.clone())
+                .unwrap_or_else(|| "None".to_string()),
             cluster_ip: spec.and_then(|s| s.cluster_ip.clone()),
             external_ips: spec
                 .and_then(|s| s.external_ips.clone())

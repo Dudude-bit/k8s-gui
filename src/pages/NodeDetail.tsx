@@ -1,13 +1,20 @@
-import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Server, Cpu, HardDrive, MemoryStick, RefreshCw } from 'lucide-react';
-import { cn, formatKubernetesBytes } from '@/lib/utils';
+import { useParams, useNavigate } from "react-router-dom";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ArrowLeft,
+  Server,
+  Cpu,
+  HardDrive,
+  MemoryStick,
+  RefreshCw,
+} from "lucide-react";
+import { cn, formatKubernetesBytes } from "@/lib/utils";
 
 interface NodeAddressInfo {
   type_: string;
@@ -54,19 +61,24 @@ export function NodeDetail() {
   const { name } = useParams<{ name: string }>();
   const navigate = useNavigate();
 
-  const { data: node, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['node', name],
+  const {
+    data: node,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey: ["node", name],
     queryFn: async () => {
-      return invoke<NodeInfo>('get_node', { name });
+      return invoke<NodeInfo>("get_node", { name });
     },
     enabled: !!name,
     placeholderData: keepPreviousData,
   });
 
   const { data: podCount } = useQuery({
-    queryKey: ['node-pods', name],
+    queryKey: ["node-pods", name],
     queryFn: async () => {
-      const pods = await invoke<unknown[]>('get_node_pods', { name });
+      const pods = await invoke<unknown[]>("get_node_pods", { name });
       return pods.length;
     },
     enabled: !!name,
@@ -98,13 +110,17 @@ export function NodeDetail() {
   }
 
   const getInternalIP = () => {
-    const internal = node.status.addresses.find(a => a.type_ === 'InternalIP');
-    return internal?.address || '-';
+    const internal = node.status.addresses.find(
+      (a) => a.type_ === "InternalIP",
+    );
+    return internal?.address || "-";
   };
 
   const getExternalIP = () => {
-    const external = node.status.addresses.find(a => a.type_ === 'ExternalIP');
-    return external?.address || '-';
+    const external = node.status.addresses.find(
+      (a) => a.type_ === "ExternalIP",
+    );
+    return external?.address || "-";
   };
 
   return (
@@ -120,15 +136,24 @@ export function NodeDetail() {
             <h1 className="text-2xl font-bold">{node.name}</h1>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               {node.roles.map((role) => (
-                <Badge key={role} variant="outline">{role}</Badge>
+                <Badge key={role} variant="outline">
+                  {role}
+                </Badge>
               ))}
-              <Badge className={node.status.ready ? 'bg-green-500' : 'bg-red-500'}>
-                {node.status.ready ? 'Ready' : 'NotReady'}
+              <Badge
+                className={node.status.ready ? "bg-green-500" : "bg-red-500"}
+              >
+                {node.status.ready ? "Ready" : "NotReady"}
               </Badge>
             </div>
           </div>
         </div>
-        <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isFetching}>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => refetch()}
+          disabled={isFetching}
+        >
           <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
         </Button>
       </div>
@@ -141,9 +166,9 @@ export function NodeDetail() {
             <Cpu className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{node.capacity.cpu || '-'}</div>
+            <div className="text-2xl font-bold">{node.capacity.cpu || "-"}</div>
             <p className="text-xs text-muted-foreground">
-              Allocatable: {node.allocatable.cpu || '-'}
+              Allocatable: {node.allocatable.cpu || "-"}
             </p>
           </CardContent>
         </Card>
@@ -165,15 +190,15 @@ export function NodeDetail() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pods (running)</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Pods (running)
+            </CardTitle>
             <Server className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {podCount ?? '-'}
-            </div>
+            <div className="text-2xl font-bold">{podCount ?? "-"}</div>
             <p className="text-xs text-muted-foreground">
-              Allocatable: {node.allocatable.pods || node.capacity.pods || '-'}
+              Allocatable: {node.allocatable.pods || node.capacity.pods || "-"}
             </p>
           </CardContent>
         </Card>
@@ -188,7 +213,8 @@ export function NodeDetail() {
               {formatKubernetesBytes(node.capacity.ephemeral_storage)}
             </div>
             <p className="text-xs text-muted-foreground truncate">
-              Allocatable: {formatKubernetesBytes(node.allocatable.ephemeral_storage)}
+              Allocatable:{" "}
+              {formatKubernetesBytes(node.allocatable.ephemeral_storage)}
             </p>
           </CardContent>
         </Card>
@@ -209,19 +235,27 @@ export function NodeDetail() {
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Internal IP</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Internal IP
+                </p>
                 <p className="font-mono">{getInternalIP()}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">External IP</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  External IP
+                </p>
                 <p className="font-mono">{getExternalIP()}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Kubernetes Version</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Kubernetes Version
+                </p>
                 <p>{node.version}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Container Runtime</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Container Runtime
+                </p>
                 <p>{node.container_runtime}</p>
               </div>
               <div>
@@ -229,12 +263,20 @@ export function NodeDetail() {
                 <p>{node.os}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Architecture</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Architecture
+                </p>
                 <p>{node.arch}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Created</p>
-                <p>{node.created_at ? new Date(node.created_at).toLocaleString() : '-'}</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Created
+                </p>
+                <p>
+                  {node.created_at
+                    ? new Date(node.created_at).toLocaleString()
+                    : "-"}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -248,19 +290,28 @@ export function NodeDetail() {
             <CardContent>
               <div className="space-y-2">
                 {node.status.conditions.map((condition, idx) => (
-                  <div key={idx} className="flex items-center justify-between rounded-lg border p-3">
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between rounded-lg border p-3"
+                  >
                     <div className="flex items-center gap-3">
-                      <Badge variant={condition.status === 'True' ? 'default' : 'secondary'}>
+                      <Badge
+                        variant={
+                          condition.status === "True" ? "default" : "secondary"
+                        }
+                      >
                         {condition.type_}
                       </Badge>
                       <span className="text-sm text-muted-foreground">
-                        {condition.message || condition.reason || '-'}
+                        {condition.message || condition.reason || "-"}
                       </span>
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {condition.last_transition_time 
-                        ? new Date(condition.last_transition_time).toLocaleString() 
-                        : '-'}
+                      {condition.last_transition_time
+                        ? new Date(
+                            condition.last_transition_time,
+                          ).toLocaleString()
+                        : "-"}
                     </span>
                   </div>
                 ))}
@@ -277,7 +328,11 @@ export function NodeDetail() {
             <CardContent>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(node.labels).map(([key, value]) => (
-                  <Badge key={key} variant="outline" className="font-mono text-xs">
+                  <Badge
+                    key={key}
+                    variant="outline"
+                    className="font-mono text-xs"
+                  >
                     {key}={value}
                   </Badge>
                 ))}

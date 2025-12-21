@@ -1,7 +1,7 @@
-import { Routes, Route } from 'react-router-dom';
-import { PersistentVolumeList } from '@/components/resources/PersistentVolumeList';
-import { PersistentVolumeClaimList } from '@/components/resources/PersistentVolumeClaimList';
-import { StorageClassList } from '@/components/resources/StorageClassList';
+import { Routes, Route } from "react-router-dom";
+import { PersistentVolumeList } from "@/components/resources/PersistentVolumeList";
+import { PersistentVolumeClaimList } from "@/components/resources/PersistentVolumeClaimList";
+import { StorageClassList } from "@/components/resources/StorageClassList";
 
 export function Storage() {
   return (

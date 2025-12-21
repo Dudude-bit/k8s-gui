@@ -1,18 +1,16 @@
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
-import { useClusterStore } from '@/stores/clusterStore';
-import { DataTable } from '@/components/ui/data-table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ConnectClusterEmptyState } from '@/components/ui/connect-cluster-empty-state';
-import { ColumnDef } from '@tanstack/react-table';
-import { Link } from 'react-router-dom';
-import { Eye, RefreshCw, Loader2 } from 'lucide-react';
-import {
-  DropdownMenuItem,
-} from '@/components/ui/dropdown-menu';
-import { formatAge, formatKubernetesBytes, getStatusColor } from '@/lib/utils';
-import { ActionMenu } from '@/components/ui/action-menu';
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
+import { useClusterStore } from "@/stores/clusterStore";
+import { DataTable } from "@/components/ui/data-table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
+import { ColumnDef } from "@tanstack/react-table";
+import { Link } from "react-router-dom";
+import { Eye, RefreshCw, Loader2 } from "lucide-react";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { formatAge, formatKubernetesBytes, getStatusColor } from "@/lib/utils";
+import { ActionMenu } from "@/components/ui/action-menu";
 
 interface NodeAddressInfo {
   type_: string;
@@ -57,14 +55,14 @@ interface NodeInfo {
 
 // Helper to get internal IP
 function getInternalIP(addresses: NodeAddressInfo[]): string {
-  const internal = addresses.find(a => a.type_ === 'InternalIP');
-  return internal?.address || '-';
+  const internal = addresses.find((a) => a.type_ === "InternalIP");
+  return internal?.address || "-";
 }
 
 const columns: ColumnDef<NodeInfo>[] = [
   {
-    accessorKey: 'name',
-    header: 'Name',
+    accessorKey: "name",
+    header: "Name",
     cell: ({ row }) => (
       <Link
         to={`/nodes/${row.original.name}`}
@@ -75,20 +73,16 @@ const columns: ColumnDef<NodeInfo>[] = [
     ),
   },
   {
-    id: 'status',
-    header: 'Status',
+    id: "status",
+    header: "Status",
     cell: ({ row }) => {
-      const status = row.original.status.ready ? 'Ready' : 'NotReady';
-      return (
-        <Badge className={getStatusColor(status)}>
-          {status}
-        </Badge>
-      );
+      const status = row.original.status.ready ? "Ready" : "NotReady";
+      return <Badge className={getStatusColor(status)}>{status}</Badge>;
     },
   },
   {
-    accessorKey: 'roles',
-    header: 'Roles',
+    accessorKey: "roles",
+    header: "Roles",
     cell: ({ row }) => (
       <div className="flex gap-1">
         {row.original.roles.map((role) => (
@@ -100,31 +94,31 @@ const columns: ColumnDef<NodeInfo>[] = [
     ),
   },
   {
-    accessorKey: 'version',
-    header: 'Version',
+    accessorKey: "version",
+    header: "Version",
   },
   {
-    id: 'internal_ip',
-    header: 'Internal IP',
+    id: "internal_ip",
+    header: "Internal IP",
     cell: ({ row }) => getInternalIP(row.original.status.addresses),
   },
   {
-    id: 'cpu',
-    header: 'CPU',
-    cell: ({ row }) => row.original.capacity.cpu || '-',
+    id: "cpu",
+    header: "CPU",
+    cell: ({ row }) => row.original.capacity.cpu || "-",
   },
   {
-    id: 'memory',
-    header: 'Memory',
+    id: "memory",
+    header: "Memory",
     cell: ({ row }) => formatKubernetesBytes(row.original.capacity.memory),
   },
   {
-    id: 'age',
-    header: 'Age',
+    id: "age",
+    header: "Age",
     cell: ({ row }) => formatAge(row.original.created_at),
   },
   {
-    id: 'actions',
+    id: "actions",
     cell: ({ row }) => (
       <ActionMenu>
         <DropdownMenuItem asChild>
@@ -141,10 +135,15 @@ const columns: ColumnDef<NodeInfo>[] = [
 export function Nodes() {
   const { isConnected } = useClusterStore();
 
-  const { data: nodes = [], isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['nodes'],
+  const {
+    data: nodes = [],
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey: ["nodes"],
     queryFn: async () => {
-      const result = await invoke<NodeInfo[]>('list_nodes', { filters: null });
+      const result = await invoke<NodeInfo[]>("list_nodes", { filters: null });
       return result;
     },
     enabled: isConnected,
@@ -167,18 +166,20 @@ export function Nodes() {
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           )}
         </div>
-        <Button 
-          variant="outline" 
-          size="icon" 
+        <Button
+          variant="outline"
+          size="icon"
           onClick={() => refetch()}
           disabled={isFetching}
         >
-          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+          <RefreshCw
+            className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+          />
         </Button>
       </div>
-      <DataTable 
-        columns={columns} 
-        data={nodes} 
+      <DataTable
+        columns={columns}
+        data={nodes}
         isLoading={showSkeleton}
         isFetching={isFetching && !isLoading}
       />

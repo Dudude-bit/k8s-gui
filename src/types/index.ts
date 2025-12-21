@@ -1,1 +1,1 @@
-export * from './kubernetes';
+export * from "./kubernetes";

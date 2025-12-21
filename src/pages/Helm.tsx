@@ -1,18 +1,18 @@
-import { useQuery } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
-import { useClusterStore } from '@/stores/clusterStore';
-import { DataTable } from '@/components/ui/data-table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ConnectClusterEmptyState } from '@/components/ui/connect-cluster-empty-state';
-import { ColumnDef } from '@tanstack/react-table';
-import { RefreshCw, Trash2 } from 'lucide-react';
+import { useQuery } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
+import { useClusterStore } from "@/stores/clusterStore";
+import { DataTable } from "@/components/ui/data-table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
+import { ColumnDef } from "@tanstack/react-table";
+import { RefreshCw, Trash2 } from "lucide-react";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
-import { getStatusColor } from '@/lib/utils';
-import { ActionMenu } from '@/components/ui/action-menu';
+} from "@/components/ui/dropdown-menu";
+import { getStatusColor } from "@/lib/utils";
+import { ActionMenu } from "@/components/ui/action-menu";
 
 interface HelmRelease {
   name: string;
@@ -26,23 +26,21 @@ interface HelmRelease {
 
 const columns: ColumnDef<HelmRelease>[] = [
   {
-    accessorKey: 'name',
-    header: 'Name',
-    cell: ({ row }) => (
-      <span className="font-medium">{row.original.name}</span>
-    ),
+    accessorKey: "name",
+    header: "Name",
+    cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
   },
   {
-    accessorKey: 'namespace',
-    header: 'Namespace',
+    accessorKey: "namespace",
+    header: "Namespace",
   },
   {
-    accessorKey: 'revision',
-    header: 'Revision',
+    accessorKey: "revision",
+    header: "Revision",
   },
   {
-    accessorKey: 'status',
-    header: 'Status',
+    accessorKey: "status",
+    header: "Status",
     cell: ({ row }) => (
       <Badge className={getStatusColor(row.original.status)}>
         {row.original.status}
@@ -50,23 +48,23 @@ const columns: ColumnDef<HelmRelease>[] = [
     ),
   },
   {
-    accessorKey: 'chart',
-    header: 'Chart',
+    accessorKey: "chart",
+    header: "Chart",
   },
   {
-    accessorKey: 'app_version',
-    header: 'App Version',
+    accessorKey: "app_version",
+    header: "App Version",
   },
   {
-    accessorKey: 'updated',
-    header: 'Updated',
+    accessorKey: "updated",
+    header: "Updated",
     cell: ({ row }) => {
       const date = new Date(row.original.updated);
       return date.toLocaleString();
     },
   },
   {
-    id: 'actions',
+    id: "actions",
     cell: ({ row: _row }) => (
       <ActionMenu>
         <DropdownMenuItem>View Values</DropdownMenuItem>
@@ -85,10 +83,14 @@ const columns: ColumnDef<HelmRelease>[] = [
 export function Helm() {
   const { isConnected } = useClusterStore();
 
-  const { data: releases = [], isLoading, refetch } = useQuery({
-    queryKey: ['helm-releases'],
+  const {
+    data: releases = [],
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["helm-releases"],
     queryFn: async () => {
-      const result = await invoke<HelmRelease[]>('list_helm_releases', {
+      const result = await invoke<HelmRelease[]>("list_helm_releases", {
         namespace: null,
         allNamespaces: true,
       });

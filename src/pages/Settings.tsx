@@ -1,19 +1,20 @@
-import { useThemeStore } from '@/stores/themeStore';
+import { useThemeStore } from "@/stores/themeStore";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Separator } from '@/components/ui/separator';
-import { Button } from '@/components/ui/button';
-import { useMutation } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
-import { useToast } from '@/components/ui/use-toast';
-import { PortForwardManager } from '@/components/port-forward/PortForwardManager';
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { useMutation } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
+import { useToast } from "@/components/ui/use-toast";
+import { PortForwardManager } from "@/components/port-forward/PortForwardManager";
+import { RegistrySettings } from "@/components/registry/RegistrySettings";
 
 export function Settings() {
   const { theme, setTheme } = useThemeStore();
@@ -21,19 +22,19 @@ export function Settings() {
 
   const clearCacheMutation = useMutation({
     mutationFn: async () => {
-      await invoke('clear_cache');
+      await invoke("clear_cache");
     },
     onSuccess: () => {
       toast({
-        title: 'Cache cleared',
-        description: 'All cached data has been removed.',
+        title: "Cache cleared",
+        description: "All cached data has been removed.",
       });
     },
     onError: (error) => {
       toast({
-        title: 'Error',
+        title: "Error",
         description: String(error),
-        variant: 'destructive',
+        variant: "destructive",
       });
     },
   });
@@ -60,7 +61,9 @@ export function Settings() {
             <Label>Theme</Label>
             <RadioGroup
               value={theme}
-              onValueChange={(value) => setTheme(value as 'light' | 'dark' | 'system')}
+              onValueChange={(value) =>
+                setTheme(value as "light" | "dark" | "system")
+              }
               className="grid grid-cols-3 gap-4"
             >
               <div>
@@ -131,11 +134,13 @@ export function Settings() {
               onClick={() => clearCacheMutation.mutate()}
               disabled={clearCacheMutation.isPending}
             >
-              {clearCacheMutation.isPending ? 'Clearing...' : 'Clear Cache'}
+              {clearCacheMutation.isPending ? "Clearing..." : "Clear Cache"}
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      <RegistrySettings />
 
       <PortForwardManager />
 
@@ -143,9 +148,7 @@ export function Settings() {
       <Card>
         <CardHeader>
           <CardTitle>About</CardTitle>
-          <CardDescription>
-            Application information
-          </CardDescription>
+          <CardDescription>Application information</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="flex justify-between">

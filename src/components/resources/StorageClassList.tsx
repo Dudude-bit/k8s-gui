@@ -1,22 +1,22 @@
-import { useQuery } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
-import { useClusterStore } from '@/stores/clusterStore';
-import { DataTable } from '@/components/ui/data-table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ConnectClusterEmptyState } from '@/components/ui/connect-cluster-empty-state';
-import { ColumnDef } from '@tanstack/react-table';
-import { Eye, Trash2, RefreshCw, Layers, Star } from 'lucide-react';
+import { useQuery } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
+import { useClusterStore } from "@/stores/clusterStore";
+import { DataTable } from "@/components/ui/data-table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
+import { ColumnDef } from "@tanstack/react-table";
+import { Eye, Trash2, RefreshCw, Layers, Star } from "lucide-react";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { ActionMenu } from '@/components/ui/action-menu';
+} from "@/components/ui/tooltip";
+import { ActionMenu } from "@/components/ui/action-menu";
 
 interface StorageClassInfo {
   name: string;
@@ -31,8 +31,8 @@ interface StorageClassInfo {
 
 const columns: ColumnDef<StorageClassInfo>[] = [
   {
-    accessorKey: 'name',
-    header: 'Name',
+    accessorKey: "name",
+    header: "Name",
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
         <Layers className="h-4 w-4 text-muted-foreground" />
@@ -49,8 +49,8 @@ const columns: ColumnDef<StorageClassInfo>[] = [
     ),
   },
   {
-    accessorKey: 'provisioner',
-    header: 'Provisioner',
+    accessorKey: "provisioner",
+    header: "Provisioner",
     cell: ({ row }) => (
       <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
         {row.original.provisioner}
@@ -58,35 +58,37 @@ const columns: ColumnDef<StorageClassInfo>[] = [
     ),
   },
   {
-    accessorKey: 'reclaim_policy',
-    header: 'Reclaim Policy',
+    accessorKey: "reclaim_policy",
+    header: "Reclaim Policy",
     cell: ({ row }) => (
       <Badge variant="outline">{row.original.reclaim_policy}</Badge>
     ),
   },
   {
-    accessorKey: 'volume_binding_mode',
-    header: 'Binding Mode',
+    accessorKey: "volume_binding_mode",
+    header: "Binding Mode",
     cell: ({ row }) => (
       <Badge variant="secondary">{row.original.volume_binding_mode}</Badge>
     ),
   },
   {
-    accessorKey: 'allow_volume_expansion',
-    header: 'Expansion',
+    accessorKey: "allow_volume_expansion",
+    header: "Expansion",
     cell: ({ row }) => (
-      <Badge variant={row.original.allow_volume_expansion ? 'default' : 'outline'}>
-        {row.original.allow_volume_expansion ? 'Allowed' : 'Disabled'}
+      <Badge
+        variant={row.original.allow_volume_expansion ? "default" : "outline"}
+      >
+        {row.original.allow_volume_expansion ? "Allowed" : "Disabled"}
       </Badge>
     ),
   },
   {
-    accessorKey: 'parameters',
-    header: 'Parameters',
+    accessorKey: "parameters",
+    header: "Parameters",
     cell: ({ row }) => {
       const params = row.original.parameters;
       const paramCount = Object.keys(params).length;
-      if (paramCount === 0) return '-';
+      if (paramCount === 0) return "-";
       return (
         <Tooltip>
           <TooltipTrigger>
@@ -106,11 +108,11 @@ const columns: ColumnDef<StorageClassInfo>[] = [
     },
   },
   {
-    accessorKey: 'age',
-    header: 'Age',
+    accessorKey: "age",
+    header: "Age",
   },
   {
-    id: 'actions',
+    id: "actions",
     cell: () => (
       <ActionMenu>
         <DropdownMenuItem>
@@ -130,10 +132,14 @@ const columns: ColumnDef<StorageClassInfo>[] = [
 export function StorageClassList() {
   const { isConnected } = useClusterStore();
 
-  const { data: storageClasses = [], isLoading, refetch } = useQuery({
-    queryKey: ['storage-classes'],
+  const {
+    data: storageClasses = [],
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["storage-classes"],
     queryFn: async () => {
-      const result = await invoke<StorageClassInfo[]>('list_storage_classes');
+      const result = await invoke<StorageClassInfo[]>("list_storage_classes");
       return result;
     },
     enabled: isConnected,
@@ -158,7 +164,12 @@ export function StorageClassList() {
           <RefreshCw className="h-4 w-4" />
         </Button>
       </div>
-      <DataTable columns={columns} data={storageClasses} isLoading={isLoading} searchKey="name" />
+      <DataTable
+        columns={columns}
+        data={storageClasses}
+        isLoading={isLoading}
+        searchKey="name"
+      />
     </div>
   );
 }

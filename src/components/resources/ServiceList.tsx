@@ -1,22 +1,27 @@
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
-import { useClusterStore } from '@/stores/clusterStore';
-import { DataTable } from '@/components/ui/data-table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { ConnectClusterEmptyState } from '@/components/ui/connect-cluster-empty-state';
-import { ColumnDef } from '@tanstack/react-table';
-import { Link } from 'react-router-dom';
-import { Eye, Trash2, RefreshCw, Loader2 } from 'lucide-react';
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
+import { useClusterStore } from "@/stores/clusterStore";
+import { DataTable } from "@/components/ui/data-table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
+import { ColumnDef } from "@tanstack/react-table";
+import { Link } from "react-router-dom";
+import { Eye, Trash2, RefreshCw, Loader2 } from "lucide-react";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
-import { formatAge } from '@/lib/utils';
-import { useMemo, useState } from 'react';
-import { useToast } from '@/components/ui/use-toast';
-import { ActionMenu } from '@/components/ui/action-menu';
+} from "@/components/ui/dropdown-menu";
+import { formatAge } from "@/lib/utils";
+import { useMemo, useState } from "react";
+import { useToast } from "@/components/ui/use-toast";
+import { ActionMenu } from "@/components/ui/action-menu";
 
 interface ServicePortInfo {
   name: string | null;
@@ -58,10 +63,15 @@ export function ServiceList() {
   const queryClient = useQueryClient();
   const [deleteTarget, setDeleteTarget] = useState<ServiceInfo | null>(null);
 
-  const { data: services = [], isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['services', currentNamespace],
+  const {
+    data: services = [],
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey: ["services", currentNamespace],
     queryFn: async () => {
-      const result = await invoke<ServiceInfo[]>('list_services', {
+      const result = await invoke<ServiceInfo[]>("list_services", {
         filters: { namespace: currentNamespace },
       });
       return result;
@@ -73,101 +83,115 @@ export function ServiceList() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async ({ name, namespace }: { name: string; namespace: string }) => {
-      await invoke('delete_service', { name, namespace });
+    mutationFn: async ({
+      name,
+      namespace,
+    }: {
+      name: string;
+      namespace: string;
+    }) => {
+      await invoke("delete_service", { name, namespace });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['services'] });
+      queryClient.invalidateQueries({ queryKey: ["services"] });
       toast({
-        title: 'Service deleted',
-        description: 'The service has been deleted successfully.',
+        title: "Service deleted",
+        description: "The service has been deleted successfully.",
       });
       setDeleteTarget(null);
     },
     onError: (error) => {
       toast({
-        title: 'Error',
+        title: "Error",
         description: `Failed to delete service: ${error}`,
-        variant: 'destructive',
+        variant: "destructive",
       });
       setDeleteTarget(null);
     },
   });
 
-  const columns = useMemo<ColumnDef<ServiceInfo>[]>(() => [
-    {
-      accessorKey: 'name',
-      header: 'Name',
-      cell: ({ row }) => (
-        <Link
-          to={`/service/${row.original.namespace}/${row.original.name}`}
-          className="font-medium hover:underline"
-        >
-          {row.original.name}
-        </Link>
-      ),
-    },
-    {
-      accessorKey: 'namespace',
-      header: 'Namespace',
-    },
-    {
-      id: 'type',
-      header: 'Type',
-      cell: ({ row }) => (
-        <Badge variant="outline">{row.original.type_}</Badge>
-      ),
-    },
-    {
-      id: 'cluster_ip',
-      header: 'Cluster IP',
-      cell: ({ row }) => row.original.cluster_ip || '-',
-    },
-    {
-      id: 'external_ip',
-      header: 'External IP',
-      cell: ({ row }) => row.original.external_ips.length > 0 ? row.original.external_ips.join(', ') : '-',
-    },
-    {
-      id: 'ports',
-      header: 'Ports',
-      cell: ({ row }) => (
-        <div className="flex flex-wrap gap-1">
-          {row.original.ports.map((port, i) => (
-            <Badge key={i} variant="secondary" className="text-xs">
-              {formatPort(port)}
-            </Badge>
-          ))}
-        </div>
-      ),
-    },
-    {
-      id: 'age',
-      header: 'Age',
-      cell: ({ row }) => formatAge(row.original.created_at),
-    },
-    {
-      id: 'actions',
-      cell: ({ row }) => (
-        <ActionMenu>
-          <DropdownMenuItem asChild>
-            <Link to={`/service/${row.original.namespace}/${row.original.name}`}>
-              <Eye className="mr-2 h-4 w-4" />
-              View Details
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            className="text-destructive"
-            onClick={() => setDeleteTarget(row.original)}
+  const columns = useMemo<ColumnDef<ServiceInfo>[]>(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Name",
+        cell: ({ row }) => (
+          <Link
+            to={`/service/${row.original.namespace}/${row.original.name}`}
+            className="font-medium hover:underline"
           >
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete
-          </DropdownMenuItem>
-        </ActionMenu>
-      ),
-    },
-  ], [setDeleteTarget]);
+            {row.original.name}
+          </Link>
+        ),
+      },
+      {
+        accessorKey: "namespace",
+        header: "Namespace",
+      },
+      {
+        id: "type",
+        header: "Type",
+        cell: ({ row }) => (
+          <Badge variant="outline">{row.original.type_}</Badge>
+        ),
+      },
+      {
+        id: "cluster_ip",
+        header: "Cluster IP",
+        cell: ({ row }) => row.original.cluster_ip || "-",
+      },
+      {
+        id: "external_ip",
+        header: "External IP",
+        cell: ({ row }) =>
+          row.original.external_ips.length > 0
+            ? row.original.external_ips.join(", ")
+            : "-",
+      },
+      {
+        id: "ports",
+        header: "Ports",
+        cell: ({ row }) => (
+          <div className="flex flex-wrap gap-1">
+            {row.original.ports.map((port, i) => (
+              <Badge key={i} variant="secondary" className="text-xs">
+                {formatPort(port)}
+              </Badge>
+            ))}
+          </div>
+        ),
+      },
+      {
+        id: "age",
+        header: "Age",
+        cell: ({ row }) => formatAge(row.original.created_at),
+      },
+      {
+        id: "actions",
+        cell: ({ row }) => (
+          <ActionMenu>
+            <DropdownMenuItem asChild>
+              <Link
+                to={`/service/${row.original.namespace}/${row.original.name}`}
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                View Details
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={() => setDeleteTarget(row.original)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </DropdownMenuItem>
+          </ActionMenu>
+        ),
+      },
+    ],
+    [setDeleteTarget],
+  );
 
   if (!isConnected) {
     return <ConnectClusterEmptyState resourceLabel="services" />;
@@ -182,8 +206,15 @@ export function ServiceList() {
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           )}
         </div>
-        <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isFetching}>
-          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => refetch()}
+          disabled={isFetching}
+        >
+          <RefreshCw
+            className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+          />
         </Button>
       </div>
       <DataTable

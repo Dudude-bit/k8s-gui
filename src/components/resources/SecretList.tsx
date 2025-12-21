@@ -1,22 +1,27 @@
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
-import { useClusterStore } from '@/stores/clusterStore';
-import { DataTable } from '@/components/ui/data-table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { ConnectClusterEmptyState } from '@/components/ui/connect-cluster-empty-state';
-import { ColumnDef } from '@tanstack/react-table';
-import { Trash2, RefreshCw, Copy, Lock, Loader2 } from 'lucide-react';
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
+import { useClusterStore } from "@/stores/clusterStore";
+import { DataTable } from "@/components/ui/data-table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
+import { ColumnDef } from "@tanstack/react-table";
+import { Trash2, RefreshCw, Copy, Lock, Loader2 } from "lucide-react";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
-import { useToast } from '@/components/ui/use-toast';
-import { useState } from 'react';
-import { formatAge } from '@/lib/utils';
-import { ActionMenu } from '@/components/ui/action-menu';
-import { YamlViewerAction } from '@/components/ui/yaml-viewer';
+} from "@/components/ui/dropdown-menu";
+import { useToast } from "@/components/ui/use-toast";
+import { useState } from "react";
+import { formatAge } from "@/lib/utils";
+import { ActionMenu } from "@/components/ui/action-menu";
+import { YamlViewerAction } from "@/components/ui/yaml-viewer";
 
 interface SecretInfo {
   name: string;
@@ -30,14 +35,14 @@ interface SecretInfo {
 
 const getSecretTypeColor = (type: string): string => {
   switch (type) {
-    case 'kubernetes.io/tls':
-      return 'bg-blue-500/20 text-blue-500';
-    case 'kubernetes.io/dockerconfigjson':
-      return 'bg-purple-500/20 text-purple-500';
-    case 'kubernetes.io/service-account-token':
-      return 'bg-green-500/20 text-green-500';
+    case "kubernetes.io/tls":
+      return "bg-blue-500/20 text-blue-500";
+    case "kubernetes.io/dockerconfigjson":
+      return "bg-purple-500/20 text-purple-500";
+    case "kubernetes.io/service-account-token":
+      return "bg-green-500/20 text-green-500";
     default:
-      return 'bg-gray-500/20 text-gray-500';
+      return "bg-gray-500/20 text-gray-500";
   }
 };
 
@@ -47,10 +52,15 @@ export function SecretList() {
   const queryClient = useQueryClient();
   const [deleteTarget, setDeleteTarget] = useState<SecretInfo | null>(null);
 
-  const { data: secrets = [], isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['secrets', currentNamespace],
+  const {
+    data: secrets = [],
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey: ["secrets", currentNamespace],
     queryFn: async () => {
-      const result = await invoke<SecretInfo[]>('list_secrets', {
+      const result = await invoke<SecretInfo[]>("list_secrets", {
         filters: { namespace: currentNamespace },
       });
       return result;
@@ -62,22 +72,28 @@ export function SecretList() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async ({ name, namespace }: { name: string; namespace: string }) => {
-      await invoke('delete_secret', { name, namespace });
+    mutationFn: async ({
+      name,
+      namespace,
+    }: {
+      name: string;
+      namespace: string;
+    }) => {
+      await invoke("delete_secret", { name, namespace });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['secrets'] });
+      queryClient.invalidateQueries({ queryKey: ["secrets"] });
       toast({
-        title: 'Secret deleted',
-        description: 'The Secret has been deleted successfully.',
+        title: "Secret deleted",
+        description: "The Secret has been deleted successfully.",
       });
       setDeleteTarget(null);
     },
     onError: (error) => {
       toast({
-        title: 'Error',
+        title: "Error",
         description: `Failed to delete Secret: ${error}`,
-        variant: 'destructive',
+        variant: "destructive",
       });
       setDeleteTarget(null);
     },
@@ -85,25 +101,27 @@ export function SecretList() {
 
   const handleCopyKeys = async (name: string, namespace: string) => {
     try {
-      const keys = secrets.find(s => s.name === name && s.namespace === namespace)?.data_keys || [];
-      await navigator.clipboard.writeText(keys.join('\n'));
+      const keys =
+        secrets.find((s) => s.name === name && s.namespace === namespace)
+          ?.data_keys || [];
+      await navigator.clipboard.writeText(keys.join("\n"));
       toast({
-        title: 'Copied',
-        description: 'Secret keys copied to clipboard.',
+        title: "Copied",
+        description: "Secret keys copied to clipboard.",
       });
     } catch (error) {
       toast({
-        title: 'Error',
+        title: "Error",
         description: `Failed to copy keys: ${error}`,
-        variant: 'destructive',
+        variant: "destructive",
       });
     }
   };
 
   const columns: ColumnDef<SecretInfo>[] = [
     {
-      accessorKey: 'name',
-      header: 'Name',
+      accessorKey: "name",
+      header: "Name",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Lock className="h-4 w-4 text-muted-foreground" />
@@ -112,21 +130,21 @@ export function SecretList() {
       ),
     },
     {
-      accessorKey: 'namespace',
-      header: 'Namespace',
+      accessorKey: "namespace",
+      header: "Namespace",
     },
     {
-      id: 'type',
-      header: 'Type',
+      id: "type",
+      header: "Type",
       cell: ({ row }) => (
         <Badge className={getSecretTypeColor(row.original.type_)}>
-          {row.original.type_.replace('kubernetes.io/', '')}
+          {row.original.type_.replace("kubernetes.io/", "")}
         </Badge>
       ),
     },
     {
-      accessorKey: 'data_keys',
-      header: 'Keys',
+      accessorKey: "data_keys",
+      header: "Keys",
       cell: ({ row }) => (
         <div className="flex flex-wrap gap-1">
           {row.original.data_keys.slice(0, 3).map((key, i) => (
@@ -143,25 +161,29 @@ export function SecretList() {
       ),
     },
     {
-      id: 'age',
-      header: 'Age',
+      id: "age",
+      header: "Age",
       cell: ({ row }) => formatAge(row.original.created_at),
     },
     {
-      id: 'actions',
+      id: "actions",
       cell: ({ row }) => (
         <ActionMenu>
           <YamlViewerAction
             title="Secret YAML"
             description={`${row.original.namespace}/${row.original.name}`}
             fetchYaml={() =>
-              invoke<string>('get_secret_yaml', {
+              invoke<string>("get_secret_yaml", {
                 name: row.original.name,
                 namespace: row.original.namespace,
               })
             }
           />
-          <DropdownMenuItem onClick={() => handleCopyKeys(row.original.name, row.original.namespace)}>
+          <DropdownMenuItem
+            onClick={() =>
+              handleCopyKeys(row.original.name, row.original.namespace)
+            }
+          >
             <Copy className="mr-2 h-4 w-4" />
             Copy Keys
           </DropdownMenuItem>
@@ -191,8 +213,15 @@ export function SecretList() {
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           )}
         </div>
-        <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isFetching}>
-          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => refetch()}
+          disabled={isFetching}
+        >
+          <RefreshCw
+            className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+          />
         </Button>
       </div>
       <DataTable

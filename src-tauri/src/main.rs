@@ -125,6 +125,10 @@ fn main() {
             commands::resources::delete_resource,
             commands::resources::watch_resources,
             commands::resources::stop_watch,
+
+            // Manifest commands
+            commands::manifest::validate_manifest,
+            commands::manifest::apply_manifest,
             
             // Pod commands
             commands::pods::list_pods,
@@ -263,6 +267,13 @@ fn main() {
             commands::settings::export_settings,
             commands::settings::import_settings,
             commands::settings::get_app_info,
+
+            // Registry commands
+            commands::registry::search_registry_images,
+            commands::registry::set_registry_credentials,
+            commands::registry::delete_registry_credentials,
+            commands::registry::get_registry_auth_status,
+            commands::registry::import_docker_config,
             
             // Authentication commands
             commands::auth::get_auth_status,

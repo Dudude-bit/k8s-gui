@@ -1,17 +1,16 @@
-import { Routes, Route } from 'react-router-dom';
-import { PodList } from '@/components/resources/PodList';
-import { DeploymentList } from '@/components/resources/DeploymentList';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
-import { useClusterStore } from '@/stores/clusterStore';
-import { DataTable } from '@/components/ui/data-table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ConnectClusterEmptyState } from '@/components/ui/connect-cluster-empty-state';
-import { ColumnDef } from '@tanstack/react-table';
-import { Link } from 'react-router-dom';
-import { RefreshCw, Loader2 } from 'lucide-react';
-import { formatAge, getStatusColor } from '@/lib/utils';
+import { Routes, Route } from "react-router-dom";
+import { PodList } from "@/components/resources/PodList";
+import { DeploymentList } from "@/components/resources/DeploymentList";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
+import { useClusterStore } from "@/stores/clusterStore";
+import { DataTable } from "@/components/ui/data-table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
+import { ColumnDef } from "@tanstack/react-table";
+import { RefreshCw, Loader2 } from "lucide-react";
+import { formatAge, getStatusColor } from "@/lib/utils";
 
 export function Workloads() {
   return (
@@ -37,26 +36,28 @@ interface StatefulSetInfo {
 
 const statefulSetColumns: ColumnDef<StatefulSetInfo>[] = [
   {
-    accessorKey: 'name',
-    header: 'Name',
+    accessorKey: "name",
+    header: "Name",
     cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
   },
-  { accessorKey: 'namespace', header: 'Namespace' },
+  { accessorKey: "namespace", header: "Namespace" },
   {
-    id: 'replicas',
-    header: 'Replicas',
+    id: "replicas",
+    header: "Replicas",
     cell: ({ row }) => {
       const { ready, desired } = row.original.replicas;
       return (
-        <span className={ready === desired ? 'text-green-500' : 'text-yellow-500'}>
+        <span
+          className={ready === desired ? "text-green-500" : "text-yellow-500"}
+        >
           {ready}/{desired}
         </span>
       );
     },
   },
   {
-    id: 'age',
-    header: 'Age',
+    id: "age",
+    header: "Age",
     cell: ({ row }) => formatAge(row.original.created_at),
   },
 ];
@@ -64,10 +65,17 @@ const statefulSetColumns: ColumnDef<StatefulSetInfo>[] = [
 function StatefulSetList() {
   const { isConnected, currentNamespace } = useClusterStore();
 
-  const { data = [], isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['statefulsets', currentNamespace],
+  const {
+    data = [],
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey: ["statefulsets", currentNamespace],
     queryFn: async () => {
-      return invoke<StatefulSetInfo[]>('list_statefulsets', { namespace: currentNamespace });
+      return invoke<StatefulSetInfo[]>("list_statefulsets", {
+        namespace: currentNamespace,
+      });
     },
     enabled: isConnected,
     placeholderData: keepPreviousData,
@@ -84,13 +92,27 @@ function StatefulSetList() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">StatefulSets</h1>
-          {isFetching && !isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          {isFetching && !isLoading && (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          )}
         </div>
-        <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isFetching}>
-          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => refetch()}
+          disabled={isFetching}
+        >
+          <RefreshCw
+            className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+          />
         </Button>
       </div>
-      <DataTable columns={statefulSetColumns} data={data} isLoading={isLoading && data.length === 0} isFetching={isFetching && !isLoading} />
+      <DataTable
+        columns={statefulSetColumns}
+        data={data}
+        isLoading={isLoading && data.length === 0}
+        isFetching={isFetching && !isLoading}
+      />
     </div>
   );
 }
@@ -107,36 +129,38 @@ interface DaemonSetInfo {
 
 const daemonSetColumns: ColumnDef<DaemonSetInfo>[] = [
   {
-    accessorKey: 'name',
-    header: 'Name',
+    accessorKey: "name",
+    header: "Name",
     cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
   },
-  { accessorKey: 'namespace', header: 'Namespace' },
+  { accessorKey: "namespace", header: "Namespace" },
   {
-    id: 'desired',
-    header: 'Desired',
+    id: "desired",
+    header: "Desired",
     cell: ({ row }) => row.original.desired,
   },
   {
-    id: 'current',
-    header: 'Current',
+    id: "current",
+    header: "Current",
     cell: ({ row }) => row.original.current,
   },
   {
-    id: 'ready',
-    header: 'Ready',
+    id: "ready",
+    header: "Ready",
     cell: ({ row }) => {
       const { ready, desired } = row.original;
       return (
-        <span className={ready === desired ? 'text-green-500' : 'text-yellow-500'}>
+        <span
+          className={ready === desired ? "text-green-500" : "text-yellow-500"}
+        >
           {ready}
         </span>
       );
     },
   },
   {
-    id: 'age',
-    header: 'Age',
+    id: "age",
+    header: "Age",
     cell: ({ row }) => formatAge(row.original.created_at),
   },
 ];
@@ -144,10 +168,17 @@ const daemonSetColumns: ColumnDef<DaemonSetInfo>[] = [
 function DaemonSetList() {
   const { isConnected, currentNamespace } = useClusterStore();
 
-  const { data = [], isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['daemonsets', currentNamespace],
+  const {
+    data = [],
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey: ["daemonsets", currentNamespace],
     queryFn: async () => {
-      return invoke<DaemonSetInfo[]>('list_daemonsets', { namespace: currentNamespace });
+      return invoke<DaemonSetInfo[]>("list_daemonsets", {
+        namespace: currentNamespace,
+      });
     },
     enabled: isConnected,
     placeholderData: keepPreviousData,
@@ -164,13 +195,27 @@ function DaemonSetList() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">DaemonSets</h1>
-          {isFetching && !isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          {isFetching && !isLoading && (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          )}
         </div>
-        <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isFetching}>
-          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => refetch()}
+          disabled={isFetching}
+        >
+          <RefreshCw
+            className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+          />
         </Button>
       </div>
-      <DataTable columns={daemonSetColumns} data={data} isLoading={isLoading && data.length === 0} isFetching={isFetching && !isLoading} />
+      <DataTable
+        columns={daemonSetColumns}
+        data={data}
+        isLoading={isLoading && data.length === 0}
+        isFetching={isFetching && !isLoading}
+      />
     </div>
   );
 }
@@ -189,19 +234,20 @@ interface JobInfo {
 
 const jobColumns: ColumnDef<JobInfo>[] = [
   {
-    accessorKey: 'name',
-    header: 'Name',
+    accessorKey: "name",
+    header: "Name",
     cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
   },
-  { accessorKey: 'namespace', header: 'Namespace' },
+  { accessorKey: "namespace", header: "Namespace" },
   {
-    id: 'completions',
-    header: 'Completions',
-    cell: ({ row }) => `${row.original.succeeded}/${row.original.completions || '∞'}`,
+    id: "completions",
+    header: "Completions",
+    cell: ({ row }) =>
+      `${row.original.succeeded}/${row.original.completions || "∞"}`,
   },
   {
-    id: 'status',
-    header: 'Status',
+    id: "status",
+    header: "Status",
     cell: ({ row }) => (
       <Badge className={getStatusColor(row.original.status)}>
         {row.original.status}
@@ -209,8 +255,8 @@ const jobColumns: ColumnDef<JobInfo>[] = [
     ),
   },
   {
-    id: 'age',
-    header: 'Age',
+    id: "age",
+    header: "Age",
     cell: ({ row }) => formatAge(row.original.created_at),
   },
 ];
@@ -218,10 +264,15 @@ const jobColumns: ColumnDef<JobInfo>[] = [
 function JobList() {
   const { isConnected, currentNamespace } = useClusterStore();
 
-  const { data = [], isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['jobs', currentNamespace],
+  const {
+    data = [],
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey: ["jobs", currentNamespace],
     queryFn: async () => {
-      return invoke<JobInfo[]>('list_jobs', { namespace: currentNamespace });
+      return invoke<JobInfo[]>("list_jobs", { namespace: currentNamespace });
     },
     enabled: isConnected,
     placeholderData: keepPreviousData,
@@ -238,13 +289,27 @@ function JobList() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">Jobs</h1>
-          {isFetching && !isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          {isFetching && !isLoading && (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          )}
         </div>
-        <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isFetching}>
-          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => refetch()}
+          disabled={isFetching}
+        >
+          <RefreshCw
+            className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+          />
         </Button>
       </div>
-      <DataTable columns={jobColumns} data={data} isLoading={isLoading && data.length === 0} isFetching={isFetching && !isLoading} />
+      <DataTable
+        columns={jobColumns}
+        data={data}
+        isLoading={isLoading && data.length === 0}
+        isFetching={isFetching && !isLoading}
+      />
     </div>
   );
 }
@@ -262,34 +327,37 @@ interface CronJobInfo {
 
 const cronJobColumns: ColumnDef<CronJobInfo>[] = [
   {
-    accessorKey: 'name',
-    header: 'Name',
+    accessorKey: "name",
+    header: "Name",
     cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
   },
-  { accessorKey: 'namespace', header: 'Namespace' },
-  { accessorKey: 'schedule', header: 'Schedule' },
+  { accessorKey: "namespace", header: "Namespace" },
+  { accessorKey: "schedule", header: "Schedule" },
   {
-    id: 'suspend',
-    header: 'Suspend',
+    id: "suspend",
+    header: "Suspend",
     cell: ({ row }) => (
-      <Badge variant={row.original.suspend ? 'destructive' : 'secondary'}>
-        {row.original.suspend ? 'Yes' : 'No'}
+      <Badge variant={row.original.suspend ? "destructive" : "secondary"}>
+        {row.original.suspend ? "Yes" : "No"}
       </Badge>
     ),
   },
   {
-    id: 'active',
-    header: 'Active',
+    id: "active",
+    header: "Active",
     cell: ({ row }) => row.original.active,
   },
   {
-    id: 'last_schedule',
-    header: 'Last Schedule',
-    cell: ({ row }) => row.original.last_schedule ? formatAge(row.original.last_schedule) + ' ago' : 'Never',
+    id: "last_schedule",
+    header: "Last Schedule",
+    cell: ({ row }) =>
+      row.original.last_schedule
+        ? formatAge(row.original.last_schedule) + " ago"
+        : "Never",
   },
   {
-    id: 'age',
-    header: 'Age',
+    id: "age",
+    header: "Age",
     cell: ({ row }) => formatAge(row.original.created_at),
   },
 ];
@@ -297,10 +365,17 @@ const cronJobColumns: ColumnDef<CronJobInfo>[] = [
 function CronJobList() {
   const { isConnected, currentNamespace } = useClusterStore();
 
-  const { data = [], isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['cronjobs', currentNamespace],
+  const {
+    data = [],
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey: ["cronjobs", currentNamespace],
     queryFn: async () => {
-      return invoke<CronJobInfo[]>('list_cronjobs', { namespace: currentNamespace });
+      return invoke<CronJobInfo[]>("list_cronjobs", {
+        namespace: currentNamespace,
+      });
     },
     enabled: isConnected,
     placeholderData: keepPreviousData,
@@ -317,13 +392,27 @@ function CronJobList() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">CronJobs</h1>
-          {isFetching && !isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          {isFetching && !isLoading && (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          )}
         </div>
-        <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isFetching}>
-          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => refetch()}
+          disabled={isFetching}
+        >
+          <RefreshCw
+            className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+          />
         </Button>
       </div>
-      <DataTable columns={cronJobColumns} data={data} isLoading={isLoading && data.length === 0} isFetching={isFetching && !isLoading} />
+      <DataTable
+        columns={cronJobColumns}
+        data={data}
+        isLoading={isLoading && data.length === 0}
+        isFetching={isFetching && !isLoading}
+      />
     </div>
   );
 }

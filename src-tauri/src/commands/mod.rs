@@ -21,6 +21,8 @@ pub mod network;
 pub mod stats;
 pub mod workloads;
 pub mod port_forward;
+pub mod manifest;
+pub mod registry;
 
 // Re-export all commands for easy registration
 pub use cluster::*;
@@ -42,3 +44,5 @@ pub use network::*;
 pub use stats::*;
 pub use workloads::*;
 pub use port_forward::*;
+pub use manifest::*;
+pub use registry::*;

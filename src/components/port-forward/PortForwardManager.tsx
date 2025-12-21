@@ -1,20 +1,20 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useClusterStore } from '@/stores/clusterStore';
+import { useEffect, useMemo, useState } from "react";
+import { useClusterStore } from "@/stores/clusterStore";
 import {
   PortForwardConfig,
   PortForwardSession,
   usePortForwardStore,
-} from '@/stores/portForwardStore';
-import { useToast } from '@/components/ui/use-toast';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+} from "@/stores/portForwardStore";
+import { useToast } from "@/components/ui/use-toast";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -22,18 +22,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import {
-  Pencil,
-  Play,
-  Plus,
-  RefreshCw,
-  Square,
-  Trash2,
-} from 'lucide-react';
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Pencil, Play, Plus, RefreshCw, Square, Trash2 } from "lucide-react";
 
 type PortForwardFormState = {
   name: string;
@@ -45,11 +38,11 @@ type PortForwardFormState = {
 };
 
 const emptyFormState: PortForwardFormState = {
-  name: '',
-  pod: '',
-  namespace: '',
-  localPort: '',
-  remotePort: '',
+  name: "",
+  pod: "",
+  namespace: "",
+  localPort: "",
+  remotePort: "",
   autoReconnect: true,
 };
 
@@ -58,19 +51,19 @@ const portStatusBadge = (status?: string) => {
     return null;
   }
   const normalized = status.toLowerCase();
-  if (normalized === 'listening') {
-    return { label: 'Listening', variant: 'success' as const };
+  if (normalized === "listening") {
+    return { label: "Listening", variant: "success" as const };
   }
-  if (normalized === 'reconnecting') {
-    return { label: 'Reconnecting', variant: 'warning' as const };
+  if (normalized === "reconnecting") {
+    return { label: "Reconnecting", variant: "warning" as const };
   }
-  if (normalized === 'reconnected') {
-    return { label: 'Reconnected', variant: 'success' as const };
+  if (normalized === "reconnected") {
+    return { label: "Reconnected", variant: "success" as const };
   }
-  if (normalized === 'error') {
-    return { label: 'Error', variant: 'destructive' as const };
+  if (normalized === "error") {
+    return { label: "Error", variant: "destructive" as const };
   }
-  return { label: status, variant: 'secondary' as const };
+  return { label: status, variant: "secondary" as const };
 };
 
 const parsePort = (value: string): number | null => {
@@ -87,7 +80,8 @@ const sessionKey = (item: {
   namespace: string;
   localPort: number;
   remotePort: number;
-}) => `${item.context}:${item.namespace}:${item.pod}:${item.localPort}:${item.remotePort}`;
+}) =>
+  `${item.context}:${item.namespace}:${item.pod}:${item.localPort}:${item.remotePort}`;
 
 export function PortForwardManager() {
   const { toast } = useToast();
@@ -101,28 +95,33 @@ export function PortForwardManager() {
   const startConfig = usePortForwardStore((state) => state.startConfig);
   const stopSession = usePortForwardStore((state) => state.stopSession);
   const refreshSessions = usePortForwardStore((state) => state.refreshSessions);
-  const startAllForContext = usePortForwardStore((state) => state.startAllForContext);
+  const startAllForContext = usePortForwardStore(
+    (state) => state.startAllForContext,
+  );
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingConfig, setEditingConfig] = useState<PortForwardConfig | null>(null);
-  const [formState, setFormState] = useState<PortForwardFormState>(emptyFormState);
+  const [editingConfig, setEditingConfig] = useState<PortForwardConfig | null>(
+    null,
+  );
+  const [formState, setFormState] =
+    useState<PortForwardFormState>(emptyFormState);
   const [startAllBusy, setStartAllBusy] = useState(false);
   const [actionConfigId, setActionConfigId] = useState<string | null>(null);
 
   useEffect(() => {
     refreshSessions().catch((error) => {
-      console.error('Failed to refresh port-forward sessions:', error);
+      console.error("Failed to refresh port-forward sessions:", error);
     });
   }, [refreshSessions, currentContext]);
 
   const contextConfigs = useMemo(
     () => configs.filter((config) => config.context === currentContext),
-    [configs, currentContext]
+    [configs, currentContext],
   );
 
   const contextSessions = useMemo(
     () => sessions.filter((session) => session.context === currentContext),
-    [sessions, currentContext]
+    [sessions, currentContext],
   );
 
   const sessionsByKey = useMemo(() => {
@@ -134,8 +133,12 @@ export function PortForwardManager() {
   }, [contextSessions]);
 
   const unmanagedSessions = useMemo(() => {
-    const configKeys = new Set(contextConfigs.map((config) => sessionKey(config)));
-    return contextSessions.filter((session) => !configKeys.has(sessionKey(session)));
+    const configKeys = new Set(
+      contextConfigs.map((config) => sessionKey(config)),
+    );
+    return contextSessions.filter(
+      (session) => !configKeys.has(sessionKey(session)),
+    );
   }, [contextConfigs, contextSessions]);
 
   const openCreateDialog = () => {
@@ -160,9 +163,9 @@ export function PortForwardManager() {
   const handleSaveConfig = () => {
     if (!currentContext) {
       toast({
-        title: 'No cluster selected',
-        description: 'Connect to a cluster to create port-forward configs.',
-        variant: 'destructive',
+        title: "No cluster selected",
+        description: "Connect to a cluster to create port-forward configs.",
+        variant: "destructive",
       });
       return;
     }
@@ -172,18 +175,18 @@ export function PortForwardManager() {
 
     if (!formState.pod.trim() || !formState.namespace.trim()) {
       toast({
-        title: 'Missing target',
-        description: 'Pod name and namespace are required.',
-        variant: 'destructive',
+        title: "Missing target",
+        description: "Pod name and namespace are required.",
+        variant: "destructive",
       });
       return;
     }
 
     if (!localPort || !remotePort) {
       toast({
-        title: 'Invalid port',
-        description: 'Ports must be between 1 and 65535.',
-        variant: 'destructive',
+        title: "Invalid port",
+        description: "Ports must be between 1 and 65535.",
+        variant: "destructive",
       });
       return;
     }
@@ -221,9 +224,9 @@ export function PortForwardManager() {
       await startConfig(configId);
     } catch (error) {
       toast({
-        title: 'Failed to start port-forward',
+        title: "Failed to start port-forward",
         description: String(error),
-        variant: 'destructive',
+        variant: "destructive",
       });
     } finally {
       setActionConfigId(null);
@@ -236,9 +239,9 @@ export function PortForwardManager() {
       await stopSession(sessionId);
     } catch (error) {
       toast({
-        title: 'Failed to stop port-forward',
+        title: "Failed to stop port-forward",
         description: String(error),
-        variant: 'destructive',
+        variant: "destructive",
       });
     } finally {
       setActionConfigId(null);
@@ -248,9 +251,9 @@ export function PortForwardManager() {
   const handleStartAll = async () => {
     if (!currentContext) {
       toast({
-        title: 'No cluster selected',
-        description: 'Connect to a cluster to start port-forwards.',
-        variant: 'destructive',
+        title: "No cluster selected",
+        description: "Connect to a cluster to start port-forwards.",
+        variant: "destructive",
       });
       return;
     }
@@ -259,27 +262,31 @@ export function PortForwardManager() {
     try {
       const result = await startAllForContext(currentContext);
       toast({
-        title: 'Port-forward batch complete',
+        title: "Port-forward batch complete",
         description: `Started ${result.started}, skipped ${result.skipped}, failed ${result.failed}.`,
       });
     } catch (error) {
       toast({
-        title: 'Failed to start all port-forwards',
+        title: "Failed to start all port-forwards",
         description: String(error),
-        variant: 'destructive',
+        variant: "destructive",
       });
     } finally {
       setStartAllBusy(false);
     }
   };
 
-  const handleToggleAutoReconnect = (config: PortForwardConfig, checked: boolean) => {
+  const handleToggleAutoReconnect = (
+    config: PortForwardConfig,
+    checked: boolean,
+  ) => {
     updateConfig(config.id, { autoReconnect: checked });
     const activeSession = sessionsByKey.get(sessionKey(config));
     if (activeSession) {
       toast({
-        title: 'Auto-reconnect updated',
-        description: 'Changes will apply the next time this port-forward starts.',
+        title: "Auto-reconnect updated",
+        description:
+          "Changes will apply the next time this port-forward starts.",
       });
     }
   };
@@ -296,8 +303,8 @@ export function PortForwardManager() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm">
             <span className="text-muted-foreground">Cluster</span>
-            <Badge variant={currentContext ? 'outline' : 'destructive'}>
-              {currentContext || 'Not connected'}
+            <Badge variant={currentContext ? "outline" : "destructive"}>
+              {currentContext || "Not connected"}
             </Badge>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -313,12 +320,18 @@ export function PortForwardManager() {
               variant="outline"
               size="sm"
               onClick={handleStartAll}
-              disabled={startAllBusy || !currentContext || contextConfigs.length === 0}
+              disabled={
+                startAllBusy || !currentContext || contextConfigs.length === 0
+              }
             >
               <Play className="mr-2 h-4 w-4" />
-              {startAllBusy ? 'Starting...' : 'Start All'}
+              {startAllBusy ? "Starting..." : "Start All"}
             </Button>
-            <Button size="sm" onClick={openCreateDialog} disabled={!currentContext}>
+            <Button
+              size="sm"
+              onClick={openCreateDialog}
+              disabled={!currentContext}
+            >
               <Plus className="mr-2 h-4 w-4" />
               New Config
             </Button>
@@ -328,8 +341,8 @@ export function PortForwardManager() {
         {contextConfigs.length === 0 ? (
           <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
             {currentContext
-              ? 'No port-forward configs for this cluster yet.'
-              : 'Connect to a cluster to create port-forward configs.'}
+              ? "No port-forward configs for this cluster yet."
+              : "Connect to a cluster to create port-forward configs."}
           </div>
         ) : (
           <div className="space-y-3">
@@ -347,11 +360,15 @@ export function PortForwardManager() {
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">{config.name}</span>
-                        <Badge variant={activeSession ? 'success' : 'secondary'}>
-                          {activeSession ? 'Active' : 'Idle'}
+                        <Badge
+                          variant={activeSession ? "success" : "secondary"}
+                        >
+                          {activeSession ? "Active" : "Idle"}
                         </Badge>
                         {statusInfo && (
-                          <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+                          <Badge variant={statusInfo.variant}>
+                            {statusInfo.label}
+                          </Badge>
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -406,7 +423,8 @@ export function PortForwardManager() {
                       />
                       <Label className="text-sm">Auto reconnect</Label>
                     </div>
-                    {activeSession && statusBySession[activeSession.id]?.message ? (
+                    {activeSession &&
+                    statusBySession[activeSession.id]?.message ? (
                       <span className="text-xs text-muted-foreground">
                         {statusBySession[activeSession.id]?.message}
                       </span>
@@ -423,7 +441,9 @@ export function PortForwardManager() {
             <div className="text-sm font-medium">Active sessions</div>
             <div className="space-y-2">
               {unmanagedSessions.map((session) => {
-                const statusInfo = portStatusBadge(statusBySession[session.id]?.status);
+                const statusInfo = portStatusBadge(
+                  statusBySession[session.id]?.status,
+                );
                 return (
                   <div
                     key={session.id}
@@ -432,10 +452,13 @@ export function PortForwardManager() {
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="font-medium">
-                          {session.localPort} → {session.pod}:{session.remotePort}
+                          {session.localPort} → {session.pod}:
+                          {session.remotePort}
                         </span>
                         {statusInfo && (
-                          <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+                          <Badge variant={statusInfo.variant}>
+                            {statusInfo.label}
+                          </Badge>
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -463,12 +486,12 @@ export function PortForwardManager() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editingConfig ? 'Edit port-forward' : 'New port-forward'}
+              {editingConfig ? "Edit port-forward" : "New port-forward"}
             </DialogTitle>
             <DialogDescription>
               {editingConfig
-                ? 'Update the saved port-forward configuration.'
-                : 'Save a reusable port-forward configuration for this cluster.'}
+                ? "Update the saved port-forward configuration."
+                : "Save a reusable port-forward configuration for this cluster."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
@@ -478,7 +501,10 @@ export function PortForwardManager() {
                 id="pf-name"
                 value={formState.name}
                 onChange={(event) =>
-                  setFormState((prev) => ({ ...prev, name: event.target.value }))
+                  setFormState((prev) => ({
+                    ...prev,
+                    name: event.target.value,
+                  }))
                 }
                 placeholder="Auth API"
               />
@@ -500,7 +526,10 @@ export function PortForwardManager() {
                 id="pf-namespace"
                 value={formState.namespace}
                 onChange={(event) =>
-                  setFormState((prev) => ({ ...prev, namespace: event.target.value }))
+                  setFormState((prev) => ({
+                    ...prev,
+                    namespace: event.target.value,
+                  }))
                 }
                 placeholder="default"
               />
@@ -563,7 +592,7 @@ export function PortForwardManager() {
               Cancel
             </Button>
             <Button onClick={handleSaveConfig}>
-              {editingConfig ? 'Save changes' : 'Save config'}
+              {editingConfig ? "Save changes" : "Save config"}
             </Button>
           </DialogFooter>
         </DialogContent>

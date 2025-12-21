@@ -1,30 +1,39 @@
-import { useEffect } from 'react';
-import { useClusterStore } from '@/stores/clusterStore';
-import { useThemeStore } from '@/stores/themeStore';
+import { useEffect } from "react";
+import { useClusterStore } from "@/stores/clusterStore";
+import { useThemeStore } from "@/stores/themeStore";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { Search, Moon, Sun, Monitor, RefreshCw, Command, AlertCircle, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useQuery } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
+} from "@/components/ui/tooltip";
+import {
+  Search,
+  Moon,
+  Sun,
+  Monitor,
+  RefreshCw,
+  Command,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
 
 export function Header() {
   const {
@@ -58,9 +67,9 @@ export function Header() {
 
   // Fetch namespaces when connected
   const { data: namespaces = [], refetch: refetchNamespaces } = useQuery({
-    queryKey: ['namespaces', currentContext],
+    queryKey: ["namespaces", currentContext],
     queryFn: async () => {
-      const result = await invoke<{ name: string }[]>('list_namespaces');
+      const result = await invoke<{ name: string }[]>("list_namespaces");
       return result.map((ns) => ns.name);
     },
     enabled: isConnected,
@@ -80,7 +89,7 @@ export function Header() {
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Cluster:</span>
           <Select
-            value={currentContext || ''}
+            value={currentContext || ""}
             onValueChange={handleContextChange}
           >
             <SelectTrigger className="w-48">
@@ -94,7 +103,7 @@ export function Header() {
               ))}
             </SelectContent>
           </Select>
-          
+
           {/* Connection status indicator */}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -106,8 +115,8 @@ export function Header() {
                 ) : (
                   <div
                     className={cn(
-                      'h-2.5 w-2.5 rounded-full',
-                      isConnected ? 'bg-green-500' : 'bg-gray-400'
+                      "h-2.5 w-2.5 rounded-full",
+                      isConnected ? "bg-green-500" : "bg-gray-400",
                     )}
                   />
                 )}
@@ -118,11 +127,17 @@ export function Header() {
                 <span>Connecting to cluster...</span>
               ) : error ? (
                 <div className="space-y-1">
-                  <div className="font-medium text-red-500">Connection Error</div>
-                  <div className="text-xs text-muted-foreground break-words">{error}</div>
+                  <div className="font-medium text-red-500">
+                    Connection Error
+                  </div>
+                  <div className="text-xs text-muted-foreground break-words">
+                    {error}
+                  </div>
                 </div>
               ) : isConnected ? (
-                <span className="text-green-500">Connected to {currentContext}</span>
+                <span className="text-green-500">
+                  Connected to {currentContext}
+                </span>
               ) : (
                 <span>Not connected. Select a cluster to connect.</span>
               )}
@@ -135,8 +150,10 @@ export function Header() {
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Namespace:</span>
             <Select
-              value={currentNamespace || '__all__'}
-              onValueChange={(value) => switchNamespace(value === '__all__' ? '' : value)}
+              value={currentNamespace || "__all__"}
+              onValueChange={(value) =>
+                switchNamespace(value === "__all__" ? "" : value)
+              }
             >
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Select namespace" />
@@ -173,7 +190,7 @@ export function Header() {
           variant="outline"
           className="justify-start text-sm text-muted-foreground"
           onClick={() => {
-            window.dispatchEvent(new CustomEvent('command-palette-open'));
+            window.dispatchEvent(new CustomEvent("command-palette-open"));
           }}
         >
           <Search className="mr-2 h-4 w-4" />
@@ -187,22 +204,22 @@ export function Header() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
-              {theme === 'light' && <Sun className="h-4 w-4" />}
-              {theme === 'dark' && <Moon className="h-4 w-4" />}
-              {theme === 'system' && <Monitor className="h-4 w-4" />}
+              {theme === "light" && <Sun className="h-4 w-4" />}
+              {theme === "dark" && <Moon className="h-4 w-4" />}
+              {theme === "system" && <Monitor className="h-4 w-4" />}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setTheme('light')}>
+            <DropdownMenuItem onClick={() => setTheme("light")}>
               <Sun className="mr-2 h-4 w-4" />
               Light
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setTheme('dark')}>
+            <DropdownMenuItem onClick={() => setTheme("dark")}>
               <Moon className="mr-2 h-4 w-4" />
               Dark
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => setTheme('system')}>
+            <DropdownMenuItem onClick={() => setTheme("system")}>
               <Monitor className="mr-2 h-4 w-4" />
               System
             </DropdownMenuItem>

@@ -1,22 +1,29 @@
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
-import { useClusterStore } from '@/stores/clusterStore';
-import { DataTable } from '@/components/ui/data-table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ConnectClusterEmptyState } from '@/components/ui/connect-cluster-empty-state';
-import { ColumnDef } from '@tanstack/react-table';
-import { Eye, Trash2, RefreshCw, Globe, ExternalLink, Loader2 } from 'lucide-react';
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
+import { useClusterStore } from "@/stores/clusterStore";
+import { DataTable } from "@/components/ui/data-table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
+import { ColumnDef } from "@tanstack/react-table";
+import {
+  Eye,
+  Trash2,
+  RefreshCw,
+  Globe,
+  ExternalLink,
+  Loader2,
+} from "lucide-react";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { ActionMenu } from '@/components/ui/action-menu';
+} from "@/components/ui/tooltip";
+import { ActionMenu } from "@/components/ui/action-menu";
 
 interface IngressRule {
   host: string;
@@ -40,7 +47,7 @@ interface IngressInfo {
 
 const getIngressOpenUrl = (ingress: IngressInfo): string | null => {
   const host =
-    ingress.rules.find((rule) => rule.host && rule.host !== '*')?.host ||
+    ingress.rules.find((rule) => rule.host && rule.host !== "*")?.host ||
     ingress.load_balancer_ips[0];
 
   if (!host) {
@@ -48,14 +55,14 @@ const getIngressOpenUrl = (ingress: IngressInfo): string | null => {
   }
 
   const usesTls = ingress.tls_hosts.includes(host);
-  const scheme = usesTls ? 'https' : 'http';
+  const scheme = usesTls ? "https" : "http";
   return `${scheme}://${host}`;
 };
 
 const columns: ColumnDef<IngressInfo>[] = [
   {
-    accessorKey: 'name',
-    header: 'Name',
+    accessorKey: "name",
+    header: "Name",
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
         <Globe className="h-4 w-4 text-muted-foreground" />
@@ -64,20 +71,20 @@ const columns: ColumnDef<IngressInfo>[] = [
     ),
   },
   {
-    accessorKey: 'namespace',
-    header: 'Namespace',
+    accessorKey: "namespace",
+    header: "Namespace",
   },
   {
-    accessorKey: 'class_name',
-    header: 'Class',
-    cell: ({ row }) => row.original.class_name || 'default',
+    accessorKey: "class_name",
+    header: "Class",
+    cell: ({ row }) => row.original.class_name || "default",
   },
   {
-    accessorKey: 'rules',
-    header: 'Hosts',
+    accessorKey: "rules",
+    header: "Hosts",
     cell: ({ row }) => {
       const hosts = row.original.rules.map((r) => r.host).filter(Boolean);
-      if (hosts.length === 0) return '*';
+      if (hosts.length === 0) return "*";
       return (
         <div className="flex flex-wrap gap-1">
           {hosts.slice(0, 2).map((host, i) => (
@@ -104,11 +111,11 @@ const columns: ColumnDef<IngressInfo>[] = [
     },
   },
   {
-    id: 'paths',
-    header: 'Paths',
+    id: "paths",
+    header: "Paths",
     cell: ({ row }) => {
       const allPaths = row.original.rules.flatMap((r) => r.paths);
-      if (allPaths.length === 0) return '-';
+      if (allPaths.length === 0) return "-";
       return (
         <Tooltip>
           <TooltipTrigger>
@@ -128,11 +135,12 @@ const columns: ColumnDef<IngressInfo>[] = [
     },
   },
   {
-    accessorKey: 'load_balancer_ips',
-    header: 'Address',
+    accessorKey: "load_balancer_ips",
+    header: "Address",
     cell: ({ row }) => {
       const ips = row.original.load_balancer_ips;
-      if (ips.length === 0) return <span className="text-muted-foreground">Pending</span>;
+      if (ips.length === 0)
+        return <span className="text-muted-foreground">Pending</span>;
       return (
         <div className="flex items-center gap-1">
           <span className="text-xs">{ips[0]}</span>
@@ -146,8 +154,8 @@ const columns: ColumnDef<IngressInfo>[] = [
     },
   },
   {
-    accessorKey: 'tls_hosts',
-    header: 'TLS',
+    accessorKey: "tls_hosts",
+    header: "TLS",
     cell: ({ row }) => {
       const tlsHosts = row.original.tls_hosts;
       if (tlsHosts.length === 0) {
@@ -156,14 +164,19 @@ const columns: ColumnDef<IngressInfo>[] = [
       return (
         <Tooltip>
           <TooltipTrigger>
-            <Badge variant="default" className="bg-green-500/10 text-green-500 border-green-500/20">
+            <Badge
+              variant="default"
+              className="bg-green-500/10 text-green-500 border-green-500/20"
+            >
               TLS ({tlsHosts.length})
             </Badge>
           </TooltipTrigger>
           <TooltipContent>
             <div className="space-y-1">
               {tlsHosts.map((host, i) => (
-                <div key={i} className="text-xs">{host}</div>
+                <div key={i} className="text-xs">
+                  {host}
+                </div>
               ))}
             </div>
           </TooltipContent>
@@ -172,11 +185,11 @@ const columns: ColumnDef<IngressInfo>[] = [
     },
   },
   {
-    accessorKey: 'age',
-    header: 'Age',
+    accessorKey: "age",
+    header: "Age",
   },
   {
-    id: 'actions',
+    id: "actions",
     cell: ({ row }) => {
       const openUrl = getIngressOpenUrl(row.original);
       return (
@@ -187,7 +200,7 @@ const columns: ColumnDef<IngressInfo>[] = [
           </DropdownMenuItem>
           {openUrl && (
             <DropdownMenuItem
-              onClick={() => window.open(openUrl, '_blank', 'noreferrer')}
+              onClick={() => window.open(openUrl, "_blank", "noreferrer")}
             >
               <ExternalLink className="mr-2 h-4 w-4" />
               Open in Browser
@@ -207,10 +220,15 @@ const columns: ColumnDef<IngressInfo>[] = [
 export function IngressList() {
   const { isConnected, currentNamespace } = useClusterStore();
 
-  const { data: ingresses = [], isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['ingresses', currentNamespace],
+  const {
+    data: ingresses = [],
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey: ["ingresses", currentNamespace],
     queryFn: async () => {
-      const result = await invoke<IngressInfo[]>('list_ingresses', {
+      const result = await invoke<IngressInfo[]>("list_ingresses", {
         namespace: currentNamespace,
       });
       return result;
@@ -239,8 +257,15 @@ export function IngressList() {
             HTTP/HTTPS routing rules for external access to services
           </p>
         </div>
-        <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isFetching}>
-          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => refetch()}
+          disabled={isFetching}
+        >
+          <RefreshCw
+            className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+          />
         </Button>
       </div>
       <DataTable

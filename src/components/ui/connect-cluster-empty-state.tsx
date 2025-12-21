@@ -7,7 +7,7 @@ export function ConnectClusterEmptyState({
 }: ConnectClusterEmptyStateProps) {
   const message = resourceLabel
     ? `Connect to a cluster to view ${resourceLabel}`
-    : 'Connect to a cluster';
+    : "Connect to a cluster";
 
   return (
     <div className="flex h-full items-center justify-center text-muted-foreground">

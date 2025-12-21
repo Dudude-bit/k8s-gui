@@ -1,4 +1,4 @@
-import * as React from 'react';
+import * as React from "react";
 import {
   flexRender,
   getCoreRowModel,
@@ -9,7 +9,7 @@ import {
   type ColumnDef,
   type SortingState,
   type ColumnFiltersState,
-} from '@tanstack/react-table';
+} from "@tanstack/react-table";
 import {
   Table,
   TableBody,
@@ -17,20 +17,20 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -49,14 +49,14 @@ export function DataTable<TData, TValue>({
   isLoading = false,
   isFetching = false,
   searchKey,
-  searchPlaceholder = 'Search...',
+  searchPlaceholder = "Search...",
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    []
+    [],
   );
-  const [globalFilter, setGlobalFilter] = React.useState('');
-  const [searchValue, setSearchValue] = React.useState('');
+  const [globalFilter, setGlobalFilter] = React.useState("");
+  const [searchValue, setSearchValue] = React.useState("");
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
     pageSize: 25,
@@ -87,7 +87,7 @@ export function DataTable<TData, TValue>({
 
     if (searchColumn) {
       searchColumn.setFilterValue(deferredSearch);
-      setGlobalFilter('');
+      setGlobalFilter("");
     } else {
       setGlobalFilter(deferredSearch);
     }
@@ -98,7 +98,8 @@ export function DataTable<TData, TValue>({
   const filteredRows = table.getFilteredRowModel().rows.length;
   const totalRows = data.length;
   const pageRows = table.getRowModel().rows.length;
-  const pageStart = totalRows === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1;
+  const pageStart =
+    totalRows === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1;
   const pageEnd = totalRows === 0 ? 0 : pageStart + pageRows - 1;
 
   if (isLoading) {
@@ -116,7 +117,10 @@ export function DataTable<TData, TValue>({
             </div>
           </div>
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="flex h-16 items-center gap-4 border-b px-4 last:border-0">
+            <div
+              key={i}
+              className="flex h-16 items-center gap-4 border-b px-4 last:border-0"
+            >
               {columns.map((_, j) => (
                 <Skeleton key={j} className="h-4 w-24" />
               ))}
@@ -140,10 +144,13 @@ export function DataTable<TData, TValue>({
           />
         </div>
       </div>
-      <div className={cn(
-        "rounded-md border transition-opacity duration-200",
-        isFetching && "opacity-60"
-      )} aria-busy={isFetching}>
+      <div
+        className={cn(
+          "rounded-md border transition-opacity duration-200",
+          isFetching && "opacity-60",
+        )}
+        aria-busy={isFetching}
+      >
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -155,7 +162,7 @@ export function DataTable<TData, TValue>({
                         ? null
                         : flexRender(
                             header.column.columnDef.header,
-                            header.getContext()
+                            header.getContext(),
                           )}
                     </TableHead>
                   );
@@ -168,13 +175,13 @@ export function DataTable<TData, TValue>({
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  data-state={row.getIsSelected() && 'selected'}
+                  data-state={row.getIsSelected() && "selected"}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(
                         cell.column.columnDef.cell,
-                        cell.getContext()
+                        cell.getContext(),
                       )}
                     </TableCell>
                   ))}

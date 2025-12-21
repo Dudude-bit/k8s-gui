@@ -1,8 +1,8 @@
-import { Outlet } from 'react-router-dom';
-import { Sidebar } from './Sidebar';
-import { Header } from './Header';
-import { CommandPalette } from './CommandPalette';
-import { YamlViewerDialog } from '@/components/ui/yaml-viewer';
+import { Outlet } from "react-router-dom";
+import { Sidebar } from "./Sidebar";
+import { Header } from "./Header";
+import { CommandPalette } from "./CommandPalette";
+import { YamlViewerDialog } from "@/components/ui/yaml-viewer";
 
 export function Layout() {
   return (

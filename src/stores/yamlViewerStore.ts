@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+import { create } from "zustand";
 
 interface YamlViewerOptions {
   title: string;
@@ -18,16 +18,16 @@ interface YamlViewerState {
 
 export const useYamlViewerStore = create<YamlViewerState>((set) => ({
   open: false,
-  title: '',
+  title: "",
   description: undefined,
-  content: '',
+  content: "",
   isLoading: false,
   openViewer: async ({ title, description, fetchYaml }) => {
     set({
       open: true,
       title,
       description,
-      content: '',
+      content: "",
       isLoading: true,
     });
 
@@ -37,9 +37,9 @@ export const useYamlViewerStore = create<YamlViewerState>((set) => ({
     } catch (error) {
       set({
         open: false,
-        title: '',
+        title: "",
         description: undefined,
-        content: '',
+        content: "",
         isLoading: false,
       });
       throw error;
@@ -48,9 +48,9 @@ export const useYamlViewerStore = create<YamlViewerState>((set) => ({
   closeViewer: () => {
     set({
       open: false,
-      title: '',
+      title: "",
       description: undefined,
-      content: '',
+      content: "",
       isLoading: false,
     });
   },

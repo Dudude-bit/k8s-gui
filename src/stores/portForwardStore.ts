@@ -1,7 +1,7 @@
-import { create } from 'zustand';
-import { invoke } from '@tauri-apps/api/core';
+import { create } from "zustand";
+import { invoke } from "@tauri-apps/api/core";
 
-const CONFIG_STORAGE_KEY = 'k8s-gui.port-forward.configs';
+const CONFIG_STORAGE_KEY = "k8s-gui.port-forward.configs";
 
 export interface PortForwardConfig {
   id: string;
@@ -43,18 +43,22 @@ interface PortForwardState {
   statusBySession: Record<string, PortForwardStatus>;
   hydrated: boolean;
   hydrate: () => void;
-  addConfig: (config: Omit<PortForwardConfig, 'id' | 'createdAt'>) => PortForwardConfig;
+  addConfig: (
+    config: Omit<PortForwardConfig, "id" | "createdAt">,
+  ) => PortForwardConfig;
   updateConfig: (id: string, updates: Partial<PortForwardConfig>) => void;
   removeConfig: (id: string) => void;
   refreshSessions: () => Promise<void>;
   startConfig: (configId: string) => Promise<PortForwardSession>;
   stopSession: (sessionId: string) => Promise<void>;
-  startAllForContext: (context: string) => Promise<{ started: number; skipped: number; failed: number }>;
+  startAllForContext: (
+    context: string,
+  ) => Promise<{ started: number; skipped: number; failed: number }>;
   setStatus: (status: PortForwardStatus) => void;
 }
 
 function loadConfigsFromStorage(): PortForwardConfig[] {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return [];
   }
   try {
@@ -67,19 +71,19 @@ function loadConfigsFromStorage(): PortForwardConfig[] {
       return parsed;
     }
   } catch (error) {
-    console.warn('Failed to load port-forward configs:', error);
+    console.warn("Failed to load port-forward configs:", error);
   }
   return [];
 }
 
 function saveConfigsToStorage(configs: PortForwardConfig[]) {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return;
   }
   try {
     window.localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(configs));
   } catch (error) {
-    console.warn('Failed to save port-forward configs:', error);
+    console.warn("Failed to save port-forward configs:", error);
   }
 }
 
@@ -133,7 +137,7 @@ export const usePortForwardStore = create<PortForwardState>((set, get) => ({
 
   updateConfig: (id, updates) => {
     const configs = get().configs.map((config) =>
-      config.id === id ? { ...config, ...updates } : config
+      config.id === id ? { ...config, ...updates } : config,
     );
     saveConfigsToStorage(configs);
     set({ configs });
@@ -146,17 +150,17 @@ export const usePortForwardStore = create<PortForwardState>((set, get) => ({
   },
 
   refreshSessions: async () => {
-    const sessions = await invoke<any[]>('list_port_forwards');
+    const sessions = await invoke<any[]>("list_port_forwards");
     set({ sessions: sessions.map(mapSession) });
   },
 
   startConfig: async (configId) => {
     const config = get().configs.find((item) => item.id === configId);
     if (!config) {
-      throw new Error('Port-forward config not found');
+      throw new Error("Port-forward config not found");
     }
 
-    const session = await invoke<any>('port_forward_pod', {
+    const session = await invoke<any>("port_forward_pod", {
       pod: config.pod,
       namespace: config.namespace,
       config: {
@@ -174,7 +178,7 @@ export const usePortForwardStore = create<PortForwardState>((set, get) => ({
   },
 
   stopSession: async (sessionId) => {
-    await invoke('stop_port_forward', { forwardId: sessionId });
+    await invoke("stop_port_forward", { forwardId: sessionId });
     set((state) => ({
       sessions: state.sessions.filter((session) => session.id !== sessionId),
     }));
@@ -183,7 +187,10 @@ export const usePortForwardStore = create<PortForwardState>((set, get) => ({
   startAllForContext: async (context) => {
     const { configs, sessions } = get();
     const activeKey = new Set(
-      sessions.map((session) => `${session.context}:${session.pod}:${session.namespace}:${session.localPort}:${session.remotePort}`)
+      sessions.map(
+        (session) =>
+          `${session.context}:${session.pod}:${session.namespace}:${session.localPort}:${session.remotePort}`,
+      ),
     );
 
     let started = 0;
@@ -201,7 +208,7 @@ export const usePortForwardStore = create<PortForwardState>((set, get) => ({
         await get().startConfig(config.id);
         started += 1;
       } catch (error) {
-        console.error('Failed to start port-forward:', error);
+        console.error("Failed to start port-forward:", error);
         failed += 1;
       }
     }

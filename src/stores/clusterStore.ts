@@ -1,5 +1,5 @@
-import { create } from 'zustand';
-import { invoke } from '@tauri-apps/api/core';
+import { create } from "zustand";
+import { invoke } from "@tauri-apps/api/core";
 
 interface ClusterContext {
   name: string;
@@ -15,7 +15,7 @@ interface ClusterState {
   isConnected: boolean;
   isLoading: boolean;
   error: string | null;
-  
+
   // Actions
   loadContexts: () => Promise<void>;
   switchContext: (context: string) => Promise<void>;
@@ -27,7 +27,7 @@ interface ClusterState {
 export const useClusterStore = create<ClusterState>((set, get) => ({
   contexts: [],
   currentContext: null,
-  currentNamespace: '', // Empty string means all namespaces
+  currentNamespace: "", // Empty string means all namespaces
   isConnected: false,
   isLoading: false,
   error: null,
@@ -35,8 +35,8 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
   loadContexts: async () => {
     set({ isLoading: true, error: null });
     try {
-      const contexts = await invoke<ClusterContext[]>('list_contexts');
-      const currentContext = await invoke<string | null>('get_current_context');
+      const contexts = await invoke<ClusterContext[]>("list_contexts");
+      const currentContext = await invoke<string | null>("get_current_context");
       set({ contexts, currentContext, isLoading: false });
     } catch (error) {
       set({ error: String(error), isLoading: false });
@@ -46,8 +46,8 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
   switchContext: async (context: string) => {
     set({ isLoading: true, error: null });
     try {
-      await invoke('switch_context', { context });
-      set({ currentContext: context, currentNamespace: '', isLoading: false }); // Reset to all namespaces
+      await invoke("switch_context", { context });
+      set({ currentContext: context, currentNamespace: "", isLoading: false }); // Reset to all namespaces
     } catch (error) {
       set({ error: String(error), isLoading: false });
     }
@@ -57,7 +57,7 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
     // Don't set isLoading for namespace switch - it causes flickering
     // Just update the namespace immediately, queries will refetch automatically
     try {
-      await invoke('switch_namespace', { namespace });
+      await invoke("switch_namespace", { namespace });
       set({ currentNamespace: namespace });
     } catch (error) {
       set({ error: String(error) });
@@ -67,8 +67,8 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
   connect: async (context?: string) => {
     set({ isLoading: true, error: null });
     try {
-      await invoke('connect_cluster', { context });
-      const currentContext = await invoke<string | null>('get_current_context');
+      await invoke("connect_cluster", { context });
+      const currentContext = await invoke<string | null>("get_current_context");
       set({ currentContext, isConnected: true, isLoading: false });
     } catch (error) {
       set({ error: String(error), isLoading: false, isConnected: false });
@@ -79,9 +79,9 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
     const { currentContext } = get();
     if (currentContext) {
       try {
-        await invoke('disconnect_cluster', { context: currentContext });
+        await invoke("disconnect_cluster", { context: currentContext });
       } catch (error) {
-        console.error('Error disconnecting:', error);
+        console.error("Error disconnecting:", error);
       }
     }
     set({ isConnected: false, currentContext: null });

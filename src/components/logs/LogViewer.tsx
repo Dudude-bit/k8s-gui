@@ -1,17 +1,17 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useEffect, useRef, useState, useCallback } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { useToast } from '@/components/ui/use-toast';
+} from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/components/ui/use-toast";
 import {
   Download,
   Pause,
@@ -20,7 +20,7 @@ import {
   Trash2,
   ArrowDown,
   Loader2,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface LogViewerProps {
   podName: string;
@@ -48,13 +48,13 @@ export function LogViewer({
 }: LogViewerProps) {
   const { toast } = useToast();
   const [selectedContainer, setSelectedContainer] = useState(
-    initialContainer || containers[0]
+    initialContainer || containers[0],
   );
   const [logs, setLogs] = useState<LogLine[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [tailLines, setTailLines] = useState(100);
   const [autoScroll, setAutoScroll] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -64,7 +64,7 @@ export function LogViewer({
   // Filter logs based on search
   const filteredLogs = searchQuery
     ? logs.filter((log) =>
-        log.message.toLowerCase().includes(searchQuery.toLowerCase())
+        log.message.toLowerCase().includes(searchQuery.toLowerCase()),
       )
     : logs;
 
@@ -78,14 +78,14 @@ export function LogViewer({
   // Start streaming logs
   const startStreaming = useCallback(async () => {
     if (isConnecting || isStreaming) return;
-    
+
     try {
       setIsConnecting(true);
       setError(null);
-      
-      console.log('Starting log stream for', podName, selectedContainer);
-      
-      const streamId = await invoke<string>('stream_pod_logs', {
+
+      console.log("Starting log stream for", podName, selectedContainer);
+
+      const streamId = await invoke<string>("stream_pod_logs", {
         config: {
           pod_name: podName,
           namespace,
@@ -96,61 +96,68 @@ export function LogViewer({
           previous: false,
         },
       });
-      
-      console.log('Got stream ID:', streamId);
+
+      console.log("Got stream ID:", streamId);
       streamIdRef.current = streamId;
 
       // Listen for log events
-      const unlisten = await listen<{ 
-        stream_id: string; 
+      const unlisten = await listen<{
+        stream_id: string;
         line: string;
         pod: string;
         container: string;
         message: string;
         timestamp: string | null;
-      }>(
-        'log-line',
-        (event) => {
-          if (event.payload.stream_id === streamId) {
-            setLogs((prev) => [
-              ...prev,
-              { 
-                timestamp: event.payload.timestamp, 
-                message: event.payload.message, 
-                pod: event.payload.pod,
-                container: event.payload.container,
-                namespace,
-              },
-            ]);
-          }
+      }>("log-line", (event) => {
+        if (event.payload.stream_id === streamId) {
+          setLogs((prev) => [
+            ...prev,
+            {
+              timestamp: event.payload.timestamp,
+              message: event.payload.message,
+              pod: event.payload.pod,
+              container: event.payload.container,
+              namespace,
+            },
+          ]);
         }
-      );
+      });
 
       unlistenRef.current = unlisten;
       setIsStreaming(true);
       setIsConnecting(false);
     } catch (err) {
-      console.error('Failed to start log streaming:', err);
+      console.error("Failed to start log streaming:", err);
       const errorMsg = err instanceof Error ? err.message : String(err);
-      
+
       // Check if pod was not found
-      const isPodNotFound = errorMsg.includes('not found') || errorMsg.includes('NotFound');
-      
+      const isPodNotFound =
+        errorMsg.includes("not found") || errorMsg.includes("NotFound");
+
       setError(errorMsg);
       setIsConnecting(false);
       setIsStreaming(false);
-      
+
       if (isPodNotFound && onPodNotFound) {
         onPodNotFound();
       } else {
         toast({
-          title: 'Log streaming failed',
+          title: "Log streaming failed",
           description: errorMsg,
-          variant: 'destructive',
+          variant: "destructive",
         });
       }
     }
-  }, [podName, namespace, selectedContainer, tailLines, isConnecting, isStreaming, toast, onPodNotFound]);
+  }, [
+    podName,
+    namespace,
+    selectedContainer,
+    tailLines,
+    isConnecting,
+    isStreaming,
+    toast,
+    onPodNotFound,
+  ]);
 
   const stopStreaming = useCallback(async () => {
     // Unlisten from events first
@@ -158,12 +165,12 @@ export function LogViewer({
       unlistenRef.current();
       unlistenRef.current = null;
     }
-    
+
     if (streamIdRef.current) {
       try {
-        await invoke('stop_log_stream', { stream_id: streamIdRef.current });
+        await invoke("stop_log_stream", { stream_id: streamIdRef.current });
       } catch (err) {
-        console.error('Failed to stop log streaming:', err);
+        console.error("Failed to stop log streaming:", err);
       }
       streamIdRef.current = null;
     }
@@ -185,7 +192,7 @@ export function LogViewer({
 
   const downloadLogs = async () => {
     try {
-      const logs = await invoke<LogLine[]>('get_pod_logs', {
+      const logs = await invoke<LogLine[]>("get_pod_logs", {
         pod_name: podName,
         namespace,
         container: selectedContainer,
@@ -193,11 +200,13 @@ export function LogViewer({
         since_seconds: null,
         previous: false,
       });
-      
-      const content = logs.map(log => `${log.timestamp || ''} ${log.message}`).join('\n');
-      const blob = new Blob([content], { type: 'text/plain' });
+
+      const content = logs
+        .map((log) => `${log.timestamp || ""} ${log.message}`)
+        .join("\n");
+      const blob = new Blob([content], { type: "text/plain" });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
       a.download = `${podName}-${selectedContainer}-logs.txt`;
       document.body.appendChild(a);
@@ -205,18 +214,18 @@ export function LogViewer({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Failed to download logs:', error);
+      console.error("Failed to download logs:", error);
     }
   };
 
   // Auto-start streaming on mount
   useEffect(() => {
     startStreaming();
-    
+
     return () => {
       stopStreaming();
     };
-  }, []);  // Only run on mount/unmount
+  }, []); // Only run on mount/unmount
 
   // Restart streaming when container changes
   useEffect(() => {
@@ -231,7 +240,7 @@ export function LogViewer({
   }, [selectedContainer]);
 
   const formatTimestamp = (timestamp: string | null) => {
-    if (!timestamp) return '--:--:--';
+    if (!timestamp) return "--:--:--";
     try {
       const date = new Date(timestamp);
       return date.toLocaleTimeString();
@@ -284,7 +293,7 @@ export function LogViewer({
 
         <div className="flex items-center gap-1 ml-auto">
           <Button
-            variant={autoScroll ? 'secondary' : 'ghost'}
+            variant={autoScroll ? "secondary" : "ghost"}
             size="icon"
             onClick={() => setAutoScroll(!autoScroll)}
             title="Auto-scroll"
@@ -308,7 +317,7 @@ export function LogViewer({
             <Download className="h-4 w-4" />
           </Button>
           <Button
-            variant={isStreaming ? 'destructive' : 'default'}
+            variant={isStreaming ? "destructive" : "default"}
             size="sm"
             onClick={toggleStreaming}
             disabled={isConnecting}
@@ -338,23 +347,30 @@ export function LogViewer({
         <div
           ref={scrollRef}
           className="p-4 font-mono text-xs leading-relaxed"
-          style={{ minHeight: '100%' }}
+          style={{ minHeight: "100%" }}
         >
           {error ? (
             <div className="text-center py-8">
               <p className="text-destructive mb-2">Failed to stream logs</p>
               <p className="text-muted-foreground text-xs mb-4">{error}</p>
-              <Button variant="outline" size="sm" onClick={() => { setError(null); startStreaming(); }}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setError(null);
+                  startStreaming();
+                }}
+              >
                 Retry
               </Button>
             </div>
           ) : filteredLogs.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">
               {isConnecting
-                ? 'Connecting to log stream...'
+                ? "Connecting to log stream..."
                 : isStreaming
-                ? 'Waiting for logs...'
-                : 'Click "Stream" to start viewing logs'}
+                  ? "Waiting for logs..."
+                  : 'Click "Stream" to start viewing logs'}
             </div>
           ) : (
             filteredLogs.map((log, index) => (
@@ -381,7 +397,7 @@ export function LogViewer({
       {/* Status bar */}
       <div className="flex items-center justify-between px-4 py-1 text-xs text-muted-foreground border-t bg-muted/30">
         <span>
-          {filteredLogs.length} {filteredLogs.length === 1 ? 'line' : 'lines'}
+          {filteredLogs.length} {filteredLogs.length === 1 ? "line" : "lines"}
           {searchQuery && logs.length !== filteredLogs.length && (
             <span> (filtered from {logs.length})</span>
           )}
@@ -401,18 +417,21 @@ export function LogViewer({
 function HighlightedText({ text, query }: { text: string; query: string }) {
   if (!query) return <>{text}</>;
 
-  const parts = text.split(new RegExp(`(${query})`, 'gi'));
+  const parts = text.split(new RegExp(`(${query})`, "gi"));
 
   return (
     <>
       {parts.map((part, i) =>
         part.toLowerCase() === query.toLowerCase() ? (
-          <mark key={i} className="bg-yellow-500/30 text-foreground rounded px-0.5">
+          <mark
+            key={i}
+            className="bg-yellow-500/30 text-foreground rounded px-0.5"
+          >
             {part}
           </mark>
         ) : (
           part
-        )
+        ),
       )}
     </>
   );

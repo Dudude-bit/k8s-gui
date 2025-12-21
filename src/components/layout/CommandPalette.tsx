@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { useClusterStore } from '@/stores/clusterStore';
-import { invoke } from '@tauri-apps/api/core';
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { useClusterStore } from "@/stores/clusterStore";
+import { invoke } from "@tauri-apps/api/core";
 import {
   Box,
   Network,
@@ -16,25 +16,70 @@ import {
   LayoutDashboard,
   Loader2,
   Search,
-} from 'lucide-react';
+} from "lucide-react";
 
 const quickActions = [
-  { icon: LayoutDashboard, label: 'Go to Overview', path: '/', category: 'Navigation' },
-  { icon: Box, label: 'Go to Pods', path: '/workloads/pods', category: 'Navigation' },
-  { icon: Box, label: 'Go to Deployments', path: '/workloads/deployments', category: 'Navigation' },
-  { icon: Network, label: 'Go to Services', path: '/network/services', category: 'Navigation' },
-  { icon: Server, label: 'Go to Nodes', path: '/nodes', category: 'Navigation' },
-  { icon: FileText, label: 'Go to ConfigMaps', path: '/configuration/configmaps', category: 'Navigation' },
-  { icon: FileText, label: 'Go to Secrets', path: '/configuration/secrets', category: 'Navigation' },
-  { icon: Activity, label: 'Go to Events', path: '/events', category: 'Navigation' },
-  { icon: Package, label: 'Go to Helm', path: '/helm', category: 'Navigation' },
-  { icon: Settings, label: 'Go to Settings', path: '/settings', category: 'Navigation' },
+  {
+    icon: LayoutDashboard,
+    label: "Go to Overview",
+    path: "/",
+    category: "Navigation",
+  },
+  {
+    icon: Box,
+    label: "Go to Pods",
+    path: "/workloads/pods",
+    category: "Navigation",
+  },
+  {
+    icon: Box,
+    label: "Go to Deployments",
+    path: "/workloads/deployments",
+    category: "Navigation",
+  },
+  {
+    icon: Network,
+    label: "Go to Services",
+    path: "/network/services",
+    category: "Navigation",
+  },
+  {
+    icon: Server,
+    label: "Go to Nodes",
+    path: "/nodes",
+    category: "Navigation",
+  },
+  {
+    icon: FileText,
+    label: "Go to ConfigMaps",
+    path: "/configuration/configmaps",
+    category: "Navigation",
+  },
+  {
+    icon: FileText,
+    label: "Go to Secrets",
+    path: "/configuration/secrets",
+    category: "Navigation",
+  },
+  {
+    icon: Activity,
+    label: "Go to Events",
+    path: "/events",
+    category: "Navigation",
+  },
+  { icon: Package, label: "Go to Helm", path: "/helm", category: "Navigation" },
+  {
+    icon: Settings,
+    label: "Go to Settings",
+    path: "/settings",
+    category: "Navigation",
+  },
 ];
 
 const quickCommands = [
-  { icon: Box, label: 'Create Pod' },
-  { icon: Box, label: 'Create Deployment' },
-  { icon: Network, label: 'Create Service' },
+  { icon: Box, label: "Create Pod" },
+  { icon: Box, label: "Create Deployment" },
+  { icon: Network, label: "Create Service" },
 ];
 
 interface ResourceResult {
@@ -46,7 +91,7 @@ interface ResourceResult {
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [resourceResults, setResourceResults] = useState<ResourceResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const navigate = useNavigate();
@@ -59,22 +104,22 @@ export function CommandPalette() {
   // Global keyboard shortcut
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setOpen((prev) => !prev);
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   useEffect(() => {
     const handleOpen = () => {
       setOpen(true);
     };
-    window.addEventListener('command-palette-open', handleOpen);
-    return () => window.removeEventListener('command-palette-open', handleOpen);
+    window.addEventListener("command-palette-open", handleOpen);
+    return () => window.removeEventListener("command-palette-open", handleOpen);
   }, []);
 
   useEffect(() => {
@@ -90,13 +135,12 @@ export function CommandPalette() {
         navigate(path);
       });
     },
-    [navigate]
+    [navigate],
   );
-
 
   useEffect(() => {
     if (!open) {
-      setSearchQuery('');
+      setSearchQuery("");
       setResourceResults([]);
       setIsSearching(false);
     }
@@ -122,16 +166,36 @@ export function CommandPalette() {
       try {
         const namespace = currentNamespace || null;
         const kinds = [
-          { kind: 'pods', label: 'Pod', namespaced: true, path: (name: string, ns?: string) => `/pod/${ns}/${name}` },
-          { kind: 'deployments', label: 'Deployment', namespaced: true, path: (name: string, ns?: string) => `/deployment/${ns}/${name}` },
-          { kind: 'services', label: 'Service', namespaced: true, path: (name: string, ns?: string) => `/service/${ns}/${name}` },
-          { kind: 'nodes', label: 'Node', namespaced: false, path: (name: string) => `/nodes/${name}` },
+          {
+            kind: "pods",
+            label: "Pod",
+            namespaced: true,
+            path: (name: string, ns?: string) => `/pod/${ns}/${name}`,
+          },
+          {
+            kind: "deployments",
+            label: "Deployment",
+            namespaced: true,
+            path: (name: string, ns?: string) => `/deployment/${ns}/${name}`,
+          },
+          {
+            kind: "services",
+            label: "Service",
+            namespaced: true,
+            path: (name: string, ns?: string) => `/service/${ns}/${name}`,
+          },
+          {
+            kind: "nodes",
+            label: "Node",
+            namespaced: false,
+            path: (name: string) => `/nodes/${name}`,
+          },
         ];
 
         const results = await Promise.all(
           kinds.map(async (resource) => {
             try {
-              const items = await invoke<any[]>('list_resources', {
+              const items = await invoke<any[]>("list_resources", {
                 query: {
                   kind: resource.kind,
                   namespace: resource.namespaced ? namespace : null,
@@ -169,7 +233,7 @@ export function CommandPalette() {
               console.error(`Failed to search ${resource.kind}:`, error);
               return [] as ResourceResult[];
             }
-          })
+          }),
         );
 
         if (!cancelled) {
@@ -178,7 +242,7 @@ export function CommandPalette() {
         }
       } catch (error) {
         if (!cancelled) {
-          console.error('Search failed:', error);
+          console.error("Search failed:", error);
           setResourceResults([]);
           setIsSearching(false);
         }
@@ -192,19 +256,26 @@ export function CommandPalette() {
   }, [currentNamespace, isConnected, open, searchValue]);
 
   const groupedResources = useMemo(() => {
-    return resourceResults.reduce<Record<string, ResourceResult[]>>((acc, item) => {
-      acc[item.kind] = acc[item.kind] || [];
-      acc[item.kind].push(item);
-      return acc;
-    }, {});
+    return resourceResults.reduce<Record<string, ResourceResult[]>>(
+      (acc, item) => {
+        acc[item.kind] = acc[item.kind] || [];
+        acc[item.kind].push(item);
+        return acc;
+      },
+      {},
+    );
   }, [resourceResults]);
 
   const filteredNavigation = useMemo(() => {
-    const items = quickActions.filter((action) => action.category === 'Navigation');
+    const items = quickActions.filter(
+      (action) => action.category === "Navigation",
+    );
     if (!hasQuery) {
       return items;
     }
-    return items.filter((action) => action.label.toLowerCase().includes(searchValue));
+    return items.filter((action) =>
+      action.label.toLowerCase().includes(searchValue),
+    );
   }, [hasQuery, searchValue]);
 
   const filteredQuickCommands = useMemo(() => {
@@ -212,7 +283,7 @@ export function CommandPalette() {
       return quickCommands;
     }
     return quickCommands.filter((action) =>
-      action.label.toLowerCase().includes(searchValue)
+      action.label.toLowerCase().includes(searchValue),
     );
   }, [hasQuery, searchValue]);
 
@@ -269,9 +340,10 @@ export function CommandPalette() {
             </div>
           )}
 
-          {filteredNavigation.length > 0 && filteredQuickCommands.length > 0 && (
-            <div className="my-2 h-px bg-border" />
-          )}
+          {filteredNavigation.length > 0 &&
+            filteredQuickCommands.length > 0 && (
+              <div className="my-2 h-px bg-border" />
+            )}
 
           {filteredQuickCommands.length > 0 && (
             <div className="space-y-1">
@@ -292,7 +364,8 @@ export function CommandPalette() {
             </div>
           )}
 
-          {(filteredNavigation.length > 0 || filteredQuickCommands.length > 0) && (
+          {(filteredNavigation.length > 0 ||
+            filteredQuickCommands.length > 0) && (
             <div className="my-2 h-px bg-border" />
           )}
 
@@ -320,11 +393,14 @@ export function CommandPalette() {
               </div>
             )}
 
-            {isConnected && canSearchResources && !isSearching && resourceResults.length === 0 && (
-              <div className="px-2 py-2 text-sm text-muted-foreground">
-                No resources found.
-              </div>
-            )}
+            {isConnected &&
+              canSearchResources &&
+              !isSearching &&
+              resourceResults.length === 0 && (
+                <div className="px-2 py-2 text-sm text-muted-foreground">
+                  No resources found.
+                </div>
+              )}
 
             {isConnected &&
               !isSearching &&
@@ -332,7 +408,7 @@ export function CommandPalette() {
                 <div key={kind} className="space-y-1">
                   {items.map((item) => (
                     <button
-                      key={`${kind}-${item.namespace ?? 'cluster'}-${item.name}`}
+                      key={`${kind}-${item.namespace ?? "cluster"}-${item.name}`}
                       type="button"
                       onClick={() => handleSelect(item.path)}
                       className="flex w-full items-center rounded-sm px-2 py-2 text-sm hover:bg-accent"

@@ -1,22 +1,22 @@
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
-import { useClusterStore } from '@/stores/clusterStore';
-import { DataTable } from '@/components/ui/data-table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ConnectClusterEmptyState } from '@/components/ui/connect-cluster-empty-state';
-import { ColumnDef } from '@tanstack/react-table';
-import { Eye, Trash2, RefreshCw, Database, Loader2 } from 'lucide-react';
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
+import { useClusterStore } from "@/stores/clusterStore";
+import { DataTable } from "@/components/ui/data-table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
+import { ColumnDef } from "@tanstack/react-table";
+import { Eye, Trash2, RefreshCw, Database, Loader2 } from "lucide-react";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { ActionMenu } from '@/components/ui/action-menu';
+} from "@/components/ui/tooltip";
+import { ActionMenu } from "@/components/ui/action-menu";
 
 interface PersistentVolumeClaimInfo {
   name: string;
@@ -31,21 +31,21 @@ interface PersistentVolumeClaimInfo {
 
 const getStatusColor = (status: string) => {
   switch (status.toLowerCase()) {
-    case 'bound':
-      return 'bg-green-500/10 text-green-500 border-green-500/20';
-    case 'pending':
-      return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
-    case 'lost':
-      return 'bg-red-500/10 text-red-500 border-red-500/20';
+    case "bound":
+      return "bg-green-500/10 text-green-500 border-green-500/20";
+    case "pending":
+      return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
+    case "lost":
+      return "bg-red-500/10 text-red-500 border-red-500/20";
     default:
-      return 'bg-gray-500/10 text-gray-500 border-gray-500/20';
+      return "bg-gray-500/10 text-gray-500 border-gray-500/20";
   }
 };
 
 const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
   {
-    accessorKey: 'name',
-    header: 'Name',
+    accessorKey: "name",
+    header: "Name",
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
         <Database className="h-4 w-4 text-muted-foreground" />
@@ -54,12 +54,12 @@ const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
     ),
   },
   {
-    accessorKey: 'namespace',
-    header: 'Namespace',
+    accessorKey: "namespace",
+    header: "Namespace",
   },
   {
-    accessorKey: 'status',
-    header: 'Status',
+    accessorKey: "status",
+    header: "Status",
     cell: ({ row }) => (
       <Badge className={getStatusColor(row.original.status)}>
         {row.original.status}
@@ -67,20 +67,20 @@ const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
     ),
   },
   {
-    accessorKey: 'volume',
-    header: 'Volume',
-    cell: ({ row }) => row.original.volume || '-',
+    accessorKey: "volume",
+    header: "Volume",
+    cell: ({ row }) => row.original.volume || "-",
   },
   {
-    accessorKey: 'capacity',
-    header: 'Capacity',
+    accessorKey: "capacity",
+    header: "Capacity",
     cell: ({ row }) => (
-      <Badge variant="outline">{row.original.capacity || 'N/A'}</Badge>
+      <Badge variant="outline">{row.original.capacity || "N/A"}</Badge>
     ),
   },
   {
-    accessorKey: 'access_modes',
-    header: 'Access Modes',
+    accessorKey: "access_modes",
+    header: "Access Modes",
     cell: ({ row }) => (
       <div className="flex flex-wrap gap-1">
         {row.original.access_modes.map((mode, i) => (
@@ -91,10 +91,10 @@ const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
               </Badge>
             </TooltipTrigger>
             <TooltipContent>
-              {mode === 'RWO' && 'ReadWriteOnce'}
-              {mode === 'ROX' && 'ReadOnlyMany'}
-              {mode === 'RWX' && 'ReadWriteMany'}
-              {mode === 'RWOP' && 'ReadWriteOncePod'}
+              {mode === "RWO" && "ReadWriteOnce"}
+              {mode === "ROX" && "ReadOnlyMany"}
+              {mode === "RWX" && "ReadWriteMany"}
+              {mode === "RWOP" && "ReadWriteOncePod"}
             </TooltipContent>
           </Tooltip>
         ))}
@@ -102,16 +102,16 @@ const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
     ),
   },
   {
-    accessorKey: 'storage_class',
-    header: 'Storage Class',
-    cell: ({ row }) => row.original.storage_class || 'default',
+    accessorKey: "storage_class",
+    header: "Storage Class",
+    cell: ({ row }) => row.original.storage_class || "default",
   },
   {
-    accessorKey: 'age',
-    header: 'Age',
+    accessorKey: "age",
+    header: "Age",
   },
   {
-    id: 'actions',
+    id: "actions",
     cell: () => (
       <ActionMenu>
         <DropdownMenuItem>
@@ -131,12 +131,20 @@ const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
 export function PersistentVolumeClaimList() {
   const { isConnected, currentNamespace } = useClusterStore();
 
-  const { data: pvcs = [], isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['persistent-volume-claims', currentNamespace],
+  const {
+    data: pvcs = [],
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey: ["persistent-volume-claims", currentNamespace],
     queryFn: async () => {
-      const result = await invoke<PersistentVolumeClaimInfo[]>('list_persistent_volume_claims', {
-        namespace: currentNamespace,
-      });
+      const result = await invoke<PersistentVolumeClaimInfo[]>(
+        "list_persistent_volume_claims",
+        {
+          namespace: currentNamespace,
+        },
+      );
       return result;
     },
     enabled: isConnected,
@@ -146,7 +154,9 @@ export function PersistentVolumeClaimList() {
   });
 
   if (!isConnected) {
-    return <ConnectClusterEmptyState resourceLabel="persistent volume claims" />;
+    return (
+      <ConnectClusterEmptyState resourceLabel="persistent volume claims" />
+    );
   }
 
   return (
@@ -160,11 +170,19 @@ export function PersistentVolumeClaimList() {
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            Requests for storage by pods in {currentNamespace || 'all namespaces'}
+            Requests for storage by pods in{" "}
+            {currentNamespace || "all namespaces"}
           </p>
         </div>
-        <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isFetching}>
-          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => refetch()}
+          disabled={isFetching}
+        >
+          <RefreshCw
+            className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+          />
         </Button>
       </div>
       <DataTable

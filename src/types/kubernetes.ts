@@ -205,7 +205,7 @@ export interface PluginInfo {
   description: string;
   author: string | null;
   enabled: boolean;
-  plugin_type: 'kubectl' | 'helm' | 'context_menu' | 'renderer';
+  plugin_type: "kubectl" | "helm" | "context_menu" | "renderer";
 }
 
 export interface AuthStatus {
@@ -216,7 +216,7 @@ export interface AuthStatus {
 }
 
 export interface AppConfig {
-  theme: 'light' | 'dark' | 'system';
+  theme: "light" | "dark" | "system";
   kubernetes: {
     default_namespace: string;
     request_timeout: number;

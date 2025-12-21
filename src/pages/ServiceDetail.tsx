@@ -1,13 +1,13 @@
-import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Network, RefreshCw, Globe, Server } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useParams, useNavigate } from "react-router-dom";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ArrowLeft, Network, RefreshCw, Globe, Server } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ServicePortInfo {
   name: string | null;
@@ -37,10 +37,15 @@ export function ServiceDetail() {
   const { namespace, name } = useParams<{ namespace: string; name: string }>();
   const navigate = useNavigate();
 
-  const { data: service, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['service', namespace, name],
+  const {
+    data: service,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey: ["service", namespace, name],
     queryFn: async () => {
-      return invoke<ServiceInfo>('get_service', { name, namespace });
+      return invoke<ServiceInfo>("get_service", { name, namespace });
     },
     enabled: !!namespace && !!name,
     placeholderData: keepPreviousData,
@@ -78,10 +83,14 @@ export function ServiceDetail() {
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'LoadBalancer': return 'bg-purple-500';
-      case 'NodePort': return 'bg-blue-500';
-      case 'ClusterIP': return 'bg-green-500';
-      default: return 'bg-gray-500';
+      case "LoadBalancer":
+        return "bg-purple-500";
+      case "NodePort":
+        return "bg-blue-500";
+      case "ClusterIP":
+        return "bg-green-500";
+      default:
+        return "bg-gray-500";
     }
   };
 
@@ -98,11 +107,18 @@ export function ServiceDetail() {
             <h1 className="text-2xl font-bold">{service.name}</h1>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>{service.namespace}</span>
-              <Badge className={getTypeColor(service.type_)}>{service.type_}</Badge>
+              <Badge className={getTypeColor(service.type_)}>
+                {service.type_}
+              </Badge>
             </div>
           </div>
         </div>
-        <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isFetching}>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => refetch()}
+          disabled={isFetching}
+        >
           <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
         </Button>
       </div>
@@ -115,7 +131,9 @@ export function ServiceDetail() {
             <Server className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl font-bold font-mono">{service.cluster_ip || 'None'}</div>
+            <div className="text-xl font-bold font-mono">
+              {service.cluster_ip || "None"}
+            </div>
           </CardContent>
         </Card>
 
@@ -126,7 +144,7 @@ export function ServiceDetail() {
           </CardHeader>
           <CardContent>
             <div className="text-xl font-bold font-mono">
-              {externalIps.length > 0 ? externalIps.join(', ') : 'None'}
+              {externalIps.length > 0 ? externalIps.join(", ") : "None"}
             </div>
           </CardContent>
         </Card>
@@ -158,16 +176,21 @@ export function ServiceDetail() {
             <CardContent>
               <div className="space-y-2">
                 {ports.map((port, idx) => (
-                  <div key={idx} className="flex items-center justify-between rounded-lg border p-3">
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between rounded-lg border p-3"
+                  >
                     <div className="flex items-center gap-3">
                       <Badge variant="outline">{port.protocol}</Badge>
                       <span className="font-mono">
-                        {port.name ? `${port.name}: ` : ''}
+                        {port.name ? `${port.name}: ` : ""}
                         {port.port} → {port.target_port}
                       </span>
                     </div>
                     {port.node_port && (
-                      <Badge variant="secondary">NodePort: {port.node_port}</Badge>
+                      <Badge variant="secondary">
+                        NodePort: {port.node_port}
+                      </Badge>
                     )}
                   </div>
                 ))}
@@ -187,7 +210,11 @@ export function ServiceDetail() {
             <CardContent>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(selector).map(([key, value]) => (
-                  <Badge key={key} variant="outline" className="font-mono text-xs">
+                  <Badge
+                    key={key}
+                    variant="outline"
+                    className="font-mono text-xs"
+                  >
                     {key}={value}
                   </Badge>
                 ))}
@@ -207,7 +234,11 @@ export function ServiceDetail() {
             <CardContent>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(labels).map(([key, value]) => (
-                  <Badge key={key} variant="outline" className="font-mono text-xs">
+                  <Badge
+                    key={key}
+                    variant="outline"
+                    className="font-mono text-xs"
+                  >
                     {key}={value}
                   </Badge>
                 ))}
@@ -226,7 +257,9 @@ export function ServiceDetail() {
               <div className="space-y-2">
                 {Object.entries(annotations).map(([key, value]) => (
                   <div key={key} className="rounded-lg border p-2">
-                    <p className="text-xs font-medium text-muted-foreground">{key}</p>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {key}
+                    </p>
                     <p className="font-mono text-sm break-all">{value}</p>
                   </div>
                 ))}

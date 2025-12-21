@@ -1,21 +1,19 @@
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
-import { useClusterStore } from '@/stores/clusterStore';
-import { DataTable } from '@/components/ui/data-table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ConnectClusterEmptyState } from '@/components/ui/connect-cluster-empty-state';
-import { ColumnDef } from '@tanstack/react-table';
-import { Eye, RefreshCw, Network, CircleDot, Loader2 } from 'lucide-react';
-import {
-  DropdownMenuItem,
-} from '@/components/ui/dropdown-menu';
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
+import { useClusterStore } from "@/stores/clusterStore";
+import { DataTable } from "@/components/ui/data-table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
+import { ColumnDef } from "@tanstack/react-table";
+import { Eye, RefreshCw, Network, CircleDot, Loader2 } from "lucide-react";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { ActionMenu } from '@/components/ui/action-menu';
+} from "@/components/ui/tooltip";
+import { ActionMenu } from "@/components/ui/action-menu";
 
 interface EndpointAddress {
   ip: string;
@@ -49,8 +47,8 @@ interface EndpointsInfo {
 
 const columns: ColumnDef<EndpointsInfo>[] = [
   {
-    accessorKey: 'name',
-    header: 'Name',
+    accessorKey: "name",
+    header: "Name",
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
         <Network className="h-4 w-4 text-muted-foreground" />
@@ -59,20 +57,20 @@ const columns: ColumnDef<EndpointsInfo>[] = [
     ),
   },
   {
-    accessorKey: 'namespace',
-    header: 'Namespace',
+    accessorKey: "namespace",
+    header: "Namespace",
   },
   {
-    id: 'endpoints',
-    header: 'Endpoints',
+    id: "endpoints",
+    header: "Endpoints",
     cell: ({ row }) => {
       const readyCount = row.original.subsets.reduce(
         (acc, s) => acc + s.addresses.length,
-        0
+        0,
       );
       const notReadyCount = row.original.subsets.reduce(
         (acc, s) => acc + s.not_ready_addresses.length,
-        0
+        0,
       );
 
       if (readyCount === 0 && notReadyCount === 0) {
@@ -95,9 +93,10 @@ const columns: ColumnDef<EndpointsInfo>[] = [
                     s.addresses.map((addr, i) => (
                       <div key={i}>
                         {addr.ip}
-                        {addr.target_ref && ` (${addr.target_ref.kind}/${addr.target_ref.name})`}
+                        {addr.target_ref &&
+                          ` (${addr.target_ref.kind}/${addr.target_ref.name})`}
                       </div>
-                    ))
+                    )),
                   )}
                 </div>
               </TooltipContent>
@@ -116,9 +115,10 @@ const columns: ColumnDef<EndpointsInfo>[] = [
                     s.not_ready_addresses.map((addr, i) => (
                       <div key={i}>
                         {addr.ip}
-                        {addr.target_ref && ` (${addr.target_ref.kind}/${addr.target_ref.name})`}
+                        {addr.target_ref &&
+                          ` (${addr.target_ref.kind}/${addr.target_ref.name})`}
                       </div>
-                    ))
+                    )),
                   )}
                 </div>
               </TooltipContent>
@@ -129,16 +129,17 @@ const columns: ColumnDef<EndpointsInfo>[] = [
     },
   },
   {
-    id: 'ports',
-    header: 'Ports',
+    id: "ports",
+    header: "Ports",
     cell: ({ row }) => {
       const ports = row.original.subsets.flatMap((s) => s.ports);
-      if (ports.length === 0) return '-';
+      if (ports.length === 0) return "-";
       return (
         <div className="flex flex-wrap gap-1">
           {ports.slice(0, 3).map((port, i) => (
             <Badge key={i} variant="secondary" className="text-xs">
-              {port.name ? `${port.name}:` : ''}{port.port}/{port.protocol}
+              {port.name ? `${port.name}:` : ""}
+              {port.port}/{port.protocol}
             </Badge>
           ))}
           {ports.length > 3 && (
@@ -151,8 +152,8 @@ const columns: ColumnDef<EndpointsInfo>[] = [
     },
   },
   {
-    id: 'addresses',
-    header: 'IPs',
+    id: "addresses",
+    header: "IPs",
     cell: ({ row }) => {
       const addresses = row.original.subsets.flatMap((s) => s.addresses);
       if (addresses.length === 0) {
@@ -175,11 +176,11 @@ const columns: ColumnDef<EndpointsInfo>[] = [
     },
   },
   {
-    accessorKey: 'age',
-    header: 'Age',
+    accessorKey: "age",
+    header: "Age",
   },
   {
-    id: 'actions',
+    id: "actions",
     cell: () => (
       <ActionMenu>
         <DropdownMenuItem>
@@ -194,10 +195,15 @@ const columns: ColumnDef<EndpointsInfo>[] = [
 export function EndpointsList() {
   const { isConnected, currentNamespace } = useClusterStore();
 
-  const { data: endpoints = [], isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['endpoints', currentNamespace],
+  const {
+    data: endpoints = [],
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey: ["endpoints", currentNamespace],
     queryFn: async () => {
-      const result = await invoke<EndpointsInfo[]>('list_endpoints', {
+      const result = await invoke<EndpointsInfo[]>("list_endpoints", {
         namespace: currentNamespace,
       });
       return result;
@@ -223,11 +229,19 @@ export function EndpointsList() {
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            Network endpoints for services in {currentNamespace || 'all namespaces'}
+            Network endpoints for services in{" "}
+            {currentNamespace || "all namespaces"}
           </p>
         </div>
-        <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isFetching}>
-          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => refetch()}
+          disabled={isFetching}
+        >
+          <RefreshCw
+            className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+          />
         </Button>
       </div>
       <DataTable

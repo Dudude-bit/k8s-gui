@@ -1,7 +1,7 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
-type Theme = 'light' | 'dark' | 'system';
+type Theme = "light" | "dark" | "system";
 
 interface ThemeState {
   theme: Theme;
@@ -11,11 +11,11 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
-      theme: 'dark',
+      theme: "dark",
       setTheme: (theme) => set({ theme }),
     }),
     {
-      name: 'k8s-gui-theme',
-    }
-  )
+      name: "k8s-gui-theme",
+    },
+  ),
 );

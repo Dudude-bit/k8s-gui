@@ -1,10 +1,10 @@
-import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { invoke } from '@tauri-apps/api/core';
-import React, { useState, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useParams, useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
+import { useState, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -12,18 +12,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { LogViewer } from '@/components/logs/LogViewer';
-import { Terminal } from '@/components/terminal/Terminal';
-import { useToast } from '@/components/ui/use-toast';
-import { Switch } from '@/components/ui/switch';
-import { useClusterStore } from '@/stores/clusterStore';
-import { usePortForwardStore } from '@/stores/portForwardStore';
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { LogViewer } from "@/components/logs/LogViewer";
+import { Terminal } from "@/components/terminal/Terminal";
+import { useToast } from "@/components/ui/use-toast";
+import { Switch } from "@/components/ui/switch";
+import { useClusterStore } from "@/stores/clusterStore";
+import { usePortForwardStore } from "@/stores/portForwardStore";
 import {
   ArrowLeft,
   Terminal as TerminalIcon,
@@ -33,7 +33,7 @@ import {
   Activity,
   AlertCircle,
   Search,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface PodCondition {
   type_: string;
@@ -44,7 +44,7 @@ interface PodCondition {
 }
 
 interface ContainerState {
-  type: 'running' | 'waiting' | 'terminated' | 'unknown';
+  type: "running" | "waiting" | "terminated" | "unknown";
   reason?: string | null;
   exit_code?: number;
 }
@@ -83,15 +83,15 @@ interface PodInfo {
 
 const getStatusColor = (status: string) => {
   switch (status.toLowerCase()) {
-    case 'running':
-      return 'success';
-    case 'pending':
-      return 'warning';
-    case 'failed':
-    case 'error':
-      return 'destructive';
+    case "running":
+      return "success";
+    case "pending":
+      return "warning";
+    case "failed":
+    case "error":
+      return "destructive";
     default:
-      return 'secondary';
+      return "secondary";
   }
 };
 
@@ -118,31 +118,47 @@ export function PodDetail() {
   const currentContext = useClusterStore((state) => state.currentContext);
   const queryClient = useQueryClient();
   const addPortForwardConfig = usePortForwardStore((state) => state.addConfig);
-  const startPortForwardConfig = usePortForwardStore((state) => state.startConfig);
-  const refreshPortForwards = usePortForwardStore((state) => state.refreshSessions);
+  const startPortForwardConfig = usePortForwardStore(
+    (state) => state.startConfig,
+  );
+  const refreshPortForwards = usePortForwardStore(
+    (state) => state.refreshSessions,
+  );
   const portForwardSessions = usePortForwardStore((state) => state.sessions);
-  const stopPortForwardSession = usePortForwardStore((state) => state.stopSession);
-  const portForwardStatusBySession = usePortForwardStore((state) => state.statusBySession);
-  const [activeTab, setActiveTab] = useState('overview');
+  const stopPortForwardSession = usePortForwardStore(
+    (state) => state.stopSession,
+  );
+  const portForwardStatusBySession = usePortForwardStore(
+    (state) => state.statusBySession,
+  );
+  const [activeTab, setActiveTab] = useState("overview");
   const [showTerminal, setShowTerminal] = useState(false);
-  const [selectedContainer, setSelectedContainer] = useState<string | null>(null);
-  const [podKey, setPodKey] = useState(0); // Used to force LogViewer remount
+  const [selectedContainer, setSelectedContainer] = useState<string | null>(
+    null,
+  );
   const [isSearchingReplacement, setIsSearchingReplacement] = useState(false);
-  const [savedLabels, setSavedLabels] = useState<Record<string, string> | null>(null);
+  const [savedLabels, setSavedLabels] = useState<Record<string, string> | null>(
+    null,
+  );
   const [portForwardOpen, setPortForwardOpen] = useState(false);
   const [portForwardBusy, setPortForwardBusy] = useState(false);
   const [portForwardForm, setPortForwardForm] = useState<PortForwardFormState>({
-    name: '',
-    localPort: '',
-    remotePort: '',
+    name: "",
+    localPort: "",
+    remotePort: "",
     autoReconnect: true,
     saveConfig: true,
   });
 
-  const { data: pod, isLoading, error } = useQuery({
-    queryKey: ['pod', namespace, name],
+  const {
+    data: pod,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ["pod", namespace, name],
     queryFn: async () => {
-      const result = await invoke<PodInfo>('get_pod', { name, namespace });
+      const result = await invoke<PodInfo>("get_pod", { name, namespace });
       // Save labels for replacement search
       if (result.labels && Object.keys(result.labels).length > 0) {
         setSavedLabels(result.labels);
@@ -153,7 +169,7 @@ export function PodDetail() {
     retry: (failureCount, error) => {
       // Don't retry if pod not found (404)
       const errorStr = String(error);
-      if (errorStr.includes('not found') || errorStr.includes('NotFound')) {
+      if (errorStr.includes("not found") || errorStr.includes("NotFound")) {
         return false;
       }
       return failureCount < 3;
@@ -161,117 +177,131 @@ export function PodDetail() {
   });
 
   // Find replacement pod by labels
-  const findReplacementPod = useCallback(async (labelsToUse?: Record<string, string>) => {
-    const labels = labelsToUse || savedLabels;
-    console.log('findReplacementPod called with labels:', labels, 'namespace:', namespace);
-    
-    if (!labels || !namespace) {
-      console.log('No labels or namespace, returning null');
-      return null;
-    }
-    
-    setIsSearchingReplacement(true);
-    
-    try {
-      // Build label selector from pod's labels (use app/component labels)
-      // Also include pod-template-hash for deployments
-      const importantLabels = ['app', 'app.kubernetes.io/name', 'app.kubernetes.io/instance', 'component', 'pod-template-hash'];
-      const labelParts: string[] = [];
-      
-      for (const label of importantLabels) {
-        if (labels[label]) {
-          labelParts.push(`${label}=${labels[label]}`);
-        }
-      }
-      
-      if (labelParts.length === 0) {
-        console.log('No matching labels found, returning null');
-        setIsSearchingReplacement(false);
+  const findReplacementPod = useCallback(
+    async (labelsToUse?: Record<string, string>) => {
+      const labels = labelsToUse || savedLabels;
+      console.log(
+        "findReplacementPod called with labels:",
+        labels,
+        "namespace:",
+        namespace,
+      );
+
+      if (!labels || !namespace) {
+        console.log("No labels or namespace, returning null");
         return null;
       }
-      
-      const labelSelector = labelParts.join(',');
-      console.log('Label selector:', labelSelector);
-      
-      interface PodListItem {
-        name: string;
-        namespace: string;
-        status: {
-          phase: string;
-        };
+
+      setIsSearchingReplacement(true);
+
+      try {
+        // Build label selector from pod's labels (use app/component labels)
+        // Also include pod-template-hash for deployments
+        const importantLabels = [
+          "app",
+          "app.kubernetes.io/name",
+          "app.kubernetes.io/instance",
+          "component",
+          "pod-template-hash",
+        ];
+        const labelParts: string[] = [];
+
+        for (const label of importantLabels) {
+          if (labels[label]) {
+            labelParts.push(`${label}=${labels[label]}`);
+          }
+        }
+
+        if (labelParts.length === 0) {
+          console.log("No matching labels found, returning null");
+          setIsSearchingReplacement(false);
+          return null;
+        }
+
+        const labelSelector = labelParts.join(",");
+        console.log("Label selector:", labelSelector);
+
+        interface PodListItem {
+          name: string;
+          namespace: string;
+          status: {
+            phase: string;
+          };
+        }
+
+        const pods = await invoke<PodListItem[]>("list_pods", {
+          filters: {
+            namespace,
+            label_selector: labelSelector,
+          },
+        });
+
+        console.log("Found pods:", pods);
+
+        // Find a running pod that's not the current one
+        // status.phase is the phase string (Running, Pending, etc.)
+        const replacement = pods.find(
+          (p) => p.name !== name && p.status.phase === "Running",
+        );
+
+        console.log("Replacement pod:", replacement);
+
+        return replacement || null;
+      } catch (err) {
+        console.error("Failed to find replacement pod:", err);
+        return null;
+      } finally {
+        setIsSearchingReplacement(false);
       }
-      
-      const pods = await invoke<PodListItem[]>('list_pods', {
-        filters: {
-          namespace,
-          label_selector: labelSelector,
-        },
-      });
-      
-      console.log('Found pods:', pods);
-      
-      // Find a running pod that's not the current one
-      // status.phase is the phase string (Running, Pending, etc.)
-      const replacement = pods.find(
-        (p) => p.name !== name && p.status.phase === 'Running'
-      );
-      
-      console.log('Replacement pod:', replacement);
-      
-      return replacement || null;
-    } catch (err) {
-      console.error('Failed to find replacement pod:', err);
-      return null;
-    } finally {
-      setIsSearchingReplacement(false);
-    }
-  }, [savedLabels, namespace, name]);
+    },
+    [savedLabels, namespace, name],
+  );
 
   const { data: podYaml } = useQuery({
-    queryKey: ['pod-yaml', namespace, name],
+    queryKey: ["pod-yaml", namespace, name],
     queryFn: async () => {
-      const result = await invoke<string>('get_pod_yaml', { name, namespace });
+      const result = await invoke<string>("get_pod_yaml", { name, namespace });
       return result;
     },
-    enabled: activeTab === 'yaml' && !!namespace && !!name,
+    enabled: activeTab === "yaml" && !!namespace && !!name,
   });
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      await invoke('delete_pod', { name, namespace });
+      await invoke("delete_pod", { name, namespace });
     },
     onSuccess: () => {
       toast({
-        title: 'Pod deleted',
+        title: "Pod deleted",
         description: `Pod ${name} has been deleted.`,
       });
       navigate(-1);
     },
     onError: (err) => {
       toast({
-        title: 'Error',
+        title: "Error",
         description: `Failed to delete pod: ${err}`,
-        variant: 'destructive',
+        variant: "destructive",
       });
     },
   });
 
   const restartMutation = useMutation({
     mutationFn: async () => {
-      await invoke('restart_pod', { name, namespace });
+      await invoke("restart_pod", { name, namespace });
     },
     onSuccess: () => {
       toast({
-        title: 'Pod restarted',
+        title: "Pod restarted",
         description: `Pod ${name} is being restarted.`,
       });
-      queryClient.invalidateQueries({ queryKey: ['pod', namespace, name] });
+      queryClient.invalidateQueries({ queryKey: ["pod", namespace, name] });
     },
     onError: (err) => {
       toast({
-        title: 'Error',
+        title: "Error",
         description: `Failed to restart pod: ${err}`,
-        variant: 'destructive',
+        variant: "destructive",
       });
     },
   });
@@ -280,8 +310,8 @@ export function PodDetail() {
     if (podYaml) {
       await navigator.clipboard.writeText(podYaml);
       toast({
-        title: 'Copied',
-        description: 'YAML copied to clipboard.',
+        title: "Copied",
+        description: "YAML copied to clipboard.",
       });
     }
   };
@@ -297,8 +327,8 @@ export function PodDetail() {
     }
     setPortForwardForm({
       name: pod.name,
-      localPort: '',
-      remotePort: '',
+      localPort: "",
+      remotePort: "",
       autoReconnect: true,
       saveConfig: true,
     });
@@ -311,9 +341,9 @@ export function PodDetail() {
     }
     if (!currentContext) {
       toast({
-        title: 'No cluster selected',
-        description: 'Connect to a cluster to start port-forwarding.',
-        variant: 'destructive',
+        title: "No cluster selected",
+        description: "Connect to a cluster to start port-forwarding.",
+        variant: "destructive",
       });
       return;
     }
@@ -323,9 +353,9 @@ export function PodDetail() {
 
     if (!localPort || !remotePort) {
       toast({
-        title: 'Invalid port',
-        description: 'Ports must be between 1 and 65535.',
-        variant: 'destructive',
+        title: "Invalid port",
+        description: "Ports must be between 1 and 65535.",
+        variant: "destructive",
       });
       return;
     }
@@ -344,7 +374,7 @@ export function PodDetail() {
         });
         await startPortForwardConfig(config.id);
       } else {
-        await invoke('port_forward_pod', {
+        await invoke("port_forward_pod", {
           pod: pod.name,
           namespace: pod.namespace,
           config: {
@@ -359,9 +389,9 @@ export function PodDetail() {
       setPortForwardOpen(false);
     } catch (err) {
       toast({
-        title: 'Failed to start port-forward',
+        title: "Failed to start port-forward",
         description: String(err),
-        variant: 'destructive',
+        variant: "destructive",
       });
     } finally {
       setPortForwardBusy(false);
@@ -373,9 +403,9 @@ export function PodDetail() {
       await stopPortForwardSession(sessionId);
     } catch (err) {
       toast({
-        title: 'Failed to stop port-forward',
+        title: "Failed to stop port-forward",
         description: String(err),
-        variant: 'destructive',
+        variant: "destructive",
       });
     }
   };
@@ -390,14 +420,15 @@ export function PodDetail() {
   }
 
   if (error || !pod) {
-    const errorStr = String(error || '');
-    const isPodNotFound = errorStr.includes('not found') || errorStr.includes('NotFound');
-    
+    const errorStr = String(error || "");
+    const isPodNotFound =
+      errorStr.includes("not found") || errorStr.includes("NotFound");
+
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <AlertCircle className="h-12 w-12 text-destructive" />
         <p className="text-destructive text-lg font-medium">
-          {isPodNotFound ? 'Pod not found' : 'Failed to load pod details'}
+          {isPodNotFound ? "Pod not found" : "Failed to load pod details"}
         </p>
         {isPodNotFound && (
           <p className="text-muted-foreground text-sm">
@@ -416,26 +447,31 @@ export function PodDetail() {
             Go Back
           </Button>
           {isPodNotFound && savedLabels && (
-            <Button 
-              onClick={() => findReplacementPod().then((replacement) => {
-                if (replacement) {
-                  toast({
-                    title: 'Found replacement pod',
-                    description: `Switching to ${replacement.name}`,
-                  });
-                  navigate(`/pods/${replacement.namespace}/${replacement.name}`, { replace: true });
-                } else {
-                  toast({
-                    title: 'No replacement found',
-                    description: 'No other running pods with matching labels',
-                    variant: 'destructive',
-                  });
-                }
-              })} 
+            <Button
+              onClick={() =>
+                findReplacementPod().then((replacement) => {
+                  if (replacement) {
+                    toast({
+                      title: "Found replacement pod",
+                      description: `Switching to ${replacement.name}`,
+                    });
+                    navigate(
+                      `/pods/${replacement.namespace}/${replacement.name}`,
+                      { replace: true },
+                    );
+                  } else {
+                    toast({
+                      title: "No replacement found",
+                      description: "No other running pods with matching labels",
+                      variant: "destructive",
+                    });
+                  }
+                })
+              }
               disabled={isSearchingReplacement}
             >
               <Search className="mr-2 h-4 w-4" />
-              {isSearchingReplacement ? 'Searching...' : 'Find Replacement'}
+              {isSearchingReplacement ? "Searching..." : "Find Replacement"}
             </Button>
           )}
         </div>
@@ -447,7 +483,7 @@ export function PodDetail() {
     (session) =>
       session.context === currentContext &&
       session.pod === pod.name &&
-      session.namespace === pod.namespace
+      session.namespace === pod.namespace,
   );
 
   return (
@@ -462,7 +498,9 @@ export function PodDetail() {
             <h1 className="text-2xl font-bold">{pod.name}</h1>
             <p className="text-muted-foreground">{pod.namespace}</p>
           </div>
-          <Badge variant={getStatusColor(pod.status.phase) as any}>{pod.status.phase}</Badge>
+          <Badge variant={getStatusColor(pod.status.phase) as any}>
+            {pod.status.phase}
+          </Badge>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -616,7 +654,7 @@ export function PodDetail() {
                       <div className="text-xs text-muted-foreground">
                         {portForwardStatusBySession[session.id]?.message ||
                           portForwardStatusBySession[session.id]?.status ||
-                          'Active'}
+                          "Active"}
                       </div>
                     </div>
                     <Button
@@ -636,7 +674,7 @@ export function PodDetail() {
               Cancel
             </Button>
             <Button onClick={handlePortForward} disabled={portForwardBusy}>
-              {portForwardBusy ? 'Starting...' : 'Start port-forward'}
+              {portForwardBusy ? "Starting..." : "Start port-forward"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -679,19 +717,23 @@ export function PodDetail() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Node</span>
-                  <span>{pod.node_name || '-'}</span>
+                  <span>{pod.node_name || "-"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Pod IP</span>
-                  <span>{pod.pod_ip || '-'}</span>
+                  <span>{pod.pod_ip || "-"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Host IP</span>
-                  <span>{pod.host_ip || '-'}</span>
+                  <span>{pod.host_ip || "-"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Started</span>
-                  <span>{pod.start_time || '-'}</span>
+                  <span>
+                    {pod.created_at
+                      ? new Date(pod.created_at).toLocaleString()
+                      : "-"}
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -723,8 +765,10 @@ export function PodDetail() {
                     {container.name}
                   </CardTitle>
                   <div className="flex items-center gap-2">
-                    <Badge variant={container.ready ? 'success' : 'destructive'}>
-                      {container.ready ? 'Ready' : 'Not Ready'}
+                    <Badge
+                      variant={container.ready ? "success" : "destructive"}
+                    >
+                      {container.ready ? "Ready" : "Not Ready"}
                     </Badge>
                     <Button
                       variant="outline"
@@ -739,27 +783,47 @@ export function PodDetail() {
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Image</span>
-                    <span className="font-mono text-xs max-w-md truncate">{container.image}</span>
+                    <span className="font-mono text-xs max-w-md truncate">
+                      {container.image}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">State</span>
                     <div className="flex items-center gap-2">
-                      <Badge variant={container.state.type === 'running' ? 'success' : container.state.type === 'waiting' ? 'warning' : 'secondary'}>
+                      <Badge
+                        variant={
+                          container.state.type === "running"
+                            ? "success"
+                            : container.state.type === "waiting"
+                              ? "warning"
+                              : "secondary"
+                        }
+                      >
                         {container.state.type}
                       </Badge>
                       {container.state.reason && (
-                        <span className="text-xs text-muted-foreground">({container.state.reason})</span>
+                        <span className="text-xs text-muted-foreground">
+                          ({container.state.reason})
+                        </span>
                       )}
                     </div>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Restarts</span>
-                    <span className={container.restart_count > 5 ? 'text-yellow-500' : ''}>{container.restart_count}</span>
+                    <span
+                      className={
+                        container.restart_count > 5 ? "text-yellow-500" : ""
+                      }
+                    >
+                      {container.restart_count}
+                    </span>
                   </div>
                   {container.started_at && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Started At</span>
-                      <span>{new Date(container.started_at).toLocaleString()}</span>
+                      <span>
+                        {new Date(container.started_at).toLocaleString()}
+                      </span>
                     </div>
                   )}
                 </CardContent>
@@ -772,7 +836,7 @@ export function PodDetail() {
           <Card className="h-[500px]">
             <CardContent className="p-0 h-full">
               <LogViewer
-                key={podKey}
+                key={`${pod.namespace}:${pod.name}`}
                 podName={pod.name}
                 namespace={pod.namespace}
                 containers={pod.containers.map((c) => c.name)}
@@ -798,7 +862,7 @@ export function PodDetail() {
             <CardContent>
               <ScrollArea className="h-[500px]">
                 <pre className="text-xs font-mono bg-muted p-4 rounded-md overflow-x-auto">
-                  {podYaml || 'Loading...'}
+                  {podYaml || "Loading..."}
                 </pre>
               </ScrollArea>
             </CardContent>
@@ -819,7 +883,9 @@ export function PodDetail() {
                   >
                     <div className="flex items-center gap-2">
                       <Badge
-                        variant={condition.status === 'True' ? 'success' : 'secondary'}
+                        variant={
+                          condition.status === "True" ? "success" : "secondary"
+                        }
                       >
                         {condition.type_}
                       </Badge>
