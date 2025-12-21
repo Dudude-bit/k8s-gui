@@ -4,16 +4,15 @@ import { useClusterStore } from '@/stores/clusterStore';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ConnectClusterEmptyState } from '@/components/ui/connect-cluster-empty-state';
 import { ColumnDef } from '@tanstack/react-table';
-import { MoreHorizontal, RefreshCw, Trash2 } from 'lucide-react';
+import { RefreshCw, Trash2 } from 'lucide-react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { getStatusColor } from '@/lib/utils';
+import { ActionMenu } from '@/components/ui/action-menu';
 
 interface HelmRelease {
   name: string;
@@ -69,23 +68,16 @@ const columns: ColumnDef<HelmRelease>[] = [
   {
     id: 'actions',
     cell: ({ row: _row }) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem>View Values</DropdownMenuItem>
-          <DropdownMenuItem>View History</DropdownMenuItem>
-          <DropdownMenuItem>Rollback</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem className="text-destructive">
-            <Trash2 className="mr-2 h-4 w-4" />
-            Uninstall
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <ActionMenu>
+        <DropdownMenuItem>View Values</DropdownMenuItem>
+        <DropdownMenuItem>View History</DropdownMenuItem>
+        <DropdownMenuItem>Rollback</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="text-destructive">
+          <Trash2 className="mr-2 h-4 w-4" />
+          Uninstall
+        </DropdownMenuItem>
+      </ActionMenu>
     ),
   },
 ];
@@ -106,11 +98,7 @@ export function Helm() {
   });
 
   if (!isConnected) {
-    return (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
-        Connect to a cluster to view Helm releases
-      </div>
-    );
+    return <ConnectClusterEmptyState resourceLabel="Helm releases" />;
   }
 
   return (

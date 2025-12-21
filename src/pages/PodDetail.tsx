@@ -5,12 +5,25 @@ import React, { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { LogViewer } from '@/components/logs/LogViewer';
 import { Terminal } from '@/components/terminal/Terminal';
 import { useToast } from '@/components/ui/use-toast';
+import { Switch } from '@/components/ui/switch';
+import { useClusterStore } from '@/stores/clusterStore';
+import { usePortForwardStore } from '@/stores/portForwardStore';
 import {
   ArrowLeft,
   Terminal as TerminalIcon,
@@ -82,17 +95,49 @@ const getStatusColor = (status: string) => {
   }
 };
 
+const parsePortValue = (value: string) => {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0 || parsed > 65535) {
+    return null;
+  }
+  return parsed;
+};
+
+interface PortForwardFormState {
+  name: string;
+  localPort: string;
+  remotePort: string;
+  autoReconnect: boolean;
+  saveConfig: boolean;
+}
+
 export function PodDetail() {
   const { namespace, name } = useParams<{ namespace: string; name: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const currentContext = useClusterStore((state) => state.currentContext);
   const queryClient = useQueryClient();
+  const addPortForwardConfig = usePortForwardStore((state) => state.addConfig);
+  const startPortForwardConfig = usePortForwardStore((state) => state.startConfig);
+  const refreshPortForwards = usePortForwardStore((state) => state.refreshSessions);
+  const portForwardSessions = usePortForwardStore((state) => state.sessions);
+  const stopPortForwardSession = usePortForwardStore((state) => state.stopSession);
+  const portForwardStatusBySession = usePortForwardStore((state) => state.statusBySession);
   const [activeTab, setActiveTab] = useState('overview');
   const [showTerminal, setShowTerminal] = useState(false);
   const [selectedContainer, setSelectedContainer] = useState<string | null>(null);
   const [podKey, setPodKey] = useState(0); // Used to force LogViewer remount
   const [isSearchingReplacement, setIsSearchingReplacement] = useState(false);
   const [savedLabels, setSavedLabels] = useState<Record<string, string> | null>(null);
+  const [portForwardOpen, setPortForwardOpen] = useState(false);
+  const [portForwardBusy, setPortForwardBusy] = useState(false);
+  const [portForwardForm, setPortForwardForm] = useState<PortForwardFormState>({
+    name: '',
+    localPort: '',
+    remotePort: '',
+    autoReconnect: true,
+    saveConfig: true,
+  });
 
   const { data: pod, isLoading, error } = useQuery({
     queryKey: ['pod', namespace, name],
@@ -246,6 +291,95 @@ export function PodDetail() {
     setShowTerminal(true);
   };
 
+  const openPortForwardDialog = () => {
+    if (!pod) {
+      return;
+    }
+    setPortForwardForm({
+      name: pod.name,
+      localPort: '',
+      remotePort: '',
+      autoReconnect: true,
+      saveConfig: true,
+    });
+    setPortForwardOpen(true);
+  };
+
+  const handlePortForward = async () => {
+    if (!pod) {
+      return;
+    }
+    if (!currentContext) {
+      toast({
+        title: 'No cluster selected',
+        description: 'Connect to a cluster to start port-forwarding.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const localPort = parsePortValue(portForwardForm.localPort);
+    const remotePort = parsePortValue(portForwardForm.remotePort);
+
+    if (!localPort || !remotePort) {
+      toast({
+        title: 'Invalid port',
+        description: 'Ports must be between 1 and 65535.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setPortForwardBusy(true);
+    try {
+      if (portForwardForm.saveConfig) {
+        const config = addPortForwardConfig({
+          context: currentContext,
+          name: portForwardForm.name.trim() || `${pod.name}:${remotePort}`,
+          pod: pod.name,
+          namespace: pod.namespace,
+          localPort,
+          remotePort,
+          autoReconnect: portForwardForm.autoReconnect,
+        });
+        await startPortForwardConfig(config.id);
+      } else {
+        await invoke('port_forward_pod', {
+          pod: pod.name,
+          namespace: pod.namespace,
+          config: {
+            local_port: localPort,
+            remote_port: remotePort,
+            auto_reconnect: portForwardForm.autoReconnect,
+          },
+        });
+      }
+
+      await refreshPortForwards();
+      setPortForwardOpen(false);
+    } catch (err) {
+      toast({
+        title: 'Failed to start port-forward',
+        description: String(err),
+        variant: 'destructive',
+      });
+    } finally {
+      setPortForwardBusy(false);
+    }
+  };
+
+  const handleStopPortForward = async (sessionId: string) => {
+    try {
+      await stopPortForwardSession(sessionId);
+    } catch (err) {
+      toast({
+        title: 'Failed to stop port-forward',
+        description: String(err),
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -309,6 +443,13 @@ export function PodDetail() {
     );
   }
 
+  const activePortForwards = portForwardSessions.filter(
+    (session) =>
+      session.context === currentContext &&
+      session.pod === pod.name &&
+      session.namespace === pod.namespace
+  );
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -324,6 +465,14 @@ export function PodDetail() {
           <Badge variant={getStatusColor(pod.status.phase) as any}>{pod.status.phase}</Badge>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={openPortForwardDialog}
+            disabled={!currentContext}
+          >
+            Port Forward
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -345,10 +494,158 @@ export function PodDetail() {
         </div>
       </div>
 
+      <Dialog open={portForwardOpen} onOpenChange={setPortForwardOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Port forward</DialogTitle>
+            <DialogDescription>
+              Forward traffic from your machine to this pod.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-md border p-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Target</span>
+                <span className="font-medium">
+                  {pod.namespace}/{pod.name}
+                </span>
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="pf-local-port">Local port</Label>
+                <Input
+                  id="pf-local-port"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={65535}
+                  value={portForwardForm.localPort}
+                  onChange={(event) =>
+                    setPortForwardForm((prev) => ({
+                      ...prev,
+                      localPort: event.target.value,
+                    }))
+                  }
+                  placeholder="8080"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="pf-remote-port">Remote port</Label>
+                <Input
+                  id="pf-remote-port"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={65535}
+                  value={portForwardForm.remotePort}
+                  onChange={(event) =>
+                    setPortForwardForm((prev) => ({
+                      ...prev,
+                      remotePort: event.target.value,
+                    }))
+                  }
+                  placeholder="80"
+                />
+              </div>
+            </div>
+            <div className="rounded-md border p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Auto reconnect</p>
+                  <p className="text-xs text-muted-foreground">
+                    Retry when the pod or connection drops
+                  </p>
+                </div>
+                <Switch
+                  checked={portForwardForm.autoReconnect}
+                  onCheckedChange={(checked) =>
+                    setPortForwardForm((prev) => ({
+                      ...prev,
+                      autoReconnect: checked,
+                    }))
+                  }
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Save as config</p>
+                  <p className="text-xs text-muted-foreground">
+                    Keep this port-forward for quick reuse
+                  </p>
+                </div>
+                <Switch
+                  checked={portForwardForm.saveConfig}
+                  onCheckedChange={(checked) =>
+                    setPortForwardForm((prev) => ({
+                      ...prev,
+                      saveConfig: checked,
+                    }))
+                  }
+                />
+              </div>
+              {portForwardForm.saveConfig && (
+                <div className="grid gap-2">
+                  <Label htmlFor="pf-config-name">Config name</Label>
+                  <Input
+                    id="pf-config-name"
+                    value={portForwardForm.name}
+                    onChange={(event) =>
+                      setPortForwardForm((prev) => ({
+                        ...prev,
+                        name: event.target.value,
+                      }))
+                    }
+                    placeholder={pod.name}
+                  />
+                </div>
+              )}
+            </div>
+            {activePortForwards.length > 0 && (
+              <div className="space-y-2">
+                <Label>Active port-forwards</Label>
+                {activePortForwards.map((session) => (
+                  <div
+                    key={session.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 text-sm"
+                  >
+                    <div>
+                      <div className="font-medium">
+                        {session.localPort} → {session.pod}:{session.remotePort}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {portForwardStatusBySession[session.id]?.message ||
+                          portForwardStatusBySession[session.id]?.status ||
+                          'Active'}
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleStopPortForward(session.id)}
+                    >
+                      Stop
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPortForwardOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handlePortForward} disabled={portForwardBusy}>
+              {portForwardBusy ? 'Starting...' : 'Start port-forward'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Terminal Panel */}
       {showTerminal && selectedContainer && (
-        <Card>
-          <CardContent className="p-0 h-80">
+        <Card className="overflow-hidden">
+          <CardContent className="p-0 h-80 overflow-hidden">
             <Terminal
               podName={pod.name}
               namespace={pod.namespace}

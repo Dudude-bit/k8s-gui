@@ -3,6 +3,7 @@
 //! Commands for managing PersistentVolumes, PersistentVolumeClaims, and StorageClasses.
 
 use crate::state::AppState;
+use crate::utils::{format_k8s_age, normalize_namespace};
 use k8s_openapi::api::core::v1::{PersistentVolume, PersistentVolumeClaim};
 use k8s_openapi::api::storage::v1::StorageClass;
 use kube::{Api, api::ListParams, ResourceExt};
@@ -48,29 +49,6 @@ pub struct StorageClassInfo {
     pub is_default: bool,
     pub parameters: BTreeMap<String, String>,
     pub age: String,
-}
-
-fn format_age(created: Option<&k8s_openapi::apimachinery::pkg::apis::meta::v1::Time>) -> String {
-    match created {
-        Some(time) => {
-            let now = chrono::Utc::now();
-            let created_time = chrono::DateTime::parse_from_rfc3339(&time.0.to_rfc3339())
-                .map(|t| t.with_timezone(&chrono::Utc))
-                .unwrap_or(now);
-            let duration = now.signed_duration_since(created_time);
-            
-            if duration.num_days() > 0 {
-                format!("{}d", duration.num_days())
-            } else if duration.num_hours() > 0 {
-                format!("{}h", duration.num_hours())
-            } else if duration.num_minutes() > 0 {
-                format!("{}m", duration.num_minutes())
-            } else {
-                format!("{}s", duration.num_seconds())
-            }
-        }
-        None => "Unknown".to_string(),
-    }
 }
 
 fn format_access_mode(mode: &str) -> String {
@@ -138,7 +116,7 @@ pub async fn list_persistent_volumes(
                 .and_then(|s| s.storage_class_name.clone())
                 .unwrap_or_default(),
             reason: status.and_then(|s| s.reason.clone()),
-            age: format_age(pv.metadata.creation_timestamp.as_ref()),
+            age: format_k8s_age(pv.metadata.creation_timestamp.as_ref()),
         });
     }
     
@@ -160,9 +138,12 @@ pub async fn list_persistent_volume_claims(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let ns = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let ns = normalize_namespace(namespace, state.get_namespace(&context));
     
-    let pvcs: Api<PersistentVolumeClaim> = Api::namespaced((*client).clone(), &ns);
+    let pvcs: Api<PersistentVolumeClaim> = match ns {
+        Some(ref namespace) => Api::namespaced((*client).clone(), namespace),
+        None => Api::all((*client).clone()),
+    };
     let pvc_list = pvcs.list(&ListParams::default()).await.map_err(|e| e.to_string())?;
     
     let mut result = Vec::new();
@@ -202,7 +183,7 @@ pub async fn list_persistent_volume_claims(
             storage_class: spec
                 .and_then(|s| s.storage_class_name.clone())
                 .unwrap_or_default(),
-            age: format_age(pvc.metadata.creation_timestamp.as_ref()),
+            age: format_k8s_age(pvc.metadata.creation_timestamp.as_ref()),
         });
     }
     
@@ -246,7 +227,7 @@ pub async fn list_storage_classes(
             allow_volume_expansion: sc.allow_volume_expansion.unwrap_or(false),
             is_default,
             parameters: sc.parameters.unwrap_or_default(),
-            age: format_age(sc.metadata.creation_timestamp.as_ref()),
+            age: format_k8s_age(sc.metadata.creation_timestamp.as_ref()),
         });
     }
     

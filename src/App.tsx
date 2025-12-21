@@ -1,5 +1,5 @@
-import { Routes, Route } from 'react-router-dom';
-import { useEffect } from 'react';
+import { Routes, Route, useLocation } from 'react-router-dom';
+import { useCallback, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { ClusterOverview } from '@/pages/ClusterOverview';
 import { Workloads } from '@/pages/Workloads';
@@ -14,11 +14,25 @@ import { PodDetail } from '@/pages/PodDetail';
 import { DeploymentDetail } from '@/pages/DeploymentDetail';
 import { ServiceDetail } from '@/pages/ServiceDetail';
 import { NodeDetail } from '@/pages/NodeDetail';
-import { Toaster } from '@/components/ui/toaster';
 import { useThemeStore } from '@/stores/themeStore';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
+import { useToast } from '@/components/ui/use-toast';
+import { useGlobalErrorToasts } from '@/hooks/useGlobalErrorToasts';
+import { usePortForwardEvents } from '@/hooks/usePortForwardEvents';
+import { usePortForwardStore } from '@/stores/portForwardStore';
 
 export default function App() {
   const { theme } = useThemeStore();
+  const location = useLocation();
+  const { toast } = useToast();
+  const hydratePortForwards = usePortForwardStore((state) => state.hydrate);
+
+  useGlobalErrorToasts();
+  usePortForwardEvents();
+
+  useEffect(() => {
+    hydratePortForwards();
+  }, [hydratePortForwards]);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -34,8 +48,19 @@ export default function App() {
     }
   }, [theme]);
 
+  const handleError = useCallback(
+    (error: Error) => {
+      toast({
+        title: 'Unexpected error',
+        description: error.message || 'Something went wrong while rendering.',
+        variant: 'destructive',
+      });
+    },
+    [toast]
+  );
+
   return (
-    <>
+    <ErrorBoundary resetKey={location.pathname} onError={handleError}>
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<ClusterOverview />} />
@@ -53,7 +78,6 @@ export default function App() {
           <Route path="service/:namespace/:name" element={<ServiceDetail />} />
         </Route>
       </Routes>
-      <Toaster />
-    </>
+    </ErrorBoundary>
   );
 }

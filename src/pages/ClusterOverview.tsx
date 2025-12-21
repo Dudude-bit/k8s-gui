@@ -20,6 +20,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Link } from 'react-router-dom';
 
 interface ClusterInfo {
   name: string;
@@ -76,9 +77,7 @@ export function ClusterOverview() {
   const { data: stats, isLoading: isLoadingStats, isFetching } = useQuery({
     queryKey: ['overview-stats', currentContext, currentNamespace],
     queryFn: async () => {
-      // Empty string means all namespaces
-      const ns = currentNamespace || null;
-      return invoke<ClusterStats>('get_cluster_stats', { namespace: ns });
+      return invoke<ClusterStats>('get_cluster_stats', { namespace: currentNamespace });
     },
     enabled: isConnected,
     staleTime: 10000, // 10 seconds cache
@@ -245,8 +244,8 @@ function QuickActionButton({
   href: string;
 }) {
   return (
-    <a
-      href={href}
+    <Link
+      to={href}
       className={cn(
         'flex items-center gap-2 rounded-lg border border-border p-3',
         'transition-colors hover:bg-accent'
@@ -254,6 +253,6 @@ function QuickActionButton({
     >
       <Icon className="h-4 w-4 text-muted-foreground" />
       <span className="text-sm font-medium">{label}</span>
-    </a>
+    </Link>
   );
 }

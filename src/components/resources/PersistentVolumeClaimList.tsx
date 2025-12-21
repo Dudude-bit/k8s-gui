@@ -1,23 +1,22 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
 import { useClusterStore } from '@/stores/clusterStore';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ConnectClusterEmptyState } from '@/components/ui/connect-cluster-empty-state';
 import { ColumnDef } from '@tanstack/react-table';
-import { MoreHorizontal, Eye, Trash2, RefreshCw, Database } from 'lucide-react';
+import { Eye, Trash2, RefreshCw, Database, Loader2 } from 'lucide-react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { ActionMenu } from '@/components/ui/action-menu';
 
 interface PersistentVolumeClaimInfo {
   name: string;
@@ -114,24 +113,17 @@ const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
   {
     id: 'actions',
     cell: () => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem>
-            <Eye className="mr-2 h-4 w-4" />
-            View Details
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem className="text-destructive">
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <ActionMenu>
+        <DropdownMenuItem>
+          <Eye className="mr-2 h-4 w-4" />
+          View Details
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="text-destructive">
+          <Trash2 className="mr-2 h-4 w-4" />
+          Delete
+        </DropdownMenuItem>
+      </ActionMenu>
     ),
   },
 ];
@@ -139,39 +131,49 @@ const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
 export function PersistentVolumeClaimList() {
   const { isConnected, currentNamespace } = useClusterStore();
 
-  const { data: pvcs = [], isLoading, refetch } = useQuery({
+  const { data: pvcs = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ['persistent-volume-claims', currentNamespace],
     queryFn: async () => {
       const result = await invoke<PersistentVolumeClaimInfo[]>('list_persistent_volume_claims', {
-        namespace: currentNamespace === 'all' ? null : currentNamespace,
+        namespace: currentNamespace,
       });
       return result;
     },
     enabled: isConnected,
+    placeholderData: keepPreviousData,
+    staleTime: 10000,
+    refetchOnWindowFocus: false,
   });
 
   if (!isConnected) {
-    return (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
-        Connect to a cluster to view persistent volume claims
-      </div>
-    );
+    return <ConnectClusterEmptyState resourceLabel="persistent volume claims" />;
   }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Persistent Volume Claims</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold">Persistent Volume Claims</h1>
+            {isFetching && !isLoading && (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            )}
+          </div>
           <p className="text-sm text-muted-foreground">
-            Requests for storage by pods in namespace {currentNamespace}
+            Requests for storage by pods in {currentNamespace || 'all namespaces'}
           </p>
         </div>
-        <Button variant="outline" size="icon" onClick={() => refetch()}>
-          <RefreshCw className="h-4 w-4" />
+        <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isFetching}>
+          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
         </Button>
       </div>
-      <DataTable columns={columns} data={pvcs} isLoading={isLoading} searchKey="name" />
+      <DataTable
+        columns={columns}
+        data={pvcs}
+        isLoading={isLoading && pvcs.length === 0}
+        isFetching={isFetching && !isLoading}
+        searchKey="name"
+      />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
+use crate::state::AppEvent;
 use tauri::State;
 
 /// Terminal session info
@@ -152,7 +153,7 @@ pub async fn open_shell(
         .container(&container_name)
         .stdin(true)
         .stdout(true)
-        .stderr(true)
+        .stderr(false)
         .tty(true);
     
     let mut attached = api.exec(&pod, vec![&shell_cmd], &params)
@@ -161,7 +162,7 @@ pub async fn open_shell(
     
     let event_tx = state.event_tx.clone();
     let session_id_clone = session_id.clone();
-    
+
     // Handle stdout
     if let Some(mut stdout) = attached.stdout() {
         let event_tx = event_tx.clone();
@@ -218,6 +219,27 @@ pub async fn open_shell(
         created_at: chrono::Utc::now(),
     };
     state.terminal_sessions.insert(session_id.clone(), terminal_session);
+
+    // Watch for session close
+    let terminal_inputs = state.terminal_inputs.clone();
+    let terminal_sessions = state.terminal_sessions.clone();
+    let close_event_tx = state.event_tx.clone();
+    let session_id_for_close = session_id.clone();
+    if let Some(status_future) = attached.take_status() {
+        tokio::spawn(async move {
+            let status_text = status_future
+                .await
+                .and_then(|status| status.status);
+
+            terminal_inputs.remove(&session_id_for_close);
+            terminal_sessions.remove(&session_id_for_close);
+
+            let _ = close_event_tx.send(AppEvent::TerminalClosed {
+                session_id: session_id_for_close,
+                status: status_text,
+            });
+        });
+    }
     
     Ok(session_id)
 }

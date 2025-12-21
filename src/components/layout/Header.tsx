@@ -173,12 +173,7 @@ export function Header() {
           variant="outline"
           className="justify-start text-sm text-muted-foreground"
           onClick={() => {
-            // Trigger command palette
-            const event = new KeyboardEvent('keydown', {
-              key: 'k',
-              metaKey: true,
-            });
-            window.dispatchEvent(event);
+            window.dispatchEvent(new CustomEvent('command-palette-open'));
           }}
         >
           <Search className="mr-2 h-4 w-4" />

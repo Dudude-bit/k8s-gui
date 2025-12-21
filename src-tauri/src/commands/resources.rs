@@ -2,6 +2,7 @@
 
 use crate::resources::{GenericResource, ResourceKind, ResourceList};
 use crate::state::AppState;
+use crate::utils::{normalize_namespace, require_namespace};
 use kube::api::ListParams;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -32,7 +33,7 @@ pub async fn list_resources(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = query.namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = normalize_namespace(query.namespace, state.get_namespace(&context));
     
     // Build list params
     let mut params = ListParams::default();
@@ -43,39 +44,51 @@ pub async fn list_resources(
         params = params.fields(fields);
     }
     if let Some(limit) = query.limit {
-        params = params.limit(limit as u32);
+        if limit > 0 {
+            params = params.limit(limit as u32);
+        }
     }
 
     // This is a simplified implementation
     // In production, we'd use dynamic API discovery
     let result = match query.kind.as_str() {
         "Pod" | "pods" => {
-            let api: kube::Api<k8s_openapi::api::core::v1::Pod> = 
-                kube::Api::namespaced((*client).clone(), &namespace);
+            let api: kube::Api<k8s_openapi::api::core::v1::Pod> = match namespace.as_ref() {
+                Some(ns) => kube::Api::namespaced((*client).clone(), ns),
+                None => kube::Api::all((*client).clone()),
+            };
             let list = api.list(&params).await.map_err(|e| e.to_string())?;
             list.items.iter().map(|r| serde_json::to_value(r)).collect::<Result<Vec<_>, _>>()
         }
         "Deployment" | "deployments" => {
-            let api: kube::Api<k8s_openapi::api::apps::v1::Deployment> = 
-                kube::Api::namespaced((*client).clone(), &namespace);
+            let api: kube::Api<k8s_openapi::api::apps::v1::Deployment> = match namespace.as_ref() {
+                Some(ns) => kube::Api::namespaced((*client).clone(), ns),
+                None => kube::Api::all((*client).clone()),
+            };
             let list = api.list(&params).await.map_err(|e| e.to_string())?;
             list.items.iter().map(|r| serde_json::to_value(r)).collect::<Result<Vec<_>, _>>()
         }
         "Service" | "services" => {
-            let api: kube::Api<k8s_openapi::api::core::v1::Service> = 
-                kube::Api::namespaced((*client).clone(), &namespace);
+            let api: kube::Api<k8s_openapi::api::core::v1::Service> = match namespace.as_ref() {
+                Some(ns) => kube::Api::namespaced((*client).clone(), ns),
+                None => kube::Api::all((*client).clone()),
+            };
             let list = api.list(&params).await.map_err(|e| e.to_string())?;
             list.items.iter().map(|r| serde_json::to_value(r)).collect::<Result<Vec<_>, _>>()
         }
         "ConfigMap" | "configmaps" => {
-            let api: kube::Api<k8s_openapi::api::core::v1::ConfigMap> = 
-                kube::Api::namespaced((*client).clone(), &namespace);
+            let api: kube::Api<k8s_openapi::api::core::v1::ConfigMap> = match namespace.as_ref() {
+                Some(ns) => kube::Api::namespaced((*client).clone(), ns),
+                None => kube::Api::all((*client).clone()),
+            };
             let list = api.list(&params).await.map_err(|e| e.to_string())?;
             list.items.iter().map(|r| serde_json::to_value(r)).collect::<Result<Vec<_>, _>>()
         }
         "Secret" | "secrets" => {
-            let api: kube::Api<k8s_openapi::api::core::v1::Secret> = 
-                kube::Api::namespaced((*client).clone(), &namespace);
+            let api: kube::Api<k8s_openapi::api::core::v1::Secret> = match namespace.as_ref() {
+                Some(ns) => kube::Api::namespaced((*client).clone(), ns),
+                None => kube::Api::all((*client).clone()),
+            };
             let list = api.list(&params).await.map_err(|e| e.to_string())?;
             list.items.iter().map(|r| serde_json::to_value(r)).collect::<Result<Vec<_>, _>>()
         }
@@ -114,7 +127,7 @@ pub async fn get_resource(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let result = match kind.as_str() {
         "Pod" | "pods" => {
@@ -214,7 +227,7 @@ pub async fn delete_resource(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
     let dp = kube::api::DeleteParams::default();
 
     match kind.as_str() {

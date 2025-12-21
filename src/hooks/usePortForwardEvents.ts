@@ -1,0 +1,99 @@
+import { useEffect, useRef } from 'react';
+import { listen } from '@tauri-apps/api/event';
+import { useToast } from '@/components/ui/use-toast';
+import { usePortForwardStore } from '@/stores/portForwardStore';
+
+interface PortForwardEventPayload {
+  id: string;
+  pod: string;
+  namespace: string;
+  local_port: number;
+  remote_port: number;
+  status: string;
+  message?: string | null;
+  attempt?: number | null;
+}
+
+const DEDUPE_MS = 2500;
+
+export function usePortForwardEvents() {
+  const { toast } = useToast();
+  const setStatus = usePortForwardStore((state) => state.setStatus);
+  const refreshSessions = usePortForwardStore((state) => state.refreshSessions);
+  const lastToastRef = useRef<Record<string, { status: string; time: number }>>({});
+
+  useEffect(() => {
+    let unlisten: null | (() => void) = null;
+
+    listen<PortForwardEventPayload>('port-forward-status', (event) => {
+      const payload = event.payload;
+
+      setStatus({
+        id: payload.id,
+        pod: payload.pod,
+        namespace: payload.namespace,
+        localPort: payload.local_port,
+        remotePort: payload.remote_port,
+        status: payload.status,
+        message: payload.message,
+        attempt: payload.attempt,
+      });
+
+      const last = lastToastRef.current[payload.id];
+      const now = Date.now();
+      if (last && last.status === payload.status && now - last.time < DEDUPE_MS) {
+        return;
+      }
+      lastToastRef.current[payload.id] = { status: payload.status, time: now };
+
+      const base = `${payload.local_port} → ${payload.pod}:${payload.remote_port}`;
+      const message = payload.message || base;
+
+      switch (payload.status) {
+        case 'listening':
+          toast({
+            title: 'Port-forward active',
+            description: message,
+          });
+          break;
+        case 'reconnecting':
+          toast({
+            title: 'Port-forward reconnecting',
+            description: message,
+          });
+          break;
+        case 'reconnected':
+          toast({
+            title: 'Port-forward reconnected',
+            description: base,
+          });
+          break;
+        case 'stopped':
+          toast({
+            title: 'Port-forward stopped',
+            description: base,
+          });
+          refreshSessions();
+          break;
+        case 'error':
+          toast({
+            title: 'Port-forward error',
+            description: message,
+            variant: 'destructive',
+          });
+          refreshSessions();
+          break;
+        default:
+          break;
+      }
+    }).then((fn) => {
+      unlisten = fn;
+    });
+
+    return () => {
+      if (unlisten) {
+        unlisten();
+      }
+    };
+  }, [refreshSessions, setStatus, toast]);
+}

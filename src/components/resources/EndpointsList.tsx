@@ -1,22 +1,21 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
 import { useClusterStore } from '@/stores/clusterStore';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ConnectClusterEmptyState } from '@/components/ui/connect-cluster-empty-state';
 import { ColumnDef } from '@tanstack/react-table';
-import { MoreHorizontal, Eye, RefreshCw, Network, CircleDot } from 'lucide-react';
+import { Eye, RefreshCw, Network, CircleDot, Loader2 } from 'lucide-react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { ActionMenu } from '@/components/ui/action-menu';
 
 interface EndpointAddress {
   ip: string;
@@ -182,19 +181,12 @@ const columns: ColumnDef<EndpointsInfo>[] = [
   {
     id: 'actions',
     cell: () => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem>
-            <Eye className="mr-2 h-4 w-4" />
-            View Details
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <ActionMenu>
+        <DropdownMenuItem>
+          <Eye className="mr-2 h-4 w-4" />
+          View Details
+        </DropdownMenuItem>
+      </ActionMenu>
     ),
   },
 ];
@@ -202,39 +194,49 @@ const columns: ColumnDef<EndpointsInfo>[] = [
 export function EndpointsList() {
   const { isConnected, currentNamespace } = useClusterStore();
 
-  const { data: endpoints = [], isLoading, refetch } = useQuery({
+  const { data: endpoints = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ['endpoints', currentNamespace],
     queryFn: async () => {
       const result = await invoke<EndpointsInfo[]>('list_endpoints', {
-        namespace: currentNamespace === 'all' ? null : currentNamespace,
+        namespace: currentNamespace,
       });
       return result;
     },
     enabled: isConnected,
+    placeholderData: keepPreviousData,
+    staleTime: 10000,
+    refetchOnWindowFocus: false,
   });
 
   if (!isConnected) {
-    return (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
-        Connect to a cluster to view endpoints
-      </div>
-    );
+    return <ConnectClusterEmptyState resourceLabel="endpoints" />;
   }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Endpoints</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold">Endpoints</h1>
+            {isFetching && !isLoading && (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            )}
+          </div>
           <p className="text-sm text-muted-foreground">
-            Network endpoints for services in namespace {currentNamespace}
+            Network endpoints for services in {currentNamespace || 'all namespaces'}
           </p>
         </div>
-        <Button variant="outline" size="icon" onClick={() => refetch()}>
-          <RefreshCw className="h-4 w-4" />
+        <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isFetching}>
+          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
         </Button>
       </div>
-      <DataTable columns={columns} data={endpoints} isLoading={isLoading} searchKey="name" />
+      <DataTable
+        columns={columns}
+        data={endpoints}
+        isLoading={isLoading && endpoints.length === 0}
+        isFetching={isFetching && !isLoading}
+        searchKey="name"
+      />
     </div>
   );
 }

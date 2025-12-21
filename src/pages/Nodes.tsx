@@ -4,16 +4,15 @@ import { useClusterStore } from '@/stores/clusterStore';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ConnectClusterEmptyState } from '@/components/ui/connect-cluster-empty-state';
 import { ColumnDef } from '@tanstack/react-table';
 import { Link } from 'react-router-dom';
-import { MoreHorizontal, Eye, RefreshCw, Loader2 } from 'lucide-react';
+import { Eye, RefreshCw, Loader2 } from 'lucide-react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { getStatusColor } from '@/lib/utils';
+import { formatAge, formatKubernetesBytes, getStatusColor } from '@/lib/utils';
+import { ActionMenu } from '@/components/ui/action-menu';
 
 interface NodeAddressInfo {
   type_: string;
@@ -54,23 +53,6 @@ interface NodeInfo {
   capacity: ResourceQuantities;
   allocatable: ResourceQuantities;
   created_at: string | null;
-}
-
-// Helper to calculate age from timestamp
-function formatAge(createdAt: string | null): string {
-  if (!createdAt) return 'Unknown';
-  const created = new Date(createdAt);
-  const now = new Date();
-  const diffMs = now.getTime() - created.getTime();
-  const diffSecs = Math.floor(diffMs / 1000);
-  const diffMins = Math.floor(diffSecs / 60);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-  
-  if (diffDays > 0) return `${diffDays}d`;
-  if (diffHours > 0) return `${diffHours}h`;
-  if (diffMins > 0) return `${diffMins}m`;
-  return `${diffSecs}s`;
 }
 
 // Helper to get internal IP
@@ -134,7 +116,7 @@ const columns: ColumnDef<NodeInfo>[] = [
   {
     id: 'memory',
     header: 'Memory',
-    cell: ({ row }) => row.original.capacity.memory || '-',
+    cell: ({ row }) => formatKubernetesBytes(row.original.capacity.memory),
   },
   {
     id: 'age',
@@ -144,21 +126,14 @@ const columns: ColumnDef<NodeInfo>[] = [
   {
     id: 'actions',
     cell: ({ row }) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem asChild>
-            <Link to={`/nodes/${row.original.name}`}>
-              <Eye className="mr-2 h-4 w-4" />
-              View Details
-            </Link>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <ActionMenu>
+        <DropdownMenuItem asChild>
+          <Link to={`/nodes/${row.original.name}`}>
+            <Eye className="mr-2 h-4 w-4" />
+            View Details
+          </Link>
+        </DropdownMenuItem>
+      </ActionMenu>
     ),
   },
 ];
@@ -178,11 +153,7 @@ export function Nodes() {
   });
 
   if (!isConnected) {
-    return (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
-        Connect to a cluster to view nodes
-      </div>
-    );
+    return <ConnectClusterEmptyState resourceLabel="nodes" />;
   }
 
   const showSkeleton = isLoading && nodes.length === 0;

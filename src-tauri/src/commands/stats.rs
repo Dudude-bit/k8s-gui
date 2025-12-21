@@ -1,6 +1,7 @@
 //! Cluster statistics commands
 
 use crate::state::AppState;
+use crate::utils::normalize_namespace;
 use k8s_openapi::api::apps::v1::Deployment;
 use k8s_openapi::api::core::v1::{Node, Pod, Service};
 use kube::{api::ListParams, Api};
@@ -63,30 +64,28 @@ pub async fn get_cluster_stats(
         .ok_or_else(|| "Client not found".to_string())?;
 
     let params = ListParams::default();
+    let namespace = normalize_namespace(namespace, state.get_namespace(&context));
 
     // Fetch all resources in parallel
     let (pods_result, deployments_result, services_result, nodes_result) = tokio::join!(
         async {
-            let api: Api<Pod> = if let Some(ref ns) = namespace {
-                Api::namespaced((*client).clone(), ns)
-            } else {
-                Api::all((*client).clone())
+            let api: Api<Pod> = match namespace.as_ref() {
+                Some(ns) => Api::namespaced((*client).clone(), ns),
+                None => Api::all((*client).clone()),
             };
             api.list(&params).await
         },
         async {
-            let api: Api<Deployment> = if let Some(ref ns) = namespace {
-                Api::namespaced((*client).clone(), ns)
-            } else {
-                Api::all((*client).clone())
+            let api: Api<Deployment> = match namespace.as_ref() {
+                Some(ns) => Api::namespaced((*client).clone(), ns),
+                None => Api::all((*client).clone()),
             };
             api.list(&params).await
         },
         async {
-            let api: Api<Service> = if let Some(ref ns) = namespace {
-                Api::namespaced((*client).clone(), ns)
-            } else {
-                Api::all((*client).clone())
+            let api: Api<Service> = match namespace.as_ref() {
+                Some(ns) => Api::namespaced((*client).clone(), ns),
+                None => Api::all((*client).clone()),
             };
             api.list(&params).await
         },

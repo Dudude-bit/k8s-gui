@@ -1,6 +1,7 @@
 //! Utility functions and helpers
 
 use chrono::{DateTime, Utc};
+use k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
 use serde::{Deserialize, Serialize};
 
 /// Format duration in human-readable format (e.g., "5m", "2h", "3d")
@@ -21,6 +22,41 @@ pub fn format_age(created_at: &DateTime<Utc>) -> String {
     let now = Utc::now();
     let duration = now.signed_duration_since(*created_at);
     format_duration(duration.num_seconds())
+}
+
+/// Format age from Kubernetes Time.
+pub fn format_k8s_age(created_at: Option<&Time>) -> String {
+    match created_at {
+        Some(time) => {
+            let now = Utc::now();
+            let created_time = chrono::DateTime::parse_from_rfc3339(&time.0.to_rfc3339())
+                .map(|t| t.with_timezone(&Utc))
+                .unwrap_or(now);
+            format_age(&created_time)
+        }
+        None => "Unknown".to_string(),
+    }
+}
+
+/// Normalize namespace input, returning None for "all namespaces".
+pub fn normalize_namespace(namespace: Option<String>, fallback: String) -> Option<String> {
+    if let Some(ns) = namespace {
+        if ns.trim().is_empty() {
+            None
+        } else {
+            Some(ns)
+        }
+    } else if fallback.trim().is_empty() {
+        None
+    } else {
+        Some(fallback)
+    }
+}
+
+/// Require a concrete namespace, returning an error when "all namespaces" is selected.
+pub fn require_namespace(namespace: Option<String>, fallback: String) -> Result<String, String> {
+    normalize_namespace(namespace, fallback)
+        .ok_or_else(|| "Namespace is required for this operation when all namespaces is selected.".to_string())
 }
 
 /// Format bytes in human-readable format (e.g., "1.5 GB")
@@ -270,5 +306,32 @@ mod tests {
         assert_eq!(pagination.total_pages(), 3);
         assert!(pagination.has_next());
         assert!(pagination.has_prev());
+    }
+
+    #[test]
+    fn test_normalize_namespace() {
+        assert_eq!(
+            normalize_namespace(Some("default".to_string()), "ignored".to_string()),
+            Some("default".to_string())
+        );
+        assert_eq!(
+            normalize_namespace(Some("".to_string()), "default".to_string()),
+            None
+        );
+        assert_eq!(
+            normalize_namespace(None, "default".to_string()),
+            Some("default".to_string())
+        );
+        assert_eq!(normalize_namespace(None, "".to_string()), None);
+    }
+
+    #[test]
+    fn test_require_namespace() {
+        assert_eq!(
+            require_namespace(Some("default".to_string()), "ignored".to_string()).unwrap(),
+            "default".to_string()
+        );
+        assert!(require_namespace(Some("".to_string()), "default".to_string()).is_err());
+        assert!(require_namespace(None, "".to_string()).is_err());
     }
 }

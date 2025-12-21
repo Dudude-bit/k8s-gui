@@ -17,6 +17,73 @@ export function formatBytes(bytes: number, decimals = 2): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 
+const BINARY_UNITS: Record<string, number> = {
+  Ki: 1024,
+  Mi: 1024 ** 2,
+  Gi: 1024 ** 3,
+  Ti: 1024 ** 4,
+  Pi: 1024 ** 5,
+  Ei: 1024 ** 6,
+};
+
+const DECIMAL_UNITS: Record<string, number> = {
+  K: 1e3,
+  M: 1e6,
+  G: 1e9,
+  T: 1e12,
+  P: 1e15,
+  E: 1e18,
+};
+
+export function parseKubernetesQuantity(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const match = trimmed.match(/^(-?\d+(?:\.\d+)?)([a-zA-Z]+)?$/);
+  if (!match) {
+    return null;
+  }
+
+  const amount = Number.parseFloat(match[1]);
+  if (Number.isNaN(amount)) {
+    return null;
+  }
+
+  const unit = match[2] ?? '';
+  if (!unit) {
+    return amount;
+  }
+
+  if (unit === 'm') {
+    return amount / 1000;
+  }
+
+  if (unit in BINARY_UNITS) {
+    return amount * BINARY_UNITS[unit];
+  }
+
+  if (unit in DECIMAL_UNITS) {
+    return amount * DECIMAL_UNITS[unit];
+  }
+
+  return null;
+}
+
+export function formatKubernetesBytes(value: string | null | undefined, decimals = 1): string {
+  if (!value) {
+    return '-';
+  }
+
+  const bytes = parseKubernetesQuantity(value);
+  if (bytes === null || Number.isNaN(bytes)) {
+    return value;
+  }
+
+  return formatBytes(bytes, decimals);
+}
+
 export function formatDuration(seconds: number): string {
   const days = Math.floor(seconds / 86400);
   const hours = Math.floor((seconds % 86400) / 3600);
@@ -29,6 +96,23 @@ export function formatDuration(seconds: number): string {
   } else {
     return `${minutes}m`;
   }
+}
+
+export function formatAge(createdAt: string | null): string {
+  if (!createdAt) return 'Unknown';
+
+  const created = new Date(createdAt);
+  const now = new Date();
+  const diffMs = now.getTime() - created.getTime();
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffDays > 0) return `${diffDays}d`;
+  if (diffHours > 0) return `${diffHours}h`;
+  if (diffMins > 0) return `${diffMins}m`;
+  return `${diffSecs}s`;
 }
 
 export function getStatusColor(status: string): string {

@@ -20,6 +20,7 @@ pub mod storage;
 pub mod network;
 pub mod stats;
 pub mod workloads;
+pub mod port_forward;
 
 // Re-export all commands for easy registration
 pub use cluster::*;
@@ -40,3 +41,4 @@ pub use storage::*;
 pub use network::*;
 pub use stats::*;
 pub use workloads::*;
+pub use port_forward::*;

@@ -2,6 +2,7 @@
 
 use crate::resources::ServiceInfo;
 use crate::state::AppState;
+use crate::utils::{normalize_namespace, require_namespace};
 use kube::api::ListParams;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -12,6 +13,7 @@ pub struct ServiceFilters {
     pub namespace: Option<String>,
     pub label_selector: Option<String>,
     pub service_type: Option<String>,
+    pub limit: Option<i64>,
 }
 
 /// List services with optional filters
@@ -33,17 +35,25 @@ pub async fn list_services(
         namespace: None,
         label_selector: None,
         service_type: None,
+        limit: None,
     });
 
-    let namespace = filters.namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = normalize_namespace(filters.namespace, state.get_namespace(&context));
 
     let mut params = ListParams::default();
     if let Some(labels) = &filters.label_selector {
         params = params.labels(labels);
     }
+    if let Some(limit) = filters.limit {
+        if limit > 0 {
+            params = params.limit(limit as u32);
+        }
+    }
 
-    let api: kube::Api<k8s_openapi::api::core::v1::Service> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
+    let api: kube::Api<k8s_openapi::api::core::v1::Service> = match namespace {
+        Some(ref ns) => kube::Api::namespaced((*client).clone(), ns),
+        None => kube::Api::all((*client).clone()),
+    };
     let list = api.list(&params).await.map_err(|e| e.to_string())?;
 
     let mut services: Vec<ServiceInfo> = list.items.iter().map(ServiceInfo::from).collect();
@@ -72,7 +82,7 @@ pub async fn get_service(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::core::v1::Service> = 
         kube::Api::namespaced((*client).clone(), &namespace);
@@ -97,7 +107,7 @@ pub async fn get_service_yaml(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::core::v1::Service> = 
         kube::Api::namespaced((*client).clone(), &namespace);
@@ -122,7 +132,7 @@ pub async fn delete_service(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::core::v1::Service> = 
         kube::Api::namespaced((*client).clone(), &namespace);
@@ -167,7 +177,7 @@ pub async fn get_service_endpoints(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::core::v1::Endpoints> = 
         kube::Api::namespaced((*client).clone(), &namespace);
@@ -217,7 +227,7 @@ pub async fn get_service_pods(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     // Get the service to find its selector
     let svc_api: kube::Api<k8s_openapi::api::core::v1::Service> = 
@@ -275,9 +285,9 @@ pub async fn port_forward_service(
     ))
 }
 
-/// Stop port forwarding
+/// Stop service port forwarding
 #[tauri::command]
-pub async fn stop_port_forward(
+pub async fn stop_service_port_forward(
     forward_id: String,
     _state: State<'_, AppState>,
 ) -> Result<(), String> {

@@ -20,6 +20,13 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
 
@@ -34,12 +41,14 @@ interface DataTableProps<TData, TValue> {
   searchPlaceholder?: string;
 }
 
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+
 export function DataTable<TData, TValue>({
   columns,
   data,
   isLoading = false,
   isFetching = false,
-  searchKey: _searchKey,
+  searchKey,
   searchPlaceholder = 'Search...',
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -47,6 +56,12 @@ export function DataTable<TData, TValue>({
     []
   );
   const [globalFilter, setGlobalFilter] = React.useState('');
+  const [searchValue, setSearchValue] = React.useState('');
+  const [pagination, setPagination] = React.useState({
+    pageIndex: 0,
+    pageSize: 25,
+  });
+  const deferredSearch = React.useDeferredValue(searchValue);
 
   const table = useReactTable({
     data,
@@ -58,12 +73,33 @@ export function DataTable<TData, TValue>({
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
+    onPaginationChange: setPagination,
     state: {
       sorting,
       columnFilters,
       globalFilter,
+      pagination,
     },
   });
+
+  React.useEffect(() => {
+    const searchColumn = searchKey ? table.getColumn(searchKey) : undefined;
+
+    if (searchColumn) {
+      searchColumn.setFilterValue(deferredSearch);
+      setGlobalFilter('');
+    } else {
+      setGlobalFilter(deferredSearch);
+    }
+
+    table.setPageIndex(0);
+  }, [deferredSearch, searchKey, table]);
+
+  const filteredRows = table.getFilteredRowModel().rows.length;
+  const totalRows = data.length;
+  const pageRows = table.getRowModel().rows.length;
+  const pageStart = totalRows === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1;
+  const pageEnd = totalRows === 0 ? 0 : pageStart + pageRows - 1;
 
   if (isLoading) {
     return (
@@ -93,13 +129,13 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <div className="relative max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={searchPlaceholder}
-            value={globalFilter ?? ''}
-            onChange={(event) => setGlobalFilter(event.target.value)}
+            value={searchValue}
+            onChange={(event) => setSearchValue(event.target.value)}
             className="pl-8"
           />
         </div>
@@ -107,7 +143,7 @@ export function DataTable<TData, TValue>({
       <div className={cn(
         "rounded-md border transition-opacity duration-200",
         isFetching && "opacity-60"
-      )}>
+      )} aria-busy={isFetching}>
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -159,9 +195,34 @@ export function DataTable<TData, TValue>({
       </div>
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          {table.getFilteredRowModel().rows.length} row(s)
+          {filteredRows === totalRows
+            ? `${totalRows} row(s)`
+            : `${filteredRows} of ${totalRows} row(s)`}
+          {totalRows > 0 && (
+            <span className="ml-2">
+              Showing {pageStart}-{pageEnd}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
+          <Select
+            value={String(pagination.pageSize)}
+            onValueChange={(value) => {
+              table.setPageSize(Number(value));
+              table.setPageIndex(0);
+            }}
+          >
+            <SelectTrigger className="h-8 w-[120px]">
+              <SelectValue placeholder="Rows" />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((option) => (
+                <SelectItem key={option} value={String(option)}>
+                  {option} / page
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button
             variant="outline"
             size="sm"

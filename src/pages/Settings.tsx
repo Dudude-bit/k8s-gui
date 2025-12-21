@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { useMutation } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
 import { useToast } from '@/components/ui/use-toast';
+import { PortForwardManager } from '@/components/port-forward/PortForwardManager';
 
 export function Settings() {
   const { theme, setTheme } = useThemeStore();
@@ -135,6 +136,8 @@ export function Settings() {
           </div>
         </CardContent>
       </Card>
+
+      <PortForwardManager />
 
       {/* About */}
       <Card>

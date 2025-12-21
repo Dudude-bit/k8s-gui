@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { useClusterStore } from '@/stores/clusterStore';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ConnectClusterEmptyState } from '@/components/ui/connect-cluster-empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Card,
@@ -46,28 +47,30 @@ interface EventInfo {
 export function Events() {
   const { isConnected, currentNamespace } = useClusterStore();
   const [eventType, setEventType] = useState<string>('all');
+  const [eventLimit, setEventLimit] = useState<string>('500');
 
   const { data: events = [], isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['events', currentNamespace, eventType],
+    queryKey: ['events', currentNamespace, eventType, eventLimit],
     queryFn: async () => {
-      const ns = currentNamespace || null;
-      const result = await invoke<EventInfo[]>('list_events', { 
-        namespace: ns,
-        event_type: eventType === 'all' ? null : eventType,
+      const limit = eventLimit === 'all' ? null : Number(eventLimit);
+      const result = await invoke<EventInfo[]>('list_events', {
+        filters: {
+          namespace: currentNamespace,
+          event_type: eventType === 'all' ? null : eventType,
+          limit,
+        },
       });
       return result;
     },
     enabled: isConnected,
     refetchInterval: 5000, // Auto-refresh every 5 seconds
     placeholderData: keepPreviousData,
+    staleTime: 5000,
+    refetchOnWindowFocus: false,
   });
 
   if (!isConnected) {
-    return (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
-        Connect to a cluster to view events
-      </div>
-    );
+    return <ConnectClusterEmptyState resourceLabel="events" />;
   }
 
   const warningCount = events.filter((e) => e.type_ === 'Warning').length;
@@ -93,6 +96,18 @@ export function Events() {
               <SelectItem value="all">All Events</SelectItem>
               <SelectItem value="Warning">Warnings</SelectItem>
               <SelectItem value="Normal">Normal</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={eventLimit} onValueChange={setEventLimit}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Limit" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="200">200</SelectItem>
+              <SelectItem value="500">500</SelectItem>
+              <SelectItem value="1000">1000</SelectItem>
+              <SelectItem value="2000">2000</SelectItem>
+              <SelectItem value="all">All</SelectItem>
             </SelectContent>
           </Select>
           <Button 
@@ -124,6 +139,7 @@ export function Events() {
           <CardTitle>Recent Events</CardTitle>
           <CardDescription>
             Events from {currentNamespace || 'all namespaces'}
+            {eventLimit !== 'all' && ` • Limit ${eventLimit}`}
           </CardDescription>
         </CardHeader>
         <CardContent className="max-h-[600px] overflow-y-auto scrollbar-thin">

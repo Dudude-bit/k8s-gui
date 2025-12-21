@@ -4,20 +4,19 @@ import { useClusterStore } from '@/stores/clusterStore';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ConnectClusterEmptyState } from '@/components/ui/connect-cluster-empty-state';
 import { ColumnDef } from '@tanstack/react-table';
-import { MoreHorizontal, Eye, Trash2, RefreshCw, Layers, Star } from 'lucide-react';
+import { Eye, Trash2, RefreshCw, Layers, Star } from 'lucide-react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { ActionMenu } from '@/components/ui/action-menu';
 
 interface StorageClassInfo {
   name: string;
@@ -113,24 +112,17 @@ const columns: ColumnDef<StorageClassInfo>[] = [
   {
     id: 'actions',
     cell: () => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem>
-            <Eye className="mr-2 h-4 w-4" />
-            View Details
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem className="text-destructive">
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <ActionMenu>
+        <DropdownMenuItem>
+          <Eye className="mr-2 h-4 w-4" />
+          View Details
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="text-destructive">
+          <Trash2 className="mr-2 h-4 w-4" />
+          Delete
+        </DropdownMenuItem>
+      </ActionMenu>
     ),
   },
 ];
@@ -145,14 +137,12 @@ export function StorageClassList() {
       return result;
     },
     enabled: isConnected,
+    staleTime: 10000,
+    refetchOnWindowFocus: false,
   });
 
   if (!isConnected) {
-    return (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
-        Connect to a cluster to view storage classes
-      </div>
-    );
+    return <ConnectClusterEmptyState resourceLabel="storage classes" />;
   }
 
   return (

@@ -1,6 +1,7 @@
 //! Workload resource commands (StatefulSets, DaemonSets, Jobs, CronJobs)
 
 use crate::state::AppState;
+use crate::utils::normalize_namespace;
 use k8s_openapi::api::apps::v1::{DaemonSet, StatefulSet};
 use k8s_openapi::api::batch::v1::{CronJob, Job};
 use kube::{api::ListParams, Api};
@@ -38,10 +39,10 @@ pub async fn list_statefulsets(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let api: Api<StatefulSet> = if let Some(ref ns) = namespace {
-        Api::namespaced((*client).clone(), ns)
-    } else {
-        Api::all((*client).clone())
+    let namespace = normalize_namespace(namespace, state.get_namespace(&context));
+    let api: Api<StatefulSet> = match namespace {
+        Some(ref ns) => Api::namespaced((*client).clone(), ns),
+        None => Api::all((*client).clone()),
     };
 
     let list = api
@@ -99,10 +100,10 @@ pub async fn list_daemonsets(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let api: Api<DaemonSet> = if let Some(ref ns) = namespace {
-        Api::namespaced((*client).clone(), ns)
-    } else {
-        Api::all((*client).clone())
+    let namespace = normalize_namespace(namespace, state.get_namespace(&context));
+    let api: Api<DaemonSet> = match namespace {
+        Some(ref ns) => Api::namespaced((*client).clone(), ns),
+        None => Api::all((*client).clone()),
     };
 
     let list = api
@@ -159,10 +160,10 @@ pub async fn list_jobs(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let api: Api<Job> = if let Some(ref ns) = namespace {
-        Api::namespaced((*client).clone(), ns)
-    } else {
-        Api::all((*client).clone())
+    let namespace = normalize_namespace(namespace, state.get_namespace(&context));
+    let api: Api<Job> = match namespace {
+        Some(ref ns) => Api::namespaced((*client).clone(), ns),
+        None => Api::all((*client).clone()),
     };
 
     let list = api
@@ -231,10 +232,10 @@ pub async fn list_cronjobs(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let api: Api<CronJob> = if let Some(ref ns) = namespace {
-        Api::namespaced((*client).clone(), ns)
-    } else {
-        Api::all((*client).clone())
+    let namespace = normalize_namespace(namespace, state.get_namespace(&context));
+    let api: Api<CronJob> = match namespace {
+        Some(ref ns) => Api::namespaced((*client).clone(), ns),
+        None => Api::all((*client).clone()),
     };
 
     let list = api

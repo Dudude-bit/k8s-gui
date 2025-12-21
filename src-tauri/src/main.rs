@@ -43,6 +43,8 @@ fn main() {
                     let event_name = match &event {
                         AppEvent::LogMessage { .. } => "log-line",
                         AppEvent::TerminalOutput { .. } => "terminal-output",
+                        AppEvent::TerminalClosed { .. } => "terminal-closed",
+                        AppEvent::PortForwardStatus { .. } => "port-forward-status",
                         AppEvent::ConnectionStatusChanged { .. } => "connection-status",
                         AppEvent::ResourceCreated { .. } => "resource-created",
                         AppEvent::ResourceUpdated { .. } => "resource-updated",
@@ -67,6 +69,24 @@ fn main() {
                             serde_json::json!({
                                 "session_id": session_id,
                                 "data": data
+                            })
+                        },
+                        AppEvent::TerminalClosed { session_id, status } => {
+                            serde_json::json!({
+                                "session_id": session_id,
+                                "status": status
+                            })
+                        },
+                        AppEvent::PortForwardStatus { id, pod, namespace, local_port, remote_port, status, message, attempt } => {
+                            serde_json::json!({
+                                "id": id,
+                                "pod": pod,
+                                "namespace": namespace,
+                                "local_port": local_port,
+                                "remote_port": remote_port,
+                                "status": status,
+                                "message": message,
+                                "attempt": attempt
                             })
                         },
                         _ => serde_json::to_value(&event).unwrap_or_default(),
@@ -134,7 +154,12 @@ fn main() {
             commands::services::get_service_endpoints,
             commands::services::get_service_pods,
             commands::services::port_forward_service,
-            commands::services::stop_port_forward,
+            commands::services::stop_service_port_forward,
+
+            // Port-forward commands
+            commands::port_forward::port_forward_pod,
+            commands::port_forward::stop_port_forward,
+            commands::port_forward::list_port_forwards,
             
             // ConfigMap commands
             commands::config_resources::list_configmaps,

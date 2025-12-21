@@ -2,6 +2,7 @@
 
 use crate::resources::{ConfigMapInfo, SecretInfo};
 use crate::state::AppState;
+use crate::utils::{normalize_namespace, require_namespace};
 use kube::api::ListParams;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -16,6 +17,7 @@ use std::collections::BTreeMap;
 pub struct ConfigMapFilters {
     pub namespace: Option<String>,
     pub label_selector: Option<String>,
+    pub limit: Option<i64>,
 }
 
 /// List ConfigMaps
@@ -36,17 +38,25 @@ pub async fn list_configmaps(
     let filters = filters.unwrap_or_else(|| ConfigMapFilters {
         namespace: None,
         label_selector: None,
+        limit: None,
     });
 
-    let namespace = filters.namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = normalize_namespace(filters.namespace, state.get_namespace(&context));
 
     let mut params = ListParams::default();
     if let Some(labels) = &filters.label_selector {
         params = params.labels(labels);
     }
+    if let Some(limit) = filters.limit {
+        if limit > 0 {
+            params = params.limit(limit as u32);
+        }
+    }
 
-    let api: kube::Api<k8s_openapi::api::core::v1::ConfigMap> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
+    let api: kube::Api<k8s_openapi::api::core::v1::ConfigMap> = match namespace {
+        Some(ref ns) => kube::Api::namespaced((*client).clone(), ns),
+        None => kube::Api::all((*client).clone()),
+    };
     let list = api.list(&params).await.map_err(|e| e.to_string())?;
 
     let configmaps: Vec<ConfigMapInfo> = list.items.iter().map(ConfigMapInfo::from).collect();
@@ -70,7 +80,7 @@ pub async fn get_configmap(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::core::v1::ConfigMap> = 
         kube::Api::namespaced((*client).clone(), &namespace);
@@ -95,7 +105,7 @@ pub async fn get_configmap_data(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::core::v1::ConfigMap> = 
         kube::Api::namespaced((*client).clone(), &namespace);
@@ -120,7 +130,7 @@ pub async fn get_configmap_yaml(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::core::v1::ConfigMap> = 
         kube::Api::namespaced((*client).clone(), &namespace);
@@ -146,7 +156,7 @@ pub async fn create_configmap(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let configmap = k8s_openapi::api::core::v1::ConfigMap {
         metadata: k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta {
@@ -184,7 +194,7 @@ pub async fn update_configmap(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let patch = serde_json::json!({
         "data": data
@@ -215,7 +225,7 @@ pub async fn delete_configmap(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::core::v1::ConfigMap> = 
         kube::Api::namespaced((*client).clone(), &namespace);
@@ -236,6 +246,7 @@ pub struct SecretFilters {
     pub namespace: Option<String>,
     pub label_selector: Option<String>,
     pub secret_type: Option<String>,
+    pub limit: Option<i64>,
 }
 
 /// List Secrets
@@ -257,17 +268,25 @@ pub async fn list_secrets(
         namespace: None,
         label_selector: None,
         secret_type: None,
+        limit: None,
     });
 
-    let namespace = filters.namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = normalize_namespace(filters.namespace, state.get_namespace(&context));
 
     let mut params = ListParams::default();
     if let Some(labels) = &filters.label_selector {
         params = params.labels(labels);
     }
+    if let Some(limit) = filters.limit {
+        if limit > 0 {
+            params = params.limit(limit as u32);
+        }
+    }
 
-    let api: kube::Api<k8s_openapi::api::core::v1::Secret> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
+    let api: kube::Api<k8s_openapi::api::core::v1::Secret> = match namespace {
+        Some(ref ns) => kube::Api::namespaced((*client).clone(), ns),
+        None => kube::Api::all((*client).clone()),
+    };
     let list = api.list(&params).await.map_err(|e| e.to_string())?;
 
     let mut secrets: Vec<SecretInfo> = list.items.iter().map(SecretInfo::from).collect();
@@ -296,7 +315,7 @@ pub async fn get_secret(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::core::v1::Secret> = 
         kube::Api::namespaced((*client).clone(), &namespace);
@@ -322,7 +341,7 @@ pub async fn get_secret_data(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::core::v1::Secret> = 
         kube::Api::namespaced((*client).clone(), &namespace);
@@ -369,7 +388,7 @@ pub async fn get_secret_yaml(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::core::v1::Secret> = 
         kube::Api::namespaced((*client).clone(), &namespace);
@@ -405,7 +424,7 @@ pub async fn create_secret(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     // Encode data to base64
     let encoded_data: BTreeMap<String, k8s_openapi::ByteString> = data
@@ -450,7 +469,7 @@ pub async fn update_secret(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     // Encode data to base64 and convert to JSON for patch
     let encoded_data: BTreeMap<String, String> = data
@@ -490,7 +509,7 @@ pub async fn delete_secret(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::core::v1::Secret> = 
         kube::Api::namespaced((*client).clone(), &namespace);

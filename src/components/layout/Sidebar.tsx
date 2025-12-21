@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Box,
@@ -12,7 +12,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Overview', path: '/' },
@@ -66,6 +66,33 @@ const navItems = [
 
 export function Sidebar() {
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const location = useLocation();
+
+  useEffect(() => {
+    const activeParents = navItems
+      .filter((item) => item.children)
+      .filter((item) => {
+        if (location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)) {
+          return true;
+        }
+        return item.children?.some(
+          (child) =>
+            location.pathname === child.path ||
+            location.pathname.startsWith(`${child.path}/`)
+        );
+      })
+      .map((item) => item.label);
+
+    if (activeParents.length === 0) {
+      return;
+    }
+
+    setExpandedItems((prev) => {
+      const next = new Set(prev);
+      activeParents.forEach((label) => next.add(label));
+      return Array.from(next);
+    });
+  }, [location.pathname]);
 
   const toggleExpanded = (label: string) => {
     setExpandedItems((prev) =>

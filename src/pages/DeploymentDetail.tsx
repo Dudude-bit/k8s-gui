@@ -18,6 +18,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
+import { formatAge } from '@/lib/utils';
 import {
   ArrowLeft,
   Trash2,
@@ -59,6 +60,7 @@ interface DeploymentInfo {
   uid: string;
   replicas: ReplicaInfo;
   strategy: string | null;
+  containers: ContainerSpec[];
   labels: Record<string, string>;
   annotations: Record<string, string>;
   created_at: string | null;
@@ -68,11 +70,14 @@ interface DeploymentInfo {
 interface PodInfo {
   name: string;
   namespace: string;
-  status: string;
-  node_name: string | null;
-  ready: string;
-  restarts: number;
-  age: string;
+  status: {
+    phase: string;
+  };
+  containers: {
+    ready: boolean;
+  }[];
+  restart_count: number;
+  created_at: string | null;
 }
 
 interface RolloutStatus {
@@ -387,7 +392,7 @@ export function DeploymentDetail() {
 
         <TabsContent value="containers">
           <div className="space-y-4">
-            {deployment.containers.map((container) => (
+            {(deployment.containers || []).map((container) => (
               <Card key={container.name}>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">{container.name}</CardTitle>
@@ -441,7 +446,14 @@ export function DeploymentDetail() {
           <Card>
             <CardContent className="pt-6">
               <div className="space-y-2">
-                {pods.map((pod) => (
+                {pods.map((pod) => {
+                  const readyCount = pod.containers?.filter((c) => c.ready).length ?? 0;
+                  const totalCount = pod.containers?.length ?? 0;
+                  const readyText = `${readyCount}/${totalCount}`;
+                  const status = pod.status?.phase || 'Unknown';
+                  const age = formatAge(pod.created_at);
+
+                  return (
                   <Link
                     key={pod.name}
                     to={`/pod/${pod.namespace}/${pod.name}`}
@@ -450,24 +462,25 @@ export function DeploymentDetail() {
                     <div className="flex items-center gap-3">
                       <Badge
                         variant={
-                          pod.status === 'Running'
+                          status === 'Running'
                             ? 'success'
-                            : pod.status === 'Pending'
+                            : status === 'Pending'
                             ? 'warning'
                             : 'destructive'
                         }
                       >
-                        {pod.status}
+                        {status}
                       </Badge>
                       <span className="font-medium">{pod.name}</span>
                     </div>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span>Ready: {pod.ready}</span>
-                      <span>Restarts: {pod.restarts}</span>
-                      <span>{pod.age}</span>
+                      <span>Ready: {readyText}</span>
+                      <span>Restarts: {pod.restart_count ?? 0}</span>
+                      <span>{age}</span>
                     </div>
                   </Link>
-                ))}
+                );
+                })}
                 {pods.length === 0 && (
                   <p className="text-center text-muted-foreground py-4">No pods found</p>
                 )}

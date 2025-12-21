@@ -7,10 +7,11 @@ import { useClusterStore } from '@/stores/clusterStore';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ConnectClusterEmptyState } from '@/components/ui/connect-cluster-empty-state';
 import { ColumnDef } from '@tanstack/react-table';
 import { Link } from 'react-router-dom';
 import { RefreshCw, Loader2 } from 'lucide-react';
-import { getStatusColor } from '@/lib/utils';
+import { formatAge, getStatusColor } from '@/lib/utils';
 
 export function Workloads() {
   return (
@@ -32,19 +33,6 @@ interface StatefulSetInfo {
   namespace: string;
   replicas: { desired: number; ready: number; current: number };
   created_at: string | null;
-}
-
-function formatAge(createdAt: string | null): string {
-  if (!createdAt) return 'Unknown';
-  const created = new Date(createdAt);
-  const now = new Date();
-  const diffMs = now.getTime() - created.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60)) % 24;
-  const diffMins = Math.floor(diffMs / (1000 * 60)) % 60;
-  if (diffDays > 0) return `${diffDays}d`;
-  if (diffHours > 0) return `${diffHours}h`;
-  return `${diffMins}m`;
 }
 
 const statefulSetColumns: ColumnDef<StatefulSetInfo>[] = [
@@ -79,15 +67,16 @@ function StatefulSetList() {
   const { data = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ['statefulsets', currentNamespace],
     queryFn: async () => {
-      const ns = currentNamespace || null;
-      return invoke<StatefulSetInfo[]>('list_statefulsets', { namespace: ns });
+      return invoke<StatefulSetInfo[]>('list_statefulsets', { namespace: currentNamespace });
     },
     enabled: isConnected,
     placeholderData: keepPreviousData,
+    staleTime: 5000,
+    refetchOnWindowFocus: false,
   });
 
   if (!isConnected) {
-    return <div className="flex h-full items-center justify-center text-muted-foreground">Connect to a cluster</div>;
+    return <ConnectClusterEmptyState resourceLabel="StatefulSets" />;
   }
 
   return (
@@ -158,15 +147,16 @@ function DaemonSetList() {
   const { data = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ['daemonsets', currentNamespace],
     queryFn: async () => {
-      const ns = currentNamespace || null;
-      return invoke<DaemonSetInfo[]>('list_daemonsets', { namespace: ns });
+      return invoke<DaemonSetInfo[]>('list_daemonsets', { namespace: currentNamespace });
     },
     enabled: isConnected,
     placeholderData: keepPreviousData,
+    staleTime: 5000,
+    refetchOnWindowFocus: false,
   });
 
   if (!isConnected) {
-    return <div className="flex h-full items-center justify-center text-muted-foreground">Connect to a cluster</div>;
+    return <ConnectClusterEmptyState resourceLabel="DaemonSets" />;
   }
 
   return (
@@ -231,15 +221,16 @@ function JobList() {
   const { data = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ['jobs', currentNamespace],
     queryFn: async () => {
-      const ns = currentNamespace || null;
-      return invoke<JobInfo[]>('list_jobs', { namespace: ns });
+      return invoke<JobInfo[]>('list_jobs', { namespace: currentNamespace });
     },
     enabled: isConnected,
     placeholderData: keepPreviousData,
+    staleTime: 5000,
+    refetchOnWindowFocus: false,
   });
 
   if (!isConnected) {
-    return <div className="flex h-full items-center justify-center text-muted-foreground">Connect to a cluster</div>;
+    return <ConnectClusterEmptyState resourceLabel="Jobs" />;
   }
 
   return (
@@ -309,15 +300,16 @@ function CronJobList() {
   const { data = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ['cronjobs', currentNamespace],
     queryFn: async () => {
-      const ns = currentNamespace || null;
-      return invoke<CronJobInfo[]>('list_cronjobs', { namespace: ns });
+      return invoke<CronJobInfo[]>('list_cronjobs', { namespace: currentNamespace });
     },
     enabled: isConnected,
     placeholderData: keepPreviousData,
+    staleTime: 5000,
+    refetchOnWindowFocus: false,
   });
 
   if (!isConnected) {
-    return <div className="flex h-full items-center justify-center text-muted-foreground">Connect to a cluster</div>;
+    return <ConnectClusterEmptyState resourceLabel="CronJobs" />;
   }
 
   return (

@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, Server, Cpu, HardDrive, MemoryStick, RefreshCw } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatKubernetesBytes } from '@/lib/utils';
 
 interface NodeAddressInfo {
   type_: string;
@@ -58,6 +58,16 @@ export function NodeDetail() {
     queryKey: ['node', name],
     queryFn: async () => {
       return invoke<NodeInfo>('get_node', { name });
+    },
+    enabled: !!name,
+    placeholderData: keepPreviousData,
+  });
+
+  const { data: podCount } = useQuery({
+    queryKey: ['node-pods', name],
+    queryFn: async () => {
+      const pods = await invoke<unknown[]>('get_node_pods', { name });
+      return pods.length;
     },
     enabled: !!name,
     placeholderData: keepPreviousData,
@@ -144,22 +154,26 @@ export function NodeDetail() {
             <MemoryStick className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{node.capacity.memory || '-'}</div>
+            <div className="text-2xl font-bold">
+              {formatKubernetesBytes(node.capacity.memory)}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Allocatable: {node.allocatable.memory || '-'}
+              Allocatable: {formatKubernetesBytes(node.allocatable.memory)}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pods</CardTitle>
+            <CardTitle className="text-sm font-medium">Pods (running)</CardTitle>
             <Server className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{node.capacity.pods || '-'}</div>
+            <div className="text-2xl font-bold">
+              {podCount ?? '-'}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Allocatable: {node.allocatable.pods || '-'}
+              Allocatable: {node.allocatable.pods || node.capacity.pods || '-'}
             </p>
           </CardContent>
         </Card>
@@ -170,9 +184,11 @@ export function NodeDetail() {
             <HardDrive className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold truncate text-lg">{node.capacity.ephemeral_storage || '-'}</div>
+            <div className="text-2xl font-bold truncate text-lg">
+              {formatKubernetesBytes(node.capacity.ephemeral_storage)}
+            </div>
             <p className="text-xs text-muted-foreground truncate">
-              Allocatable: {node.allocatable.ephemeral_storage || '-'}
+              Allocatable: {formatKubernetesBytes(node.allocatable.ephemeral_storage)}
             </p>
           </CardContent>
         </Card>

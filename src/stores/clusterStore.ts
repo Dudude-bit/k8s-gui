@@ -57,10 +57,7 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
     // Don't set isLoading for namespace switch - it causes flickering
     // Just update the namespace immediately, queries will refetch automatically
     try {
-      // Only call backend if namespace is set (not "all")
-      if (namespace) {
-        await invoke('switch_namespace', { namespace });
-      }
+      await invoke('switch_namespace', { namespace });
       set({ currentNamespace: namespace });
     } catch (error) {
       set({ error: String(error) });

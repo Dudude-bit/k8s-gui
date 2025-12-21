@@ -123,11 +123,18 @@ impl TerminalConfig {
             params = params.container(container);
         }
         
-        params
+        let mut params = params
             .stdin(self.stdin)
             .stdout(self.stdout)
             .stderr(self.stderr)
-            .tty(self.tty)
+            .tty(self.tty);
+
+        // Kubernetes rejects tty=true with stderr=true; stderr is merged into stdout for TTY sessions.
+        if self.tty {
+            params = params.stderr(false);
+        }
+
+        params
     }
 }
 

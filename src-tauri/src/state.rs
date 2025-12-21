@@ -55,6 +55,22 @@ pub enum AppEvent {
         session_id: String,
         data: String,
     },
+    /// Terminal session closed
+    TerminalClosed {
+        session_id: String,
+        status: Option<String>,
+    },
+    /// Port-forward status update
+    PortForwardStatus {
+        id: String,
+        pod: String,
+        namespace: String,
+        local_port: u16,
+        remote_port: u16,
+        status: String,
+        message: Option<String>,
+        attempt: Option<u32>,
+    },
     /// Error occurred
     Error {
         code: String,
@@ -78,12 +94,25 @@ pub struct Session {
 }
 
 /// Terminal session information
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TerminalSession {
     pub id: String,
     pub pod: String,
     pub container: String,
     pub namespace: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// Port-forward session information
+#[derive(Debug, Clone)]
+pub struct PortForwardSession {
+    pub id: String,
+    pub context: String,
+    pub pod: String,
+    pub namespace: String,
+    pub local_port: u16,
+    pub remote_port: u16,
+    pub auto_reconnect: bool,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -137,6 +166,12 @@ pub struct AppState {
     
     /// Terminal input channels
     pub terminal_inputs: DashMap<String, tokio::sync::mpsc::Sender<String>>,
+
+    /// Active port-forward sessions
+    pub port_forward_sessions: Arc<DashMap<String, PortForwardSession>>,
+
+    /// Port-forward cancel controls
+    pub port_forward_controls: Arc<DashMap<String, tokio::sync::oneshot::Sender<()>>>,
     
     /// Active watch subscriptions
     pub watch_subscriptions: DashMap<String, WatchSubscription>,
@@ -170,6 +205,8 @@ impl AppState {
             namespaces: DashMap::new(),
             terminal_sessions: DashMap::new(),
             terminal_inputs: DashMap::new(),
+            port_forward_sessions: Arc::new(DashMap::new()),
+            port_forward_controls: Arc::new(DashMap::new()),
             watch_subscriptions: DashMap::new(),
             log_streams: DashMap::new(),
             event_tx,

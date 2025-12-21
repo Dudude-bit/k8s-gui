@@ -1,11 +1,12 @@
 //! Resource type definitions for frontend communication
 
 use chrono::{DateTime, Utc};
-use k8s_openapi::api::apps::v1::{Deployment, DeploymentStatus};
+use k8s_openapi::api::apps::v1::Deployment;
 use k8s_openapi::api::core::v1::{
     ConfigMap, Container, Event, Namespace, Node, NodeCondition, Pod, PodCondition,
     PodStatus, Secret, Service, ServicePort,
 };
+use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use kube::ResourceExt;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -237,10 +238,27 @@ pub struct DeploymentInfo {
     pub uid: String,
     pub replicas: ReplicaInfo,
     pub strategy: Option<String>,
+    pub containers: Vec<DeploymentContainerInfo>,
     pub labels: BTreeMap<String, String>,
     pub annotations: BTreeMap<String, String>,
     pub created_at: Option<DateTime<Utc>>,
     pub conditions: Vec<ConditionInfo>,
+}
+
+/// Deployment container specification for frontend
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeploymentContainerInfo {
+    pub name: String,
+    pub image: String,
+    pub ports: Vec<i32>,
+    pub resources: DeploymentContainerResources,
+}
+
+/// Container resource requests/limits
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeploymentContainerResources {
+    pub requests: BTreeMap<String, String>,
+    pub limits: BTreeMap<String, String>,
 }
 
 /// Replica information
@@ -280,6 +298,16 @@ impl From<&Deployment> for DeploymentInfo {
             })
             .unwrap_or_default();
         
+        let containers = spec
+            .and_then(|s| s.template.spec.as_ref())
+            .map(|s| {
+                s.containers
+                    .iter()
+                    .map(DeploymentContainerInfo::from)
+                    .collect()
+            })
+            .unwrap_or_default();
+
         Self {
             name: deployment.name_any(),
             namespace: deployment.namespace().unwrap_or_default(),
@@ -288,12 +316,46 @@ impl From<&Deployment> for DeploymentInfo {
             strategy: spec
                 .and_then(|s| s.strategy.as_ref())
                 .and_then(|s| s.type_.clone()),
+            containers,
             labels: deployment.labels().clone(),
             annotations: deployment.annotations().clone(),
             created_at: deployment.creation_timestamp().map(|t| t.0),
             conditions,
         }
     }
+}
+
+impl From<&Container> for DeploymentContainerInfo {
+    fn from(container: &Container) -> Self {
+        let ports = container
+            .ports
+            .as_ref()
+            .map(|ports| ports.iter().map(|p| p.container_port).collect())
+            .unwrap_or_default();
+
+        let resources = DeploymentContainerResources {
+            requests: map_quantities(container.resources.as_ref().and_then(|r| r.requests.as_ref())),
+            limits: map_quantities(container.resources.as_ref().and_then(|r| r.limits.as_ref())),
+        };
+
+        Self {
+            name: container.name.clone(),
+            image: container.image.clone().unwrap_or_default(),
+            ports,
+            resources,
+        }
+    }
+}
+
+fn map_quantities(input: Option<&BTreeMap<String, Quantity>>) -> BTreeMap<String, String> {
+    input
+        .map(|values| {
+            values
+                .iter()
+                .map(|(key, value)| (key.clone(), value.0.clone()))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// Service information for frontend
@@ -308,6 +370,7 @@ pub struct ServiceInfo {
     pub ports: Vec<ServicePortInfo>,
     pub selector: BTreeMap<String, String>,
     pub labels: BTreeMap<String, String>,
+    pub annotations: BTreeMap<String, String>,
     pub created_at: Option<DateTime<Utc>>,
 }
 
@@ -365,6 +428,7 @@ impl From<&Service> for ServiceInfo {
             ports,
             selector: spec.and_then(|s| s.selector.clone()).unwrap_or_default(),
             labels: service.labels().clone(),
+            annotations: service.annotations().clone(),
             created_at: service.creation_timestamp().map(|t| t.0),
         }
     }

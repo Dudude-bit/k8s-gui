@@ -1,23 +1,22 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
 import { useClusterStore } from '@/stores/clusterStore';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ConnectClusterEmptyState } from '@/components/ui/connect-cluster-empty-state';
 import { ColumnDef } from '@tanstack/react-table';
-import { MoreHorizontal, Eye, Trash2, RefreshCw, Globe, ExternalLink } from 'lucide-react';
+import { Eye, Trash2, RefreshCw, Globe, ExternalLink, Loader2 } from 'lucide-react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { ActionMenu } from '@/components/ui/action-menu';
 
 interface IngressRule {
   host: string;
@@ -38,6 +37,20 @@ interface IngressInfo {
   tls_hosts: string[];
   age: string;
 }
+
+const getIngressOpenUrl = (ingress: IngressInfo): string | null => {
+  const host =
+    ingress.rules.find((rule) => rule.host && rule.host !== '*')?.host ||
+    ingress.load_balancer_ips[0];
+
+  if (!host) {
+    return null;
+  }
+
+  const usesTls = ingress.tls_hosts.includes(host);
+  const scheme = usesTls ? 'https' : 'http';
+  return `${scheme}://${host}`;
+};
 
 const columns: ColumnDef<IngressInfo>[] = [
   {
@@ -164,21 +177,17 @@ const columns: ColumnDef<IngressInfo>[] = [
   },
   {
     id: 'actions',
-    cell: ({ row }) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+    cell: ({ row }) => {
+      const openUrl = getIngressOpenUrl(row.original);
+      return (
+        <ActionMenu>
           <DropdownMenuItem>
             <Eye className="mr-2 h-4 w-4" />
             View Details
           </DropdownMenuItem>
-          {row.original.load_balancer_ips.length > 0 && row.original.rules[0]?.host && (
+          {openUrl && (
             <DropdownMenuItem
-              onClick={() => window.open(`https://${row.original.rules[0].host}`, '_blank')}
+              onClick={() => window.open(openUrl, '_blank', 'noreferrer')}
             >
               <ExternalLink className="mr-2 h-4 w-4" />
               Open in Browser
@@ -189,48 +198,58 @@ const columns: ColumnDef<IngressInfo>[] = [
             <Trash2 className="mr-2 h-4 w-4" />
             Delete
           </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    ),
+        </ActionMenu>
+      );
+    },
   },
 ];
 
 export function IngressList() {
   const { isConnected, currentNamespace } = useClusterStore();
 
-  const { data: ingresses = [], isLoading, refetch } = useQuery({
+  const { data: ingresses = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ['ingresses', currentNamespace],
     queryFn: async () => {
       const result = await invoke<IngressInfo[]>('list_ingresses', {
-        namespace: currentNamespace === 'all' ? null : currentNamespace,
+        namespace: currentNamespace,
       });
       return result;
     },
     enabled: isConnected,
+    placeholderData: keepPreviousData,
+    staleTime: 10000,
+    refetchOnWindowFocus: false,
   });
 
   if (!isConnected) {
-    return (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
-        Connect to a cluster to view ingresses
-      </div>
-    );
+    return <ConnectClusterEmptyState resourceLabel="ingresses" />;
   }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Ingresses</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold">Ingresses</h1>
+            {isFetching && !isLoading && (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            )}
+          </div>
           <p className="text-sm text-muted-foreground">
             HTTP/HTTPS routing rules for external access to services
           </p>
         </div>
-        <Button variant="outline" size="icon" onClick={() => refetch()}>
-          <RefreshCw className="h-4 w-4" />
+        <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isFetching}>
+          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
         </Button>
       </div>
-      <DataTable columns={columns} data={ingresses} isLoading={isLoading} searchKey="name" />
+      <DataTable
+        columns={columns}
+        data={ingresses}
+        isLoading={isLoading && ingresses.length === 0}
+        isFetching={isFetching && !isLoading}
+        searchKey="name"
+      />
     </div>
   );
 }

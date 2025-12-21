@@ -3,6 +3,7 @@
 //! Commands for managing Ingresses and Endpoints.
 
 use crate::state::AppState;
+use crate::utils::{format_k8s_age, normalize_namespace};
 use k8s_openapi::api::core::v1::Endpoints;
 use k8s_openapi::api::networking::v1::Ingress;
 use kube::{Api, api::ListParams, ResourceExt};
@@ -79,29 +80,6 @@ pub struct EndpointsInfo {
     pub age: String,
 }
 
-fn format_age(created: Option<&k8s_openapi::apimachinery::pkg::apis::meta::v1::Time>) -> String {
-    match created {
-        Some(time) => {
-            let now = chrono::Utc::now();
-            let created_time = chrono::DateTime::parse_from_rfc3339(&time.0.to_rfc3339())
-                .map(|t| t.with_timezone(&chrono::Utc))
-                .unwrap_or(now);
-            let duration = now.signed_duration_since(created_time);
-            
-            if duration.num_days() > 0 {
-                format!("{}d", duration.num_days())
-            } else if duration.num_hours() > 0 {
-                format!("{}h", duration.num_hours())
-            } else if duration.num_minutes() > 0 {
-                format!("{}m", duration.num_minutes())
-            } else {
-                format!("{}s", duration.num_seconds())
-            }
-        }
-        None => "Unknown".to_string(),
-    }
-}
-
 /// List Ingresses
 #[tauri::command]
 pub async fn list_ingresses(
@@ -117,9 +95,12 @@ pub async fn list_ingresses(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let ns = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let ns = normalize_namespace(namespace, state.get_namespace(&context));
     
-    let ingresses: Api<Ingress> = Api::namespaced((*client).clone(), &ns);
+    let ingresses: Api<Ingress> = match ns {
+        Some(ref namespace) => Api::namespaced((*client).clone(), namespace),
+        None => Api::all((*client).clone()),
+    };
     let ingress_list = ingresses.list(&ListParams::default()).await.map_err(|e| e.to_string())?;
     
     let mut result = Vec::new();
@@ -190,7 +171,7 @@ pub async fn list_ingresses(
             rules,
             load_balancer_ips,
             tls_hosts,
-            age: format_age(ingress.metadata.creation_timestamp.as_ref()),
+            age: format_k8s_age(ingress.metadata.creation_timestamp.as_ref()),
         });
     }
     
@@ -212,9 +193,12 @@ pub async fn list_endpoints(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let ns = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let ns = normalize_namespace(namespace, state.get_namespace(&context));
     
-    let endpoints: Api<Endpoints> = Api::namespaced((*client).clone(), &ns);
+    let endpoints: Api<Endpoints> = match ns {
+        Some(ref namespace) => Api::namespaced((*client).clone(), namespace),
+        None => Api::all((*client).clone()),
+    };
     let endpoints_list = endpoints.list(&ListParams::default()).await.map_err(|e| e.to_string())?;
     
     let mut result = Vec::new();
@@ -224,7 +208,7 @@ pub async fn list_endpoints(
         // Extract metadata before consuming subsets
         let name = ep.name_any();
         let ns = ep.namespace().unwrap_or_default();
-        let age = format_age(ep.metadata.creation_timestamp.as_ref());
+        let age = format_k8s_age(ep.metadata.creation_timestamp.as_ref());
         
         if let Some(ep_subsets) = ep.subsets {
             for subset in ep_subsets {

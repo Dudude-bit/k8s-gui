@@ -1,19 +1,22 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
 import { useClusterStore } from '@/stores/clusterStore';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { ConnectClusterEmptyState } from '@/components/ui/connect-cluster-empty-state';
 import { ColumnDef } from '@tanstack/react-table';
-import { MoreHorizontal, Trash2, RefreshCw, Copy, FileJson, Lock } from 'lucide-react';
+import { Trash2, RefreshCw, Copy, Lock, Loader2 } from 'lucide-react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/components/ui/use-toast';
+import { useState } from 'react';
+import { formatAge } from '@/lib/utils';
+import { ActionMenu } from '@/components/ui/action-menu';
+import { YamlViewerAction } from '@/components/ui/yaml-viewer';
 
 interface SecretInfo {
   name: string;
@@ -23,23 +26,6 @@ interface SecretInfo {
   data_keys: string[];
   labels: Record<string, string>;
   created_at: string | null;
-}
-
-// Helper to calculate age from timestamp
-function formatAge(createdAt: string | null): string {
-  if (!createdAt) return 'Unknown';
-  const created = new Date(createdAt);
-  const now = new Date();
-  const diffMs = now.getTime() - created.getTime();
-  const diffSecs = Math.floor(diffMs / 1000);
-  const diffMins = Math.floor(diffSecs / 60);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-  
-  if (diffDays > 0) return `${diffDays}d`;
-  if (diffHours > 0) return `${diffHours}h`;
-  if (diffMins > 0) return `${diffMins}m`;
-  return `${diffSecs}s`;
 }
 
 const getSecretTypeColor = (type: string): string => {
@@ -59,16 +45,20 @@ export function SecretList() {
   const { isConnected, currentNamespace } = useClusterStore();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [deleteTarget, setDeleteTarget] = useState<SecretInfo | null>(null);
 
-  const { data: secrets = [], isLoading, refetch } = useQuery({
+  const { data: secrets = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ['secrets', currentNamespace],
     queryFn: async () => {
       const result = await invoke<SecretInfo[]>('list_secrets', {
-        namespace: currentNamespace,
+        filters: { namespace: currentNamespace },
       });
       return result;
     },
     enabled: isConnected,
+    placeholderData: keepPreviousData,
+    staleTime: 10000,
+    refetchOnWindowFocus: false,
   });
 
   const deleteMutation = useMutation({
@@ -81,6 +71,7 @@ export function SecretList() {
         title: 'Secret deleted',
         description: 'The Secret has been deleted successfully.',
       });
+      setDeleteTarget(null);
     },
     onError: (error) => {
       toast({
@@ -88,6 +79,7 @@ export function SecretList() {
         description: `Failed to delete Secret: ${error}`,
         variant: 'destructive',
       });
+      setDeleteTarget(null);
     },
   });
 
@@ -103,23 +95,6 @@ export function SecretList() {
       toast({
         title: 'Error',
         description: `Failed to copy keys: ${error}`,
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleViewYaml = async (name: string, namespace: string) => {
-    try {
-      const yaml = await invoke<string>('get_secret_yaml', { name, namespace });
-      console.log(yaml); // TODO: Show in modal or side panel
-      toast({
-        title: 'YAML Retrieved',
-        description: 'Check console for YAML output (values are base64 encoded).',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: `Failed to get YAML: ${error}`,
         variant: 'destructive',
       });
     }
@@ -175,57 +150,82 @@ export function SecretList() {
     {
       id: 'actions',
       cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleViewYaml(row.original.name, row.original.namespace)}>
-              <FileJson className="mr-2 h-4 w-4" />
-              View YAML
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleCopyKeys(row.original.name, row.original.namespace)}>
-              <Copy className="mr-2 h-4 w-4" />
-              Copy Keys
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={() =>
-                deleteMutation.mutate({
-                  name: row.original.name,
-                  namespace: row.original.namespace,
-                })
-              }
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <ActionMenu>
+          <YamlViewerAction
+            title="Secret YAML"
+            description={`${row.original.namespace}/${row.original.name}`}
+            fetchYaml={() =>
+              invoke<string>('get_secret_yaml', {
+                name: row.original.name,
+                namespace: row.original.namespace,
+              })
+            }
+          />
+          <DropdownMenuItem onClick={() => handleCopyKeys(row.original.name, row.original.namespace)}>
+            <Copy className="mr-2 h-4 w-4" />
+            Copy Keys
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="text-destructive"
+            onClick={() => setDeleteTarget(row.original)}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete
+          </DropdownMenuItem>
+        </ActionMenu>
       ),
     },
   ];
 
   if (!isConnected) {
-    return (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
-        Connect to a cluster to view Secrets
-      </div>
-    );
+    return <ConnectClusterEmptyState resourceLabel="Secrets" />;
   }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Secrets</h1>
-        <Button variant="outline" size="icon" onClick={() => refetch()}>
-          <RefreshCw className="h-4 w-4" />
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">Secrets</h1>
+          {isFetching && !isLoading && (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          )}
+        </div>
+        <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isFetching}>
+          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
         </Button>
       </div>
-      <DataTable columns={columns} data={secrets} isLoading={isLoading} />
+      <DataTable
+        columns={columns}
+        data={secrets}
+        isLoading={isLoading && secrets.length === 0}
+        isFetching={isFetching && !isLoading}
+      />
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+          }
+        }}
+        title="Delete secret?"
+        description={
+          deleteTarget
+            ? `This will delete ${deleteTarget.name} in ${deleteTarget.namespace}.`
+            : undefined
+        }
+        confirmLabel="Delete"
+        confirmVariant="destructive"
+        confirmDisabled={deleteMutation.isPending}
+        onConfirm={() => {
+          if (deleteTarget) {
+            deleteMutation.mutate({
+              name: deleteTarget.name,
+              namespace: deleteTarget.namespace,
+            });
+          }
+        }}
+      />
     </div>
   );
 }

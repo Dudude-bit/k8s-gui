@@ -70,6 +70,12 @@ export function ServiceDetail() {
     );
   }
 
+  const ports = service.ports ?? [];
+  const externalIps = service.external_ips ?? [];
+  const selector = service.selector ?? {};
+  const labels = service.labels ?? {};
+  const annotations = service.annotations ?? {};
+
   const getTypeColor = (type: string) => {
     switch (type) {
       case 'LoadBalancer': return 'bg-purple-500';
@@ -120,7 +126,7 @@ export function ServiceDetail() {
           </CardHeader>
           <CardContent>
             <div className="text-xl font-bold font-mono">
-              {service.external_ips.length > 0 ? service.external_ips.join(', ') : 'None'}
+              {externalIps.length > 0 ? externalIps.join(', ') : 'None'}
             </div>
           </CardContent>
         </Card>
@@ -131,7 +137,7 @@ export function ServiceDetail() {
             <Network className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl font-bold">{service.ports.length}</div>
+            <div className="text-xl font-bold">{ports.length}</div>
           </CardContent>
         </Card>
       </div>
@@ -151,7 +157,7 @@ export function ServiceDetail() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {service.ports.map((port, idx) => (
+                {ports.map((port, idx) => (
                   <div key={idx} className="flex items-center justify-between rounded-lg border p-3">
                     <div className="flex items-center gap-3">
                       <Badge variant="outline">{port.protocol}</Badge>
@@ -165,7 +171,7 @@ export function ServiceDetail() {
                     )}
                   </div>
                 ))}
-                {service.ports.length === 0 && (
+                {ports.length === 0 && (
                   <p className="text-muted-foreground">No ports defined</p>
                 )}
               </div>
@@ -180,12 +186,12 @@ export function ServiceDetail() {
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {Object.entries(service.selector).map(([key, value]) => (
+                {Object.entries(selector).map(([key, value]) => (
                   <Badge key={key} variant="outline" className="font-mono text-xs">
                     {key}={value}
                   </Badge>
                 ))}
-                {Object.keys(service.selector).length === 0 && (
+                {Object.keys(selector).length === 0 && (
                   <p className="text-muted-foreground">No selector defined</p>
                 )}
               </div>
@@ -200,12 +206,12 @@ export function ServiceDetail() {
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {Object.entries(service.labels).map(([key, value]) => (
+                {Object.entries(labels).map(([key, value]) => (
                   <Badge key={key} variant="outline" className="font-mono text-xs">
                     {key}={value}
                   </Badge>
                 ))}
-                {Object.keys(service.labels).length === 0 && (
+                {Object.keys(labels).length === 0 && (
                   <p className="text-muted-foreground">No labels</p>
                 )}
               </div>
@@ -218,13 +224,13 @@ export function ServiceDetail() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {Object.entries(service.annotations).map(([key, value]) => (
+                {Object.entries(annotations).map(([key, value]) => (
                   <div key={key} className="rounded-lg border p-2">
                     <p className="text-xs font-medium text-muted-foreground">{key}</p>
                     <p className="font-mono text-sm break-all">{value}</p>
                   </div>
                 ))}
-                {Object.keys(service.annotations).length === 0 && (
+                {Object.keys(annotations).length === 0 && (
                   <p className="text-muted-foreground">No annotations</p>
                 )}
               </div>

@@ -2,6 +2,7 @@
 
 use crate::resources::EventInfo;
 use crate::state::AppState;
+use crate::utils::normalize_namespace;
 use kube::api::ListParams;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -41,7 +42,7 @@ pub async fn list_events(
         limit: None,
     });
 
-    let namespace = filters.namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = normalize_namespace(filters.namespace, state.get_namespace(&context));
 
     let mut params = ListParams::default();
     
@@ -62,11 +63,15 @@ pub async fn list_events(
     }
 
     if let Some(limit) = filters.limit {
-        params = params.limit(limit as u32);
+        if limit > 0 {
+            params = params.limit(limit as u32);
+        }
     }
 
-    let api: kube::Api<k8s_openapi::api::core::v1::Event> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
+    let api: kube::Api<k8s_openapi::api::core::v1::Event> = match namespace {
+        Some(ref ns) => kube::Api::namespaced((*client).clone(), ns),
+        None => kube::Api::all((*client).clone()),
+    };
     let list = api.list(&params).await.map_err(|e| e.to_string())?;
 
     let mut events: Vec<EventInfo> = list.items.iter().map(EventInfo::from).collect();

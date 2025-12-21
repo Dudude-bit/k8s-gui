@@ -2,6 +2,7 @@
 
 use crate::resources::DeploymentInfo;
 use crate::state::AppState;
+use crate::utils::{normalize_namespace, require_namespace};
 use kube::api::{ListParams, Patch, PatchParams};
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -11,6 +12,7 @@ use tauri::State;
 pub struct DeploymentFilters {
     pub namespace: Option<String>,
     pub label_selector: Option<String>,
+    pub limit: Option<i64>,
 }
 
 /// List deployments with optional filters
@@ -31,17 +33,25 @@ pub async fn list_deployments(
     let filters = filters.unwrap_or_else(|| DeploymentFilters {
         namespace: None,
         label_selector: None,
+        limit: None,
     });
 
-    let namespace = filters.namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = normalize_namespace(filters.namespace, state.get_namespace(&context));
 
     let mut params = ListParams::default();
     if let Some(labels) = &filters.label_selector {
         params = params.labels(labels);
     }
+    if let Some(limit) = filters.limit {
+        if limit > 0 {
+            params = params.limit(limit as u32);
+        }
+    }
 
-    let api: kube::Api<k8s_openapi::api::apps::v1::Deployment> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
+    let api: kube::Api<k8s_openapi::api::apps::v1::Deployment> = match namespace {
+        Some(ref ns) => kube::Api::namespaced((*client).clone(), ns),
+        None => kube::Api::all((*client).clone()),
+    };
     let list = api.list(&params).await.map_err(|e| e.to_string())?;
 
     let deployments: Vec<DeploymentInfo> = list.items.iter().map(DeploymentInfo::from).collect();
@@ -65,7 +75,7 @@ pub async fn get_deployment(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::apps::v1::Deployment> = 
         kube::Api::namespaced((*client).clone(), &namespace);
@@ -90,7 +100,7 @@ pub async fn get_deployment_yaml(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::apps::v1::Deployment> = 
         kube::Api::namespaced((*client).clone(), &namespace);
@@ -115,7 +125,7 @@ pub async fn delete_deployment(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::apps::v1::Deployment> = 
         kube::Api::namespaced((*client).clone(), &namespace);
@@ -143,7 +153,7 @@ pub async fn scale_deployment(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::apps::v1::Deployment> = 
         kube::Api::namespaced((*client).clone(), &namespace);
@@ -177,7 +187,7 @@ pub async fn restart_deployment(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::apps::v1::Deployment> = 
         kube::Api::namespaced((*client).clone(), &namespace);
@@ -221,7 +231,7 @@ pub async fn update_deployment_image(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::apps::v1::Deployment> = 
         kube::Api::namespaced((*client).clone(), &namespace);
@@ -269,7 +279,7 @@ pub async fn get_deployment_pods(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     // Get the deployment to find its label selector
     let deploy_api: kube::Api<k8s_openapi::api::apps::v1::Deployment> = 
@@ -338,7 +348,7 @@ pub async fn get_rollout_status(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::apps::v1::Deployment> = 
         kube::Api::namespaced((*client).clone(), &namespace);

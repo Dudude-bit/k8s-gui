@@ -2,6 +2,7 @@
 
 use crate::resources::PodInfo;
 use crate::state::AppState;
+use crate::utils::{normalize_namespace, require_namespace};
 use kube::api::ListParams;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -13,6 +14,7 @@ pub struct PodFilters {
     pub label_selector: Option<String>,
     pub field_selector: Option<String>,
     pub status_filter: Option<String>,
+    pub limit: Option<i64>,
 }
 
 /// List pods with optional filters
@@ -35,9 +37,10 @@ pub async fn list_pods(
         label_selector: None,
         field_selector: None,
         status_filter: None,
+        limit: None,
     });
 
-    let namespace = filters.namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = normalize_namespace(filters.namespace, state.get_namespace(&context));
 
     let mut params = ListParams::default();
     if let Some(labels) = &filters.label_selector {
@@ -46,9 +49,16 @@ pub async fn list_pods(
     if let Some(fields) = &filters.field_selector {
         params = params.fields(fields);
     }
+    if let Some(limit) = filters.limit {
+        if limit > 0 {
+            params = params.limit(limit as u32);
+        }
+    }
 
-    let api: kube::Api<k8s_openapi::api::core::v1::Pod> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
+    let api: kube::Api<k8s_openapi::api::core::v1::Pod> = match namespace {
+        Some(ref ns) => kube::Api::namespaced((*client).clone(), ns),
+        None => kube::Api::all((*client).clone()),
+    };
     let list = api.list(&params).await.map_err(|e| e.to_string())?;
 
     let mut pods: Vec<PodInfo> = list.items.iter().map(PodInfo::from).collect();
@@ -77,7 +87,7 @@ pub async fn get_pod(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::core::v1::Pod> = 
         kube::Api::namespaced((*client).clone(), &namespace);
@@ -102,7 +112,7 @@ pub async fn get_pod_yaml(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::core::v1::Pod> = 
         kube::Api::namespaced((*client).clone(), &namespace);
@@ -128,7 +138,7 @@ pub async fn delete_pod(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let mut dp = kube::api::DeleteParams::default();
     if force.unwrap_or(false) {
@@ -158,7 +168,7 @@ pub async fn get_pod_containers(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::core::v1::Pod> = 
         kube::Api::namespaced((*client).clone(), &namespace);
@@ -199,7 +209,7 @@ pub async fn get_container_statuses(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let api: kube::Api<k8s_openapi::api::core::v1::Pod> = 
         kube::Api::namespaced((*client).clone(), &namespace);
