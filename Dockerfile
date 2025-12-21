@@ -1,43 +1,33 @@
-# Dockerfile for cross-platform Tauri build (Linux, Windows)
-FROM ubuntu:22.04
-
-ENV DEBIAN_FRONTEND=noninteractive
+# Dockerfile for Tauri build (Fedora, linux-x64)
+FROM fedora:40
 
 # Install system deps
-RUN apt-get update && apt-get install -y \
-    curl git build-essential pkg-config libssl-dev \
-    libwebkit2gtk-4.0-dev libgtk-3-dev libsoup2.4-dev \
-    libjavascriptcoregtk-4.0-dev libayatana-appindicator3-dev \
-    python3 python3-pip ca-certificates \
-    cmake unzip xz-utils zip \
-    musl-tools mingw-w64 \
-    qemu-user-static binfmt-support \
-    && rm -rf /var/lib/apt/lists/*
+RUN dnf -y update && dnf -y install \
+    curl git make gcc pkgconf-pkg-config openssl-devel \
+    webkit2gtk4.1-devel gtk3-devel libsoup-devel \
+    nodejs npm ca-certificates
 
-
-# Install bun
-RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:$PATH"
-
-# Install Rust
-RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
+# Install Rust (x86_64 only)
+RUN curl https://sh.rustup.rs -sSf | bash -s -- -y --default-toolchain stable-x86_64-unknown-linux-gnu --profile default --no-modify-path
 ENV PATH="/root/.cargo/bin:$PATH"
-
-# Install cross for cross-compilation
-RUN cargo install cross --git https://github.com/cross-rs/cross
+ENV CARGO_BUILD_TARGET=x86_64-unknown-linux-gnu
 
 # Install Tauri CLI
-RUN bun add -g @tauri-apps/cli
+RUN npm install -g @tauri-apps/cli
+
+
+
 
 
 WORKDIR /app
 
+
 # Copy only manifests first for cache
-COPY package.json bun.lockb Cargo.toml ./
+COPY package.json package-lock.json Cargo.toml ./
 COPY src-tauri/Cargo.toml ./src-tauri/
 
 # Install JS deps
-RUN bun install
+RUN npm install
 
 # Copy rest of the project
 COPY . .
