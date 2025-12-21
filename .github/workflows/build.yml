@@ -7,76 +7,118 @@ on:
   pull_request:
     branches: [ main, master ]
 
+permissions:
+  contents: read
+
 jobs:
   build:
+    name: ${{ matrix.artifact_name }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
+            artifact_name: k8s-gui-linux-x64
             artifact_suffix: linux-x64
-            sys_deps: echo "docker build/run will be used"
+            use_docker: true
+
           - os: macos-latest
-            target: aarch64-apple-darwin
+            artifact_name: k8s-gui-macos-arm64
             artifact_suffix: macos-arm64
+            target: aarch64-apple-darwin
             sys_deps: brew install pkg-config
+
           - os: macos-15
-            target: x86_64-apple-darwin
+            artifact_name: k8s-gui-macos-x64
             artifact_suffix: macos-x64
+            target: x86_64-apple-darwin
             sys_deps: brew install pkg-config
+
+    env:
+      CARGO_TERM_COLOR: always
+
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        if: matrix.artifact_suffix == 'linux-x64'
-      - name: Build in Docker (Fedora, linux-x64)
-        if: matrix.artifact_suffix == 'linux-x64'
-        run: |
-          docker build --platform=linux/amd64 -t k8s-gui-build .
-          docker run --platform=linux/amd64 --name k8s-gui-artifact -v ${{ github.workspace }}:/app -w /app k8s-gui-build bash -c 'source $HOME/.cargo/env && cargo build --release'
-      - name: Copy artifacts from Docker (linux-x64)
-        if: matrix.artifact_suffix == 'linux-x64'
-        run: |
-          mkdir -p artifacts
-          cp target/release/k8s-gui* artifacts/ || true
-      - name: Archive artifacts (linux-x64)
-        if: matrix.artifact_suffix == 'linux-x64'
-        uses: actions/upload-artifact@v4
-        with:
-          name: k8s-gui-linux-x64
-          path: artifacts/*
+
+      # -------- Shared: Node (везде, где есть фронт) --------
       - name: Set up Node.js
-        if: matrix.artifact_suffix != 'linux-x64'
+      # (можно включить и для linux, но там сборка идёт в докере; оставим как есть)
+        if: matrix.use_docker != 'true'
         uses: actions/setup-node@v4
         with:
-          node-version: 'lts/*'
+          node-version: lts/*
+          cache: npm
+
+      - name: Install JS deps
+        if: matrix.use_docker != 'true'
+        run: npm ci
+
+      - name: Build frontend
+        if: matrix.use_docker != 'true'
+        run: npm run build
+
+      # -------- macOS: Rust toolchain + cache --------
       - name: Set up Rust
-        if: matrix.artifact_suffix != 'linux-x64'
-        uses: actions-rs/toolchain@v1
+        if: matrix.use_docker != 'true'
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          target: ${{ matrix.target }}
-          override: true
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        if: matrix.use_docker != 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
       - name: Install system dependencies
-        if: matrix.artifact_suffix != 'linux-x64'
+        if: matrix.use_docker != 'true'
         run: ${{ matrix.sys_deps }}
-      - name: Install JS dependencies
-        if: matrix.artifact_suffix != 'linux-x64'
-        run: npm install
-      - name: Install Tauri CLI
-        if: matrix.artifact_suffix != 'linux-x64'
-        run: npm install -g @tauri-apps/cli
+
       - name: Build (cargo)
-        if: matrix.artifact_suffix != 'linux-x64'
-        run: cargo build --release --target ${{ matrix.target }}
-      - name: Archive artifacts
-        if: matrix.artifact_suffix != 'linux-x64'
+        if: matrix.use_docker != 'true'
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      # -------- linux-x64: Docker build/run --------
+      - name: Set up Docker Buildx
+        if: matrix.use_docker == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build in Docker (Fedora, linux-x64)
+        if: matrix.use_docker == 'true'
+        run: |
+          # Если фронт нужен для линукса, лучше собирать его тоже в Dockerfile,
+          # чтобы не дублировать npm окружение тут.
+          docker build --platform=linux/amd64 -t k8s-gui-build .
+          docker run --platform=linux/amd64 --rm \
+            -v "${{ github.workspace }}:/app" -w /app \
+            k8s-gui-build bash -lc 'source "$HOME/.cargo/env" && cargo build --release --locked'
+
+      # -------- Collect artifacts (единая схема) --------
+      - name: Collect artifacts
+        shell: bash
+        run: |
+          mkdir -p artifacts
+
+          if [[ "${{ matrix.use_docker }}" == "true" ]]; then
+            # linux: обычный target/release
+            cp -v target/release/k8s-gui* artifacts/ 2>/dev/null || true
+            cp -v target/release/*.so artifacts/ 2>/dev/null || true
+            cp -v target/release/*.d  artifacts/ 2>/dev/null || true
+            cp -v target/release/*.a  artifacts/ 2>/dev/null || true
+          else
+            # mac: target/<triple>/release
+            cp -v target/${{ matrix.target }}/release/k8s-gui* artifacts/ 2>/dev/null || true
+            cp -v target/${{ matrix.target }}/release/*.so artifacts/ 2>/dev/null || true
+            cp -v target/${{ matrix.target }}/release/*.d  artifacts/ 2>/dev/null || true
+            cp -v target/${{ matrix.target }}/release/*.a  artifacts/ 2>/dev/null || true
+          fi
+
+          ls -la artifacts || true
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: k8s-gui-${{ matrix.artifact_suffix }}
-          path: |
-            target/${{ matrix.target }}/release/k8s-gui*
-            target/${{ matrix.target }}/release/*.so
-            target/${{ matrix.target }}/release/*.d
-            target/${{ matrix.target }}/release/*.a
+          name: ${{ matrix.artifact_name }}
+          path: artifacts/*
+          if-no-files-found: warn
