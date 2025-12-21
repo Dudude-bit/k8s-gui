@@ -46,6 +46,9 @@ fn main() {
                         AppEvent::TerminalClosed { .. } => "terminal-closed",
                         AppEvent::PortForwardStatus { .. } => "port-forward-status",
                         AppEvent::ConnectionStatusChanged { .. } => "connection-status",
+                        AppEvent::AuthUrlRequested { .. } => "auth-url-requested",
+                        AppEvent::AuthFlowCompleted { .. } => "auth-flow-completed",
+                        AppEvent::AuthFlowCancelled { .. } => "auth-flow-cancelled",
                         AppEvent::ResourceCreated { .. } => "resource-created",
                         AppEvent::ResourceUpdated { .. } => "resource-updated",
                         AppEvent::ResourceDeleted { .. } => "resource-deleted",
@@ -87,6 +90,29 @@ fn main() {
                                 "status": status,
                                 "message": message,
                                 "attempt": attempt
+                            })
+                        },
+                        AppEvent::AuthUrlRequested { context, url, flow, session_id } => {
+                            serde_json::json!({
+                                "context": context,
+                                "url": url,
+                                "flow": flow,
+                                "session_id": session_id
+                            })
+                        },
+                        AppEvent::AuthFlowCompleted { session_id, context, success, message } => {
+                            serde_json::json!({
+                                "session_id": session_id,
+                                "context": context,
+                                "success": success,
+                                "message": message
+                            })
+                        },
+                        AppEvent::AuthFlowCancelled { session_id, context, message } => {
+                            serde_json::json!({
+                                "session_id": session_id,
+                                "context": context,
+                                "message": message
                             })
                         },
                         _ => serde_json::to_value(&event).unwrap_or_default(),
@@ -288,6 +314,7 @@ fn main() {
             commands::auth::save_credentials,
             commands::auth::delete_credentials,
             commands::auth::logout,
+            commands::auth::cancel_auth_session,
             
             // Storage commands
             commands::storage::list_persistent_volumes,

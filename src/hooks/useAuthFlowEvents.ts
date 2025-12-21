@@ -1,0 +1,278 @@
+import React, { useEffect, useRef } from "react";
+import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { open } from "@tauri-apps/plugin-shell";
+import { useToast } from "@/components/ui/use-toast";
+import { ToastAction } from "@/components/ui/toast";
+
+interface AuthUrlRequestedPayload {
+  context: string;
+  url: string;
+  flow: string;
+  session_id?: string | null;
+}
+
+interface AuthFlowCompletedPayload {
+  session_id: string;
+  context: string;
+  success: boolean;
+  message?: string | null;
+}
+
+interface AuthFlowCancelledPayload {
+  session_id: string;
+  context: string;
+  message?: string | null;
+}
+
+const AUTH_WINDOW_PREFIX = "auth-";
+
+export function useAuthFlowEvents() {
+  const { toast, dismiss } = useToast();
+  const windowsRef = useRef<Record<string, WebviewWindow>>({});
+  const activeSessionsRef = useRef<Set<string>>(new Set());
+  const toastIdsRef = useRef<Record<string, string>>({});
+  // Use refs for toast functions to avoid re-running effect when they change
+  const toastRef = useRef(toast);
+  const dismissRef = useRef(dismiss);
+
+  // Keep refs up to date
+  useEffect(() => {
+    toastRef.current = toast;
+    dismissRef.current = dismiss;
+  }, [toast, dismiss]);
+
+  useEffect(() => {
+    let mounted = true;
+    const unlistenFns: (() => void)[] = [];
+
+    const dismissToast = (sessionId: string) => {
+      const toastId = toastIdsRef.current[sessionId];
+      if (toastId) {
+        dismissRef.current(toastId);
+        delete toastIdsRef.current[sessionId];
+      }
+    };
+
+    const closeWindow = async (sessionId: string) => {
+      // Remove from active sessions
+      activeSessionsRef.current.delete(sessionId);
+      // Dismiss auth toast
+      dismissToast(sessionId);
+
+      try {
+        const existing = windowsRef.current[sessionId];
+        if (existing) {
+          try {
+            await existing.destroy();
+          } catch {
+            try {
+              await existing.close();
+            } catch {
+              // ignore - window may already be closed
+            }
+          }
+          delete windowsRef.current[sessionId];
+          return;
+        }
+
+        const label = `${AUTH_WINDOW_PREFIX}${sessionId}`;
+        try {
+          const found = await WebviewWindow.getByLabel(label);
+          if (found) {
+            try {
+              await found.destroy();
+            } catch {
+              try {
+                await found.close();
+              } catch {
+                // ignore
+              }
+            }
+          }
+        } catch {
+          // ignore - window may not exist or already be closed
+        }
+      } catch {
+        // ignore all errors during window cleanup
+      }
+    };
+
+    const setupListeners = async () => {
+      // Listener for auth URL requests
+      const unlistenRequested = await listen<AuthUrlRequestedPayload>(
+        "auth-url-requested",
+        async (event) => {
+          if (!mounted) return;
+          
+          console.log("Received auth-url-requested event:", event.payload);
+          const payload = event.payload;
+          const sessionId = payload.session_id;
+          if (!sessionId) {
+            console.warn("No session_id in auth-url-requested payload");
+            return;
+          }
+
+          // Prevent duplicate handling of the same session
+          if (activeSessionsRef.current.has(sessionId)) {
+            console.log("Session already being handled:", sessionId);
+            return;
+          }
+          activeSessionsRef.current.add(sessionId);
+
+          await closeWindow(sessionId);
+          // Re-add since closeWindow removes it
+          activeSessionsRef.current.add(sessionId);
+
+          // Small delay to ensure window is fully closed
+          await new Promise((resolve) => setTimeout(resolve, 100));
+
+          try {
+            // External URLs should be opened in system browser
+            // localhost:8000 is likely an auth callback server, open externally
+            // Only truly internal URLs (127.0.0.1 with our callback port) should stay internal
+            const isCallbackUrl =
+              payload.url.includes("127.0.0.1") &&
+              payload.url.includes("/callback");
+
+            console.log(
+              "Auth URL type:",
+              isCallbackUrl ? "callback" : "external",
+              payload.url
+            );
+
+            if (!isCallbackUrl) {
+              // Open in system browser - this includes OAuth providers and localhost auth servers
+              console.log("Opening auth URL in system browser:", payload.url);
+              if (!mounted) return;
+              try {
+                await open(payload.url);
+                console.log("Successfully opened URL in browser");
+              } catch (openError) {
+                console.error("Failed to open URL with shell.open:", openError);
+                // Fallback: try window.open (won't work in Tauri, but worth trying)
+                globalThis.open(payload.url, "_blank");
+              }
+
+              const { id: toastId } = toastRef.current({
+                title: "Authentication started",
+                description: `Complete authentication in your browser for ${payload.context}. Click Cancel if you closed the browser tab.`,
+                duration: 180000, // 3 minutes - match backend timeout
+                action: React.createElement(
+                  ToastAction,
+                  {
+                    altText: "Cancel authentication",
+                    onClick: () => {
+                      console.log("Cancelling auth session:", sessionId);
+                      invoke("cancel_auth_session", { sessionId }).catch(
+                        (e) => {
+                          console.error("Failed to cancel auth session:", e);
+                        }
+                      );
+                    },
+                  },
+                  "Cancel"
+                ),
+              });
+              toastIdsRef.current[sessionId] = toastId;
+            } else {
+              // For local callback URLs, use WebviewWindow
+              const label = `${AUTH_WINDOW_PREFIX}${sessionId}`;
+              const window = new WebviewWindow(label, {
+                url: payload.url,
+                title: `Authenticate ${payload.context}`,
+                width: 960,
+                height: 720,
+                resizable: true,
+                center: true,
+                focus: true,
+              });
+
+              window.once("tauri://error", (e) => {
+                console.error("Auth window error:", e);
+                toastRef.current({
+                  title: "Authentication window error",
+                  description:
+                    "Failed to open authentication window. Please try again.",
+                  variant: "destructive",
+                });
+                invoke("cancel_auth_session", { sessionId }).catch(() => {});
+              });
+
+              window
+                .onCloseRequested(async () => {
+                  await invoke("cancel_auth_session", { sessionId });
+                })
+                .catch(() => {
+                  // ignore
+                });
+
+              windowsRef.current[sessionId] = window;
+            }
+          } catch (error) {
+            console.error("Failed to open auth URL:", error);
+            toastRef.current({
+              title: "Authentication failed",
+              description: "Could not open authentication. Please try again.",
+              variant: "destructive",
+            });
+            await invoke("cancel_auth_session", { sessionId }).catch(() => {});
+          }
+        }
+      );
+      unlistenFns.push(unlistenRequested);
+
+      // Listener for auth flow completed
+      const unlistenCompleted = await listen<AuthFlowCompletedPayload>(
+        "auth-flow-completed",
+        async (event) => {
+          if (!mounted) return;
+          
+          const payload = event.payload;
+          await closeWindow(payload.session_id);
+
+          if (payload.success) {
+            toastRef.current({
+              title: "Authentication complete",
+              description: `Authentication completed for ${payload.context}.`,
+            });
+          } else {
+            toastRef.current({
+              title: "Authentication failed",
+              description:
+                payload.message || `Failed to authenticate ${payload.context}.`,
+              variant: "destructive",
+            });
+          }
+        }
+      );
+      unlistenFns.push(unlistenCompleted);
+
+      // Listener for auth flow cancelled
+      const unlistenCancelled = await listen<AuthFlowCancelledPayload>(
+        "auth-flow-cancelled",
+        async (event) => {
+          if (!mounted) return;
+          
+          const payload = event.payload;
+          await closeWindow(payload.session_id);
+          toastRef.current({
+            title: "Authentication cancelled",
+            description: payload.message || `Cancelled ${payload.context}.`,
+          });
+        }
+      );
+      unlistenFns.push(unlistenCancelled);
+    };
+
+    setupListeners();
+
+    return () => {
+      mounted = false;
+      for (const unlisten of unlistenFns) {
+        unlisten();
+      }
+    };
+  }, []); // Empty dependencies - we use refs for toast/dismiss
+}

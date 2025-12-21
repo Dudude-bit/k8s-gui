@@ -10,6 +10,7 @@ mod aws_eks;
 mod bearer;
 mod kubeconfig;
 mod oidc;
+mod interactive;
 mod manager;
 mod credentials;
 
@@ -17,6 +18,7 @@ pub use aws_eks::AwsEksAuth;
 pub use bearer::BearerTokenAuth;
 pub use kubeconfig::KubeconfigAuth;
 pub use oidc::OidcAuth;
+pub use interactive::prepare_kubeconfig_for_context;
 pub use manager::AuthManager;
 pub use credentials::CredentialStore;
 

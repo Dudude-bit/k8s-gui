@@ -1,0 +1,14 @@
+node_modules
+pnpm-lock.yaml
+npm-debug.log
+target
+.git
+.gitignore
+.idea
+.vscode
+.DS_Store
+*.pyc
+__pycache__
+build/
+dist/
+.env

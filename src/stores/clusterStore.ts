@@ -14,6 +14,7 @@ interface ClusterState {
   currentNamespace: string;
   isConnected: boolean;
   isLoading: boolean;
+  isAuthenticating: boolean;
   error: string | null;
   pendingContext: string | null;
   errorContext: string | null;
@@ -33,6 +34,7 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
   currentNamespace: "", // Empty string means all namespaces
   isConnected: false,
   isLoading: false,
+  isAuthenticating: false,
   error: null,
   pendingContext: null,
   errorContext: null,
@@ -79,6 +81,11 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
       return;
     }
 
+    // Prevent multiple concurrent connection attempts to the same context
+    if (get().isAuthenticating && get().pendingContext === targetContext) {
+      return;
+    }
+
     const previousContext = get().currentContext;
     if (previousContext && previousContext !== targetContext) {
       invoke("disconnect_cluster", { context: previousContext }).catch(() => {
@@ -93,6 +100,7 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
 
     set({
       isLoading: true,
+      isAuthenticating: true,
       error: null,
       errorContext: null,
       pendingContext: targetContext,
@@ -112,6 +120,7 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
         currentContext: info.context || targetContext,
         isConnected: true,
         isLoading: false,
+        isAuthenticating: false,
         pendingContext: null,
       });
     } catch (error) {
@@ -122,6 +131,7 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
         error: String(error),
         errorContext: targetContext,
         isLoading: false,
+        isAuthenticating: false,
         isConnected: false,
         pendingContext: null,
       });

@@ -42,6 +42,7 @@ export function Header() {
     currentNamespace,
     isConnected,
     isLoading,
+    isAuthenticating,
     error,
     pendingContext,
     errorContext,
@@ -62,10 +63,10 @@ export function Header() {
 
   // Auto-connect when currentContext is set but not connected
   useEffect(() => {
-    if (currentContext && !isConnected && !isLoading && !error && !pendingContext) {
+    if (currentContext && !isConnected && !isLoading && !isAuthenticating && !error && !pendingContext) {
       connect(currentContext);
     }
-  }, [currentContext, isConnected, isLoading, error, pendingContext, connect]);
+  }, [currentContext, isConnected, isLoading, isAuthenticating, error, pendingContext, connect]);
 
   // Fetch namespaces when connected
   const { data: namespaces = [], refetch: refetchNamespaces } = useQuery({

@@ -239,6 +239,23 @@ pub async fn auth_with_eks(
     }
 }
 
+/// Cancel an active auth session
+#[tauri::command]
+pub async fn cancel_auth_session(
+    session_id: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    if let Some(session) = state.remove_auth_session(&session_id) {
+        let _ = session.cancel_tx.send(());
+        state.emit(crate::state::AppEvent::AuthFlowCancelled {
+            session_id,
+            context: session.context,
+            message: Some("Authentication cancelled.".to_string()),
+        });
+    }
+    Ok(())
+}
+
 /// List available EKS clusters
 #[tauri::command]
 pub async fn list_eks_clusters(

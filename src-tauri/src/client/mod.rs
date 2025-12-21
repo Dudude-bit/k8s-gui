@@ -59,6 +59,15 @@ impl K8sClientManager {
         Ok(())
     }
 
+    /// Get a clone of the loaded kubeconfig
+    pub async fn kubeconfig_clone(&self) -> Result<Kubeconfig> {
+        let kubeconfig = self.kubeconfig.read().await;
+        kubeconfig
+            .as_ref()
+            .cloned()
+            .ok_or_else(|| Error::Config("Kubeconfig not loaded".to_string()))
+    }
+
     /// Load kubeconfig from a specific path
     pub async fn load_kubeconfig_from_path(&self, path: PathBuf) -> Result<()> {
         let kubeconfig = Kubeconfig::read_from(&path).map_err(|e| {
@@ -126,6 +135,33 @@ impl K8sClientManager {
         self.configs.insert(context.to_string(), config);
         
         tracing::info!("Connected to cluster: {}", context);
+        Ok(client)
+    }
+
+    /// Connect to a cluster using a provided kubeconfig
+    pub async fn connect_with_kubeconfig(
+        &self,
+        context: &str,
+        kubeconfig: Kubeconfig,
+    ) -> Result<Arc<Client>> {
+        self.clients.remove(context);
+        self.configs.remove(context);
+
+        let options = KubeConfigOptions {
+            context: Some(context.to_string()),
+            ..Default::default()
+        };
+
+        let config = Config::from_custom_kubeconfig(kubeconfig, &options)
+            .await
+            .map_err(|e| Error::Config(format!("Failed to create config for context {}: {}", context, e)))?;
+        let client = Client::try_from(config.clone())
+            .map_err(|e| Error::Connection(format!("Failed to create client: {}", e)))?;
+        let client = Arc::new(client);
+        self.clients.insert(context.to_string(), client.clone());
+        self.configs.insert(context.to_string(), config);
+
+        tracing::info!("Connected to cluster with prepared config: {}", context);
         Ok(client)
     }
 

@@ -72,6 +72,26 @@ pub enum AppEvent {
         message: Option<String>,
         attempt: Option<u32>,
     },
+    /// Auth URL requested for interactive login
+    AuthUrlRequested {
+        context: String,
+        url: String,
+        flow: String,
+        session_id: Option<String>,
+    },
+    /// Auth flow completed
+    AuthFlowCompleted {
+        session_id: String,
+        context: String,
+        success: bool,
+        message: Option<String>,
+    },
+    /// Auth flow cancelled
+    AuthFlowCancelled {
+        session_id: String,
+        context: String,
+        message: Option<String>,
+    },
     /// Error occurred
     Error {
         code: String,
@@ -115,6 +135,14 @@ pub struct PortForwardSession {
     pub remote_port: u16,
     pub auto_reconnect: bool,
     pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// Auth session control for interactive flows
+#[derive(Debug)]
+pub struct AuthSessionControl {
+    pub context: String,
+    pub flow: String,
+    pub cancel_tx: tokio::sync::oneshot::Sender<()>,
 }
 
 /// Watch subscription information
@@ -183,6 +211,9 @@ pub struct AppState {
     /// Event broadcaster
     pub event_tx: broadcast::Sender<AppEvent>,
 
+    /// Active auth sessions
+    pub auth_sessions: DashMap<String, AuthSessionControl>,
+
     /// Monotonic counter for connection attempts
     pub connect_generation: AtomicU64,
 }
@@ -214,6 +245,7 @@ impl AppState {
             watch_subscriptions: DashMap::new(),
             log_streams: DashMap::new(),
             event_tx,
+            auth_sessions: DashMap::new(),
             connect_generation: AtomicU64::new(0),
         })
     }
@@ -236,6 +268,51 @@ impl AppState {
     /// Emit an event to all subscribers
     pub fn emit(&self, event: AppEvent) {
         let _ = self.event_tx.send(event);
+    }
+
+    /// Create a new auth session
+    pub fn create_auth_session(
+        &self,
+        context: &str,
+        flow: &str,
+    ) -> (String, tokio::sync::oneshot::Receiver<()>) {
+        let session_id = Uuid::new_v4().to_string();
+        let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel();
+        let session = AuthSessionControl {
+            context: context.to_string(),
+            flow: flow.to_string(),
+            cancel_tx,
+        };
+        self.auth_sessions.insert(session_id.clone(), session);
+        (session_id, cancel_rx)
+    }
+
+    /// Remove an auth session
+    pub fn remove_auth_session(&self, session_id: &str) -> Option<AuthSessionControl> {
+        self.auth_sessions
+            .remove(session_id)
+            .map(|(_, session)| session)
+    }
+
+    /// Cancel all auth sessions for a context
+    pub fn cancel_auth_sessions_for_context(&self, context: &str) -> Vec<String> {
+        let session_ids: Vec<String> = self
+            .auth_sessions
+            .iter()
+            .filter_map(|entry| {
+                if entry.value().context == context {
+                    Some(entry.key().clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        for session_id in &session_ids {
+            if let Some((_, session)) = self.auth_sessions.remove(session_id) {
+                let _ = session.cancel_tx.send(());
+            }
+        }
+        session_ids
     }
 
     /// Get current context

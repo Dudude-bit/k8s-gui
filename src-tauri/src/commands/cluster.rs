@@ -1,5 +1,6 @@
 //! Cluster management commands
 
+use crate::auth::prepare_kubeconfig_for_context;
 use crate::client::{ClusterInfo, ContextInfo};
 use crate::state::AppState;
 use tauri::State;
@@ -77,6 +78,14 @@ pub async fn switch_context(context: String, state: State<'_, AppState>) -> Resu
 #[tauri::command]
 pub async fn connect_cluster(context: String, state: State<'_, AppState>) -> Result<ClusterInfo, String> {
     let generation = state.next_connect_generation();
+    let cancelled_sessions = state.cancel_auth_sessions_for_context(&context);
+    for session_id in cancelled_sessions {
+        state.emit(crate::state::AppEvent::AuthFlowCancelled {
+            session_id,
+            context: context.clone(),
+            message: Some("Authentication superseded by a new attempt.".to_string()),
+        });
+    }
 
     // Reset any cached client/config for this context to ensure fresh auth
     state.client_manager.disconnect(&context);
@@ -89,8 +98,22 @@ pub async fn connect_cluster(context: String, state: State<'_, AppState>) -> Res
         .await
         .map_err(|e| e.to_string())?;
 
+    let kubeconfig = state
+        .client_manager
+        .kubeconfig_clone()
+        .await
+        .map_err(|e| e.to_string())?;
+    let prepared = prepare_kubeconfig_for_context(&state, kubeconfig, &context)
+        .await
+        .map_err(|e| e.to_string())?;
+    state
+        .client_manager
+        .connect_with_kubeconfig(&context, prepared)
+        .await
+        .map_err(|e| e.to_string())?;
+
     // Test connection and get cluster info (timeout to avoid hanging auth flows)
-    let info = match timeout(Duration::from_secs(60), state.client_manager.test_connection(&context)).await {
+    let info = match timeout(Duration::from_secs(120), state.client_manager.test_connection(&context)).await {
         Ok(Ok(info)) => info,
         Ok(Err(e)) => {
             state.client_manager.disconnect(&context);

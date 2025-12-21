@@ -58,6 +58,7 @@ tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
 keyring = "3.6"
 rustls = { version = "0.23", features = ["ring"] }
 rustls-pemfile = "2.2"
+secrecy = "0.10"
 
 # Logging and tracing
 tracing = "0.1"
