@@ -43,6 +43,8 @@ export function Header() {
     isConnected,
     isLoading,
     error,
+    pendingContext,
+    errorContext,
     loadContexts,
     switchContext,
     switchNamespace,
@@ -60,10 +62,10 @@ export function Header() {
 
   // Auto-connect when currentContext is set but not connected
   useEffect(() => {
-    if (currentContext && !isConnected && !isLoading && !error) {
+    if (currentContext && !isConnected && !isLoading && !error && !pendingContext) {
       connect(currentContext);
     }
-  }, [currentContext, isConnected, isLoading, error, connect]);
+  }, [currentContext, isConnected, isLoading, error, pendingContext, connect]);
 
   // Fetch namespaces when connected
   const { data: namespaces = [], refetch: refetchNamespaces } = useQuery({
@@ -75,10 +77,9 @@ export function Header() {
     enabled: isConnected,
   });
 
-  const handleContextChange = async (context: string) => {
-    await switchContext(context);
-    await connect(context);
-    refetchNamespaces();
+  const handleContextChange = (context: string) => {
+    switchContext(context);
+    connect(context);
   };
 
   return (
@@ -124,14 +125,16 @@ export function Header() {
             </TooltipTrigger>
             <TooltipContent side="bottom" className="max-w-xs">
               {isLoading ? (
-                <span>Connecting to cluster...</span>
+                <span>
+                  Connecting to {pendingContext || currentContext || "cluster"}...
+                </span>
               ) : error ? (
                 <div className="space-y-1">
                   <div className="font-medium text-red-500">
                     Connection Error
                   </div>
                   <div className="text-xs text-muted-foreground break-words">
-                    {error}
+                    {errorContext ? `${errorContext}: ${error}` : error}
                   </div>
                 </div>
               ) : isConnected ? (
@@ -143,6 +146,23 @@ export function Header() {
               )}
             </TooltipContent>
           </Tooltip>
+
+          {error && !isLoading && (errorContext || currentContext) && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => connect(errorContext || currentContext || undefined)}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                Retry authentication
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
 
         {/* Namespace selector */}

@@ -3,6 +3,7 @@
 use crate::client::{ClusterInfo, ContextInfo};
 use crate::state::AppState;
 use tauri::State;
+use tokio::time::{timeout, Duration};
 
 /// List all available Kubernetes contexts
 #[tauri::command]
@@ -75,6 +76,12 @@ pub async fn switch_context(context: String, state: State<'_, AppState>) -> Resu
 /// Connect to a cluster by context name
 #[tauri::command]
 pub async fn connect_cluster(context: String, state: State<'_, AppState>) -> Result<ClusterInfo, String> {
+    let generation = state.next_connect_generation();
+
+    // Reset any cached client/config for this context to ensure fresh auth
+    state.client_manager.disconnect(&context);
+    state.remove_session(&context);
+
     // Load kubeconfig if not already loaded
     state
         .client_manager
@@ -82,12 +89,26 @@ pub async fn connect_cluster(context: String, state: State<'_, AppState>) -> Res
         .await
         .map_err(|e| e.to_string())?;
 
-    // Test connection and get cluster info
-    let info = state
-        .client_manager
-        .test_connection(&context)
-        .await
-        .map_err(|e| e.to_string())?;
+    // Test connection and get cluster info (timeout to avoid hanging auth flows)
+    let info = match timeout(Duration::from_secs(60), state.client_manager.test_connection(&context)).await {
+        Ok(Ok(info)) => info,
+        Ok(Err(e)) => {
+            state.client_manager.disconnect(&context);
+            state.remove_session(&context);
+            return Err(e.to_string());
+        }
+        Err(_) => {
+            state.client_manager.disconnect(&context);
+            state.remove_session(&context);
+            return Err("Connection timed out. Please retry the authentication flow.".to_string());
+        }
+    };
+
+    if !state.is_latest_connect_generation(generation) {
+        state.client_manager.disconnect(&context);
+        state.remove_session(&context);
+        return Err("Connection superseded by a newer attempt.".to_string());
+    }
 
     // Update state
     state.set_current_context(Some(context.clone()));

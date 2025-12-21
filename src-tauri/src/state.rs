@@ -11,6 +11,7 @@ use crate::error::Result;
 use crate::plugins::PluginManager;
 use dashmap::DashMap;
 use parking_lot::RwLock;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::broadcast;
 use uuid::Uuid;
@@ -181,6 +182,9 @@ pub struct AppState {
     
     /// Event broadcaster
     pub event_tx: broadcast::Sender<AppEvent>,
+
+    /// Monotonic counter for connection attempts
+    pub connect_generation: AtomicU64,
 }
 
 impl AppState {
@@ -210,12 +214,23 @@ impl AppState {
             watch_subscriptions: DashMap::new(),
             log_streams: DashMap::new(),
             event_tx,
+            connect_generation: AtomicU64::new(0),
         })
     }
 
     /// Subscribe to application events
     pub fn subscribe(&self) -> broadcast::Receiver<AppEvent> {
         self.event_tx.subscribe()
+    }
+
+    /// Increment and return the current connection attempt generation
+    pub fn next_connect_generation(&self) -> u64 {
+        self.connect_generation.fetch_add(1, Ordering::SeqCst) + 1
+    }
+
+    /// Check if the generation is still the latest
+    pub fn is_latest_connect_generation(&self, generation: u64) -> bool {
+        self.connect_generation.load(Ordering::SeqCst) == generation
     }
 
     /// Emit an event to all subscribers

@@ -18,6 +18,7 @@ import { useThemeStore } from "@/stores/themeStore";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { useToast } from "@/components/ui/use-toast";
 import { useGlobalErrorToasts } from "@/hooks/useGlobalErrorToasts";
+import { useClusterErrorToasts } from "@/hooks/useClusterErrorToasts";
 import { usePortForwardEvents } from "@/hooks/usePortForwardEvents";
 import { usePortForwardStore } from "@/stores/portForwardStore";
 
@@ -28,6 +29,7 @@ export default function App() {
   const hydratePortForwards = usePortForwardStore((state) => state.hydrate);
 
   useGlobalErrorToasts();
+  useClusterErrorToasts();
   usePortForwardEvents();
 
   useEffect(() => {
