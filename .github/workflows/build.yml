@@ -16,7 +16,7 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             artifact_suffix: linux-x64
-            sys_deps: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.0-dev libgtk-3-dev libsoup2.4-dev libssl-dev pkg-config build-essential
+            sys_deps: echo "docker build/run will be used"
           - os: macos-latest
             target: aarch64-apple-darwin
             artifact_suffix: macos-arm64
@@ -27,25 +27,51 @@ jobs:
             sys_deps: brew install pkg-config
     steps:
       - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        if: matrix.artifact_suffix == 'linux-x64'
+      - name: Build in Docker (Fedora, linux-x64)
+        if: matrix.artifact_suffix == 'linux-x64'
+        run: |
+          docker build --platform=linux/amd64 -t k8s-gui-build .
+          docker run --platform=linux/amd64 --name k8s-gui-artifact -v ${{ github.workspace }}:/app -w /app k8s-gui-build bash -c 'source $HOME/.cargo/env && cargo build --release'
+      - name: Copy artifacts from Docker (linux-x64)
+        if: matrix.artifact_suffix == 'linux-x64'
+        run: |
+          mkdir -p artifacts
+          cp target/release/k8s-gui* artifacts/ || true
+      - name: Archive artifacts (linux-x64)
+        if: matrix.artifact_suffix == 'linux-x64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: k8s-gui-linux-x64
+          path: artifacts/*
       - name: Set up Node.js
+        if: matrix.artifact_suffix != 'linux-x64'
         uses: actions/setup-node@v4
         with:
           node-version: 'lts/*'
       - name: Set up Rust
+        if: matrix.artifact_suffix != 'linux-x64'
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           target: ${{ matrix.target }}
           override: true
       - name: Install system dependencies
+        if: matrix.artifact_suffix != 'linux-x64'
         run: ${{ matrix.sys_deps }}
       - name: Install JS dependencies
+        if: matrix.artifact_suffix != 'linux-x64'
         run: npm install
       - name: Install Tauri CLI
+        if: matrix.artifact_suffix != 'linux-x64'
         run: npm install -g @tauri-apps/cli
       - name: Build (cargo)
+        if: matrix.artifact_suffix != 'linux-x64'
         run: cargo build --release --target ${{ matrix.target }}
       - name: Archive artifacts
+        if: matrix.artifact_suffix != 'linux-x64'
         uses: actions/upload-artifact@v4
         with:
           name: k8s-gui-${{ matrix.artifact_suffix }}
