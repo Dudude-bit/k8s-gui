@@ -21,17 +21,20 @@ jobs:
           - os: ubuntu-latest
             artifact_name: k8s-gui-linux-x64
             artifact_suffix: linux-x64
-            use_docker: true
+            use_docker: "true"
+            target: x86_64-unknown-linux-gnu
 
           - os: macos-latest
             artifact_name: k8s-gui-macos-arm64
             artifact_suffix: macos-arm64
+            use_docker: "false"
             target: aarch64-apple-darwin
             sys_deps: brew install pkg-config
 
           - os: macos-15
             artifact_name: k8s-gui-macos-x64
             artifact_suffix: macos-x64
+            use_docker: "false"
             target: x86_64-apple-darwin
             sys_deps: brew install pkg-config
 
@@ -41,16 +44,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # -------- Shared: Node (везде, где есть фронт) --------
+      # ---------------- macOS path (native build) ----------------
       - name: Set up Node.js
-      # (можно включить и для linux, но там сборка идёт в докере; оставим как есть)
         if: matrix.use_docker != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
           cache: npm
 
-      - name: Install JS deps
+      - name: Install JS dependencies
         if: matrix.use_docker != 'true'
         run: npm ci
 
@@ -58,7 +60,6 @@ jobs:
         if: matrix.use_docker != 'true'
         run: npm run build
 
-      # -------- macOS: Rust toolchain + cache --------
       - name: Set up Rust
         if: matrix.use_docker != 'true'
         uses: dtolnay/rust-toolchain@stable
@@ -79,7 +80,7 @@ jobs:
         if: matrix.use_docker != 'true'
         run: cargo build --release --locked --target ${{ matrix.target }}
 
-      # -------- linux-x64: Docker build/run --------
+      # ---------------- Linux path (Docker build) ----------------
       - name: Set up Docker Buildx
         if: matrix.use_docker == 'true'
         uses: docker/setup-buildx-action@v3
@@ -87,33 +88,32 @@ jobs:
       - name: Build in Docker (Fedora, linux-x64)
         if: matrix.use_docker == 'true'
         run: |
-          # Если фронт нужен для линукса, лучше собирать его тоже в Dockerfile,
-          # чтобы не дублировать npm окружение тут.
           docker build --platform=linux/amd64 -t k8s-gui-build .
           docker run --platform=linux/amd64 --rm \
             -v "${{ github.workspace }}:/app" -w /app \
-            k8s-gui-build bash -lc 'source "$HOME/.cargo/env" && cargo build --release --locked'
+            k8s-gui-build bash -lc 'source "$HOME/.cargo/env" && cargo build --release --locked --target x86_64-unknown-linux-gnu'
 
-      # -------- Collect artifacts (единая схема) --------
+      # ---------------- Collect & upload artifacts (unified) ----------------
       - name: Collect artifacts
         shell: bash
         run: |
           mkdir -p artifacts
 
           if [[ "${{ matrix.use_docker }}" == "true" ]]; then
-            # linux: обычный target/release
+            # linux: default target dir
             cp -v target/release/k8s-gui* artifacts/ 2>/dev/null || true
-            cp -v target/release/*.so artifacts/ 2>/dev/null || true
-            cp -v target/release/*.d  artifacts/ 2>/dev/null || true
-            cp -v target/release/*.a  artifacts/ 2>/dev/null || true
+            cp -v target/release/*.so     artifacts/ 2>/dev/null || true
+            cp -v target/release/*.d      artifacts/ 2>/dev/null || true
+            cp -v target/release/*.a      artifacts/ 2>/dev/null || true
           else
             # mac: target/<triple>/release
             cp -v target/${{ matrix.target }}/release/k8s-gui* artifacts/ 2>/dev/null || true
-            cp -v target/${{ matrix.target }}/release/*.so artifacts/ 2>/dev/null || true
-            cp -v target/${{ matrix.target }}/release/*.d  artifacts/ 2>/dev/null || true
-            cp -v target/${{ matrix.target }}/release/*.a  artifacts/ 2>/dev/null || true
+            cp -v target/${{ matrix.target }}/release/*.so     artifacts/ 2>/dev/null || true
+            cp -v target/${{ matrix.target }}/release/*.d      artifacts/ 2>/dev/null || true
+            cp -v target/${{ matrix.target }}/release/*.a      artifacts/ 2>/dev/null || true
           fi
 
+          echo "Artifacts:"
           ls -la artifacts || true
 
       - name: Upload artifacts
