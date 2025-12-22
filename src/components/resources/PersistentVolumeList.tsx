@@ -1,12 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
+import { useResourceListQuery } from "@/hooks/useResourceListQuery";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
-import { Eye, Trash2, RefreshCw, HardDrive } from "lucide-react";
+import { Eye, Trash2, HardDrive } from "lucide-react";
+import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -158,17 +159,13 @@ export function PersistentVolumeList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Persistent Volumes</h1>
-          <p className="text-sm text-muted-foreground">
-            Cluster-wide storage resources provisioned by an administrator
-          </p>
-        </div>
-        <Button variant="outline" size="icon" onClick={() => refetch()}>
-          <RefreshCw className="h-4 w-4" />
-        </Button>
-      </div>
+      <ResourceListHeader
+        title="Persistent Volumes"
+        description="Cluster-wide storage resources provisioned by an administrator"
+        isFetching={isFetching}
+        isLoading={isLoading}
+        onRefresh={() => refetch()}
+      />
       <DataTable
         columns={columns}
         data={pvs}

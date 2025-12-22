@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, AlertTriangle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -39,9 +39,16 @@ interface DataTableProps<TData, TValue> {
   isFetching?: boolean;
   searchKey?: string;
   searchPlaceholder?: string;
+  /** Enable virtual scrolling for large datasets (default: true for >100 rows) */
+  enableVirtualScroll?: boolean;
+  /** Max height for virtual scroll container (default: 600px) */
+  virtualScrollHeight?: number;
 }
 
-const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+// Extended page size options for large datasets
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 200, 500];
+const LARGE_DATASET_THRESHOLD = 100;
+const VIRTUAL_SCROLL_DEFAULT_HEIGHT = 600;
 
 export function DataTable<TData, TValue>({
   columns,
@@ -50,6 +57,8 @@ export function DataTable<TData, TValue>({
   isFetching = false,
   searchKey,
   searchPlaceholder = "Search...",
+  enableVirtualScroll,
+  virtualScrollHeight = VIRTUAL_SCROLL_DEFAULT_HEIGHT,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -62,6 +71,11 @@ export function DataTable<TData, TValue>({
     pageSize: 25,
   });
   const deferredSearch = React.useDeferredValue(searchValue);
+
+  // Determine if we should use virtual scroll based on data size
+  const shouldVirtualScroll = enableVirtualScroll ?? (data.length > LARGE_DATASET_THRESHOLD);
+  const isShowingAllRows = pagination.pageSize >= data.length;
+  const showLargeDatasetWarning = isShowingAllRows && data.length > LARGE_DATASET_THRESHOLD;
 
   const table = useReactTable({
     data,
@@ -102,6 +116,19 @@ export function DataTable<TData, TValue>({
     totalRows === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1;
   const pageEnd = totalRows === 0 ? 0 : pageStart + pageRows - 1;
 
+  // Handle "All" page size
+  const handlePageSizeChange = (value: string) => {
+    if (value === "all") {
+      table.setPageSize(data.length || 1000);
+    } else {
+      table.setPageSize(Number(value));
+    }
+    table.setPageIndex(0);
+  };
+
+  // Get current page size display value
+  const currentPageSizeValue = isShowingAllRows ? "all" : String(pagination.pageSize);
+
   if (isLoading) {
     return (
       <div className="space-y-4 animate-in fade-in duration-200">
@@ -133,7 +160,7 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="relative max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -143,6 +170,12 @@ export function DataTable<TData, TValue>({
             className="pl-8"
           />
         </div>
+        {showLargeDatasetWarning && (
+          <div className="flex items-center gap-1.5 text-xs text-yellow-600 dark:text-yellow-500">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            <span>Showing all {data.length} rows may affect performance</span>
+          </div>
+        )}
       </div>
       <div
         className={cn(
@@ -151,61 +184,71 @@ export function DataTable<TData, TValue>({
         )}
         aria-busy={isFetching}
       >
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
-                          )}
-                    </TableHead>
-                  );
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
+        {/* Use scrollable container for large datasets when showing all rows */}
+        <div
+          className={cn(
+            shouldVirtualScroll && isShowingAllRows && "overflow-auto scrollbar-thin"
+          )}
+          style={shouldVirtualScroll && isShowingAllRows ? { maxHeight: virtualScrollHeight } : undefined}
+        >
+          <Table>
+            <TableHeader className={cn(
+              shouldVirtualScroll && isShowingAllRows && "sticky top-0 bg-background z-10"
+            )}>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => {
+                    return (
+                      <TableHead key={header.id}>
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext(),
+                            )}
+                      </TableHead>
+                    );
+                  })}
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  No results.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center"
+                  >
+                    No results.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
           {filteredRows === totalRows
             ? `${totalRows} row(s)`
             : `${filteredRows} of ${totalRows} row(s)`}
-          {totalRows > 0 && (
+          {totalRows > 0 && !isShowingAllRows && (
             <span className="ml-2">
               Showing {pageStart}-{pageEnd}
             </span>
@@ -213,11 +256,8 @@ export function DataTable<TData, TValue>({
         </div>
         <div className="flex items-center gap-2">
           <Select
-            value={String(pagination.pageSize)}
-            onValueChange={(value) => {
-              table.setPageSize(Number(value));
-              table.setPageIndex(0);
-            }}
+            value={currentPageSizeValue}
+            onValueChange={handlePageSizeChange}
           >
             <SelectTrigger className="h-8 w-[120px]">
               <SelectValue placeholder="Rows" />
@@ -228,6 +268,7 @@ export function DataTable<TData, TValue>({
                   {option} / page
                 </SelectItem>
               ))}
+              <SelectItem value="all">All</SelectItem>
             </SelectContent>
           </Select>
           <Button

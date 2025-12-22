@@ -57,7 +57,8 @@ export function LogViewer({
   const [searchQuery, setSearchQuery] = useState("");
   const [tailLines, setTailLines] = useState(100);
   const [autoScroll, setAutoScroll] = useState(true);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const streamIdRef = useRef<string | null>(null);
   const unlistenRef = useRef<(() => void) | null>(null);
 
@@ -68,12 +69,62 @@ export function LogViewer({
       )
     : logs;
 
-  // Auto-scroll to bottom
+  // Get the actual scroll viewport element
+  const getViewport = useCallback(() => {
+    return scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null;
+  }, []);
+
+  // Auto-scroll to bottom when new logs arrive
   useEffect(() => {
-    if (autoScroll && scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (autoScroll) {
+      const viewport = getViewport();
+      if (viewport) {
+        // Use requestAnimationFrame for smooth scrolling
+        requestAnimationFrame(() => {
+          viewport.scrollTo({
+            top: viewport.scrollHeight,
+            behavior: 'smooth',
+          });
+        });
+      }
     }
-  }, [logs, autoScroll]);
+  }, [logs, autoScroll, getViewport]);
+
+  // Track scroll position to detect if user scrolled away from bottom
+  useEffect(() => {
+    const viewport = getViewport();
+    if (!viewport) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = viewport;
+      const atBottom = scrollHeight - scrollTop - clientHeight < 50;
+      setIsAtBottom(atBottom);
+      
+      // If user scrolls to bottom manually, re-enable auto-scroll
+      if (atBottom && !autoScroll) {
+        setAutoScroll(true);
+      }
+      // If user scrolls up, disable auto-scroll
+      if (!atBottom && autoScroll) {
+        setAutoScroll(false);
+      }
+    };
+
+    viewport.addEventListener('scroll', handleScroll);
+    return () => viewport.removeEventListener('scroll', handleScroll);
+  }, [autoScroll, getViewport]);
+
+  // Scroll to bottom function for manual trigger
+  const scrollToBottom = useCallback(() => {
+    const viewport = getViewport();
+    if (viewport) {
+      viewport.scrollTo({
+        top: viewport.scrollHeight,
+        behavior: 'smooth',
+      });
+      setAutoScroll(true);
+    }
+  }, [getViewport]);
 
   // Start streaming logs
   const startStreaming = useCallback(async () => {
@@ -295,10 +346,10 @@ export function LogViewer({
           <Button
             variant={autoScroll ? "secondary" : "ghost"}
             size="icon"
-            onClick={() => setAutoScroll(!autoScroll)}
-            title="Auto-scroll"
+            onClick={scrollToBottom}
+            title={autoScroll ? "Auto-scroll enabled" : "Scroll to bottom"}
           >
-            <ArrowDown className="h-4 w-4" />
+            <ArrowDown className={`h-4 w-4 ${!isAtBottom ? "animate-bounce" : ""}`} />
           </Button>
           <Button
             variant="ghost"
@@ -343,9 +394,8 @@ export function LogViewer({
       </div>
 
       {/* Log content */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1" ref={scrollAreaRef}>
         <div
-          ref={scrollRef}
           className="p-4 font-mono text-xs leading-relaxed"
           style={{ minHeight: "100%" }}
         >

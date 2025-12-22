@@ -1,109 +1,65 @@
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-  keepPreviousData,
-} from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
-import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
-import { Eye, Trash2, RotateCw, Scale, RefreshCw, Loader2 } from "lucide-react";
+import { Eye, Trash2, RotateCw, Scale } from "lucide-react";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { formatAge, getStatusColor } from "@/lib/utils";
-import { useMemo, useState } from "react";
-import { useToast } from "@/components/ui/use-toast";
+import { useMemo } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
+import { ResourceList } from "./ResourceList";
+import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
+import { ResourceUsage } from "@/components/ui/resource-usage";
+import { aggregatePodMetrics } from "@/lib/resource-utils";
+import type { DeploymentInfo } from "@/types/kubernetes";
 
-interface ConditionInfo {
-  type_: string;
-  status: string;
-  reason: string | null;
-  message: string | null;
-  last_transition_time: string | null;
-}
-
-interface ReplicaInfo {
-  desired: number;
-  ready: number;
-  available: number;
-  updated: number;
-}
-
-interface DeploymentInfo {
-  name: string;
-  namespace: string;
-  uid: string;
-  replicas: ReplicaInfo;
-  strategy: string | null;
-  labels: Record<string, string>;
-  annotations: Record<string, string>;
-  created_at: string | null;
-  conditions: ConditionInfo[];
-}
+// Extended DeploymentInfo with metrics
+type DeploymentInfoWithMetrics = DeploymentInfo & {
+  cpu_usage: string | null;
+  memory_usage: string | null;
+};
 
 export function DeploymentList() {
-  const { isConnected, currentNamespace } = useClusterStore();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [deleteTarget, setDeleteTarget] = useState<DeploymentInfo | null>(null);
+  const { currentNamespace } = useClusterStore();
 
-  const {
-    data: deployments = [],
-    isLoading,
-    isFetching,
-    refetch,
-  } = useQuery({
-    queryKey: ["deployments", currentNamespace],
-    queryFn: async () => {
-      const result = await invoke<DeploymentInfo[]>("list_deployments", {
-        filters: { namespace: currentNamespace },
-      });
-      return result;
-    },
-    enabled: isConnected,
-    placeholderData: keepPreviousData,
-    staleTime: 5000,
-    refetchOnWindowFocus: false,
-  });
+  // Use centralized pods with metrics hook
+  const { data: podsWithMetrics } = usePodsWithMetrics();
 
-  const deleteMutation = useMutation({
-    mutationFn: async ({
-      name,
-      namespace,
-    }: {
-      name: string;
-      namespace: string;
-    }) => {
-      await invoke("delete_deployment", { name, namespace });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["deployments"] });
-      toast({
-        title: "Deployment deleted",
-        description: "The deployment has been deleted successfully.",
-      });
-      setDeleteTarget(null);
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: `Failed to delete deployment: ${error}`,
-        variant: "destructive",
-      });
-      setDeleteTarget(null);
-    },
-  });
+  // Query function that merges deployments with aggregated metrics
+  const queryFn = async (): Promise<DeploymentInfoWithMetrics[]> => {
+    const deployments = await invoke<DeploymentInfo[]>("list_deployments", {
+      filters: { namespace: currentNamespace },
+    });
 
-  const columns = useMemo<ColumnDef<DeploymentInfo>[]>(
+    // Aggregate metrics per deployment
+    return deployments.map((deployment) => {
+      const deploymentPods = podsWithMetrics.filter((pod) => {
+        const podLabels = pod.labels || {};
+        const deploymentLabels = deployment.labels || {};
+        
+        return (
+          pod.namespace === deployment.namespace &&
+          (podLabels["app"] === deploymentLabels["app"] ||
+            podLabels["deployment"] === deployment.name ||
+            pod.name.startsWith(deployment.name + "-"))
+        );
+      });
+
+      const aggregated = aggregatePodMetrics(deploymentPods);
+
+      return {
+        ...deployment,
+        cpu_usage: aggregated.cpu_usage,
+        memory_usage: aggregated.memory_usage,
+      };
+    });
+  };
+
+  const columns = useMemo<ColumnDef<DeploymentInfoWithMetrics>[]>(
     () => [
       {
         accessorKey: "name",
@@ -120,6 +76,30 @@ export function DeploymentList() {
       {
         accessorKey: "namespace",
         header: "Namespace",
+      },
+      {
+        id: "cpu",
+        header: "CPU",
+        cell: ({ row }) => (
+          <ResourceUsage
+            used={row.original.cpu_usage}
+            total={null}
+            type="cpu"
+            showProgressBar={false}
+          />
+        ),
+      },
+      {
+        id: "memory",
+        header: "Memory",
+        cell: ({ row }) => (
+          <ResourceUsage
+            used={row.original.memory_usage}
+            total={null}
+            type="memory"
+            showProgressBar={false}
+          />
+        ),
       },
       {
         id: "replicas",
@@ -159,98 +139,64 @@ export function DeploymentList() {
         header: "Age",
         cell: ({ row }) => formatAge(row.original.created_at),
       },
-      {
-        id: "actions",
-        cell: ({ row }) => (
-          <ActionMenu>
-            <DropdownMenuItem asChild>
-              <Link
-                to={`/deployment/${row.original.namespace}/${row.original.name}`}
-              >
-                <Eye className="mr-2 h-4 w-4" />
-                View Details
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Scale className="mr-2 h-4 w-4" />
-              Scale
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <RotateCw className="mr-2 h-4 w-4" />
-              Restart
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={() => setDeleteTarget(row.original)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
-          </ActionMenu>
-        ),
-      },
     ],
-    [setDeleteTarget],
+    []
   );
 
-  if (!isConnected) {
-    return <ConnectClusterEmptyState resourceLabel="deployments" />;
-  }
-
-  const showSkeleton = isLoading && deployments.length === 0;
-
   return (
-    <div className="space-y-4 animate-in fade-in duration-200">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">Deployments</h1>
-          {isFetching && !isLoading && (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          )}
-        </div>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => refetch()}
-          disabled={isFetching}
-        >
-          <RefreshCw
-            className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
-          />
-        </Button>
-      </div>
-      <DataTable
-        columns={columns}
-        data={deployments}
-        isLoading={showSkeleton}
-        isFetching={isFetching && !isLoading}
-      />
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDeleteTarget(null);
-          }
-        }}
-        title="Delete deployment?"
-        description={
-          deleteTarget
-            ? `This will delete ${deleteTarget.name} in ${deleteTarget.namespace}.`
-            : undefined
-        }
-        confirmLabel="Delete"
-        confirmVariant="destructive"
-        confirmDisabled={deleteMutation.isPending}
-        onConfirm={() => {
-          if (deleteTarget) {
-            deleteMutation.mutate({
-              name: deleteTarget.name,
-              namespace: deleteTarget.namespace,
-            });
-          }
-        }}
-      />
-    </div>
+    <ResourceList<DeploymentInfoWithMetrics>
+      title="Deployments"
+      queryKey={["deployments", currentNamespace, JSON.stringify(podsWithMetrics.map(p => p.name))]}
+      queryFn={queryFn}
+      columns={(setDeleteTarget) => [
+        ...columns,
+        {
+          id: "actions",
+          cell: ({ row }) => (
+            <ActionMenu>
+              <DropdownMenuItem asChild>
+                <Link
+                  to={`/deployment/${row.original.namespace}/${row.original.name}`}
+                >
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Details
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Scale className="mr-2 h-4 w-4" />
+                Scale
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <RotateCw className="mr-2 h-4 w-4" />
+                Restart
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => setDeleteTarget(row.original)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </ActionMenu>
+          ),
+        },
+      ]}
+      emptyStateLabel="deployments"
+      deleteConfig={{
+        mutationFn: async (item) => {
+          await invoke("delete_deployment", {
+            name: item.name,
+            namespace: item.namespace,
+          });
+        },
+        invalidateQueryKey: ["deployments"],
+        successTitle: "Deployment deleted",
+        successDescription: "The deployment has been deleted successfully.",
+        errorPrefix: "Failed to delete deployment",
+      }}
+      staleTime={10000}
+      refetchInterval={15000}
+    />
   );
 }

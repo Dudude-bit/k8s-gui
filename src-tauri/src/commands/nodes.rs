@@ -1,13 +1,17 @@
 //! Node commands
 
-use crate::resources::NodeInfo;
+use crate::commands::helpers::{build_list_params, ListContext};
+use crate::error::Result;
+use crate::resources::{NodeInfo, PodInfo};
 use crate::state::AppState;
+use k8s_openapi::api::core::v1::{Node, Pod};
 use kube::api::ListParams;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use tauri::State;
 
 /// Node list filters
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct NodeFilters {
     pub label_selector: Option<String>,
     pub ready_only: Option<bool>,
@@ -18,33 +22,16 @@ pub struct NodeFilters {
 pub async fn list_nodes(
     filters: Option<NodeFilters>,
     state: State<'_, AppState>,
-) -> Result<Vec<NodeInfo>, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+) -> Result<Vec<NodeInfo>> {
+    let filters = filters.unwrap_or_default();
+    let ctx = ListContext::new(&state, None)?;
+    let params = build_list_params(filters.label_selector.as_deref(), None, None);
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let filters = filters.unwrap_or_else(|| NodeFilters {
-        label_selector: None,
-        ready_only: None,
-    });
-
-    let mut params = ListParams::default();
-    if let Some(labels) = &filters.label_selector {
-        params = params.labels(labels);
-    }
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Node> = 
-        kube::Api::all((*client).clone());
-    let list = api.list(&params).await.map_err(|e| e.to_string())?;
+    let api: kube::Api<Node> = ctx.cluster_api();
+    let list = api.list(&params).await?;
 
     let mut nodes: Vec<NodeInfo> = list.items.iter().map(NodeInfo::from).collect();
 
-    // Filter by ready status if specified
     if filters.ready_only.unwrap_or(false) {
         nodes.retain(|n| n.status.ready);
     }
@@ -54,46 +41,22 @@ pub async fn list_nodes(
 
 /// Get a single node by name
 #[tauri::command]
-pub async fn get_node(
-    name: String,
-    state: State<'_, AppState>,
-) -> Result<NodeInfo, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
-
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Node> = 
-        kube::Api::all((*client).clone());
-    let node = api.get(&name).await.map_err(|e| e.to_string())?;
+pub async fn get_node(name: String, state: State<'_, AppState>) -> Result<NodeInfo> {
+    let ctx = ListContext::new(&state, None)?;
+    let api: kube::Api<Node> = ctx.cluster_api();
+    let node = api.get(&name).await?;
 
     Ok(NodeInfo::from(&node))
 }
 
 /// Get full node YAML
 #[tauri::command]
-pub async fn get_node_yaml(
-    name: String,
-    state: State<'_, AppState>,
-) -> Result<String, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+pub async fn get_node_yaml(name: String, state: State<'_, AppState>) -> Result<String> {
+    let ctx = ListContext::new(&state, None)?;
+    let api: kube::Api<Node> = ctx.cluster_api();
+    let node = api.get(&name).await?;
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Node> = 
-        kube::Api::all((*client).clone());
-    let node = api.get(&name).await.map_err(|e| e.to_string())?;
-
-    serde_yaml::to_string(&node).map_err(|e| e.to_string())
+    serde_yaml::to_string(&node).map_err(|e| crate::error::Error::Serialization(e.to_string()))
 }
 
 /// Node resource usage
@@ -107,32 +70,28 @@ pub struct NodeResourceUsage {
     pub pods_allocatable: String,
 }
 
+fn get_quantity(
+    map: &BTreeMap<String, k8s_openapi::apimachinery::pkg::api::resource::Quantity>,
+    key: &str,
+) -> String {
+    map.get(key).map(|q| q.0.clone()).unwrap_or_default()
+}
+
 /// Get node resource usage
 #[tauri::command]
 pub async fn get_node_resources(
     name: String,
     state: State<'_, AppState>,
-) -> Result<NodeResourceUsage, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+) -> Result<NodeResourceUsage> {
+    let ctx = ListContext::new(&state, None)?;
+    let api: kube::Api<Node> = ctx.cluster_api();
+    let node = api.get(&name).await?;
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Node> = 
-        kube::Api::all((*client).clone());
-    let node = api.get(&name).await.map_err(|e| e.to_string())?;
-
-    let status = node.status.ok_or("Node has no status")?;
+    let status = node
+        .status
+        .ok_or_else(|| crate::error::Error::InvalidInput("Node has no status".to_string()))?;
     let capacity = status.capacity.unwrap_or_default();
     let allocatable = status.allocatable.unwrap_or_default();
-
-    fn get_quantity(map: &std::collections::BTreeMap<String, k8s_openapi::apimachinery::pkg::api::resource::Quantity>, key: &str) -> String {
-        map.get(key).map(|q| q.0.clone()).unwrap_or_default()
-    }
 
     Ok(NodeResourceUsage {
         cpu_capacity: get_quantity(&capacity, "cpu"),
@@ -160,19 +119,10 @@ pub struct NodeCondition {
 pub async fn get_node_conditions(
     name: String,
     state: State<'_, AppState>,
-) -> Result<Vec<NodeCondition>, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
-
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Node> = 
-        kube::Api::all((*client).clone());
-    let node = api.get(&name).await.map_err(|e| e.to_string())?;
+) -> Result<Vec<NodeCondition>> {
+    let ctx = ListContext::new(&state, None)?;
+    let api: kube::Api<Node> = ctx.cluster_api();
+    let node = api.get(&name).await?;
 
     let conditions: Vec<NodeCondition> = node
         .status
@@ -196,92 +146,52 @@ pub async fn get_node_conditions(
 
 /// Get pods running on a node
 #[tauri::command]
-pub async fn get_node_pods(
-    name: String,
-    state: State<'_, AppState>,
-) -> Result<Vec<crate::resources::PodInfo>, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+pub async fn get_node_pods(name: String, state: State<'_, AppState>) -> Result<Vec<PodInfo>> {
+    let ctx = ListContext::new(&state, None)?;
+    let api: kube::Api<Pod> = ctx.api();
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Pod> = 
-        kube::Api::all((*client).clone());
-    
     let params = ListParams::default().fields(&format!("spec.nodeName={}", name));
-    let pods = api.list(&params).await.map_err(|e| e.to_string())?;
+    let pods = api.list(&params).await?;
 
-    let pod_infos: Vec<crate::resources::PodInfo> = pods
-        .items
-        .iter()
-        .map(crate::resources::PodInfo::from)
-        .collect();
-
-    Ok(pod_infos)
+    Ok(pods.items.iter().map(PodInfo::from).collect())
 }
 
 /// Cordon a node (mark as unschedulable)
 #[tauri::command]
-pub async fn cordon_node(
-    name: String,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
-
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Node> = 
-        kube::Api::all((*client).clone());
+pub async fn cordon_node(name: String, state: State<'_, AppState>) -> Result<()> {
+    let ctx = ListContext::new(&state, None)?;
+    let api: kube::Api<Node> = ctx.cluster_api();
 
     let patch = serde_json::json!({
-        "spec": {
-            "unschedulable": true
-        }
+        "spec": { "unschedulable": true }
     });
 
-    api.patch(&name, &kube::api::PatchParams::default(), &kube::api::Patch::Merge(&patch))
-        .await
-        .map_err(|e| e.to_string())?;
+    api.patch(
+        &name,
+        &kube::api::PatchParams::default(),
+        &kube::api::Patch::Merge(&patch),
+    )
+    .await?;
 
     Ok(())
 }
 
 /// Uncordon a node (mark as schedulable)
 #[tauri::command]
-pub async fn uncordon_node(
-    name: String,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
-
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Node> = 
-        kube::Api::all((*client).clone());
+pub async fn uncordon_node(name: String, state: State<'_, AppState>) -> Result<()> {
+    let ctx = ListContext::new(&state, None)?;
+    let api: kube::Api<Node> = ctx.cluster_api();
 
     let patch = serde_json::json!({
-        "spec": {
-            "unschedulable": false
-        }
+        "spec": { "unschedulable": false }
     });
 
-    api.patch(&name, &kube::api::PatchParams::default(), &kube::api::Patch::Merge(&patch))
-        .await
-        .map_err(|e| e.to_string())?;
+    api.patch(
+        &name,
+        &kube::api::PatchParams::default(),
+        &kube::api::Patch::Merge(&patch),
+    )
+    .await?;
 
     Ok(())
 }
@@ -293,25 +203,15 @@ pub async fn drain_node(
     ignore_daemonsets: Option<bool>,
     force: Option<bool>,
     state: State<'_, AppState>,
-) -> Result<(), String> {
+) -> Result<()> {
     // First cordon the node
     cordon_node(name.clone(), state.clone()).await?;
 
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+    let ctx = ListContext::new(&state, None)?;
+    let api: kube::Api<Pod> = ctx.api();
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    // Get pods on the node
-    let api: kube::Api<k8s_openapi::api::core::v1::Pod> = 
-        kube::Api::all((*client).clone());
-    
     let params = ListParams::default().fields(&format!("spec.nodeName={}", name));
-    let pods = api.list(&params).await.map_err(|e| e.to_string())?;
+    let pods = api.list(&params).await?;
 
     let ignore_daemonsets = ignore_daemonsets.unwrap_or(true);
     let _force = force.unwrap_or(false);
@@ -329,14 +229,9 @@ pub async fn drain_node(
             }
         }
 
-        // Evict the pod using the evict subresource on Pod API
-        let pod_api: kube::Api<k8s_openapi::api::core::v1::Pod> = 
-            kube::Api::namespaced((*client).clone(), &namespace);
-        
-        // Use EvictParams for eviction
+        // Evict the pod
+        let pod_api: kube::Api<Pod> = kube::Api::namespaced((*ctx.client).clone(), &namespace);
         let evict_params = kube::api::EvictParams::default();
-
-        // Use evict subresource - POST /api/v1/namespaces/{namespace}/pods/{name}/eviction
         let _ = pod_api.evict(&pod_name, &evict_params).await;
     }
 

@@ -1,12 +1,6 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
-
-interface ClusterContext {
-  name: string;
-  cluster: string;
-  user: string;
-  namespace?: string;
-}
+import type { ClusterContext } from "@/types/kubernetes";
 
 interface ClusterState {
   contexts: ClusterContext[];
@@ -47,7 +41,10 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
       const currentContext = await invoke<string | null>("get_current_context");
       set({ contexts, currentContext, isLoading: false });
     } catch (error) {
-      set({ error: String(error), isLoading: false });
+      set({ 
+        error: error instanceof Error ? error.message : String(error), 
+        isLoading: false 
+      });
     }
   },
 
@@ -70,7 +67,10 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
       await invoke("switch_namespace", { namespace });
       set({ currentNamespace: namespace });
     } catch (error) {
-      set({ error: String(error), errorContext: null });
+      set({ 
+        error: error instanceof Error ? error.message : String(error), 
+        errorContext: null 
+      });
     }
   },
 
@@ -127,8 +127,22 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
       if (get().connectionAttemptId !== attemptId) {
         return;
       }
+      // Normalize error message - Tauri errors can be objects
+      let errorMessage: string;
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === "string") {
+        errorMessage = error;
+      } else if (error && typeof error === "object") {
+        const err = error as Record<string, unknown>;
+        errorMessage = typeof err.message === "string" 
+          ? err.message 
+          : JSON.stringify(error);
+      } else {
+        errorMessage = String(error);
+      }
       set({
-        error: String(error),
+        error: errorMessage,
         errorContext: targetContext,
         isLoading: false,
         isAuthenticating: false,

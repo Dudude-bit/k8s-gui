@@ -2,6 +2,9 @@
 //! 
 //! Exposes Rust functionality to the frontend via Tauri commands.
 
+pub mod filters;
+pub mod helpers;
+
 pub mod cluster;
 pub mod namespace;
 pub mod resources;
@@ -23,6 +26,7 @@ pub mod workloads;
 pub mod port_forward;
 pub mod manifest;
 pub mod registry;
+pub mod metrics;
 
 // Re-export all commands for easy registration
 pub use cluster::*;
@@ -46,3 +50,4 @@ pub use workloads::*;
 pub use port_forward::*;
 pub use manifest::*;
 pub use registry::*;
+pub use metrics::*;

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
 import { DataTable } from "@/components/ui/data-table";
@@ -7,30 +7,20 @@ import { Button } from "@/components/ui/button";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
-import { Eye, RefreshCw, Shield, ShieldOff, AlertTriangle } from "lucide-react";
+import { Eye, Shield, ShieldOff, AlertTriangle } from "lucide-react";
+import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
 import { ActionMenu } from "@/components/ui/action-menu";
+import { useNodeMetrics } from "@/hooks/useNodeMetrics";
+import { ResourceUsage } from "@/components/ui/resource-usage";
+import { useMemo } from "react";
+import type { NodeInfo } from "@/types/kubernetes";
 
-interface NodeInfo {
-  name: string;
-  status: string;
-  roles: string[];
-  version: string;
-  internal_ip: string | null;
-  external_ip: string | null;
-  os_image: string;
-  kernel_version: string;
-  container_runtime: string;
-  cpu_capacity: string;
-  memory_capacity: string;
-  pod_count: number;
-  age: string;
-  is_schedulable: boolean;
-}
+// Using NodeInfo from types/kubernetes.ts
 
 const getNodeStatusColor = (
   status: string,
@@ -48,6 +38,7 @@ export function NodeList() {
   const {
     data: nodes = [],
     isLoading,
+    isFetching,
     refetch,
   } = useQuery({
     queryKey: ["nodes"],
@@ -56,9 +47,26 @@ export function NodeList() {
       return result;
     },
     enabled: isConnected,
+    placeholderData: keepPreviousData,
     staleTime: 10000,
+    refetchInterval: 15000, // 15 seconds for main list
     refetchOnWindowFocus: false,
   });
+
+  // Get node metrics separately for real-time updates
+  const { data: nodeMetrics = [] } = useNodeMetrics();
+
+  // Merge nodes with metrics
+  const nodesWithMetrics = useMemo(() => {
+    return nodes.map((node) => {
+      const metrics = nodeMetrics.find((m) => m.name === node.name);
+      return {
+        ...node,
+        cpu_usage: metrics?.cpu_usage ?? node.cpu_usage ?? null,
+        memory_usage: metrics?.memory_usage ?? node.memory_usage ?? null,
+      };
+    });
+  }, [nodes, nodeMetrics]);
 
   const cordonMutation = useMutation({
     mutationFn: async (nodeName: string) => {
@@ -124,7 +132,7 @@ export function NodeList() {
     },
   });
 
-  const columns: ColumnDef<NodeInfo>[] = [
+  const columns: ColumnDef<NodeInfo>[] = useMemo(() => [
     {
       accessorKey: "name",
       header: "Name",
@@ -134,23 +142,16 @@ export function NodeList() {
           className="font-medium hover:underline flex items-center gap-2"
         >
           {row.original.name}
-          {!row.original.is_schedulable && (
-            <Badge variant="warning" className="text-xs">
-              <ShieldOff className="h-3 w-3 mr-1" />
-              Cordoned
-            </Badge>
-          )}
         </Link>
       ),
     },
     {
-      accessorKey: "status",
+      id: "status",
       header: "Status",
-      cell: ({ row }) => (
-        <Badge variant={getNodeStatusColor(row.original.status)}>
-          {row.original.status}
-        </Badge>
-      ),
+      cell: ({ row }) => {
+        const status = row.original.status;
+        return <Badge variant={getNodeStatusColor(status)}>{status}</Badge>;
+      },
     },
     {
       accessorKey: "roles",
@@ -170,25 +171,53 @@ export function NodeList() {
       header: "Version",
     },
     {
-      accessorKey: "internal_ip",
+      id: "internal_ip",
       header: "Internal IP",
-      cell: ({ row }) => row.original.internal_ip || "-",
+      cell: ({ row }) => {
+        return row.original.internal_ip || "-";
+      },
     },
     {
-      accessorKey: "cpu_capacity",
-      header: "CPU",
+      id: "cpu",
+      header: "CPU Usage",
+      cell: ({ row }) => {
+        const node = nodesWithMetrics.find((n) => n.name === row.original.name);
+        const capacity = node?.cpu_capacity || null;
+        return (
+          <ResourceUsage
+            used={node?.cpu_usage ?? null}
+            total={capacity}
+            type="cpu"
+            showProgressBar={false}
+          />
+        );
+      },
     },
     {
-      accessorKey: "memory_capacity",
-      header: "Memory",
+      id: "memory",
+      header: "Memory Usage",
+      cell: ({ row }) => {
+        const node = nodesWithMetrics.find((n) => n.name === row.original.name);
+        const capacity = node?.memory_capacity || null;
+        return (
+          <ResourceUsage
+            used={node?.memory_usage ?? null}
+            total={capacity}
+            type="memory"
+            showProgressBar={false}
+          />
+        );
+      },
     },
     {
-      accessorKey: "pod_count",
+      id: "pod_count",
       header: "Pods",
+      cell: ({ row }) => row.original.pod_count || "-",
     },
     {
-      accessorKey: "age",
+      id: "age",
       header: "Age",
+      cell: ({ row }) => row.original.age || "-",
     },
     {
       id: "actions",
@@ -201,7 +230,7 @@ export function NodeList() {
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          {row.original.is_schedulable ? (
+          {((row.original as any).is_schedulable !== false) ? (
             <DropdownMenuItem
               onClick={() => cordonMutation.mutate(row.original.name)}
             >
@@ -226,7 +255,7 @@ export function NodeList() {
         </ActionMenu>
       ),
     },
-  ];
+  ], [nodesWithMetrics, cordonMutation, uncordonMutation, drainMutation]);
 
   if (!isConnected) {
     return <ConnectClusterEmptyState resourceLabel="nodes" />;
@@ -234,13 +263,18 @@ export function NodeList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Nodes</h1>
-        <Button variant="outline" size="icon" onClick={() => refetch()}>
-          <RefreshCw className="h-4 w-4" />
-        </Button>
-      </div>
-      <DataTable columns={columns} data={nodes} isLoading={isLoading} />
+      <ResourceListHeader
+        title="Nodes"
+        isFetching={isFetching}
+        isLoading={isLoading}
+        onRefresh={() => refetch()}
+      />
+      <DataTable
+        columns={columns}
+        data={nodesWithMetrics}
+        isLoading={isLoading && nodes.length === 0}
+        isFetching={isFetching && !isLoading}
+      />
     </div>
   );
 }

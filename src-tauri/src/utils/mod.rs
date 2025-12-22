@@ -2,6 +2,8 @@
 
 use chrono::{DateTime, Utc};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
+use once_cell::sync::Lazy;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 /// Format duration in human-readable format (e.g., "5m", "2h", "3d")
@@ -54,9 +56,11 @@ pub fn normalize_namespace(namespace: Option<String>, fallback: String) -> Optio
 }
 
 /// Require a concrete namespace, returning an error when "all namespaces" is selected.
-pub fn require_namespace(namespace: Option<String>, fallback: String) -> Result<String, String> {
+pub fn require_namespace(namespace: Option<String>, fallback: String) -> crate::error::Result<String> {
     normalize_namespace(namespace, fallback)
-        .ok_or_else(|| "Namespace is required for this operation when all namespaces is selected.".to_string())
+        .ok_or_else(|| crate::error::Error::InvalidInput(
+            "Namespace is required for this operation when all namespaces is selected.".to_string()
+        ))
 }
 
 /// Format bytes in human-readable format (e.g., "1.5 GB")
@@ -152,14 +156,24 @@ pub fn sanitize_name(name: &str) -> String {
         .collect()
 }
 
+// Compile regex patterns once at startup
+static K8S_NAME_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
+        .expect("Failed to compile Kubernetes name regex")
+});
+
+static K8S_LABEL_VALUE_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^[a-zA-Z0-9]([-_.a-zA-Z0-9]*[a-zA-Z0-9])?$")
+        .expect("Failed to compile Kubernetes label value regex")
+});
+
 /// Check if a string is a valid Kubernetes name
 pub fn is_valid_k8s_name(name: &str) -> bool {
     if name.is_empty() || name.len() > 253 {
         return false;
     }
 
-    let re = regex::Regex::new(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$").unwrap();
-    re.is_match(name)
+    K8S_NAME_REGEX.is_match(name)
 }
 
 /// Check if a string is a valid Kubernetes label value
@@ -171,8 +185,7 @@ pub fn is_valid_label_value(value: &str) -> bool {
         return false;
     }
 
-    let re = regex::Regex::new(r"^[a-zA-Z0-9]([-_.a-zA-Z0-9]*[a-zA-Z0-9])?$").unwrap();
-    re.is_match(value)
+    K8S_LABEL_VALUE_REGEX.is_match(value)
 }
 
 /// Parse label selector string into key-value pairs

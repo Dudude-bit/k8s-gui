@@ -1,60 +1,30 @@
 //! Service-specific commands
 
-use crate::resources::ServiceInfo;
+use crate::commands::filters::ServiceFilters;
+use crate::commands::helpers::{build_list_params, CommandContext, ListContext};
+use crate::error::Result;
+use crate::resources::{PodInfo, ServiceInfo};
 use crate::state::AppState;
-use crate::utils::{normalize_namespace, require_namespace};
-use kube::api::ListParams;
+use k8s_openapi::api::core::v1::{Endpoints, Pod, Service};
 use serde::{Deserialize, Serialize};
 use tauri::State;
-
-/// Service list filters
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ServiceFilters {
-    pub namespace: Option<String>,
-    pub label_selector: Option<String>,
-    pub service_type: Option<String>,
-    pub limit: Option<i64>,
-}
 
 /// List services with optional filters
 #[tauri::command]
 pub async fn list_services(
     filters: Option<ServiceFilters>,
     state: State<'_, AppState>,
-) -> Result<Vec<ServiceInfo>, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+) -> Result<Vec<ServiceInfo>> {
+    let filters = filters.unwrap_or_default();
+    let ctx = ListContext::new(&state, filters.namespace)?;
+    let params = build_list_params(
+        filters.label_selector.as_deref(),
+        filters.field_selector.as_deref(),
+        filters.limit,
+    );
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let filters = filters.unwrap_or_else(|| ServiceFilters {
-        namespace: None,
-        label_selector: None,
-        service_type: None,
-        limit: None,
-    });
-
-    let namespace = normalize_namespace(filters.namespace, state.get_namespace(&context));
-
-    let mut params = ListParams::default();
-    if let Some(labels) = &filters.label_selector {
-        params = params.labels(labels);
-    }
-    if let Some(limit) = filters.limit {
-        if limit > 0 {
-            params = params.limit(limit as u32);
-        }
-    }
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Service> = match namespace {
-        Some(ref ns) => kube::Api::namespaced((*client).clone(), ns),
-        None => kube::Api::all((*client).clone()),
-    };
-    let list = api.list(&params).await.map_err(|e| e.to_string())?;
+    let api: kube::Api<Service> = ctx.api();
+    let list = api.list(&params).await?;
 
     let mut services: Vec<ServiceInfo> = list.items.iter().map(ServiceInfo::from).collect();
 
@@ -72,21 +42,11 @@ pub async fn get_service(
     name: String,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<ServiceInfo, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+) -> Result<ServiceInfo> {
+    let ctx = CommandContext::new(&state, namespace)?;
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Service> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    let service = api.get(&name).await.map_err(|e| e.to_string())?;
+    let api: kube::Api<Service> = ctx.namespaced_api();
+    let service = api.get(&name).await?;
 
     Ok(ServiceInfo::from(&service))
 }
@@ -97,23 +57,13 @@ pub async fn get_service_yaml(
     name: String,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<String, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+) -> Result<String> {
+    let ctx = CommandContext::new(&state, namespace)?;
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
+    let api: kube::Api<Service> = ctx.namespaced_api();
+    let service = api.get(&name).await?;
 
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Service> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    let service = api.get(&name).await.map_err(|e| e.to_string())?;
-
-    serde_yaml::to_string(&service).map_err(|e| e.to_string())
+    serde_yaml::to_string(&service).map_err(|e| crate::error::Error::Serialization(e.to_string()))
 }
 
 /// Delete a service
@@ -122,23 +72,11 @@ pub async fn delete_service(
     name: String,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<(), String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+) -> Result<()> {
+    let ctx = CommandContext::new(&state, namespace)?;
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Service> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    api.delete(&name, &kube::api::DeleteParams::default())
-        .await
-        .map_err(|e| e.to_string())?;
+    let api: kube::Api<Service> = ctx.namespaced_api();
+    api.delete(&name, &kube::api::DeleteParams::default()).await?;
 
     Ok(())
 }
@@ -167,20 +105,10 @@ pub async fn get_service_endpoints(
     name: String,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<Vec<EndpointInfo>, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+) -> Result<Vec<EndpointInfo>> {
+    let ctx = CommandContext::new(&state, namespace)?;
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Endpoints> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
+    let api: kube::Api<Endpoints> = ctx.namespaced_api();
     
     let endpoints = match api.get(&name).await {
         Ok(ep) => ep,
@@ -217,27 +145,17 @@ pub async fn get_service_pods(
     name: String,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<Vec<crate::resources::PodInfo>, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
-
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
+) -> Result<Vec<PodInfo>> {
+    let ctx = CommandContext::new(&state, namespace)?;
 
     // Get the service to find its selector
-    let svc_api: kube::Api<k8s_openapi::api::core::v1::Service> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    let service = svc_api.get(&name).await.map_err(|e| e.to_string())?;
+    let svc_api: kube::Api<Service> = ctx.namespaced_api();
+    let service = svc_api.get(&name).await?;
 
     let selector = service
         .spec
         .and_then(|s| s.selector)
-        .ok_or("Service has no selector")?;
+        .ok_or_else(|| crate::error::Error::InvalidInput("Service has no selector".to_string()))?;
 
     // Build label selector string
     let label_selector: String = selector
@@ -247,15 +165,14 @@ pub async fn get_service_pods(
         .join(",");
 
     // Get pods matching the selector
-    let pod_api: kube::Api<k8s_openapi::api::core::v1::Pod> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    let params = ListParams::default().labels(&label_selector);
-    let pods = pod_api.list(&params).await.map_err(|e| e.to_string())?;
+    let pod_api: kube::Api<Pod> = ctx.namespaced_api();
+    let params = kube::api::ListParams::default().labels(&label_selector);
+    let pods = pod_api.list(&params).await?;
 
-    let pod_infos: Vec<crate::resources::PodInfo> = pods
+    let pod_infos: Vec<PodInfo> = pods
         .items
         .iter()
-        .map(crate::resources::PodInfo::from)
+        .map(PodInfo::from)
         .collect();
 
     Ok(pod_infos)
@@ -275,14 +192,14 @@ pub async fn port_forward_service(
     config: PortForwardConfig,
     namespace: Option<String>,
     _state: State<'_, AppState>,
-) -> Result<String, String> {
+) -> Result<String> {
     // TODO: Implement port forwarding
     // This requires spawning a background task that maintains
     // the port forward connection
-    Err(format!(
+    Err(crate::error::Error::Internal(format!(
         "Port forwarding to service {} ({}:{}) not yet implemented",
         name, config.local_port, config.remote_port
-    ))
+    )))
 }
 
 /// Stop service port forwarding
@@ -290,7 +207,10 @@ pub async fn port_forward_service(
 pub async fn stop_service_port_forward(
     forward_id: String,
     _state: State<'_, AppState>,
-) -> Result<(), String> {
+) -> Result<()> {
     // TODO: Implement stopping port forward
-    Err(format!("Stop port forward {} not yet implemented", forward_id))
+    Err(crate::error::Error::Internal(format!(
+        "Stop port forward {} not yet implemented",
+        forward_id
+    )))
 }

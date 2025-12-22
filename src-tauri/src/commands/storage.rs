@@ -1,12 +1,14 @@
 //! Storage-related Tauri commands
-//! 
+//!
 //! Commands for managing PersistentVolumes, PersistentVolumeClaims, and StorageClasses.
 
+use crate::commands::helpers::ListContext;
+use crate::error::Result;
 use crate::state::AppState;
-use crate::utils::{format_k8s_age, normalize_namespace};
+use crate::utils::format_k8s_age;
 use k8s_openapi::api::core::v1::{PersistentVolume, PersistentVolumeClaim};
 use k8s_openapi::api::storage::v1::StorageClass;
-use kube::{Api, api::ListParams, ResourceExt};
+use kube::{api::ListParams, ResourceExt};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use tauri::State;
@@ -63,64 +65,55 @@ fn format_access_mode(mode: &str) -> String {
 
 /// List all PersistentVolumes in the cluster
 #[tauri::command]
-pub async fn list_persistent_volumes(
-    state: State<'_, AppState>,
-) -> Result<Vec<PersistentVolumeInfo>, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+pub async fn list_persistent_volumes(state: State<'_, AppState>) -> Result<Vec<PersistentVolumeInfo>> {
+    let ctx = ListContext::new(&state, None)?;
+    let api: kube::Api<PersistentVolume> = ctx.cluster_api();
+    let pv_list = api.list(&ListParams::default()).await?;
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-    
-    let pvs: Api<PersistentVolume> = Api::all((*client).clone());
-    let pv_list = pvs.list(&ListParams::default()).await.map_err(|e| e.to_string())?;
-    
-    let mut result = Vec::new();
-    for pv in pv_list {
-        let spec = pv.spec.as_ref();
-        let status = pv.status.as_ref();
-        
-        // Get capacity
-        let capacity = spec
-            .and_then(|s| s.capacity.as_ref())
-            .and_then(|c| c.get("storage"))
-            .map(|q| q.0.clone())
-            .unwrap_or_else(|| "Unknown".to_string());
-        
-        // Get access modes
-        let access_modes = spec
-            .and_then(|s| s.access_modes.as_ref())
-            .map(|modes| modes.iter().map(|m| format_access_mode(m)).collect())
-            .unwrap_or_default();
-        
-        // Get claim reference
-        let claim = spec
-            .and_then(|s| s.claim_ref.as_ref())
-            .map(|c| format!("{}/{}", c.namespace.as_deref().unwrap_or(""), c.name.as_deref().unwrap_or("")));
-        
-        result.push(PersistentVolumeInfo {
-            name: pv.name_any(),
-            capacity,
-            access_modes,
-            reclaim_policy: spec
-                .and_then(|s| s.persistent_volume_reclaim_policy.clone())
-                .unwrap_or_else(|| "Unknown".to_string()),
-            status: status
-                .and_then(|s| s.phase.clone())
-                .unwrap_or_else(|| "Unknown".to_string()),
-            claim,
-            storage_class: spec
-                .and_then(|s| s.storage_class_name.clone())
-                .unwrap_or_default(),
-            reason: status.and_then(|s| s.reason.clone()),
-            age: format_k8s_age(pv.metadata.creation_timestamp.as_ref()),
-        });
-    }
-    
-    Ok(result)
+    Ok(pv_list
+        .into_iter()
+        .map(|pv| {
+            let spec = pv.spec.as_ref();
+            let status = pv.status.as_ref();
+
+            let capacity = spec
+                .and_then(|s| s.capacity.as_ref())
+                .and_then(|c| c.get("storage"))
+                .map(|q| q.0.clone())
+                .unwrap_or_else(|| "Unknown".to_string());
+
+            let access_modes = spec
+                .and_then(|s| s.access_modes.as_ref())
+                .map(|modes| modes.iter().map(|m| format_access_mode(m)).collect())
+                .unwrap_or_default();
+
+            let claim = spec.and_then(|s| s.claim_ref.as_ref()).map(|c| {
+                format!(
+                    "{}/{}",
+                    c.namespace.as_deref().unwrap_or(""),
+                    c.name.as_deref().unwrap_or("")
+                )
+            });
+
+            PersistentVolumeInfo {
+                name: pv.name_any(),
+                capacity,
+                access_modes,
+                reclaim_policy: spec
+                    .and_then(|s| s.persistent_volume_reclaim_policy.clone())
+                    .unwrap_or_else(|| "Unknown".to_string()),
+                status: status
+                    .and_then(|s| s.phase.clone())
+                    .unwrap_or_else(|| "Unknown".to_string()),
+                claim,
+                storage_class: spec
+                    .and_then(|s| s.storage_class_name.clone())
+                    .unwrap_or_default(),
+                reason: status.and_then(|s| s.reason.clone()),
+                age: format_k8s_age(pv.metadata.creation_timestamp.as_ref()),
+            }
+        })
+        .collect())
 }
 
 /// List PersistentVolumeClaims
@@ -128,108 +121,87 @@ pub async fn list_persistent_volumes(
 pub async fn list_persistent_volume_claims(
     state: State<'_, AppState>,
     namespace: Option<String>,
-) -> Result<Vec<PersistentVolumeClaimInfo>, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+) -> Result<Vec<PersistentVolumeClaimInfo>> {
+    let ctx = ListContext::new(&state, namespace)?;
+    let api: kube::Api<PersistentVolumeClaim> = ctx.api();
+    let pvc_list = api.list(&ListParams::default()).await?;
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
+    Ok(pvc_list
+        .into_iter()
+        .map(|pvc| {
+            let spec = pvc.spec.as_ref();
+            let status = pvc.status.as_ref();
 
-    let ns = normalize_namespace(namespace, state.get_namespace(&context));
-    
-    let pvcs: Api<PersistentVolumeClaim> = match ns {
-        Some(ref namespace) => Api::namespaced((*client).clone(), namespace),
-        None => Api::all((*client).clone()),
-    };
-    let pvc_list = pvcs.list(&ListParams::default()).await.map_err(|e| e.to_string())?;
-    
-    let mut result = Vec::new();
-    for pvc in pvc_list {
-        let spec = pvc.spec.as_ref();
-        let status = pvc.status.as_ref();
-        
-        // Get capacity from status (actual) or spec (requested)
-        let capacity = status
-            .and_then(|s| s.capacity.as_ref())
-            .and_then(|c| c.get("storage"))
-            .map(|q| q.0.clone())
-            .or_else(|| {
-                spec.and_then(|s| s.resources.as_ref())
-                    .and_then(|r| r.requests.as_ref())
-                    .and_then(|r| r.get("storage"))
-                    .map(|q| q.0.clone())
-            })
-            .unwrap_or_else(|| "Unknown".to_string());
-        
-        // Get access modes
-        let access_modes = status
-            .and_then(|s| s.access_modes.as_ref())
-            .or_else(|| spec.and_then(|s| s.access_modes.as_ref()))
-            .map(|modes| modes.iter().map(|m| format_access_mode(m)).collect())
-            .unwrap_or_default();
-        
-        result.push(PersistentVolumeClaimInfo {
-            name: pvc.name_any(),
-            namespace: pvc.namespace().unwrap_or_default(),
-            status: status
-                .and_then(|s| s.phase.clone())
-                .unwrap_or_else(|| "Unknown".to_string()),
-            volume: spec.and_then(|s| s.volume_name.clone()),
-            capacity,
-            access_modes,
-            storage_class: spec
-                .and_then(|s| s.storage_class_name.clone())
-                .unwrap_or_default(),
-            age: format_k8s_age(pvc.metadata.creation_timestamp.as_ref()),
-        });
-    }
-    
-    Ok(result)
+            let capacity = status
+                .and_then(|s| s.capacity.as_ref())
+                .and_then(|c| c.get("storage"))
+                .map(|q| q.0.clone())
+                .or_else(|| {
+                    spec.and_then(|s| s.resources.as_ref())
+                        .and_then(|r| r.requests.as_ref())
+                        .and_then(|r| r.get("storage"))
+                        .map(|q| q.0.clone())
+                })
+                .unwrap_or_else(|| "Unknown".to_string());
+
+            let access_modes = status
+                .and_then(|s| s.access_modes.as_ref())
+                .or_else(|| spec.and_then(|s| s.access_modes.as_ref()))
+                .map(|modes| modes.iter().map(|m| format_access_mode(m)).collect())
+                .unwrap_or_default();
+
+            PersistentVolumeClaimInfo {
+                name: pvc.name_any(),
+                namespace: pvc.namespace().unwrap_or_default(),
+                status: status
+                    .and_then(|s| s.phase.clone())
+                    .unwrap_or_else(|| "Unknown".to_string()),
+                volume: spec.and_then(|s| s.volume_name.clone()),
+                capacity,
+                access_modes,
+                storage_class: spec
+                    .and_then(|s| s.storage_class_name.clone())
+                    .unwrap_or_default(),
+                age: format_k8s_age(pvc.metadata.creation_timestamp.as_ref()),
+            }
+        })
+        .collect())
 }
 
 /// List StorageClasses
 #[tauri::command]
-pub async fn list_storage_classes(
-    state: State<'_, AppState>,
-) -> Result<Vec<StorageClassInfo>, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+pub async fn list_storage_classes(state: State<'_, AppState>) -> Result<Vec<StorageClassInfo>> {
+    let ctx = ListContext::new(&state, None)?;
+    let api: kube::Api<StorageClass> = ctx.cluster_api();
+    let sc_list = api.list(&ListParams::default()).await?;
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-    
-    let scs: Api<StorageClass> = Api::all((*client).clone());
-    let sc_list = scs.list(&ListParams::default()).await.map_err(|e| e.to_string())?;
-    
-    let mut result = Vec::new();
-    for sc in sc_list {
-        // Check if this is the default storage class
-        let is_default = sc.metadata.annotations.as_ref()
-            .map(|ann| {
-                ann.get("storageclass.kubernetes.io/is-default-class")
-                    .or_else(|| ann.get("storageclass.beta.kubernetes.io/is-default-class"))
-                    .map(|v| v == "true")
-                    .unwrap_or(false)
-            })
-            .unwrap_or(false);
-        
-        result.push(StorageClassInfo {
-            name: sc.name_any(),
-            provisioner: sc.provisioner,
-            reclaim_policy: sc.reclaim_policy.unwrap_or_else(|| "Delete".to_string()),
-            volume_binding_mode: sc.volume_binding_mode.unwrap_or_else(|| "Immediate".to_string()),
-            allow_volume_expansion: sc.allow_volume_expansion.unwrap_or(false),
-            is_default,
-            parameters: sc.parameters.unwrap_or_default(),
-            age: format_k8s_age(sc.metadata.creation_timestamp.as_ref()),
-        });
-    }
-    
-    Ok(result)
+    Ok(sc_list
+        .into_iter()
+        .map(|sc| {
+            let is_default = sc
+                .metadata
+                .annotations
+                .as_ref()
+                .map(|ann| {
+                    ann.get("storageclass.kubernetes.io/is-default-class")
+                        .or_else(|| ann.get("storageclass.beta.kubernetes.io/is-default-class"))
+                        .map(|v| v == "true")
+                        .unwrap_or(false)
+                })
+                .unwrap_or(false);
+
+            StorageClassInfo {
+                name: sc.name_any(),
+                provisioner: sc.provisioner,
+                reclaim_policy: sc.reclaim_policy.unwrap_or_else(|| "Delete".to_string()),
+                volume_binding_mode: sc
+                    .volume_binding_mode
+                    .unwrap_or_else(|| "Immediate".to_string()),
+                allow_volume_expansion: sc.allow_volume_expansion.unwrap_or(false),
+                is_default,
+                parameters: sc.parameters.unwrap_or_default(),
+                age: format_k8s_age(sc.metadata.creation_timestamp.as_ref()),
+            }
+        })
+        .collect())
 }

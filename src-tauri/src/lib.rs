@@ -19,6 +19,8 @@ pub mod terminal;
 pub mod logs;
 pub mod cache;
 pub mod utils;
+pub mod validation;
+pub mod metrics;
 
 pub use error::{Error, Result};
 pub use state::AppState;

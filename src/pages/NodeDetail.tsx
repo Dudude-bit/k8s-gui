@@ -1,20 +1,21 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  ArrowLeft,
   Server,
   Cpu,
   HardDrive,
   MemoryStick,
-  RefreshCw,
 } from "lucide-react";
-import { cn, formatKubernetesBytes } from "@/lib/utils";
+import { formatKubernetesBytes } from "@/lib/utils";
+import { useNodeMetrics } from "@/hooks/useNodeMetrics";
+import { ResourceUsage } from "@/components/ui/resource-usage";
+import { ResourceDetailHeader } from "@/components/resources/ResourceDetailHeader";
+import { useMemo } from "react";
 
 interface NodeAddressInfo {
   type_: string;
@@ -85,6 +86,18 @@ export function NodeDetail() {
     placeholderData: keepPreviousData,
   });
 
+  // Get node metrics for real-time updates
+  const { data: nodeMetrics = [] } = useNodeMetrics();
+  const nodeWithMetrics = useMemo(() => {
+    if (!node) return null;
+    const metrics = nodeMetrics.find((m) => m.name === node.name);
+    return {
+      ...node,
+      cpu_usage: metrics?.cpu_usage ?? null,
+      memory_usage: metrics?.memory_usage ?? null,
+    };
+  }, [node, nodeMetrics]);
+
   if (isLoading) {
     return (
       <div className="space-y-6 animate-in fade-in duration-200">
@@ -126,65 +139,77 @@ export function NodeDetail() {
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <Server className="h-8 w-8 text-muted-foreground" />
-          <div>
-            <h1 className="text-2xl font-bold">{node.name}</h1>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              {node.roles.map((role) => (
-                <Badge key={role} variant="outline">
-                  {role}
-                </Badge>
-              ))}
-              <Badge
-                className={node.status.ready ? "bg-green-500" : "bg-red-500"}
-              >
-                {node.status.ready ? "Ready" : "NotReady"}
+      <ResourceDetailHeader
+        title={node.name}
+        badges={
+          <>
+            {node.roles.map((role) => (
+              <Badge key={role} variant="outline">
+                {role}
               </Badge>
-            </div>
-          </div>
-        </div>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => refetch()}
-          disabled={isFetching}
-        >
-          <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
-        </Button>
-      </div>
+            ))}
+            <Badge
+              className={node.status.ready ? "bg-green-500" : "bg-red-500"}
+            >
+              {node.status.ready ? "Ready" : "NotReady"}
+            </Badge>
+          </>
+        }
+        icon={<Server className="h-8 w-8 text-muted-foreground" />}
+        onBack={() => navigate(-1)}
+        onRefresh={() => refetch()}
+        isRefreshing={isFetching}
+      />
 
       {/* Resource Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">CPU</CardTitle>
+            <CardTitle className="text-sm font-medium">CPU Usage</CardTitle>
             <Cpu className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{node.capacity.cpu || "-"}</div>
-            <p className="text-xs text-muted-foreground">
-              Allocatable: {node.allocatable.cpu || "-"}
-            </p>
+            {nodeWithMetrics ? (
+              <ResourceUsage
+                used={nodeWithMetrics.cpu_usage ?? null}
+                total={node.capacity.cpu ?? null}
+                type="cpu"
+                showProgressBar={true}
+              />
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{node.capacity.cpu || "-"}</div>
+                <p className="text-xs text-muted-foreground">
+                  Allocatable: {node.allocatable.cpu || "-"}
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Memory</CardTitle>
+            <CardTitle className="text-sm font-medium">Memory Usage</CardTitle>
             <MemoryStick className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {formatKubernetesBytes(node.capacity.memory)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Allocatable: {formatKubernetesBytes(node.allocatable.memory)}
-            </p>
+            {nodeWithMetrics ? (
+              <ResourceUsage
+                used={nodeWithMetrics.memory_usage ?? null}
+                total={node.capacity.memory ?? null}
+                type="memory"
+                showProgressBar={true}
+              />
+            ) : (
+              <>
+                <div className="text-2xl font-bold">
+                  {formatKubernetesBytes(node.capacity.memory)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Allocatable: {formatKubernetesBytes(node.allocatable.memory)}
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
 

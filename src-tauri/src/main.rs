@@ -328,6 +328,12 @@ fn main() {
             // Stats commands
             commands::stats::get_cluster_stats,
             
+            // Metrics API
+            commands::metrics::get_pods_metrics,
+            commands::metrics::get_nodes_metrics,
+            commands::metrics::get_pod_metrics_command,
+            commands::metrics::get_cluster_metrics,
+            
             // Workloads commands
             commands::workloads::list_statefulsets,
             commands::workloads::list_daemonsets,

@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
-import { Eye, RefreshCw, Loader2 } from "lucide-react";
+import { Eye } from "lucide-react";
+import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { formatAge, formatKubernetesBytes, getStatusColor } from "@/lib/utils";
 import { ActionMenu } from "@/components/ui/action-menu";
@@ -159,24 +160,12 @@ export function Nodes() {
 
   return (
     <div className="space-y-4 animate-in fade-in duration-200">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">Nodes</h1>
-          {isFetching && !isLoading && (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          )}
-        </div>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => refetch()}
-          disabled={isFetching}
-        >
-          <RefreshCw
-            className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
-          />
-        </Button>
-      </div>
+      <ResourceListHeader
+        title="Nodes"
+        isFetching={isFetching}
+        isLoading={isLoading}
+        onRefresh={() => refetch()}
+      />
       <DataTable
         columns={columns}
         data={nodes}

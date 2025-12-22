@@ -1,19 +1,20 @@
 //! ConfigMap and Secret commands
 
+use crate::commands::helpers::{build_list_params, CommandContext, ListContext};
+use crate::error::Result;
 use crate::resources::{ConfigMapInfo, SecretInfo};
 use crate::state::AppState;
-use crate::utils::{normalize_namespace, require_namespace};
-use kube::api::ListParams;
+use k8s_openapi::api::core::v1::ConfigMap;
 use serde::{Deserialize, Serialize};
-use tauri::State;
 use std::collections::BTreeMap;
+use tauri::State;
 
 // ============================================================================
 // ConfigMap Commands
 // ============================================================================
 
 /// ConfigMap filters
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ConfigMapFilters {
     pub namespace: Option<String>,
     pub label_selector: Option<String>,
@@ -25,43 +26,15 @@ pub struct ConfigMapFilters {
 pub async fn list_configmaps(
     filters: Option<ConfigMapFilters>,
     state: State<'_, AppState>,
-) -> Result<Vec<ConfigMapInfo>, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+) -> Result<Vec<ConfigMapInfo>> {
+    let filters = filters.unwrap_or_default();
+    let ctx = ListContext::new(&state, filters.namespace)?;
+    let params = build_list_params(filters.label_selector.as_deref(), None, filters.limit);
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
+    let api: kube::Api<ConfigMap> = ctx.api();
+    let list = api.list(&params).await?;
 
-    let filters = filters.unwrap_or_else(|| ConfigMapFilters {
-        namespace: None,
-        label_selector: None,
-        limit: None,
-    });
-
-    let namespace = normalize_namespace(filters.namespace, state.get_namespace(&context));
-
-    let mut params = ListParams::default();
-    if let Some(labels) = &filters.label_selector {
-        params = params.labels(labels);
-    }
-    if let Some(limit) = filters.limit {
-        if limit > 0 {
-            params = params.limit(limit as u32);
-        }
-    }
-
-    let api: kube::Api<k8s_openapi::api::core::v1::ConfigMap> = match namespace {
-        Some(ref ns) => kube::Api::namespaced((*client).clone(), ns),
-        None => kube::Api::all((*client).clone()),
-    };
-    let list = api.list(&params).await.map_err(|e| e.to_string())?;
-
-    let configmaps: Vec<ConfigMapInfo> = list.items.iter().map(ConfigMapInfo::from).collect();
-
-    Ok(configmaps)
+    Ok(list.items.iter().map(ConfigMapInfo::from).collect())
 }
 
 /// Get a ConfigMap by name
@@ -70,21 +43,10 @@ pub async fn get_configmap(
     name: String,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<ConfigMapInfo, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
-
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::ConfigMap> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    let configmap = api.get(&name).await.map_err(|e| e.to_string())?;
+) -> Result<ConfigMapInfo> {
+    let ctx = CommandContext::new(&state, namespace)?;
+    let api: kube::Api<ConfigMap> = ctx.namespaced_api();
+    let configmap = api.get(&name).await?;
 
     Ok(ConfigMapInfo::from(&configmap))
 }
@@ -95,21 +57,10 @@ pub async fn get_configmap_data(
     name: String,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<BTreeMap<String, String>, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
-
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::ConfigMap> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    let configmap = api.get(&name).await.map_err(|e| e.to_string())?;
+) -> Result<BTreeMap<String, String>> {
+    let ctx = CommandContext::new(&state, namespace)?;
+    let api: kube::Api<ConfigMap> = ctx.namespaced_api();
+    let configmap = api.get(&name).await?;
 
     Ok(configmap.data.unwrap_or_default())
 }
@@ -120,23 +71,12 @@ pub async fn get_configmap_yaml(
     name: String,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<String, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+) -> Result<String> {
+    let ctx = CommandContext::new(&state, namespace)?;
+    let api: kube::Api<ConfigMap> = ctx.namespaced_api();
+    let configmap = api.get(&name).await?;
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::ConfigMap> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    let configmap = api.get(&name).await.map_err(|e| e.to_string())?;
-
-    serde_yaml::to_string(&configmap).map_err(|e| e.to_string())
+    serde_yaml::to_string(&configmap).map_err(|e| crate::error::Error::Serialization(e.to_string()))
 }
 
 /// Create ConfigMap
@@ -146,33 +86,21 @@ pub async fn create_configmap(
     data: BTreeMap<String, String>,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<ConfigMapInfo, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+) -> Result<ConfigMapInfo> {
+    let ctx = CommandContext::new(&state, namespace)?;
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
-
-    let configmap = k8s_openapi::api::core::v1::ConfigMap {
+    let configmap = ConfigMap {
         metadata: k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta {
             name: Some(name),
-            namespace: Some(namespace.clone()),
+            namespace: Some(ctx.namespace.clone()),
             ..Default::default()
         },
         data: Some(data),
         ..Default::default()
     };
 
-    let api: kube::Api<k8s_openapi::api::core::v1::ConfigMap> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    let created = api.create(&kube::api::PostParams::default(), &configmap)
-        .await
-        .map_err(|e| e.to_string())?;
+    let api: kube::Api<ConfigMap> = ctx.namespaced_api();
+    let created = api.create(&kube::api::PostParams::default(), &configmap).await?;
 
     Ok(ConfigMapInfo::from(&created))
 }
@@ -184,27 +112,15 @@ pub async fn update_configmap(
     data: BTreeMap<String, String>,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<ConfigMapInfo, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+) -> Result<ConfigMapInfo> {
+    let ctx = CommandContext::new(&state, namespace)?;
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
+    let patch = serde_json::json!({ "data": data });
 
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
-
-    let patch = serde_json::json!({
-        "data": data
-    });
-
-    let api: kube::Api<k8s_openapi::api::core::v1::ConfigMap> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    let updated = api.patch(&name, &kube::api::PatchParams::default(), &kube::api::Patch::Merge(&patch))
-        .await
-        .map_err(|e| e.to_string())?;
+    let api: kube::Api<ConfigMap> = ctx.namespaced_api();
+    let updated = api
+        .patch(&name, &kube::api::PatchParams::default(), &kube::api::Patch::Merge(&patch))
+        .await?;
 
     Ok(ConfigMapInfo::from(&updated))
 }
@@ -215,23 +131,10 @@ pub async fn delete_configmap(
     name: String,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<(), String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
-
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::ConfigMap> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    api.delete(&name, &kube::api::DeleteParams::default())
-        .await
-        .map_err(|e| e.to_string())?;
+) -> Result<()> {
+    let ctx = CommandContext::new(&state, namespace)?;
+    let api: kube::Api<ConfigMap> = ctx.namespaced_api();
+    api.delete(&name, &kube::api::DeleteParams::default()).await?;
 
     Ok(())
 }
@@ -240,8 +143,10 @@ pub async fn delete_configmap(
 // Secret Commands
 // ============================================================================
 
+use k8s_openapi::api::core::v1::Secret;
+
 /// Secret filters
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SecretFilters {
     pub namespace: Option<String>,
     pub label_selector: Option<String>,
@@ -254,40 +159,13 @@ pub struct SecretFilters {
 pub async fn list_secrets(
     filters: Option<SecretFilters>,
     state: State<'_, AppState>,
-) -> Result<Vec<SecretInfo>, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+) -> Result<Vec<SecretInfo>> {
+    let filters = filters.unwrap_or_default();
+    let ctx = ListContext::new(&state, filters.namespace)?;
+    let params = build_list_params(filters.label_selector.as_deref(), None, filters.limit);
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let filters = filters.unwrap_or_else(|| SecretFilters {
-        namespace: None,
-        label_selector: None,
-        secret_type: None,
-        limit: None,
-    });
-
-    let namespace = normalize_namespace(filters.namespace, state.get_namespace(&context));
-
-    let mut params = ListParams::default();
-    if let Some(labels) = &filters.label_selector {
-        params = params.labels(labels);
-    }
-    if let Some(limit) = filters.limit {
-        if limit > 0 {
-            params = params.limit(limit as u32);
-        }
-    }
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Secret> = match namespace {
-        Some(ref ns) => kube::Api::namespaced((*client).clone(), ns),
-        None => kube::Api::all((*client).clone()),
-    };
-    let list = api.list(&params).await.map_err(|e| e.to_string())?;
+    let api: kube::Api<Secret> = ctx.api();
+    let list = api.list(&params).await?;
 
     let mut secrets: Vec<SecretInfo> = list.items.iter().map(SecretInfo::from).collect();
 
@@ -305,21 +183,10 @@ pub async fn get_secret(
     name: String,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<SecretInfo, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
-
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Secret> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    let secret = api.get(&name).await.map_err(|e| e.to_string())?;
+) -> Result<SecretInfo> {
+    let ctx = CommandContext::new(&state, namespace)?;
+    let api: kube::Api<Secret> = ctx.namespaced_api();
+    let secret = api.get(&name).await?;
 
     Ok(SecretInfo::from(&secret))
 }
@@ -331,43 +198,31 @@ pub async fn get_secret_data(
     namespace: Option<String>,
     decode: bool,
     state: State<'_, AppState>,
-) -> Result<BTreeMap<String, String>, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
-
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Secret> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    let secret = api.get(&name).await.map_err(|e| e.to_string())?;
+) -> Result<BTreeMap<String, String>> {
+    let ctx = CommandContext::new(&state, namespace)?;
+    let api: kube::Api<Secret> = ctx.namespaced_api();
+    let secret = api.get(&name).await?;
 
     let data = secret.data.unwrap_or_default();
-    
+
     if decode {
-        let decoded: BTreeMap<String, String> = data
+        Ok(data
             .into_iter()
             .map(|(k, v)| {
-                let decoded_value = String::from_utf8(v.0).unwrap_or_else(|_| "[binary data]".to_string());
+                let decoded_value =
+                    String::from_utf8(v.0).unwrap_or_else(|_| "[binary data]".to_string());
                 (k, decoded_value)
             })
-            .collect();
-        Ok(decoded)
+            .collect())
     } else {
-        // Return base64 encoded
-        let encoded: BTreeMap<String, String> = data
+        Ok(data
             .into_iter()
             .map(|(k, v)| {
-                let encoded_value = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &v.0);
+                let encoded_value =
+                    base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &v.0);
                 (k, encoded_value)
             })
-            .collect();
-        Ok(encoded)
+            .collect())
     }
 }
 
@@ -378,24 +233,12 @@ pub async fn get_secret_yaml(
     namespace: Option<String>,
     redact: bool,
     state: State<'_, AppState>,
-) -> Result<String, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
-
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Secret> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    let mut secret = api.get(&name).await.map_err(|e| e.to_string())?;
+) -> Result<String> {
+    let ctx = CommandContext::new(&state, namespace)?;
+    let api: kube::Api<Secret> = ctx.namespaced_api();
+    let mut secret = api.get(&name).await?;
 
     if redact {
-        // Replace data values with placeholder
         if let Some(data) = &mut secret.data {
             for value in data.values_mut() {
                 *value = k8s_openapi::ByteString(b"[REDACTED]".to_vec());
@@ -403,7 +246,7 @@ pub async fn get_secret_yaml(
         }
     }
 
-    serde_yaml::to_string(&secret).map_err(|e| e.to_string())
+    serde_yaml::to_string(&secret).map_err(|e| crate::error::Error::Serialization(e.to_string()))
 }
 
 /// Create Secret
@@ -414,28 +257,18 @@ pub async fn create_secret(
     secret_type: Option<String>,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<SecretInfo, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+) -> Result<SecretInfo> {
+    let ctx = CommandContext::new(&state, namespace)?;
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
-
-    // Encode data to base64
     let encoded_data: BTreeMap<String, k8s_openapi::ByteString> = data
         .into_iter()
         .map(|(k, v)| (k, k8s_openapi::ByteString(v.into_bytes())))
         .collect();
 
-    let secret = k8s_openapi::api::core::v1::Secret {
+    let secret = Secret {
         metadata: k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta {
             name: Some(name),
-            namespace: Some(namespace.clone()),
+            namespace: Some(ctx.namespace.clone()),
             ..Default::default()
         },
         type_: Some(secret_type.unwrap_or_else(|| "Opaque".to_string())),
@@ -443,11 +276,8 @@ pub async fn create_secret(
         ..Default::default()
     };
 
-    let api: kube::Api<k8s_openapi::api::core::v1::Secret> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    let created = api.create(&kube::api::PostParams::default(), &secret)
-        .await
-        .map_err(|e| e.to_string())?;
+    let api: kube::Api<Secret> = ctx.namespaced_api();
+    let created = api.create(&kube::api::PostParams::default(), &secret).await?;
 
     Ok(SecretInfo::from(&created))
 }
@@ -459,36 +289,24 @@ pub async fn update_secret(
     data: BTreeMap<String, String>,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<SecretInfo, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+) -> Result<SecretInfo> {
+    let ctx = CommandContext::new(&state, namespace)?;
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
-
-    // Encode data to base64 and convert to JSON for patch
     let encoded_data: BTreeMap<String, String> = data
         .into_iter()
         .map(|(k, v)| {
-            let encoded = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, v.as_bytes());
+            let encoded =
+                base64::Engine::encode(&base64::engine::general_purpose::STANDARD, v.as_bytes());
             (k, encoded)
         })
         .collect();
 
-    let patch = serde_json::json!({
-        "data": encoded_data
-    });
+    let patch = serde_json::json!({ "data": encoded_data });
 
-    let api: kube::Api<k8s_openapi::api::core::v1::Secret> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    let updated = api.patch(&name, &kube::api::PatchParams::default(), &kube::api::Patch::Merge(&patch))
-        .await
-        .map_err(|e| e.to_string())?;
+    let api: kube::Api<Secret> = ctx.namespaced_api();
+    let updated = api
+        .patch(&name, &kube::api::PatchParams::default(), &kube::api::Patch::Merge(&patch))
+        .await?;
 
     Ok(SecretInfo::from(&updated))
 }
@@ -499,23 +317,10 @@ pub async fn delete_secret(
     name: String,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<(), String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
-
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Secret> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    api.delete(&name, &kube::api::DeleteParams::default())
-        .await
-        .map_err(|e| e.to_string())?;
+) -> Result<()> {
+    let ctx = CommandContext::new(&state, namespace)?;
+    let api: kube::Api<Secret> = ctx.namespaced_api();
+    api.delete(&name, &kube::api::DeleteParams::default()).await?;
 
     Ok(())
 }

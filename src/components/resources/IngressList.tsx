@@ -225,19 +225,16 @@ export function IngressList() {
     isLoading,
     isFetching,
     refetch,
-  } = useQuery({
-    queryKey: ["ingresses", currentNamespace],
-    queryFn: async () => {
+  } = useResourceListQuery(
+    ["ingresses", currentNamespace],
+    async () => {
       const result = await invoke<IngressInfo[]>("list_ingresses", {
         namespace: currentNamespace,
       });
       return result;
     },
-    enabled: isConnected,
-    placeholderData: keepPreviousData,
-    staleTime: 10000,
-    refetchOnWindowFocus: false,
-  });
+    { enabled: isConnected }
+  );
 
   if (!isConnected) {
     return <ConnectClusterEmptyState resourceLabel="ingresses" />;
@@ -245,29 +242,13 @@ export function IngressList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">Ingresses</h1>
-            {isFetching && !isLoading && (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            )}
-          </div>
-          <p className="text-sm text-muted-foreground">
-            HTTP/HTTPS routing rules for external access to services
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => refetch()}
-          disabled={isFetching}
-        >
-          <RefreshCw
-            className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
-          />
-        </Button>
-      </div>
+      <ResourceListHeader
+        title="Ingresses"
+        description="HTTP/HTTPS routing rules for external access to services"
+        isFetching={isFetching}
+        isLoading={isLoading}
+        onRefresh={() => refetch()}
+      />
       <DataTable
         columns={columns}
         data={ingresses}

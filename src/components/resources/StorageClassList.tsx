@@ -153,17 +153,13 @@ export function StorageClassList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Storage Classes</h1>
-          <p className="text-sm text-muted-foreground">
-            Describes the classes of storage available in the cluster
-          </p>
-        </div>
-        <Button variant="outline" size="icon" onClick={() => refetch()}>
-          <RefreshCw className="h-4 w-4" />
-        </Button>
-      </div>
+      <ResourceListHeader
+        title="Storage Classes"
+        description="Describes the classes of storage available in the cluster"
+        isFetching={isFetching}
+        isLoading={isLoading}
+        onRefresh={() => refetch()}
+      />
       <DataTable
         columns={columns}
         data={storageClasses}

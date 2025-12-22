@@ -3,6 +3,7 @@ import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { CommandPalette } from "./CommandPalette";
 import { YamlViewerDialog } from "@/components/ui/yaml-viewer";
+import { YamlEditorDialog } from "@/components/ui/yaml-editor";
 
 export function Layout() {
   return (
@@ -18,6 +19,7 @@ export function Layout() {
       </div>
       <CommandPalette />
       <YamlViewerDialog />
+      <YamlEditorDialog />
     </div>
   );
 }

@@ -1,48 +1,18 @@
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-  keepPreviousData,
-} from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
-import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
-import { Eye, Trash2, RefreshCw, Loader2 } from "lucide-react";
+import { Eye, Trash2 } from "lucide-react";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { formatAge } from "@/lib/utils";
-import { useMemo, useState } from "react";
-import { useToast } from "@/components/ui/use-toast";
+import { useMemo } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
-
-interface ServicePortInfo {
-  name: string | null;
-  port: number;
-  target_port: string;
-  node_port: number | null;
-  protocol: string;
-}
-
-interface ServiceInfo {
-  name: string;
-  namespace: string;
-  uid: string;
-  type_: string;
-  cluster_ip: string | null;
-  external_ips: string[];
-  ports: ServicePortInfo[];
-  selector: Record<string, string>;
-  labels: Record<string, string>;
-  created_at: string | null;
-}
+import { ResourceList } from "./ResourceList";
+import type { ServiceInfo, ServicePortInfo } from "@/types/kubernetes";
 
 // Format port for display
 function formatPort(port: ServicePortInfo): string {
@@ -58,57 +28,7 @@ function formatPort(port: ServicePortInfo): string {
 }
 
 export function ServiceList() {
-  const { isConnected, currentNamespace } = useClusterStore();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [deleteTarget, setDeleteTarget] = useState<ServiceInfo | null>(null);
-
-  const {
-    data: services = [],
-    isLoading,
-    isFetching,
-    refetch,
-  } = useQuery({
-    queryKey: ["services", currentNamespace],
-    queryFn: async () => {
-      const result = await invoke<ServiceInfo[]>("list_services", {
-        filters: { namespace: currentNamespace },
-      });
-      return result;
-    },
-    enabled: isConnected,
-    placeholderData: keepPreviousData,
-    staleTime: 10000,
-    refetchOnWindowFocus: false,
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async ({
-      name,
-      namespace,
-    }: {
-      name: string;
-      namespace: string;
-    }) => {
-      await invoke("delete_service", { name, namespace });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["services"] });
-      toast({
-        title: "Service deleted",
-        description: "The service has been deleted successfully.",
-      });
-      setDeleteTarget(null);
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: `Failed to delete service: ${error}`,
-        variant: "destructive",
-      });
-      setDeleteTarget(null);
-    },
-  });
+  const { currentNamespace } = useClusterStore();
 
   const columns = useMemo<ColumnDef<ServiceInfo>[]>(
     () => [
@@ -166,88 +86,60 @@ export function ServiceList() {
         header: "Age",
         cell: ({ row }) => formatAge(row.original.created_at),
       },
-      {
-        id: "actions",
-        cell: ({ row }) => (
-          <ActionMenu>
-            <DropdownMenuItem asChild>
-              <Link
-                to={`/service/${row.original.namespace}/${row.original.name}`}
-              >
-                <Eye className="mr-2 h-4 w-4" />
-                View Details
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={() => setDeleteTarget(row.original)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
-          </ActionMenu>
-        ),
-      },
     ],
-    [setDeleteTarget],
+    [],
   );
 
-  if (!isConnected) {
-    return <ConnectClusterEmptyState resourceLabel="services" />;
-  }
-
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">Services</h1>
-          {isFetching && !isLoading && (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          )}
-        </div>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => refetch()}
-          disabled={isFetching}
-        >
-          <RefreshCw
-            className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
-          />
-        </Button>
-      </div>
-      <DataTable
-        columns={columns}
-        data={services}
-        isLoading={isLoading && services.length === 0}
-        isFetching={isFetching && !isLoading}
-      />
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDeleteTarget(null);
-          }
-        }}
-        title="Delete service?"
-        description={
-          deleteTarget
-            ? `This will delete ${deleteTarget.name} in ${deleteTarget.namespace}.`
-            : undefined
-        }
-        confirmLabel="Delete"
-        confirmVariant="destructive"
-        confirmDisabled={deleteMutation.isPending}
-        onConfirm={() => {
-          if (deleteTarget) {
-            deleteMutation.mutate({
-              name: deleteTarget.name,
-              namespace: deleteTarget.namespace,
-            });
-          }
-        }}
-      />
-    </div>
+    <ResourceList<ServiceInfo>
+      title="Services"
+      queryKey={["services", currentNamespace]}
+      queryFn={async () => {
+        const result = await invoke<ServiceInfo[]>("list_services", {
+          filters: { namespace: currentNamespace },
+        });
+        return result;
+      }}
+      columns={(setDeleteTarget) => [
+        ...columns,
+        {
+          id: "actions",
+          cell: ({ row }) => (
+            <ActionMenu>
+              <DropdownMenuItem asChild>
+                <Link
+                  to={`/service/${row.original.namespace}/${row.original.name}`}
+                >
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Details
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => setDeleteTarget(row.original)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </ActionMenu>
+          ),
+        },
+      ]}
+      emptyStateLabel="services"
+      deleteConfig={{
+        mutationFn: async (item) => {
+          await invoke("delete_service", {
+            name: item.name,
+            namespace: item.namespace,
+          });
+        },
+        invalidateQueryKey: ["services"],
+        successTitle: "Service deleted",
+        successDescription: "The service has been deleted successfully.",
+        errorPrefix: "Failed to delete service",
+      }}
+      staleTime={10000}
+    />
   );
 }

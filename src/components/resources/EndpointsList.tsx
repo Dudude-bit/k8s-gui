@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
-import { Eye, RefreshCw, Network, CircleDot, Loader2 } from "lucide-react";
+import { Eye, Network, CircleDot } from "lucide-react";
+import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
@@ -220,30 +221,13 @@ export function EndpointsList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">Endpoints</h1>
-            {isFetching && !isLoading && (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            )}
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Network endpoints for services in{" "}
-            {currentNamespace || "all namespaces"}
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => refetch()}
-          disabled={isFetching}
-        >
-          <RefreshCw
-            className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
-          />
-        </Button>
-      </div>
+      <ResourceListHeader
+        title="Endpoints"
+        description={`Network endpoints for services in ${currentNamespace || "all namespaces"}`}
+        isFetching={isFetching}
+        isLoading={isLoading}
+        onRefresh={() => refetch()}
+      />
       <DataTable
         columns={columns}
         data={endpoints}

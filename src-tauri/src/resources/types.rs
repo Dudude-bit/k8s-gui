@@ -26,6 +26,14 @@ pub struct PodInfo {
     pub annotations: BTreeMap<String, String>,
     pub created_at: Option<DateTime<Utc>>,
     pub restart_count: i32,
+    // Resource usage metrics (from Metrics API)
+    pub cpu_usage: Option<String>,           // in millicores or cores (e.g., "500m", "2")
+    pub memory_usage: Option<String>,         // in bytes
+    // Resource requests/limits (from spec)
+    pub cpu_requests: Option<String>,         // aggregated from all containers
+    pub cpu_limits: Option<String>,          // aggregated from all containers
+    pub memory_requests: Option<String>,     // aggregated from all containers
+    pub memory_limits: Option<String>,        // aggregated from all containers
 }
 
 impl From<&Pod> for PodInfo {
@@ -47,6 +55,61 @@ impl From<&Pod> for PodInfo {
             .map(|cs| cs.iter().map(|c| c.restart_count).sum())
             .unwrap_or(0);
         
+        // Aggregate resource requests and limits from all containers
+        let (cpu_requests, cpu_limits, memory_requests, memory_limits) = spec
+            .map(|s| {
+                let mut total_cpu_requests_millicores = 0.0f64;
+                let mut total_cpu_limits_millicores = 0.0f64;
+                let mut total_memory_requests_bytes = 0u64;
+                let mut total_memory_limits_bytes = 0u64;
+                
+                for container in &s.containers {
+                    if let Some(resources) = &container.resources {
+                        if let Some(requests) = &resources.requests {
+                            if let Some(cpu) = requests.get("cpu") {
+                                total_cpu_requests_millicores += parse_cpu_quantity(&cpu.0);
+                            }
+                            if let Some(memory) = requests.get("memory") {
+                                total_memory_requests_bytes += parse_memory_quantity(&memory.0);
+                            }
+                        }
+                        if let Some(limits) = &resources.limits {
+                            if let Some(cpu) = limits.get("cpu") {
+                                total_cpu_limits_millicores += parse_cpu_quantity(&cpu.0);
+                            }
+                            if let Some(memory) = limits.get("memory") {
+                                total_memory_limits_bytes += parse_memory_quantity(&memory.0);
+                            }
+                        }
+                    }
+                }
+                
+                // Format aggregated values
+                let cpu_requests = if total_cpu_requests_millicores > 0.0 {
+                    Some(format_cpu_millicores(total_cpu_requests_millicores))
+                } else {
+                    None
+                };
+                let cpu_limits = if total_cpu_limits_millicores > 0.0 {
+                    Some(format_cpu_millicores(total_cpu_limits_millicores))
+                } else {
+                    None
+                };
+                let memory_requests = if total_memory_requests_bytes > 0 {
+                    Some(format!("{}", total_memory_requests_bytes))
+                } else {
+                    None
+                };
+                let memory_limits = if total_memory_limits_bytes > 0 {
+                    Some(format!("{}", total_memory_limits_bytes))
+                } else {
+                    None
+                };
+                
+                (cpu_requests, cpu_limits, memory_requests, memory_limits)
+            })
+            .unwrap_or((None, None, None, None));
+        
         Self {
             name: pod.name_any(),
             namespace: pod.namespace().unwrap_or_default(),
@@ -60,6 +123,77 @@ impl From<&Pod> for PodInfo {
             annotations: pod.annotations().clone(),
             created_at: pod.creation_timestamp().map(|t| t.0),
             restart_count,
+            cpu_usage: None,        // Will be populated from Metrics API
+            memory_usage: None,     // Will be populated from Metrics API
+            cpu_requests,
+            cpu_limits,
+            memory_requests,
+            memory_limits,
+        }
+    }
+}
+
+/// Parse CPU quantity string to millicores (f64)
+/// Supports formats: "500m", "0.5", "2", "2.5", "100n" (nanocores)
+fn parse_cpu_quantity(cpu_str: &str) -> f64 {
+    let cpu_str = cpu_str.trim();
+    
+    if cpu_str.ends_with('m') {
+        // Millicores: "500m" -> 500.0 millicores
+        cpu_str[..cpu_str.len() - 1].parse::<f64>().unwrap_or(0.0)
+    } else if cpu_str.ends_with('n') {
+        // Nanocores: "100000000n" -> 100.0 millicores
+        let nanocores = cpu_str[..cpu_str.len() - 1].parse::<f64>().unwrap_or(0.0);
+        nanocores / 1_000_000.0
+    } else {
+        // Cores: "2", "0.5", "2.5" -> convert to millicores
+        cpu_str.parse::<f64>().unwrap_or(0.0) * 1000.0
+    }
+}
+
+/// Parse memory quantity string to bytes (u64)
+/// Supports formats: "512Mi", "1Gi", "1024Ki", "1073741824", "128974848", "100M", "1G"
+fn parse_memory_quantity(mem_str: &str) -> u64 {
+    let mem_str = mem_str.trim();
+    
+    if mem_str.ends_with("Ki") {
+        let num = mem_str[..mem_str.len() - 2].parse::<f64>().unwrap_or(0.0);
+        (num * 1024.0) as u64
+    } else if mem_str.ends_with("Mi") {
+        let num = mem_str[..mem_str.len() - 2].parse::<f64>().unwrap_or(0.0);
+        (num * 1024.0 * 1024.0) as u64
+    } else if mem_str.ends_with("Gi") {
+        let num = mem_str[..mem_str.len() - 2].parse::<f64>().unwrap_or(0.0);
+        (num * 1024.0 * 1024.0 * 1024.0) as u64
+    } else if mem_str.ends_with("Ti") {
+        let num = mem_str[..mem_str.len() - 2].parse::<f64>().unwrap_or(0.0);
+        (num * 1024.0 * 1024.0 * 1024.0 * 1024.0) as u64
+    } else if mem_str.ends_with('K') {
+        let num = mem_str[..mem_str.len() - 1].parse::<f64>().unwrap_or(0.0);
+        (num * 1000.0) as u64
+    } else if mem_str.ends_with('M') {
+        let num = mem_str[..mem_str.len() - 1].parse::<f64>().unwrap_or(0.0);
+        (num * 1000.0 * 1000.0) as u64
+    } else if mem_str.ends_with('G') {
+        let num = mem_str[..mem_str.len() - 1].parse::<f64>().unwrap_or(0.0);
+        (num * 1000.0 * 1000.0 * 1000.0) as u64
+    } else {
+        // Assume bytes
+        mem_str.parse::<u64>().unwrap_or(0)
+    }
+}
+
+/// Format millicores to string representation
+/// Returns "500m" for < 1000 millicores, or "2" for >= 1000 millicores
+fn format_cpu_millicores(millicores: f64) -> String {
+    if millicores < 1000.0 {
+        format!("{}m", millicores as u64)
+    } else {
+        let cores = millicores / 1000.0;
+        if cores.fract() == 0.0 {
+            format!("{}", cores as u64)
+        } else {
+            format!("{:.1}", cores)
         }
     }
 }
@@ -454,6 +588,9 @@ pub struct NodeInfo {
     pub capacity: ResourceQuantities,
     pub allocatable: ResourceQuantities,
     pub created_at: Option<DateTime<Utc>>,
+    // Resource usage metrics (from Metrics API)
+    pub cpu_usage: Option<String>,       // in millicores or cores
+    pub memory_usage: Option<String>,     // in bytes
 }
 
 /// Node status information
@@ -593,6 +730,8 @@ impl From<&Node> for NodeInfo {
             capacity,
             allocatable,
             created_at: node.creation_timestamp().map(|t| t.0),
+            cpu_usage: None,        // Will be populated from Metrics API
+            memory_usage: None,     // Will be populated from Metrics API
         }
     }
 }

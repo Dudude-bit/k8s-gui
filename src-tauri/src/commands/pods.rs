@@ -1,65 +1,30 @@
 //! Pod-specific commands
 
+use crate::commands::filters::PodFilters;
+use crate::commands::helpers::{build_list_params, CommandContext, ListContext};
+use crate::error::Result;
 use crate::resources::PodInfo;
 use crate::state::AppState;
-use crate::utils::{normalize_namespace, require_namespace};
-use kube::api::ListParams;
+use k8s_openapi::api::core::v1::Pod;
 use serde::{Deserialize, Serialize};
 use tauri::State;
-
-/// Pod list filters
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PodFilters {
-    pub namespace: Option<String>,
-    pub label_selector: Option<String>,
-    pub field_selector: Option<String>,
-    pub status_filter: Option<String>,
-    pub limit: Option<i64>,
-}
 
 /// List pods with optional filters
 #[tauri::command]
 pub async fn list_pods(
     filters: Option<PodFilters>,
     state: State<'_, AppState>,
-) -> Result<Vec<PodInfo>, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+) -> Result<Vec<PodInfo>> {
+    let filters = filters.unwrap_or_default();
+    let ctx = ListContext::new(&state, filters.namespace)?;
+    let params = build_list_params(
+        filters.label_selector.as_deref(),
+        filters.field_selector.as_deref(),
+        filters.limit,
+    );
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let filters = filters.unwrap_or_else(|| PodFilters {
-        namespace: None,
-        label_selector: None,
-        field_selector: None,
-        status_filter: None,
-        limit: None,
-    });
-
-    let namespace = normalize_namespace(filters.namespace, state.get_namespace(&context));
-
-    let mut params = ListParams::default();
-    if let Some(labels) = &filters.label_selector {
-        params = params.labels(labels);
-    }
-    if let Some(fields) = &filters.field_selector {
-        params = params.fields(fields);
-    }
-    if let Some(limit) = filters.limit {
-        if limit > 0 {
-            params = params.limit(limit as u32);
-        }
-    }
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Pod> = match namespace {
-        Some(ref ns) => kube::Api::namespaced((*client).clone(), ns),
-        None => kube::Api::all((*client).clone()),
-    };
-    let list = api.list(&params).await.map_err(|e| e.to_string())?;
+    let api: kube::Api<Pod> = ctx.api();
+    let list = api.list(&params).await?;
 
     let mut pods: Vec<PodInfo> = list.items.iter().map(PodInfo::from).collect();
 
@@ -77,21 +42,14 @@ pub async fn get_pod(
     name: String,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<PodInfo, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+) -> Result<PodInfo> {
+    crate::validation::validate_resource_name(&name)?;
+    
+    let ctx = CommandContext::new(&state, namespace)?;
+    crate::validation::validate_namespace(&ctx.namespace)?;
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Pod> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    let pod = api.get(&name).await.map_err(|e| e.to_string())?;
+    let api: kube::Api<Pod> = ctx.namespaced_api();
+    let pod = api.get(&name).await?;
 
     Ok(PodInfo::from(&pod))
 }
@@ -102,23 +60,13 @@ pub async fn get_pod_yaml(
     name: String,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<String, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+) -> Result<String> {
+    let ctx = CommandContext::new(&state, namespace)?;
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
+    let api: kube::Api<Pod> = ctx.namespaced_api();
+    let pod = api.get(&name).await?;
 
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Pod> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    let pod = api.get(&name).await.map_err(|e| e.to_string())?;
-
-    serde_yaml::to_string(&pod).map_err(|e| e.to_string())
+    serde_yaml::to_string(&pod).map_err(|e| crate::error::Error::Serialization(e.to_string()))
 }
 
 /// Delete a pod
@@ -128,26 +76,19 @@ pub async fn delete_pod(
     namespace: Option<String>,
     force: Option<bool>,
     state: State<'_, AppState>,
-) -> Result<(), String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
-
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
+) -> Result<()> {
+    crate::validation::validate_resource_name(&name)?;
+    
+    let ctx = CommandContext::new(&state, namespace)?;
+    crate::validation::validate_namespace(&ctx.namespace)?;
 
     let mut dp = kube::api::DeleteParams::default();
     if force.unwrap_or(false) {
         dp = dp.grace_period(0);
     }
 
-    let api: kube::Api<k8s_openapi::api::core::v1::Pod> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    api.delete(&name, &dp).await.map_err(|e| e.to_string())?;
+    let api: kube::Api<Pod> = ctx.namespaced_api();
+    api.delete(&name, &dp).await?;
 
     Ok(())
 }
@@ -158,21 +99,11 @@ pub async fn get_pod_containers(
     name: String,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<Vec<String>, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+) -> Result<Vec<String>> {
+    let ctx = CommandContext::new(&state, namespace)?;
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Pod> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    let pod = api.get(&name).await.map_err(|e| e.to_string())?;
+    let api: kube::Api<Pod> = ctx.namespaced_api();
+    let pod = api.get(&name).await?;
 
     let containers: Vec<String> = pod
         .spec
@@ -199,21 +130,11 @@ pub async fn get_container_statuses(
     name: String,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<Vec<ContainerStatus>, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+) -> Result<Vec<ContainerStatus>> {
+    let ctx = CommandContext::new(&state, namespace)?;
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Pod> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    let pod = api.get(&name).await.map_err(|e| e.to_string())?;
+    let api: kube::Api<Pod> = ctx.namespaced_api();
+    let pod = api.get(&name).await?;
 
     let statuses: Vec<ContainerStatus> = pod
         .status
@@ -253,7 +174,7 @@ pub async fn restart_pod(
     name: String,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<(), String> {
+) -> Result<()> {
     // Restarting a standalone pod just deletes it
     // For pods managed by controllers, the controller will recreate it
     delete_pod(name, namespace, Some(false), state).await

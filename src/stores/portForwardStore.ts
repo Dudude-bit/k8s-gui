@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { invoke } from "@tauri-apps/api/core";
+import { invokeTyped } from "@/lib/tauri";
+import type { PortForwardSessionPayload } from "@/types/tauri";
 
 const CONFIG_STORAGE_KEY = "k8s-gui.port-forward.configs";
 
@@ -87,16 +88,7 @@ function saveConfigsToStorage(configs: PortForwardConfig[]) {
   }
 }
 
-function mapSession(payload: {
-  id: string;
-  context: string;
-  pod: string;
-  namespace: string;
-  local_port: number;
-  remote_port: number;
-  auto_reconnect: boolean;
-  created_at: string;
-}): PortForwardSession {
+function mapSession(payload: PortForwardSessionPayload): PortForwardSession {
   return {
     id: payload.id,
     context: payload.context,
@@ -150,7 +142,7 @@ export const usePortForwardStore = create<PortForwardState>((set, get) => ({
   },
 
   refreshSessions: async () => {
-    const sessions = await invoke<any[]>("list_port_forwards");
+    const sessions = await invokeTyped<PortForwardSessionPayload[]>("list_port_forwards");
     set({ sessions: sessions.map(mapSession) });
   },
 
@@ -160,7 +152,7 @@ export const usePortForwardStore = create<PortForwardState>((set, get) => ({
       throw new Error("Port-forward config not found");
     }
 
-    const session = await invoke<any>("port_forward_pod", {
+    const session = await invokeTyped<PortForwardSessionPayload>("port_forward_pod", {
       pod: config.pod,
       namespace: config.namespace,
       config: {
@@ -178,7 +170,7 @@ export const usePortForwardStore = create<PortForwardState>((set, get) => ({
   },
 
   stopSession: async (sessionId) => {
-    await invoke("stop_port_forward", { forwardId: sessionId });
+    await invokeTyped<void>("stop_port_forward", { forwardId: sessionId });
     set((state) => ({
       sessions: state.sessions.filter((session) => session.id !== sessionId),
     }));

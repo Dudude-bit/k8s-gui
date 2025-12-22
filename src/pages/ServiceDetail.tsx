@@ -1,13 +1,16 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Network, RefreshCw, Globe, Server } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { YamlTabContent } from "@/components/resources/YamlTabContent";
+import { ResourceDetailHeader } from "@/components/resources/ResourceDetailHeader";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { useResourceYaml } from "@/hooks/useResourceYaml";
+import { Network, Globe, Server } from "lucide-react";
 
 interface ServicePortInfo {
   name: string | null;
@@ -36,6 +39,8 @@ type i32 = number;
 export function ServiceDetail() {
   const { namespace, name } = useParams<{ namespace: string; name: string }>();
   const navigate = useNavigate();
+  const copyToClipboard = useCopyToClipboard();
+  const [activeTab, setActiveTab] = useState("ports");
 
   const {
     data: service,
@@ -50,6 +55,14 @@ export function ServiceDetail() {
     enabled: !!namespace && !!name,
     placeholderData: keepPreviousData,
   });
+
+  const { data: serviceYaml } = useResourceYaml("Service", name, namespace, activeTab);
+
+  const copyYaml = () => {
+    if (serviceYaml) {
+      copyToClipboard(serviceYaml, "YAML copied to clipboard.");
+    }
+  };
 
   if (isLoading) {
     return (
@@ -97,31 +110,19 @@ export function ServiceDetail() {
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <Network className="h-8 w-8 text-muted-foreground" />
-          <div>
-            <h1 className="text-2xl font-bold">{service.name}</h1>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>{service.namespace}</span>
-              <Badge className={getTypeColor(service.type_)}>
-                {service.type_}
-              </Badge>
-            </div>
-          </div>
-        </div>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => refetch()}
-          disabled={isFetching}
-        >
-          <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
-        </Button>
-      </div>
+      <ResourceDetailHeader
+        title={service.name}
+        namespace={service.namespace}
+        badges={
+          <Badge className={getTypeColor(service.type_)}>
+            {service.type_}
+          </Badge>
+        }
+        icon={<Network className="h-8 w-8 text-muted-foreground" />}
+        onBack={() => navigate(-1)}
+        onRefresh={() => refetch()}
+        isRefreshing={isFetching}
+      />
 
       {/* Info Cards */}
       <div className="grid gap-4 md:grid-cols-3">
@@ -161,11 +162,12 @@ export function ServiceDetail() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="ports" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList>
           <TabsTrigger value="ports">Ports</TabsTrigger>
           <TabsTrigger value="selector">Selector</TabsTrigger>
           <TabsTrigger value="labels">Labels</TabsTrigger>
+          <TabsTrigger value="yaml">YAML</TabsTrigger>
         </TabsList>
 
         <TabsContent value="ports" className="space-y-4">
@@ -269,6 +271,20 @@ export function ServiceDetail() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="yaml">
+          <YamlTabContent
+            title="Service YAML"
+            yaml={serviceYaml}
+            resourceKind="Service"
+            resourceName={name || ""}
+            namespace={namespace}
+            fetchYaml={() =>
+              invoke<string>("get_service_yaml", { name, namespace })
+            }
+            onCopy={copyYaml}
+          />
         </TabsContent>
       </Tabs>
     </div>

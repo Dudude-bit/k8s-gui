@@ -24,56 +24,86 @@ export interface Namespace {
   labels: Record<string, string>;
 }
 
-export interface PodInfo {
-  name: string;
-  namespace: string;
-  status: string;
-  phase: string;
-  ready: string;
-  restarts: number;
-  node_name: string | null;
-  pod_ip: string | null;
-  host_ip: string | null;
-  start_time: string | null;
-  age: string;
-  containers: ContainerInfo[];
-  labels: Record<string, string>;
-  annotations: Record<string, string>;
-  conditions: PodCondition[];
+// Unified Pod types - most complete version
+export interface ContainerState {
+  type: "running" | "waiting" | "terminated" | "unknown";
+  reason?: string | null;
+  exit_code?: number;
 }
 
 export interface ContainerInfo {
   name: string;
   image: string;
   ready: boolean;
+  state: ContainerState;
   restart_count: number;
-  state: string;
-  started_at: string | null;
+  started_at?: string | null;
+}
+
+export interface PodStatusInfo {
+  phase: string;
+  ready: boolean;
+  message: string | null;
+  reason: string | null;
+  conditions: PodCondition[];
 }
 
 export interface PodCondition {
-  type: string;
+  type_: string;
   status: string;
   last_transition_time: string | null;
   reason: string | null;
   message: string | null;
 }
 
+export interface PodInfo {
+  name: string;
+  namespace: string;
+  uid: string;
+  status: PodStatusInfo;
+  node_name: string | null;
+  pod_ip: string | null;
+  host_ip: string | null;
+  containers: ContainerInfo[];
+  labels: Record<string, string>;
+  annotations: Record<string, string>;
+  created_at: string | null;
+  restart_count: number;
+  // Resource usage metrics (from Metrics API)
+  cpu_usage?: string | null;           // in millicores or cores (e.g., "500m", "2")
+  memory_usage?: string | null;         // in bytes
+  // Resource requests/limits (from spec)
+  cpu_requests?: string | null;         // aggregated from all containers
+  cpu_limits?: string | null;           // aggregated from all containers
+  memory_requests?: string | null;      // aggregated from all containers
+  memory_limits?: string | null;        // aggregated from all containers
+}
+
+export interface ConditionInfo {
+  type_: string;
+  status: string;
+  reason: string | null;
+  message: string | null;
+  last_transition_time: string | null;
+}
+
+export interface ReplicaInfo {
+  desired: number;
+  ready: number;
+  available: number;
+  updated: number;
+}
+
 export interface DeploymentInfo {
   name: string;
   namespace: string;
-  replicas: number;
-  ready_replicas: number;
-  available_replicas: number;
-  unavailable_replicas: number;
-  strategy: string;
-  selector: Record<string, string>;
+  uid: string;
+  replicas: ReplicaInfo;
+  strategy: string | null;
   labels: Record<string, string>;
   annotations: Record<string, string>;
-  containers: ContainerSpec[];
-  conditions: DeploymentCondition[];
   created_at: string | null;
-  age: string;
+  conditions: ConditionInfo[];
 }
 
 export interface ContainerSpec {
@@ -94,15 +124,25 @@ export interface DeploymentCondition {
   last_update_time: string | null;
 }
 
+export interface ServicePortInfo {
+  name: string | null;
+  port: number;
+  target_port: string;
+  node_port: number | null;
+  protocol: string;
+}
+
 export interface ServiceInfo {
   name: string;
   namespace: string;
-  service_type: string;
-  cluster_ip: string;
-  external_ip: string | null;
-  ports: string[];
+  uid: string;
+  type_: string;
+  cluster_ip: string | null;
+  external_ips: string[];
+  ports: ServicePortInfo[];
   selector: Record<string, string>;
-  age: string;
+  labels: Record<string, string>;
+  created_at: string | null;
 }
 
 export interface NodeInfo {
@@ -120,6 +160,9 @@ export interface NodeInfo {
   pod_count: number;
   age: string;
   is_schedulable: boolean;
+  // Resource usage metrics (from Metrics API)
+  cpu_usage?: string | null;       // in millicores or cores
+  memory_usage?: string | null;     // in bytes
 }
 
 export interface NodeResources {

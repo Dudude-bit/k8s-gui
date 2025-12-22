@@ -4,7 +4,8 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useClusterStore } from "@/stores/clusterStore";
-import { invoke } from "@tauri-apps/api/core";
+import { invokeTyped } from "@/lib/tauri";
+import type { ResourceListItem } from "@/types/tauri";
 import {
   Box,
   Network,
@@ -195,7 +196,7 @@ export function CommandPalette() {
         const results = await Promise.all(
           kinds.map(async (resource) => {
             try {
-              const items = await invoke<any[]>("list_resources", {
+              const items = await invokeTyped<ResourceListItem[]>("list_resources", {
                 query: {
                   kind: resource.kind,
                   namespace: resource.namespaced ? namespace : null,

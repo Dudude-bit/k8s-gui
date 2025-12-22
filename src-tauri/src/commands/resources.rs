@@ -127,7 +127,8 @@ pub async fn get_resource(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
+    let namespace = require_namespace(namespace, state.get_namespace(&context))
+        .map_err(|e| e.to_string())?;
 
     let result = match kind.as_str() {
         "Pod" | "pods" => {
@@ -227,7 +228,8 @@ pub async fn delete_resource(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
+    let namespace = require_namespace(namespace, state.get_namespace(&context))
+        .map_err(|e| e.to_string())?;
     let dp = kube::api::DeleteParams::default();
 
     match kind.as_str() {

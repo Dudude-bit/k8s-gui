@@ -1,14 +1,16 @@
 //! Events commands
 
+use crate::commands::helpers::{CommandContext, ListContext};
+use crate::error::Result;
 use crate::resources::EventInfo;
 use crate::state::AppState;
-use crate::utils::normalize_namespace;
+use k8s_openapi::api::core::v1::Event;
 use kube::api::ListParams;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
 /// Event filters
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct EventFilters {
     pub namespace: Option<String>,
     pub involved_object_name: Option<String>,
@@ -23,29 +25,12 @@ pub struct EventFilters {
 pub async fn list_events(
     filters: Option<EventFilters>,
     state: State<'_, AppState>,
-) -> Result<Vec<EventInfo>, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
-
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
-    let filters = filters.unwrap_or_else(|| EventFilters {
-        namespace: None,
-        involved_object_name: None,
-        involved_object_kind: None,
-        event_type: None,
-        field_selector: None,
-        limit: None,
-    });
-
-    let namespace = normalize_namespace(filters.namespace, state.get_namespace(&context));
+) -> Result<Vec<EventInfo>> {
+    let filters = filters.unwrap_or_default();
+    let ctx = ListContext::new(&state, filters.namespace)?;
 
     let mut params = ListParams::default();
-    
+
     // Build field selector
     let mut field_selectors = Vec::new();
     if let Some(name) = &filters.involved_object_name {
@@ -57,7 +42,7 @@ pub async fn list_events(
     if let Some(custom) = &filters.field_selector {
         field_selectors.push(custom.clone());
     }
-    
+
     if !field_selectors.is_empty() {
         params = params.fields(&field_selectors.join(","));
     }
@@ -68,11 +53,8 @@ pub async fn list_events(
         }
     }
 
-    let api: kube::Api<k8s_openapi::api::core::v1::Event> = match namespace {
-        Some(ref ns) => kube::Api::namespaced((*client).clone(), ns),
-        None => kube::Api::all((*client).clone()),
-    };
-    let list = api.list(&params).await.map_err(|e| e.to_string())?;
+    let api: kube::Api<Event> = ctx.api();
+    let list = api.list(&params).await?;
 
     let mut events: Vec<EventInfo> = list.items.iter().map(EventInfo::from).collect();
 
@@ -82,11 +64,7 @@ pub async fn list_events(
     }
 
     // Sort by last timestamp (most recent first)
-    events.sort_by(|a, b| {
-        let a_time = a.last_timestamp.as_ref();
-        let b_time = b.last_timestamp.as_ref();
-        b_time.cmp(&a_time)
-    });
+    events.sort_by(|a, b| b.last_timestamp.cmp(&a.last_timestamp));
 
     Ok(events)
 }
@@ -97,17 +75,16 @@ pub async fn list_all_events(
     namespace: Option<String>,
     limit: Option<i64>,
     state: State<'_, AppState>,
-) -> Result<Vec<EventInfo>, String> {
-    let filters = EventFilters {
-        namespace,
-        involved_object_name: None,
-        involved_object_kind: None,
-        event_type: None,
-        field_selector: None,
-        limit,
-    };
-    
-    list_events(Some(filters), state).await
+) -> Result<Vec<EventInfo>> {
+    list_events(
+        Some(EventFilters {
+            namespace,
+            limit,
+            ..Default::default()
+        }),
+        state,
+    )
+    .await
 }
 
 /// List warning events only
@@ -116,17 +93,17 @@ pub async fn list_warning_events(
     namespace: Option<String>,
     limit: Option<i64>,
     state: State<'_, AppState>,
-) -> Result<Vec<EventInfo>, String> {
-    let filters = EventFilters {
-        namespace,
-        involved_object_name: None,
-        involved_object_kind: None,
-        event_type: Some("Warning".to_string()),
-        field_selector: None,
-        limit,
-    };
-    
-    list_events(Some(filters), state).await
+) -> Result<Vec<EventInfo>> {
+    list_events(
+        Some(EventFilters {
+            namespace,
+            event_type: Some("Warning".to_string()),
+            limit,
+            ..Default::default()
+        }),
+        state,
+    )
+    .await
 }
 
 /// Get events for a specific resource
@@ -136,17 +113,17 @@ pub async fn get_resource_events(
     kind: String,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<Vec<EventInfo>, String> {
-    let filters = EventFilters {
-        namespace,
-        involved_object_name: Some(name),
-        involved_object_kind: Some(kind),
-        event_type: None,
-        field_selector: None,
-        limit: None,
-    };
-    
-    list_events(Some(filters), state).await
+) -> Result<Vec<EventInfo>> {
+    list_events(
+        Some(EventFilters {
+            namespace,
+            involved_object_name: Some(name),
+            involved_object_kind: Some(kind),
+            ..Default::default()
+        }),
+        state,
+    )
+    .await
 }
 
 /// Get events for a pod
@@ -155,7 +132,7 @@ pub async fn get_pod_events(
     pod_name: String,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<Vec<EventInfo>, String> {
+) -> Result<Vec<EventInfo>> {
     get_resource_events(pod_name, "Pod".to_string(), namespace, state).await
 }
 
@@ -165,39 +142,23 @@ pub async fn get_deployment_events(
     deployment_name: String,
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<Vec<EventInfo>, String> {
+) -> Result<Vec<EventInfo>> {
     get_resource_events(deployment_name, "Deployment".to_string(), namespace, state).await
 }
 
 /// Get events for a node
 #[tauri::command]
-pub async fn get_node_events(
-    node_name: String,
-    state: State<'_, AppState>,
-) -> Result<Vec<EventInfo>, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
-
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
+pub async fn get_node_events(node_name: String, state: State<'_, AppState>) -> Result<Vec<EventInfo>> {
+    let ctx = CommandContext::new(&state, Some("default".to_string()))?;
 
     let params = ListParams::default()
         .fields(&format!("involvedObject.name={},involvedObject.kind=Node", node_name));
 
-    // Node events are in the default namespace
-    let api: kube::Api<k8s_openapi::api::core::v1::Event> = 
-        kube::Api::namespaced((*client).clone(), "default");
-    let list = api.list(&params).await.map_err(|e| e.to_string())?;
+    let api: kube::Api<Event> = ctx.namespaced_api();
+    let list = api.list(&params).await?;
 
     let mut events: Vec<EventInfo> = list.items.iter().map(EventInfo::from).collect();
-    events.sort_by(|a, b| {
-        let a_time = a.last_timestamp.as_ref();
-        let b_time = b.last_timestamp.as_ref();
-        b_time.cmp(&a_time)
-    });
+    events.sort_by(|a, b| b.last_timestamp.cmp(&a.last_timestamp));
 
     Ok(events)
 }
@@ -206,33 +167,19 @@ pub async fn get_node_events(
 #[tauri::command]
 pub async fn watch_events(
     namespace: Option<String>,
-    event_type: Option<String>,
+    _event_type: Option<String>,
     state: State<'_, AppState>,
-) -> Result<String, String> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
-
-    let _client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-
+) -> Result<String> {
+    let _ctx = ListContext::new(&state, namespace)?;
     let watch_id = state.new_watch_id();
 
     // TODO: Implement event watching with proper streaming
-    // This would spawn a background task that watches events
-    // and emits them through the event channel
-
     Ok(watch_id)
 }
 
 /// Stop watching events
 #[tauri::command]
-pub async fn stop_watch_events(
-    watch_id: String,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
+pub async fn stop_watch_events(watch_id: String, state: State<'_, AppState>) -> Result<()> {
     if let Some((_, subscription)) = state.watch_subscriptions.remove(&watch_id) {
         let _ = subscription.cancel_tx.send(());
     }
@@ -254,15 +201,21 @@ pub struct EventSummary {
 pub async fn get_event_summary(
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<EventSummary, String> {
+) -> Result<EventSummary> {
     let events = list_all_events(namespace, None, state).await?;
 
     let total = events.len();
     let normal = events.iter().filter(|e| e.type_ == "Normal").count();
     let warning = events.iter().filter(|e| e.type_ == "Warning").count();
-    let error = events.iter().filter(|e| {
-        e.reason.as_ref().map(|r| r.to_lowercase().contains("error")).unwrap_or(false)
-    }).count();
+    let error = events
+        .iter()
+        .filter(|e| {
+            e.reason
+                .as_ref()
+                .map(|r| r.to_lowercase().contains("error"))
+                .unwrap_or(false)
+        })
+        .count();
 
     let recent_warnings: Vec<EventInfo> = events
         .into_iter()

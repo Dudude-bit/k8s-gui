@@ -145,13 +145,9 @@ impl Serialize for Error {
     where
         S: serde::Serializer,
     {
-        // Serialize as a structured error for frontend
-        use serde::ser::SerializeStruct;
-        let mut state = serializer.serialize_struct("Error", 3)?;
-        state.serialize_field("code", &self.error_code())?;
-        state.serialize_field("message", &self.to_string())?;
-        state.serialize_field("details", &self.details())?;
-        state.end()
+        // Serialize as a string, not an object, so Tauri can properly convert it
+        // This ensures errors are displayed correctly in the frontend
+        serializer.serialize_str(&self.to_string())
     }
 }
 
@@ -296,6 +292,13 @@ impl<E: fmt::Display> IntoTauriError for E {
     }
 }
 
+/// Implement From<Error> for String to work with Tauri commands
+impl From<Error> for String {
+    fn from(err: Error) -> Self {
+        err.to_string()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -304,7 +307,10 @@ mod tests {
     fn test_error_serialization() {
         let err = Error::not_found("Pod", "nginx", "default");
         let json = serde_json::to_string(&err).unwrap();
-        assert!(json.contains("NOT_FOUND"));
+        // Error is serialized as its Display string
+        assert!(json.contains("Resource not found"));
+        assert!(json.contains("Pod"));
+        assert!(json.contains("nginx"));
     }
 
     #[test]
@@ -318,5 +324,13 @@ mod tests {
         assert!(Error::Connection("test".into()).is_retryable());
         assert!(Error::Timeout("test".into()).is_retryable());
         assert!(!Error::Config("test".into()).is_retryable());
+    }
+    
+    #[test]
+    fn test_error_to_string_conversion() {
+        let err = Error::Config("test error".into());
+        let s: String = err.into();
+        assert!(s.contains("Configuration error"));
+        assert!(s.contains("test error"));
     }
 }

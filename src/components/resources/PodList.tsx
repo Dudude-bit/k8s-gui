@@ -1,70 +1,25 @@
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-  keepPreviousData,
-} from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
-import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DataTable } from "@/components/ui/data-table";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
-import {
-  Eye,
-  Trash2,
-  Terminal,
-  FileText,
-  RefreshCw,
-  Loader2,
-} from "lucide-react";
+import { Eye, Trash2, Terminal, FileText } from "lucide-react";
+import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { formatAge, getStatusColor } from "@/lib/utils";
-import { useMemo, useState } from "react";
-import { useToast } from "@/components/ui/use-toast";
+import { useMemo } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
-
-interface ContainerState {
-  type: "running" | "waiting" | "terminated" | "unknown";
-  reason?: string | null;
-  exit_code?: number;
-}
-
-interface ContainerInfo {
-  name: string;
-  image: string;
-  ready: boolean;
-  state: ContainerState;
-  restart_count: number;
-}
-
-interface PodStatusInfo {
-  phase: string;
-  ready: boolean;
-  message: string | null;
-  reason: string | null;
-}
-
-interface PodInfo {
-  name: string;
-  namespace: string;
-  uid: string;
-  status: PodStatusInfo;
-  node_name: string | null;
-  pod_ip: string | null;
-  host_ip: string | null;
-  containers: ContainerInfo[];
-  labels: Record<string, string>;
-  annotations: Record<string, string>;
-  created_at: string | null;
-  restart_count: number;
-}
+import { usePodsWithMetrics, type PodWithMetrics } from "@/hooks/usePodsWithMetrics";
+import { useResourceListDelete } from "@/hooks/useResourceListDelete";
+import { ResourceUsage } from "@/components/ui/resource-usage";
+import type { ContainerInfo } from "@/types/kubernetes";
 
 // Helper to format ready containers count
 function formatReady(containers: ContainerInfo[]): string {
@@ -73,59 +28,26 @@ function formatReady(containers: ContainerInfo[]): string {
 }
 
 export function PodList() {
-  const { isConnected, currentNamespace } = useClusterStore();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [deleteTarget, setDeleteTarget] = useState<PodInfo | null>(null);
+  const { isConnected } = useClusterStore();
 
-  const {
-    data: pods = [],
-    isLoading,
-    isFetching,
-    refetch,
-  } = useQuery({
-    queryKey: ["pods", currentNamespace],
-    queryFn: async () => {
-      const result = await invoke<PodInfo[]>("list_pods", {
-        filters: { namespace: currentNamespace },
+  // Use centralized pods with metrics hook
+  const { data: podsWithMetrics, isLoading, isFetching, refetch } = usePodsWithMetrics();
+
+  // Setup delete functionality
+  const { deleteTarget, setDeleteTarget, deleteMutation } = useResourceListDelete<PodWithMetrics>({
+    mutationFn: async (item) => {
+      await invoke("delete_pod", {
+        name: item.name,
+        namespace: item.namespace,
       });
-      return result;
     },
-    enabled: isConnected,
-    placeholderData: keepPreviousData,
-    staleTime: 5000,
-    refetchOnWindowFocus: false,
+    invalidateQueryKey: ["pods"],
+    successTitle: "Pod deleted",
+    successDescription: "The pod has been deleted successfully.",
+    errorPrefix: "Failed to delete pod",
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async ({
-      name,
-      namespace,
-    }: {
-      name: string;
-      namespace: string;
-    }) => {
-      await invoke("delete_pod", { name, namespace });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pods"] });
-      toast({
-        title: "Pod deleted",
-        description: "The pod has been deleted successfully.",
-      });
-      setDeleteTarget(null);
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: `Failed to delete pod: ${error}`,
-        variant: "destructive",
-      });
-      setDeleteTarget(null);
-    },
-  });
-
-  const columns = useMemo<ColumnDef<PodInfo>[]>(
+  const columns = useMemo<ColumnDef<PodWithMetrics>[]>(
     () => [
       {
         accessorKey: "name",
@@ -153,6 +75,30 @@ export function PodList() {
         ),
       },
       {
+        id: "cpu",
+        header: "CPU",
+        cell: ({ row }) => (
+          <ResourceUsage
+            used={row.original.cpu_usage}
+            total={row.original.cpu_limits ?? row.original.cpu_requests ?? null}
+            type="cpu"
+            showProgressBar={false}
+          />
+        ),
+      },
+      {
+        id: "memory",
+        header: "Memory",
+        cell: ({ row }) => (
+          <ResourceUsage
+            used={row.original.memory_usage}
+            total={row.original.memory_limits ?? row.original.memory_requests ?? null}
+            type="memory"
+            showProgressBar={false}
+          />
+        ),
+      },
+      {
         id: "ready",
         header: "Ready",
         cell: ({ row }) => formatReady(row.original.containers),
@@ -161,9 +107,7 @@ export function PodList() {
         id: "restarts",
         header: "Restarts",
         cell: ({ row }) => (
-          <span
-            className={row.original.restart_count > 5 ? "text-yellow-500" : ""}
-          >
+          <span className={row.original.restart_count > 5 ? "text-yellow-500" : ""}>
             {row.original.restart_count}
           </span>
         ),
@@ -213,39 +157,26 @@ export function PodList() {
         ),
       },
     ],
-    [setDeleteTarget],
+    [setDeleteTarget]
   );
 
   if (!isConnected) {
     return <ConnectClusterEmptyState resourceLabel="pods" />;
   }
 
-  // Only show loading skeleton on initial load
-  const showSkeleton = isLoading && pods.length === 0;
+  const showSkeleton = isLoading && podsWithMetrics.length === 0;
 
   return (
     <div className="space-y-4 animate-in fade-in duration-200">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">Pods</h1>
-          {isFetching && !isLoading && (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          )}
-        </div>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => refetch()}
-          disabled={isFetching}
-        >
-          <RefreshCw
-            className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
-          />
-        </Button>
-      </div>
+      <ResourceListHeader
+        title="Pods"
+        isFetching={isFetching}
+        isLoading={isLoading}
+        onRefresh={() => refetch()}
+      />
       <DataTable
         columns={columns}
-        data={pods}
+        data={podsWithMetrics}
         isLoading={showSkeleton}
         isFetching={isFetching && !isLoading}
       />
@@ -267,10 +198,7 @@ export function PodList() {
         confirmDisabled={deleteMutation.isPending}
         onConfirm={() => {
           if (deleteTarget) {
-            deleteMutation.mutate({
-              name: deleteTarget.name,
-              namespace: deleteTarget.namespace,
-            });
+            deleteMutation.mutate(deleteTarget);
           }
         }}
       />

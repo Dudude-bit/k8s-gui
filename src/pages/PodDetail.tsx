@@ -2,6 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { useState, useCallback } from "react";
+import { useResourceYaml } from "@/hooks/useResourceYaml";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,83 +18,32 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { LogViewer } from "@/components/logs/LogViewer";
 import { Terminal } from "@/components/terminal/Terminal";
+import { YamlTabContent } from "@/components/resources/YamlTabContent";
+import { ResourceDetailHeader } from "@/components/resources/ResourceDetailHeader";
+import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { useToast } from "@/components/ui/use-toast";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Switch } from "@/components/ui/switch";
 import { useClusterStore } from "@/stores/clusterStore";
+import { getStatusBadgeVariant } from "@/lib/utils";
 import { usePortForwardStore } from "@/stores/portForwardStore";
 import {
   ArrowLeft,
   Terminal as TerminalIcon,
   Trash2,
   RefreshCw,
-  Copy,
   Activity,
   AlertCircle,
   Search,
+  Cpu,
+  MemoryStick,
 } from "lucide-react";
-
-interface PodCondition {
-  type_: string;
-  status: string;
-  last_transition_time: string | null;
-  reason: string | null;
-  message: string | null;
-}
-
-interface ContainerState {
-  type: "running" | "waiting" | "terminated" | "unknown";
-  reason?: string | null;
-  exit_code?: number;
-}
-
-interface ContainerInfo {
-  name: string;
-  image: string;
-  ready: boolean;
-  restart_count: number;
-  state: ContainerState;
-  started_at: string | null;
-}
-
-interface PodStatusInfo {
-  phase: string;
-  ready: boolean;
-  conditions: PodCondition[];
-  message: string | null;
-  reason: string | null;
-}
-
-interface PodInfo {
-  name: string;
-  namespace: string;
-  uid: string;
-  status: PodStatusInfo;
-  node_name: string | null;
-  pod_ip: string | null;
-  host_ip: string | null;
-  containers: ContainerInfo[];
-  labels: Record<string, string>;
-  annotations: Record<string, string>;
-  created_at: string | null;
-  restart_count: number;
-}
-
-const getStatusColor = (status: string) => {
-  switch (status.toLowerCase()) {
-    case "running":
-      return "success";
-    case "pending":
-      return "warning";
-    case "failed":
-    case "error":
-      return "destructive";
-    default:
-      return "secondary";
-  }
-};
+import type { PodInfo } from "@/types/kubernetes";
+import { usePodMetrics } from "@/hooks/usePodMetrics";
+import { ResourceUsage } from "@/components/ui/resource-usage";
+import { useMemo } from "react";
 
 const parsePortValue = (value: string) => {
   const parsed = Number(value);
@@ -115,6 +65,7 @@ export function PodDetail() {
   const { namespace, name } = useParams<{ namespace: string; name: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const copyToClipboard = useCopyToClipboard();
   const currentContext = useClusterStore((state) => state.currentContext);
   const queryClient = useQueryClient();
   const addPortForwardConfig = usePortForwardStore((state) => state.addConfig);
@@ -175,6 +126,20 @@ export function PodDetail() {
       return failureCount < 3;
     },
   });
+
+  // Get pod metrics for real-time updates
+  const { data: podMetrics } = usePodMetrics(namespace || undefined);
+  const podWithMetrics = useMemo(() => {
+    if (!pod) return null;
+    const metrics = podMetrics?.find(
+      (m) => m.name === pod.name && m.namespace === pod.namespace
+    );
+    return {
+      ...pod,
+      cpu_usage: metrics?.cpu_usage ?? pod.cpu_usage ?? null,
+      memory_usage: metrics?.memory_usage ?? pod.memory_usage ?? null,
+    };
+  }, [pod, podMetrics]);
 
   // Find replacement pod by labels
   const findReplacementPod = useCallback(
@@ -257,14 +222,7 @@ export function PodDetail() {
     [savedLabels, namespace, name],
   );
 
-  const { data: podYaml } = useQuery({
-    queryKey: ["pod-yaml", namespace, name],
-    queryFn: async () => {
-      const result = await invoke<string>("get_pod_yaml", { name, namespace });
-      return result;
-    },
-    enabled: activeTab === "yaml" && !!namespace && !!name,
-  });
+  const { data: podYaml } = useResourceYaml("Pod", name, namespace, activeTab);
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
@@ -306,13 +264,9 @@ export function PodDetail() {
     },
   });
 
-  const copyYaml = async () => {
+  const copyYaml = () => {
     if (podYaml) {
-      await navigator.clipboard.writeText(podYaml);
-      toast({
-        title: "Copied",
-        description: "YAML copied to clipboard.",
-      });
+      copyToClipboard(podYaml, "YAML copied to clipboard.");
     }
   };
 
@@ -456,7 +410,7 @@ export function PodDetail() {
                       description: `Switching to ${replacement.name}`,
                     });
                     navigate(
-                      `/pods/${replacement.namespace}/${replacement.name}`,
+                      `/pod/${replacement.namespace}/${replacement.name}`,
                       { replace: true },
                     );
                   } else {
@@ -489,48 +443,46 @@ export function PodDetail() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">{pod.name}</h1>
-            <p className="text-muted-foreground">{pod.namespace}</p>
-          </div>
-          <Badge variant={getStatusColor(pod.status.phase) as any}>
+      <ResourceDetailHeader
+        title={pod.name}
+        namespace={pod.namespace}
+        badges={
+          <Badge variant={getStatusBadgeVariant(pod.status.phase)}>
             {pod.status.phase}
           </Badge>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={openPortForwardDialog}
-            disabled={!currentContext}
-          >
-            Port Forward
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => restartMutation.mutate()}
-            disabled={restartMutation.isPending}
-          >
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Restart
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => deleteMutation.mutate()}
-            disabled={deleteMutation.isPending}
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete
-          </Button>
-        </div>
-      </div>
+        }
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={openPortForwardDialog}
+              disabled={!currentContext}
+            >
+              Port Forward
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => restartMutation.mutate()}
+              disabled={restartMutation.isPending}
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Restart
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => deleteMutation.mutate()}
+              disabled={deleteMutation.isPending}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </Button>
+          </>
+        }
+        onBack={() => navigate(-1)}
+      />
 
       <Dialog open={portForwardOpen} onOpenChange={setPortForwardOpen}>
         <DialogContent>
@@ -738,21 +690,43 @@ export function PodDetail() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Labels</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-1">
-                  {Object.entries(pod.labels).map(([key, value]) => (
-                    <Badge key={key} variant="outline" className="text-xs">
-                      {key}={value}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <LabelsDisplay labels={pod.labels} className="col-span-full" />
           </div>
+
+          {/* Resource Usage Metrics */}
+          {podWithMetrics && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">CPU Usage</CardTitle>
+                  <Cpu className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <ResourceUsage
+                    used={podWithMetrics.cpu_usage ?? null}
+                    total={podWithMetrics.cpu_limits ?? podWithMetrics.cpu_requests ?? null}
+                    type="cpu"
+                    showProgressBar={true}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Memory Usage</CardTitle>
+                  <MemoryStick className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <ResourceUsage
+                    used={podWithMetrics.memory_usage ?? null}
+                    total={podWithMetrics.memory_limits ?? podWithMetrics.memory_requests ?? null}
+                    type="memory"
+                    showProgressBar={true}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="containers">
@@ -851,22 +825,17 @@ export function PodDetail() {
         </TabsContent>
 
         <TabsContent value="yaml">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Pod YAML</CardTitle>
-              <Button variant="outline" size="sm" onClick={copyYaml}>
-                <Copy className="mr-2 h-4 w-4" />
-                Copy
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[500px]">
-                <pre className="text-xs font-mono bg-muted p-4 rounded-md overflow-x-auto">
-                  {podYaml || "Loading..."}
-                </pre>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+          <YamlTabContent
+            title="Pod YAML"
+            yaml={podYaml}
+            resourceKind="Pod"
+            resourceName={name || ""}
+            namespace={namespace}
+            fetchYaml={() =>
+              invoke<string>("get_pod_yaml", { name, namespace })
+            }
+            onCopy={copyYaml}
+          />
         </TabsContent>
 
         <TabsContent value="conditions">
