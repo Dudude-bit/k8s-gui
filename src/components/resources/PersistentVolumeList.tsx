@@ -1,10 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
-import { useResourceListQuery } from "@/hooks/useResourceListQuery";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
+import { useResourceList } from "@/hooks/useResource";
 import { ColumnDef } from "@tanstack/react-table";
 import { Eye, Trash2, HardDrive } from "lucide-react";
 import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
@@ -139,19 +138,18 @@ export function PersistentVolumeList() {
   const {
     data: pvs = [],
     isLoading,
+    isFetching,
     refetch,
-  } = useQuery({
-    queryKey: ["persistent-volumes"],
-    queryFn: async () => {
+  } = useResourceList(
+    ["persistent-volumes"],
+    async () => {
       const result = await invoke<PersistentVolumeInfo[]>(
         "list_persistent_volumes",
       );
       return result;
     },
-    enabled: isConnected,
-    staleTime: 10000,
-    refetchOnWindowFocus: false,
-  });
+    { enabled: isConnected }
+  );
 
   if (!isConnected) {
     return <ConnectClusterEmptyState resourceLabel="persistent volumes" />;

@@ -7,13 +7,17 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { useToast } from "@/components/ui/use-toast";
 import { useMemo, useCallback } from "react";
-import { formatAge } from "@/lib/utils";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { YamlViewerAction } from "@/components/ui/yaml-viewer";
 import { YamlEditorMenuAction } from "@/components/ui/yaml-editor";
 import { ResourceList } from "./ResourceList";
+import { useCopyToClipboard } from "@/hooks";
+import {
+  createNamespaceColumn,
+  createAgeColumn,
+  createDataKeysColumn,
+} from "./columns";
 
 interface SecretInfo {
   name: string;
@@ -40,23 +44,11 @@ const getSecretTypeColor = (type: string): string => {
 
 export function SecretList() {
   const { currentNamespace } = useClusterStore();
-  const { toast } = useToast();
+  const copyToClipboard = useCopyToClipboard();
 
   const handleCopyKeys = useCallback(async (secret: SecretInfo) => {
-    try {
-      await navigator.clipboard.writeText(secret.data_keys.join("\n"));
-      toast({
-        title: "Copied",
-        description: "Secret keys copied to clipboard.",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: `Failed to copy keys: ${error}`,
-        variant: "destructive",
-      });
-    }
-  }, [toast]);
+    copyToClipboard(secret.data_keys.join("\n"), "Secret keys copied to clipboard.");
+  }, [copyToClipboard]);
 
   const columns = useMemo<ColumnDef<SecretInfo>[]>(
     () => [
@@ -70,10 +62,7 @@ export function SecretList() {
           </div>
         ),
       },
-      {
-        accessorKey: "namespace",
-        header: "Namespace",
-      },
+      createNamespaceColumn<SecretInfo>(),
       {
         id: "type",
         header: "Type",
@@ -83,29 +72,8 @@ export function SecretList() {
           </Badge>
         ),
       },
-      {
-        accessorKey: "data_keys",
-        header: "Keys",
-        cell: ({ row }) => (
-          <div className="flex flex-wrap gap-1">
-            {row.original.data_keys.slice(0, 3).map((key, i) => (
-              <Badge key={i} variant="secondary" className="text-xs">
-                {key}
-              </Badge>
-            ))}
-            {row.original.data_keys.length > 3 && (
-              <Badge variant="outline" className="text-xs">
-                +{row.original.data_keys.length - 3} more
-              </Badge>
-            )}
-          </div>
-        ),
-      },
-      {
-        id: "age",
-        header: "Age",
-        cell: ({ row }) => formatAge(row.original.created_at),
-      },
+      createDataKeysColumn<SecretInfo>(),
+      createAgeColumn<SecretInfo>(),
     ],
     []
   );
@@ -174,10 +142,8 @@ export function SecretList() {
             namespace: item.namespace,
           });
         },
-        invalidateQueryKey: ["secrets"],
-        successTitle: "Secret deleted",
-        successDescription: "The Secret has been deleted successfully.",
-        errorPrefix: "Failed to delete Secret",
+        invalidateQueryKeys: [["secrets"]],
+        resourceType: "Secret",
       }}
       staleTime={10000}
     />

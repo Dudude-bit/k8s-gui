@@ -1,12 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
-import { Eye, Trash2, RefreshCw, Layers, Star } from "lucide-react";
+import { Eye, Trash2, Layers, Star } from "lucide-react";
+import { useResourceList } from "@/hooks/useResource";
+import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -135,17 +135,16 @@ export function StorageClassList() {
   const {
     data: storageClasses = [],
     isLoading,
+    isFetching,
     refetch,
-  } = useQuery({
-    queryKey: ["storage-classes"],
-    queryFn: async () => {
+  } = useResourceList(
+    ["storage-classes"],
+    async () => {
       const result = await invoke<StorageClassInfo[]>("list_storage_classes");
       return result;
     },
-    enabled: isConnected,
-    staleTime: 10000,
-    refetchOnWindowFocus: false,
-  });
+    { enabled: isConnected }
+  );
 
   if (!isConnected) {
     return <ConnectClusterEmptyState resourceLabel="storage classes" />;

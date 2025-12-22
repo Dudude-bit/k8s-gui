@@ -8,10 +8,14 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { formatAge } from "@/lib/utils";
 import { useMemo } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceList } from "./ResourceList";
+import {
+  createNameColumn,
+  createNamespaceColumn,
+  createAgeColumn,
+} from "./columns";
 import type { ServiceInfo, ServicePortInfo } from "@/types/kubernetes";
 
 // Format port for display
@@ -32,22 +36,8 @@ export function ServiceList() {
 
   const columns = useMemo<ColumnDef<ServiceInfo>[]>(
     () => [
-      {
-        accessorKey: "name",
-        header: "Name",
-        cell: ({ row }) => (
-          <Link
-            to={`/service/${row.original.namespace}/${row.original.name}`}
-            className="font-medium hover:underline"
-          >
-            {row.original.name}
-          </Link>
-        ),
-      },
-      {
-        accessorKey: "namespace",
-        header: "Namespace",
-      },
+      createNameColumn<ServiceInfo>("/service"),
+      createNamespaceColumn<ServiceInfo>(),
       {
         id: "type",
         header: "Type",
@@ -81,11 +71,7 @@ export function ServiceList() {
           </div>
         ),
       },
-      {
-        id: "age",
-        header: "Age",
-        cell: ({ row }) => formatAge(row.original.created_at),
-      },
+      createAgeColumn<ServiceInfo>(),
     ],
     [],
   );
@@ -134,10 +120,8 @@ export function ServiceList() {
             namespace: item.namespace,
           });
         },
-        invalidateQueryKey: ["services"],
-        successTitle: "Service deleted",
-        successDescription: "The service has been deleted successfully.",
-        errorPrefix: "Failed to delete service",
+        invalidateQueryKeys: [["services"]],
+        resourceType: "Service",
       }}
       staleTime={10000}
     />

@@ -61,12 +61,7 @@ pub async fn get_pod_yaml(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String> {
-    let ctx = CommandContext::new(&state, namespace)?;
-
-    let api: kube::Api<Pod> = ctx.namespaced_api();
-    let pod = api.get(&name).await?;
-
-    serde_yaml::to_string(&pod).map_err(|e| crate::error::Error::Serialization(e.to_string()))
+    super::helpers::get_resource_yaml::<Pod>(name, namespace, state).await
 }
 
 /// Delete a pod

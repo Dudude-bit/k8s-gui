@@ -9,3 +9,12 @@ export { PersistentVolumeClaimList } from "./PersistentVolumeClaimList";
 export { StorageClassList } from "./StorageClassList";
 export { IngressList } from "./IngressList";
 export { EndpointsList } from "./EndpointsList";
+
+// Column factory exports
+export * from "./columns";
+
+// Layout components
+export * from "./ResourceDetailLayout";
+export { ResourceDetailHeader } from "./ResourceDetailHeader";
+export { LabelsDisplay } from "./LabelsDisplay";
+export { YamlTabContent } from "./YamlTabContent";

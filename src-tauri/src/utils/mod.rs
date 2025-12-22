@@ -1,5 +1,9 @@
 //! Utility functions and helpers
 
+pub mod quantities;
+
+pub use quantities::{parse_cpu, parse_memory, format_cpu, format_memory};
+
 use chrono::{DateTime, Utc};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
 use once_cell::sync::Lazy;

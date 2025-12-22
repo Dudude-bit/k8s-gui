@@ -1,8 +1,8 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
-import { useState, useCallback } from "react";
-import { useResourceYaml } from "@/hooks/useResourceYaml";
+import { useState, useCallback, useMemo } from "react";
+import { useResourceYaml, useCopyToClipboard, usePodMetrics } from "@/hooks";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +24,6 @@ import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { ResourceDetailHeader } from "@/components/resources/ResourceDetailHeader";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { useToast } from "@/components/ui/use-toast";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { Switch } from "@/components/ui/switch";
 import { useClusterStore } from "@/stores/clusterStore";
 import { getStatusBadgeVariant } from "@/lib/utils";
@@ -41,9 +40,7 @@ import {
   MemoryStick,
 } from "lucide-react";
 import type { PodInfo } from "@/types/kubernetes";
-import { usePodMetrics } from "@/hooks/usePodMetrics";
 import { ResourceUsage } from "@/components/ui/resource-usage";
-import { useMemo } from "react";
 
 const parsePortValue = (value: string) => {
   const parsed = Number(value);

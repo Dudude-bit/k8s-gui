@@ -11,6 +11,9 @@ use kube::ResourceExt;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+// Import unified quantities module
+use crate::utils::quantities::{parse_cpu, parse_memory, format_cpu};
+
 /// Simplified pod information for frontend
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PodInfo {
@@ -133,69 +136,17 @@ impl From<&Pod> for PodInfo {
     }
 }
 
-/// Parse CPU quantity string to millicores (f64)
-/// Supports formats: "500m", "0.5", "2", "2.5", "100n" (nanocores)
+// Legacy aliases for backward compatibility - use crate::utils::quantities directly for new code
 fn parse_cpu_quantity(cpu_str: &str) -> f64 {
-    let cpu_str = cpu_str.trim();
-    
-    if cpu_str.ends_with('m') {
-        // Millicores: "500m" -> 500.0 millicores
-        cpu_str[..cpu_str.len() - 1].parse::<f64>().unwrap_or(0.0)
-    } else if cpu_str.ends_with('n') {
-        // Nanocores: "100000000n" -> 100.0 millicores
-        let nanocores = cpu_str[..cpu_str.len() - 1].parse::<f64>().unwrap_or(0.0);
-        nanocores / 1_000_000.0
-    } else {
-        // Cores: "2", "0.5", "2.5" -> convert to millicores
-        cpu_str.parse::<f64>().unwrap_or(0.0) * 1000.0
-    }
+    parse_cpu(cpu_str)
 }
 
-/// Parse memory quantity string to bytes (u64)
-/// Supports formats: "512Mi", "1Gi", "1024Ki", "1073741824", "128974848", "100M", "1G"
 fn parse_memory_quantity(mem_str: &str) -> u64 {
-    let mem_str = mem_str.trim();
-    
-    if mem_str.ends_with("Ki") {
-        let num = mem_str[..mem_str.len() - 2].parse::<f64>().unwrap_or(0.0);
-        (num * 1024.0) as u64
-    } else if mem_str.ends_with("Mi") {
-        let num = mem_str[..mem_str.len() - 2].parse::<f64>().unwrap_or(0.0);
-        (num * 1024.0 * 1024.0) as u64
-    } else if mem_str.ends_with("Gi") {
-        let num = mem_str[..mem_str.len() - 2].parse::<f64>().unwrap_or(0.0);
-        (num * 1024.0 * 1024.0 * 1024.0) as u64
-    } else if mem_str.ends_with("Ti") {
-        let num = mem_str[..mem_str.len() - 2].parse::<f64>().unwrap_or(0.0);
-        (num * 1024.0 * 1024.0 * 1024.0 * 1024.0) as u64
-    } else if mem_str.ends_with('K') {
-        let num = mem_str[..mem_str.len() - 1].parse::<f64>().unwrap_or(0.0);
-        (num * 1000.0) as u64
-    } else if mem_str.ends_with('M') {
-        let num = mem_str[..mem_str.len() - 1].parse::<f64>().unwrap_or(0.0);
-        (num * 1000.0 * 1000.0) as u64
-    } else if mem_str.ends_with('G') {
-        let num = mem_str[..mem_str.len() - 1].parse::<f64>().unwrap_or(0.0);
-        (num * 1000.0 * 1000.0 * 1000.0) as u64
-    } else {
-        // Assume bytes
-        mem_str.parse::<u64>().unwrap_or(0)
-    }
+    parse_memory(mem_str)
 }
 
-/// Format millicores to string representation
-/// Returns "500m" for < 1000 millicores, or "2" for >= 1000 millicores
 fn format_cpu_millicores(millicores: f64) -> String {
-    if millicores < 1000.0 {
-        format!("{}m", millicores as u64)
-    } else {
-        let cores = millicores / 1000.0;
-        if cores.fract() == 0.0 {
-            format!("{}", cores as u64)
-        } else {
-            format!("{:.1}", cores)
-        }
-    }
+    format_cpu(millicores)
 }
 
 /// Pod status information

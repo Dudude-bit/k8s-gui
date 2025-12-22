@@ -1,7 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
@@ -13,12 +11,17 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { formatAge, getStatusColor } from "@/lib/utils";
 import { useMemo } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { usePodsWithMetrics, type PodWithMetrics } from "@/hooks/usePodsWithMetrics";
-import { useResourceListDelete } from "@/hooks/useResourceListDelete";
-import { ResourceUsage } from "@/components/ui/resource-usage";
+import { useResourceDelete } from "@/hooks/useResource";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { MetricBadge } from "@/components/ui/metric-card";
+import {
+  createNameColumn,
+  createNamespaceColumn,
+  createAgeColumn,
+} from "./columns";
 import type { ContainerInfo } from "@/types/kubernetes";
 
 // Helper to format ready containers count
@@ -33,56 +36,37 @@ export function PodList() {
   // Use centralized pods with metrics hook
   const { data: podsWithMetrics, isLoading, isFetching, refetch } = usePodsWithMetrics();
 
-  // Setup delete functionality
-  const { deleteTarget, setDeleteTarget, deleteMutation } = useResourceListDelete<PodWithMetrics>({
+  // Setup delete functionality with new hook
+  const { deleteTarget, setDeleteTarget, confirmDelete, isDeleting } = useResourceDelete<PodWithMetrics>({
     mutationFn: async (item) => {
       await invoke("delete_pod", {
         name: item.name,
         namespace: item.namespace,
       });
     },
-    invalidateQueryKey: ["pods"],
-    successTitle: "Pod deleted",
-    successDescription: "The pod has been deleted successfully.",
-    errorPrefix: "Failed to delete pod",
+    invalidateQueryKeys: [["pods"]],
+    resourceType: "Pod",
   });
 
   const columns = useMemo<ColumnDef<PodWithMetrics>[]>(
     () => [
-      {
-        accessorKey: "name",
-        header: "Name",
-        cell: ({ row }) => (
-          <Link
-            to={`/pod/${row.original.namespace}/${row.original.name}`}
-            className="font-medium hover:underline"
-          >
-            {row.original.name}
-          </Link>
-        ),
-      },
-      {
-        accessorKey: "namespace",
-        header: "Namespace",
-      },
+      createNameColumn<PodWithMetrics>("/pod"),
+      createNamespaceColumn<PodWithMetrics>(),
       {
         id: "status",
         header: "Status",
         cell: ({ row }) => (
-          <Badge className={getStatusColor(row.original.status.phase)}>
-            {row.original.status.phase}
-          </Badge>
+          <StatusBadge status={row.original.status.phase} />
         ),
       },
       {
         id: "cpu",
         header: "CPU",
         cell: ({ row }) => (
-          <ResourceUsage
+          <MetricBadge
             used={row.original.cpu_usage}
-            total={row.original.cpu_limits ?? row.original.cpu_requests ?? null}
+            total={row.original.cpu_limits ?? row.original.cpu_requests}
             type="cpu"
-            showProgressBar={false}
           />
         ),
       },
@@ -90,11 +74,10 @@ export function PodList() {
         id: "memory",
         header: "Memory",
         cell: ({ row }) => (
-          <ResourceUsage
+          <MetricBadge
             used={row.original.memory_usage}
-            total={row.original.memory_limits ?? row.original.memory_requests ?? null}
+            total={row.original.memory_limits ?? row.original.memory_requests}
             type="memory"
-            showProgressBar={false}
           />
         ),
       },
@@ -122,11 +105,7 @@ export function PodList() {
         header: "IP",
         cell: ({ row }) => row.original.pod_ip || "-",
       },
-      {
-        id: "age",
-        header: "Age",
-        cell: ({ row }) => formatAge(row.original.created_at),
-      },
+      createAgeColumn<PodWithMetrics>(),
       {
         id: "actions",
         cell: ({ row }) => (
@@ -195,12 +174,8 @@ export function PodList() {
         }
         confirmLabel="Delete"
         confirmVariant="destructive"
-        confirmDisabled={deleteMutation.isPending}
-        onConfirm={() => {
-          if (deleteTarget) {
-            deleteMutation.mutate(deleteTarget);
-          }
-        }}
+        confirmDisabled={isDeleting}
+        onConfirm={confirmDelete}
       />
     </div>
   );

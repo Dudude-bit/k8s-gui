@@ -1,9 +1,8 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
-import { useResourceMutation } from "@/hooks/useResourceMutation";
-import { useState, useEffect } from "react";
-import { useResourceYaml } from "@/hooks/useResourceYaml";
+import { useState, useEffect, useMemo } from "react";
+import { useResourceMutation, useResourceYaml, useCopyToClipboard, usePodMetrics } from "@/hooks";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +24,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { formatAge } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -41,10 +39,8 @@ import {
 import { LogViewer } from "@/components/logs/LogViewer";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { ResourceDetailHeader } from "@/components/resources/ResourceDetailHeader";
-import { usePodMetrics } from "@/hooks/usePodMetrics";
 import { ResourceUsage } from "@/components/ui/resource-usage";
 import { aggregatePodMetrics, parseKubernetesCPU, parseKubernetesMemory, formatCPU, formatMemory } from "@/lib/resource-utils";
-import { useMemo } from "react";
 import type { PodInfo } from "@/types/kubernetes";
 
 interface ConditionInfo {
@@ -231,10 +227,12 @@ export function DeploymentDetail() {
       await invoke("scale_deployment", { name, namespace, replicas: newReplicas });
     },
     {
-      successTitle: "Deployment scaled",
-      successDescription: `Deployment ${name} scaled to ${newReplicas} replicas.`,
-      errorPrefix: "Failed to scale deployment",
-      invalidateQueryKey: ["deployment", namespace, name].filter(Boolean) as string[],
+      toast: {
+        successTitle: "Deployment scaled",
+        successDescription: `Deployment ${name} scaled to ${newReplicas} replicas.`,
+        errorPrefix: "Failed to scale deployment",
+      },
+      invalidateQueryKeys: namespace && name ? [["deployment", namespace, name]] : [],
       onSuccess: () => {
         setScaleDialogOpen(false);
       },
@@ -247,10 +245,12 @@ export function DeploymentDetail() {
       await invoke("restart_deployment", { name, namespace });
     },
     {
-      successTitle: "Deployment restarted",
-      successDescription: `Deployment ${name} is being restarted.`,
-      errorPrefix: "Failed to restart deployment",
-      invalidateQueryKey: name && namespace ? ["deployment", namespace, name] : undefined,
+      toast: {
+        successTitle: "Deployment restarted",
+        successDescription: `Deployment ${name} is being restarted.`,
+        errorPrefix: "Failed to restart deployment",
+      },
+      invalidateQueryKeys: name && namespace ? [["deployment", namespace, name]] : [],
     }
   );
 
@@ -265,10 +265,12 @@ export function DeploymentDetail() {
       });
     },
     {
-      successTitle: "Image updated",
-      successDescription: `Container ${selectedContainer} image updated to ${newImage}.`,
-      errorPrefix: "Failed to update image",
-      invalidateQueryKey: name && namespace ? ["deployment", namespace, name] : undefined,
+      toast: {
+        successTitle: "Image updated",
+        successDescription: `Container ${selectedContainer} image updated to ${newImage}.`,
+        errorPrefix: "Failed to update image",
+      },
+      invalidateQueryKeys: name && namespace ? [["deployment", namespace, name]] : [],
       onSuccess: () => {
         setImageDialogOpen(false);
       },
@@ -281,9 +283,11 @@ export function DeploymentDetail() {
       await invoke("delete_deployment", { name, namespace });
     },
     {
-      successTitle: "Deployment deleted",
-      successDescription: `Deployment ${name} has been deleted.`,
-      errorPrefix: "Failed to delete deployment",
+      toast: {
+        successTitle: "Deployment deleted",
+        successDescription: `Deployment ${name} has been deleted.`,
+        errorPrefix: "Failed to delete deployment",
+      },
       onSuccess: () => {
         navigate(-1);
       },

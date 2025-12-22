@@ -56,12 +56,7 @@ pub async fn get_deployment_yaml(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String> {
-    let ctx = CommandContext::new(&state, namespace)?;
-
-    let api: kube::Api<Deployment> = ctx.namespaced_api();
-    let deployment = api.get(&name).await?;
-
-    serde_yaml::to_string(&deployment).map_err(|e| crate::error::Error::Serialization(e.to_string()))
+    super::helpers::get_resource_yaml::<Deployment>(name, namespace, state).await
 }
 
 /// Delete a deployment

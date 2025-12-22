@@ -1,23 +1,20 @@
-import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
-import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { ResourceDetailHeader } from "@/components/resources/ResourceDetailHeader";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { useResourceYaml } from "@/hooks/useResourceYaml";
+import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
+import { DetailSkeleton, DetailError, InfoCard } from "@/components/resources/ResourceDetailLayout";
+import { useResourceDetail } from "@/hooks";
 import { Network, Globe, Server } from "lucide-react";
 
 interface ServicePortInfo {
   name: string | null;
   protocol: string;
-  port: i32;
+  port: number;
   target_port: string;
-  node_port: i32 | null;
+  node_port: number | null;
 }
 
 interface ServiceInfo {
@@ -34,57 +31,39 @@ interface ServiceInfo {
   created_at: string | null;
 }
 
-type i32 = number;
-
 export function ServiceDetail() {
-  const { namespace, name } = useParams<{ namespace: string; name: string }>();
-  const navigate = useNavigate();
-  const copyToClipboard = useCopyToClipboard();
-  const [activeTab, setActiveTab] = useState("ports");
-
   const {
-    data: service,
+    name,
+    namespace,
+    resource: service,
     isLoading,
     isFetching,
+    error,
     refetch,
-  } = useQuery({
-    queryKey: ["service", namespace, name],
-    queryFn: async () => {
-      return invoke<ServiceInfo>("get_service", { name, namespace });
-    },
-    enabled: !!namespace && !!name,
-    placeholderData: keepPreviousData,
+    yaml: serviceYaml,
+    copyYaml,
+    activeTab,
+    setActiveTab,
+    goBack,
+  } = useResourceDetail<ServiceInfo>({
+    resourceKind: "Service",
+    getCommand: "get_service",
+    yamlCommand: "get_service_yaml",
+    deleteCommand: "delete_service",
+    defaultTab: "ports",
   });
 
-  const { data: serviceYaml } = useResourceYaml("Service", name, namespace, activeTab);
-
-  const copyYaml = () => {
-    if (serviceYaml) {
-      copyToClipboard(serviceYaml, "YAML copied to clipboard.");
-    }
-  };
-
   if (isLoading) {
-    return (
-      <div className="space-y-6 animate-in fade-in duration-200">
-        <div className="flex items-center gap-4">
-          <Skeleton className="h-10 w-10" />
-          <Skeleton className="h-8 w-64" />
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          {[...Array(3)].map((_, i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
-        </div>
-      </div>
-    );
+    return <DetailSkeleton />;
   }
 
-  if (!service) {
+  if (error || !service) {
     return (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
-        Service not found
-      </div>
+      <DetailError
+        error={error}
+        resourceKind="Service"
+        onBack={goBack}
+      />
     );
   }
 
@@ -119,46 +98,28 @@ export function ServiceDetail() {
           </Badge>
         }
         icon={<Network className="h-8 w-8 text-muted-foreground" />}
-        onBack={() => navigate(-1)}
+        onBack={goBack}
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
       />
 
       {/* Info Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Cluster IP</CardTitle>
-            <Server className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold font-mono">
-              {service.cluster_ip || "None"}
-            </div>
-          </CardContent>
-        </Card>
+        <InfoCard title="Cluster IP" icon={<Server className="h-4 w-4 text-muted-foreground" />}>
+          <div className="text-xl font-bold font-mono">
+            {service.cluster_ip || "None"}
+          </div>
+        </InfoCard>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">External IPs</CardTitle>
-            <Globe className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold font-mono">
-              {externalIps.length > 0 ? externalIps.join(", ") : "None"}
-            </div>
-          </CardContent>
-        </Card>
+        <InfoCard title="External IPs" icon={<Globe className="h-4 w-4 text-muted-foreground" />}>
+          <div className="text-xl font-bold font-mono">
+            {externalIps.length > 0 ? externalIps.join(", ") : "None"}
+          </div>
+        </InfoCard>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ports</CardTitle>
-            <Network className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold">{ports.length}</div>
-          </CardContent>
-        </Card>
+        <InfoCard title="Ports" icon={<Network className="h-4 w-4 text-muted-foreground" />}>
+          <div className="text-xl font-bold">{ports.length}</div>
+        </InfoCard>
       </div>
 
       {/* Tabs */}
@@ -229,28 +190,8 @@ export function ServiceDetail() {
         </TabsContent>
 
         <TabsContent value="labels" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Labels</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(labels).map(([key, value]) => (
-                  <Badge
-                    key={key}
-                    variant="outline"
-                    className="font-mono text-xs"
-                  >
-                    {key}={value}
-                  </Badge>
-                ))}
-                {Object.keys(labels).length === 0 && (
-                  <p className="text-muted-foreground">No labels</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
+          <LabelsDisplay labels={labels} title="Labels" />
+          
           <Card>
             <CardHeader>
               <CardTitle>Annotations</CardTitle>

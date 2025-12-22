@@ -91,9 +91,17 @@ async fn apply_resource(
         .await
         .map_err(|e| format!("Failed to discover resource {}/{} {}: {}", group, version, kind, e))?;
 
-    // Convert document to DynamicObject
-    let obj: DynamicObject = serde_yaml::from_value(doc.clone())
+    // Convert document to DynamicObject and clean metadata
+    let mut obj: DynamicObject = serde_yaml::from_value(doc.clone())
         .map_err(|e| format!("Failed to convert to DynamicObject: {}", e))?;
+
+    // Clean server-managed fields using kube-rs ObjectMeta API
+    obj.metadata.managed_fields = None;
+    obj.metadata.resource_version = None;
+    obj.metadata.uid = None;
+    obj.metadata.creation_timestamp = None;
+    obj.metadata.generation = None;
+    obj.metadata.self_link = None;
 
     // Create API handle based on scope
     let api: Api<DynamicObject> = if caps.scope == Scope::Cluster {
@@ -109,7 +117,8 @@ async fn apply_resource(
     };
 
     // Apply the resource using server-side apply
-    let mut params = PatchParams::apply("k8s-gui");
+    // force=true takes ownership of conflicting fields from other managers
+    let mut params = PatchParams::apply("k8s-gui").force();
     if dry_run {
         params = params.dry_run();
     }

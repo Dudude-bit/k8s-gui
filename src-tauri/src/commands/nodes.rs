@@ -56,7 +56,9 @@ pub async fn get_node_yaml(name: String, state: State<'_, AppState>) -> Result<S
     let api: kube::Api<Node> = ctx.cluster_api();
     let node = api.get(&name).await?;
 
-    serde_yaml::to_string(&node).map_err(|e| crate::error::Error::Serialization(e.to_string()))
+    let yaml = serde_yaml::to_string(&node)
+        .map_err(|e| crate::error::Error::Serialization(e.to_string()))?;
+    super::helpers::clean_yaml_for_editor(&yaml)
 }
 
 /// Node resource usage

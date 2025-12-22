@@ -58,12 +58,7 @@ pub async fn get_service_yaml(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String> {
-    let ctx = CommandContext::new(&state, namespace)?;
-
-    let api: kube::Api<Service> = ctx.namespaced_api();
-    let service = api.get(&name).await?;
-
-    serde_yaml::to_string(&service).map_err(|e| crate::error::Error::Serialization(e.to_string()))
+    super::helpers::get_resource_yaml::<Service>(name, namespace, state).await
 }
 
 /// Delete a service
@@ -73,12 +68,7 @@ pub async fn delete_service(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<()> {
-    let ctx = CommandContext::new(&state, namespace)?;
-
-    let api: kube::Api<Service> = ctx.namespaced_api();
-    api.delete(&name, &kube::api::DeleteParams::default()).await?;
-
-    Ok(())
+    super::helpers::delete_resource::<Service>(name, namespace, state, None).await
 }
 
 /// Service endpoint

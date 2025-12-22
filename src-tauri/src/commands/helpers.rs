@@ -252,6 +252,50 @@ pub fn build_list_params(
 
 use serde::de::DeserializeOwned;
 
+/// Clean YAML for editor - remove server-managed fields that users shouldn't see or edit
+/// This makes the YAML cleaner and avoids confusion about non-editable fields
+pub fn clean_yaml_for_editor(yaml: &str) -> Result<String> {
+    let mut doc: serde_yaml::Value = serde_yaml::from_str(yaml)
+        .map_err(|e| Error::Serialization(format!("Failed to parse YAML: {}", e)))?;
+
+    if let serde_yaml::Value::Mapping(ref mut map) = doc {
+        // Remove status (server-managed, not editable)
+        map.remove(&serde_yaml::Value::String("status".to_string()));
+
+        // Clean metadata
+        if let Some(serde_yaml::Value::Mapping(ref mut metadata)) =
+            map.get_mut(&serde_yaml::Value::String("metadata".to_string()))
+        {
+            // Remove server-managed fields
+            let fields_to_remove = [
+                "managedFields",
+                "resourceVersion",
+                "uid",
+                "creationTimestamp",
+                "generation",
+                "selfLink",
+            ];
+            for field in fields_to_remove {
+                metadata.remove(&serde_yaml::Value::String(field.to_string()));
+            }
+
+            // Clean legacy kubectl annotation
+            if let Some(serde_yaml::Value::Mapping(ref mut annotations)) =
+                metadata.get_mut(&serde_yaml::Value::String("annotations".to_string()))
+            {
+                annotations.remove(&serde_yaml::Value::String(
+                    "kubectl.kubernetes.io/last-applied-configuration".to_string(),
+                ));
+                if annotations.is_empty() {
+                    metadata.remove(&serde_yaml::Value::String("annotations".to_string()));
+                }
+            }
+        }
+    }
+
+    serde_yaml::to_string(&doc).map_err(|e| Error::Serialization(e.to_string()))
+}
+
 /// Generic function to get resource YAML for namespace-scoped resources
 pub async fn get_resource_yaml<K>(
     name: String,
@@ -265,8 +309,9 @@ where
     let ctx = CommandContext::new(&state, namespace)?;
     let api: kube::Api<K> = ctx.namespaced_api();
     let resource = api.get(&name).await?;
-    serde_yaml::to_string(&resource)
-        .map_err(|e| Error::Serialization(e.to_string()))
+    let yaml = serde_yaml::to_string(&resource)
+        .map_err(|e| Error::Serialization(e.to_string()))?;
+    clean_yaml_for_editor(&yaml)
 }
 
 /// Generic function to get resource YAML for cluster-scoped resources
@@ -281,8 +326,9 @@ where
     let ctx = ListContext::new(&state, None)?;
     let api: kube::Api<K> = ctx.cluster_api();
     let resource = api.get(&name).await?;
-    serde_yaml::to_string(&resource)
-        .map_err(|e| Error::Serialization(e.to_string()))
+    let yaml = serde_yaml::to_string(&resource)
+        .map_err(|e| Error::Serialization(e.to_string()))?;
+    clean_yaml_for_editor(&yaml)
 }
 
 /// Generic function to delete a namespace-scoped resource

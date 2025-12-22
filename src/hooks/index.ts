@@ -1,0 +1,39 @@
+/**
+ * Hooks - Unified exports
+ */
+
+// Resource hooks
+export {
+  useResource,
+  useResourceList,
+  useResourceMutation,
+  useResourceDelete,
+  useResourceCrud,
+  type UseResourceOptions,
+  type MutationToastConfig,
+  type UseResourceMutationOptions,
+  type ResourceWithIdentity,
+  type UseResourceDeleteConfig,
+  type UseResourceCrudConfig,
+} from './useResource';
+
+// Aliases for backward compatibility
+export { useResource as useResourceQuery } from './useResource';
+export { useResourceList as useResourceListQuery } from './useResource';
+
+// Detail page hook
+export {
+  useResourceDetail,
+  isResourceNotFoundError,
+  type UseResourceDetailOptions,
+  type UseResourceDetailResult,
+  type DetailLoadingProps,
+  type DetailErrorProps,
+} from './useResourceDetail';
+
+// Specialized hooks
+export { useResourceYaml } from './useResourceYaml';
+export { useCopyToClipboard } from './useCopyToClipboard';
+export { usePodsWithMetrics, type PodWithMetrics } from './usePodsWithMetrics';
+export { usePodMetrics } from './usePodMetrics';
+export { useResourceWithMetrics } from './useResourceWithMetrics';

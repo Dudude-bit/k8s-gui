@@ -72,11 +72,7 @@ pub async fn get_configmap_yaml(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String> {
-    let ctx = CommandContext::new(&state, namespace)?;
-    let api: kube::Api<ConfigMap> = ctx.namespaced_api();
-    let configmap = api.get(&name).await?;
-
-    serde_yaml::to_string(&configmap).map_err(|e| crate::error::Error::Serialization(e.to_string()))
+    super::helpers::get_resource_yaml::<ConfigMap>(name, namespace, state).await
 }
 
 /// Create ConfigMap
@@ -132,11 +128,7 @@ pub async fn delete_configmap(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<()> {
-    let ctx = CommandContext::new(&state, namespace)?;
-    let api: kube::Api<ConfigMap> = ctx.namespaced_api();
-    api.delete(&name, &kube::api::DeleteParams::default()).await?;
-
-    Ok(())
+    super::helpers::delete_resource::<ConfigMap>(name, namespace, state, None).await
 }
 
 // ============================================================================
@@ -246,7 +238,9 @@ pub async fn get_secret_yaml(
         }
     }
 
-    serde_yaml::to_string(&secret).map_err(|e| crate::error::Error::Serialization(e.to_string()))
+    let yaml = serde_yaml::to_string(&secret)
+        .map_err(|e| crate::error::Error::Serialization(e.to_string()))?;
+    super::helpers::clean_yaml_for_editor(&yaml)
 }
 
 /// Create Secret
@@ -318,9 +312,5 @@ pub async fn delete_secret(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<()> {
-    let ctx = CommandContext::new(&state, namespace)?;
-    let api: kube::Api<Secret> = ctx.namespaced_api();
-    api.delete(&name, &kube::api::DeleteParams::default()).await?;
-
-    Ok(())
+    super::helpers::delete_resource::<Secret>(name, namespace, state, None).await
 }

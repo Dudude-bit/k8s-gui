@@ -5,87 +5,12 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatBytes(bytes: number, decimals = 2): string {
-  if (bytes === 0) return "0 Bytes";
-
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB"];
-
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
-}
-
-const BINARY_UNITS: Record<string, number> = {
-  Ki: 1024,
-  Mi: 1024 ** 2,
-  Gi: 1024 ** 3,
-  Ti: 1024 ** 4,
-  Pi: 1024 ** 5,
-  Ei: 1024 ** 6,
-};
-
-const DECIMAL_UNITS: Record<string, number> = {
-  K: 1e3,
-  M: 1e6,
-  G: 1e9,
-  T: 1e12,
-  P: 1e15,
-  E: 1e18,
-};
-
-export function parseKubernetesQuantity(value: string): number | null {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  const match = trimmed.match(/^(-?\d+(?:\.\d+)?)([a-zA-Z]+)?$/);
-  if (!match) {
-    return null;
-  }
-
-  const amount = Number.parseFloat(match[1]);
-  if (Number.isNaN(amount)) {
-    return null;
-  }
-
-  const unit = match[2] ?? "";
-  if (!unit) {
-    return amount;
-  }
-
-  if (unit === "m") {
-    return amount / 1000;
-  }
-
-  if (unit in BINARY_UNITS) {
-    return amount * BINARY_UNITS[unit];
-  }
-
-  if (unit in DECIMAL_UNITS) {
-    return amount * DECIMAL_UNITS[unit];
-  }
-
-  return null;
-}
-
-export function formatKubernetesBytes(
-  value: string | null | undefined,
-  decimals = 1,
-): string {
-  if (!value) {
-    return "-";
-  }
-
-  const bytes = parseKubernetesQuantity(value);
-  if (bytes === null || Number.isNaN(bytes)) {
-    return value;
-  }
-
-  return formatBytes(bytes, decimals);
-}
+// Re-export quantity utilities from k8s-quantity for backward compatibility
+export {
+  formatBytes,
+  parseQuantity as parseKubernetesQuantity,
+  formatKubernetesBytes,
+} from './k8s-quantity';
 
 export function formatDuration(seconds: number): string {
   const days = Math.floor(seconds / 86400);

@@ -1,13 +1,22 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { ColumnDef } from "@tanstack/react-table";
-import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
-import { useResourceQuery } from "@/hooks/useResourceQuery";
-import { useResourceListDelete, UseResourceListDeleteConfig } from "@/hooks/useResourceListDelete";
+import { useResource } from "@/hooks/useResource";
 import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import { useClusterStore } from "@/stores/clusterStore";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/components/ui/use-toast";
+
+export interface ResourceDeleteConfig<T> {
+  /** Function to delete a resource */
+  mutationFn: (item: T) => Promise<void>;
+  /** Query keys to invalidate after deletion */
+  invalidateQueryKeys: string[][];
+  /** Resource type name for messages */
+  resourceType: string;
+}
 
 export interface ResourceListProps<T extends { name: string; namespace: string }> {
   /** Display title for the resource list */
@@ -20,8 +29,8 @@ export interface ResourceListProps<T extends { name: string; namespace: string }
   columns: ColumnDef<T>[] | ((setDeleteTarget: (item: T) => void) => ColumnDef<T>[]);
   /** Label for empty state (e.g., "pods", "services") */
   emptyStateLabel: string;
-  /** Optional delete mutation configuration */
-  deleteConfig?: UseResourceListDeleteConfig<T>;
+  /** Delete configuration */
+  deleteConfig?: ResourceDeleteConfig<T>;
   /** Optional stale time override (default: 5000ms) */
   staleTime?: number;
   /** Optional refetch interval (default: undefined - no auto refetch) */
@@ -42,21 +51,47 @@ export function ResourceList<T extends { name: string; namespace: string }>({
   headerActions,
 }: ResourceListProps<T>) {
   const { isConnected } = useClusterStore();
-  
-  // Setup delete functionality if configured
-  const deleteHook = deleteConfig ? useResourceListDelete(deleteConfig) : null;
-  const deleteTarget = deleteHook?.deleteTarget ?? null;
-  const setDeleteTarget = deleteHook?.setDeleteTarget ?? (() => {});
-  const deleteMutation = deleteHook?.deleteMutation ?? null;
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [deleteTarget, setDeleteTarget] = useState<T | null>(null);
 
   const {
     data: resources = [],
     isLoading,
     isFetching,
     refetch,
-  } = useResourceQuery(queryKey, queryFn, {
+  } = useResource(queryKey, queryFn, {
     staleTime: staleTime ?? 5000,
     refetchInterval,
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (item: T) => {
+      if (deleteConfig) {
+        await deleteConfig.mutationFn(item);
+      }
+    },
+    onSuccess: (_, item) => {
+      if (deleteConfig) {
+        deleteConfig.invalidateQueryKeys.forEach((key) => {
+          queryClient.invalidateQueries({ queryKey: key });
+        });
+        toast({
+          title: `${deleteConfig.resourceType} deleted`,
+          description: `${deleteConfig.resourceType} ${item.name} has been deleted.`,
+        });
+      }
+      setDeleteTarget(null);
+    },
+    onError: (error, item) => {
+      toast({
+        title: "Error",
+        description: `Failed to delete ${deleteConfig?.resourceType?.toLowerCase() ?? 'resource'} ${item.name}: ${error}`,
+        variant: "destructive",
+      });
+      setDeleteTarget(null);
+    },
   });
 
   // Resolve columns - can be a function that receives setDeleteTarget
@@ -85,7 +120,7 @@ export function ResourceList<T extends { name: string; namespace: string }>({
         isLoading={showSkeleton}
         isFetching={isFetching && !isLoading}
       />
-      {deleteConfig && deleteTarget && deleteMutation && (
+      {deleteConfig && (
         <ConfirmDialog
           open={deleteTarget !== null}
           onOpenChange={(open) => {
@@ -93,7 +128,7 @@ export function ResourceList<T extends { name: string; namespace: string }>({
               setDeleteTarget(null);
             }
           }}
-          title={`Delete ${title.toLowerCase().replace(/s$/, '')}?`}
+          title={`Delete ${deleteConfig.resourceType.toLowerCase()}?`}
           description={
             deleteTarget
               ? `This will delete ${deleteTarget.name} in ${deleteTarget.namespace}.`

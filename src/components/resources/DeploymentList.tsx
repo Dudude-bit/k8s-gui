@@ -8,13 +8,19 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { formatAge, getStatusColor } from "@/lib/utils";
 import { useMemo } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceList } from "./ResourceList";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
-import { ResourceUsage } from "@/components/ui/resource-usage";
-import { aggregatePodMetrics } from "@/lib/resource-utils";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { MetricBadge } from "@/components/ui/metric-card";
+import { aggregatePodMetrics } from "@/lib/k8s-quantity";
+import {
+  createNameColumn,
+  createNamespaceColumn,
+  createAgeColumn,
+  createReplicasColumn,
+} from "./columns";
 import type { DeploymentInfo } from "@/types/kubernetes";
 
 // Extended DeploymentInfo with metrics
@@ -61,60 +67,23 @@ export function DeploymentList() {
 
   const columns = useMemo<ColumnDef<DeploymentInfoWithMetrics>[]>(
     () => [
-      {
-        accessorKey: "name",
-        header: "Name",
-        cell: ({ row }) => (
-          <Link
-            to={`/deployment/${row.original.namespace}/${row.original.name}`}
-            className="font-medium hover:underline"
-          >
-            {row.original.name}
-          </Link>
-        ),
-      },
-      {
-        accessorKey: "namespace",
-        header: "Namespace",
-      },
+      createNameColumn<DeploymentInfoWithMetrics>("/deployment"),
+      createNamespaceColumn<DeploymentInfoWithMetrics>(),
       {
         id: "cpu",
         header: "CPU",
         cell: ({ row }) => (
-          <ResourceUsage
-            used={row.original.cpu_usage}
-            total={null}
-            type="cpu"
-            showProgressBar={false}
-          />
+          <MetricBadge used={row.original.cpu_usage} type="cpu" />
         ),
       },
       {
         id: "memory",
         header: "Memory",
         cell: ({ row }) => (
-          <ResourceUsage
-            used={row.original.memory_usage}
-            total={null}
-            type="memory"
-            showProgressBar={false}
-          />
+          <MetricBadge used={row.original.memory_usage} type="memory" />
         ),
       },
-      {
-        id: "replicas",
-        header: "Replicas",
-        cell: ({ row }) => {
-          const ready = row.original.replicas.ready || 0;
-          const total = row.original.replicas.desired;
-          const isHealthy = ready === total;
-          return (
-            <span className={isHealthy ? "text-green-500" : "text-yellow-500"}>
-              {ready}/{total}
-            </span>
-          );
-        },
-      },
+      createReplicasColumn<DeploymentInfoWithMetrics>(),
       {
         id: "strategy",
         header: "Strategy",
@@ -131,14 +100,10 @@ export function DeploymentList() {
           const available = row.original.replicas.available || 0;
           const total = row.original.replicas.desired;
           const status = available === total ? "Available" : "Progressing";
-          return <Badge className={getStatusColor(status)}>{status}</Badge>;
+          return <StatusBadge status={status} />;
         },
       },
-      {
-        id: "age",
-        header: "Age",
-        cell: ({ row }) => formatAge(row.original.created_at),
-      },
+      createAgeColumn<DeploymentInfoWithMetrics>(),
     ],
     []
   );
@@ -190,13 +155,12 @@ export function DeploymentList() {
             namespace: item.namespace,
           });
         },
-        invalidateQueryKey: ["deployments"],
-        successTitle: "Deployment deleted",
-        successDescription: "The deployment has been deleted successfully.",
-        errorPrefix: "Failed to delete deployment",
+        invalidateQueryKeys: [["deployments"]],
+        resourceType: "Deployment",
       }}
       staleTime={10000}
       refetchInterval={15000}
     />
   );
 }
+

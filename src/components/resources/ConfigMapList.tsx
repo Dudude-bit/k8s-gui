@@ -1,19 +1,23 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
-import { Badge } from "@/components/ui/badge";
 import { ColumnDef } from "@tanstack/react-table";
 import { Trash2, Copy } from "lucide-react";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { useToast } from "@/components/ui/use-toast";
 import { useMemo, useCallback } from "react";
-import { formatAge } from "@/lib/utils";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { YamlViewerAction } from "@/components/ui/yaml-viewer";
 import { YamlEditorMenuAction } from "@/components/ui/yaml-editor";
 import { ResourceList } from "./ResourceList";
+import { useCopyToClipboard } from "@/hooks";
+import {
+  createSimpleNameColumn,
+  createNamespaceColumn,
+  createAgeColumn,
+  createDataKeysColumn,
+} from "./columns";
 
 interface ConfigMapInfo {
   name: string;
@@ -26,7 +30,7 @@ interface ConfigMapInfo {
 
 export function ConfigMapList() {
   const { currentNamespace } = useClusterStore();
-  const { toast } = useToast();
+  const copyToClipboard = useCopyToClipboard();
 
   const handleCopyData = useCallback(async (name: string, namespace: string) => {
     try {
@@ -34,56 +38,18 @@ export function ConfigMapList() {
         name,
         namespace,
       });
-      await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-      toast({
-        title: "Copied",
-        description: "ConfigMap data copied to clipboard.",
-      });
+      copyToClipboard(JSON.stringify(data, null, 2), "ConfigMap data copied to clipboard.");
     } catch (error) {
-      toast({
-        title: "Error",
-        description: `Failed to copy data: ${error}`,
-        variant: "destructive",
-      });
+      // Error is handled by copyToClipboard's toast
     }
-  }, [toast]);
+  }, [copyToClipboard]);
 
   const columns = useMemo<ColumnDef<ConfigMapInfo>[]>(
     () => [
-      {
-        accessorKey: "name",
-        header: "Name",
-        cell: ({ row }) => (
-          <span className="font-medium">{row.original.name}</span>
-        ),
-      },
-      {
-        accessorKey: "namespace",
-        header: "Namespace",
-      },
-      {
-        accessorKey: "data_keys",
-        header: "Keys",
-        cell: ({ row }) => (
-          <div className="flex flex-wrap gap-1">
-            {row.original.data_keys.slice(0, 3).map((key, i) => (
-              <Badge key={i} variant="secondary" className="text-xs">
-                {key}
-              </Badge>
-            ))}
-            {row.original.data_keys.length > 3 && (
-              <Badge variant="outline" className="text-xs">
-                +{row.original.data_keys.length - 3} more
-              </Badge>
-            )}
-          </div>
-        ),
-      },
-      {
-        id: "age",
-        header: "Age",
-        cell: ({ row }) => formatAge(row.original.created_at),
-      },
+      createSimpleNameColumn<ConfigMapInfo>(),
+      createNamespaceColumn<ConfigMapInfo>(),
+      createDataKeysColumn<ConfigMapInfo>(),
+      createAgeColumn<ConfigMapInfo>(),
     ],
     []
   );
@@ -156,10 +122,8 @@ export function ConfigMapList() {
             namespace: item.namespace,
           });
         },
-        invalidateQueryKey: ["configmaps"],
-        successTitle: "ConfigMap deleted",
-        successDescription: "The ConfigMap has been deleted successfully.",
-        errorPrefix: "Failed to delete ConfigMap",
+        invalidateQueryKeys: [["configmaps"]],
+        resourceType: "ConfigMap",
       }}
       staleTime={10000}
     />

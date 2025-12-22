@@ -1,19 +1,12 @@
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
-import {
-  Eye,
-  Trash2,
-  RefreshCw,
-  Globe,
-  ExternalLink,
-  Loader2,
-} from "lucide-react";
+import { Eye, Trash2, Globe, ExternalLink } from "lucide-react";
+import { useResourceList } from "@/hooks/useResource";
+import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -225,7 +218,7 @@ export function IngressList() {
     isLoading,
     isFetching,
     refetch,
-  } = useResourceListQuery(
+  } = useResourceList(
     ["ingresses", currentNamespace],
     async () => {
       const result = await invoke<IngressInfo[]>("list_ingresses", {
