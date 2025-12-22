@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
 import { DataTable } from "@/components/ui/data-table";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
@@ -11,7 +11,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { getStatusColor } from "@/lib/utils";
 import { ActionMenu } from "@/components/ui/action-menu";
 
 interface HelmRelease {
@@ -42,9 +41,7 @@ const columns: ColumnDef<HelmRelease>[] = [
     accessorKey: "status",
     header: "Status",
     cell: ({ row }) => (
-      <Badge className={getStatusColor(row.original.status)}>
-        {row.original.status}
-      </Badge>
+      <StatusBadge status={row.original.status} />
     ),
   },
   {

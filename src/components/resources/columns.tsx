@@ -7,7 +7,8 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
-import { formatAge, getStatusColor } from "@/lib/utils";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { formatAge } from "@/lib/utils";
 import { ResourceUsage } from "@/components/ui/resource-usage";
 import { Eye, Trash2 } from "lucide-react";
 import { ActionMenu } from "@/components/ui/action-menu";
@@ -156,11 +157,7 @@ export function createStatusColumn<T extends { status: { phase: string } | strin
       const status = typeof row.original.status === "string"
         ? row.original.status
         : row.original.status.phase;
-      return (
-        <Badge className={getStatusColor(status)}>
-          {status}
-        </Badge>
-      );
+      return <StatusBadge status={status} />;
     },
   };
 }

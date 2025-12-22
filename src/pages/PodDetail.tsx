@@ -5,6 +5,7 @@ import { useState, useCallback, useMemo } from "react";
 import { useResourceYaml, useCopyToClipboard, usePodMetrics } from "@/hooks";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -23,10 +24,10 @@ import { Terminal } from "@/components/terminal/Terminal";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { ResourceDetailHeader } from "@/components/resources/ResourceDetailHeader";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
+import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { useToast } from "@/components/ui/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { useClusterStore } from "@/stores/clusterStore";
-import { getStatusBadgeVariant } from "@/lib/utils";
 import { usePortForwardStore } from "@/stores/portForwardStore";
 import {
   ArrowLeft,
@@ -444,9 +445,7 @@ export function PodDetail() {
         title={pod.name}
         namespace={pod.namespace}
         badges={
-          <Badge variant={getStatusBadgeVariant(pod.status.phase)}>
-            {pod.status.phase}
-          </Badge>
+          <StatusBadge status={pod.status.phase} />
         }
         actions={
           <>
@@ -836,35 +835,16 @@ export function PodDetail() {
         </TabsContent>
 
         <TabsContent value="conditions">
-          <Card>
-            <CardHeader>
-              <CardTitle>Pod Conditions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {pod.status.conditions.map((condition, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-2 rounded-md bg-muted/50"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant={
-                          condition.status === "True" ? "success" : "secondary"
-                        }
-                      >
-                        {condition.type_}
-                      </Badge>
-                      <span className="text-sm">{condition.status}</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {condition.reason && <span>{condition.reason}</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <ConditionsDisplay
+            conditions={pod.status.conditions.map((c) => ({
+              type_: c.type_,
+              status: c.status,
+              reason: c.reason,
+              message: c.message,
+              last_transition_time: c.last_transition_time,
+            }))}
+            title="Pod Conditions"
+          />
         </TabsContent>
       </Tabs>
     </div>

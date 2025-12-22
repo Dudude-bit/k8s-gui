@@ -5,7 +5,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn, getStatusColor } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { ResourceNodeData } from "@/features/infrastructure/types";
 
 const KIND_BADGE_CLASS: Record<ResourceNodeData["kind"], string> = {
@@ -70,12 +70,7 @@ export function ResourceNode({ data, selected }: NodeProps<ResourceNodeData>) {
             </Tooltip>
           )}
         </div>
-        <span
-          className={cn(
-            "text-[11px]",
-            data.status ? getStatusColor(data.status) : "text-muted-foreground",
-          )}
-        >
+        <span className="text-[11px] text-muted-foreground">
           {data.status ?? "Idle"}
         </span>
       </div>

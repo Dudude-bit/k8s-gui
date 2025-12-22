@@ -5,10 +5,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
 import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
-import { formatAge, getStatusColor } from "@/lib/utils";
+import { formatAge } from "@/lib/utils";
 import { useMemo, useCallback } from "react";
 import { ResourceUsage } from "@/components/ui/resource-usage";
 import {
@@ -317,9 +318,7 @@ function JobList() {
         id: "status",
         header: "Status",
         cell: ({ row }) => (
-          <Badge className={getStatusColor(row.original.status)}>
-            {row.original.status}
-          </Badge>
+          <StatusBadge status={row.original.status} />
         ),
       },
       {

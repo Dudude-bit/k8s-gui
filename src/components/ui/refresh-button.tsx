@@ -14,6 +14,7 @@ export function RefreshButton({
   variant = "outline",
   size = "icon",
   className,
+  children,
   ...props
 }: RefreshButtonProps) {
   return (
@@ -25,7 +26,8 @@ export function RefreshButton({
       className={className}
       {...props}
     >
-      <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+      <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin", children && "mr-2")} />
+      {children}
     </Button>
   );
 }

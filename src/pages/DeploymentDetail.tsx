@@ -32,14 +32,14 @@ import {
   Scale,
   ImageIcon,
   RotateCcw,
-  Cpu,
-  MemoryStick,
   FileText,
 } from "lucide-react";
 import { LogViewer } from "@/components/logs/LogViewer";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { ResourceDetailHeader } from "@/components/resources/ResourceDetailHeader";
-import { ResourceUsage } from "@/components/ui/resource-usage";
+import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
+import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
+import { MetricPair } from "@/components/ui/metric-card";
 import { aggregatePodMetrics, parseKubernetesCPU, parseKubernetesMemory, formatCPU, formatMemory } from "@/lib/resource-utils";
 import type { PodInfo } from "@/types/kubernetes";
 
@@ -478,60 +478,28 @@ export function DeploymentDetail() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Labels</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-1">
-                  {Object.entries(deployment.labels).map(([key, value]) => (
-                    <Badge key={key} variant="outline" className="text-xs">
-                      {key}={value}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <LabelsDisplay labels={deployment.labels} title="Labels" />
           </div>
 
           {/* Resource Usage Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">CPU Usage</CardTitle>
-                <Cpu className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <ResourceUsage
-                  used={aggregatedMetrics.cpu_usage}
-                  total={totalResources.cpu}
-                  type="cpu"
-                  showProgressBar={true}
-                />
-                <p className="text-xs text-muted-foreground mt-2">
-                  Aggregated across {podsWithMetrics.length} pod{podsWithMetrics.length !== 1 ? 's' : ''}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Memory Usage</CardTitle>
-                <MemoryStick className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <ResourceUsage
-                  used={aggregatedMetrics.memory_usage}
-                  total={totalResources.memory}
-                  type="memory"
-                  showProgressBar={true}
-                />
-                <p className="text-xs text-muted-foreground mt-2">
-                  Aggregated across {podsWithMetrics.length} pod{podsWithMetrics.length !== 1 ? 's' : ''}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Resource Usage</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <MetricPair
+                cpuUsed={aggregatedMetrics.cpu_usage}
+                cpuTotal={totalResources.cpu}
+                memoryUsed={aggregatedMetrics.memory_usage}
+                memoryTotal={totalResources.memory}
+                showProgressBar={true}
+                orientation="vertical"
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                Aggregated across {podsWithMetrics.length} pod{podsWithMetrics.length !== 1 ? 's' : ''}
+              </p>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="containers">
@@ -712,35 +680,16 @@ export function DeploymentDetail() {
         </TabsContent>
 
         <TabsContent value="conditions">
-          <Card>
-            <CardHeader>
-              <CardTitle>Deployment Conditions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {deployment.conditions.map((condition, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-2 rounded-md bg-muted/50"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant={
-                          condition.status === "True" ? "success" : "secondary"
-                        }
-                      >
-                        {condition.type_}
-                      </Badge>
-                      <span className="text-sm">{condition.status}</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {condition.reason && <span>{condition.reason}</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <ConditionsDisplay
+            conditions={deployment.conditions.map((c) => ({
+              type_: c.type_,
+              status: c.status,
+              reason: c.reason,
+              message: c.message,
+              last_transition_time: null,
+            }))}
+            title="Deployment Conditions"
+          />
         </TabsContent>
       </Tabs>
 

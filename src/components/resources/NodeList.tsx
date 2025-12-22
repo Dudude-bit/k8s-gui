@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
@@ -20,14 +21,6 @@ import { useMemo } from "react";
 import type { NodeInfo } from "@/types/kubernetes";
 
 // Using NodeInfo from types/kubernetes.ts
-
-const getNodeStatusColor = (
-  status: string,
-): "success" | "warning" | "destructive" | "secondary" => {
-  if (status === "Ready") return "success";
-  if (status === "NotReady") return "destructive";
-  return "warning";
-};
 
 export function NodeList() {
   const { isConnected } = useClusterStore();
@@ -149,7 +142,7 @@ export function NodeList() {
       header: "Status",
       cell: ({ row }) => {
         const status = row.original.status;
-        return <Badge variant={getNodeStatusColor(status)}>{status}</Badge>;
+        return <StatusBadge status={status} />;
       },
     },
     {

@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/badge";
+import { ConditionBadge } from "@/components/ui/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export interface Condition {
@@ -46,13 +46,10 @@ export function ConditionsDisplay({
               className="flex items-center justify-between rounded-lg border p-3"
             >
               <div className="flex items-center gap-3">
-                <Badge
-                  variant={
-                    condition.status === "True" ? "default" : "secondary"
-                  }
-                >
-                  {condition.type_}
-                </Badge>
+                <ConditionBadge
+                  conditionStatus={condition.status}
+                  conditionType={condition.type_}
+                />
                 <span className="text-sm text-muted-foreground">
                   {condition.message || condition.reason || "-"}
                 </span>

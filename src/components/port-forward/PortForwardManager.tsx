@@ -8,6 +8,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { RefreshButton } from "@/components/ui/refresh-button";
 import {
   Card,
   CardContent,
@@ -26,7 +27,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Pencil, Play, Plus, RefreshCw, Square, Trash2 } from "lucide-react";
+import { Pencil, Play, Plus, Square, Trash2 } from "lucide-react";
 
 type PortForwardFormState = {
   name: string;
@@ -308,14 +309,13 @@ export function PortForwardManager() {
             </Badge>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button
+            <RefreshButton
+              onRefresh={() => refreshSessions()}
               variant="outline"
               size="sm"
-              onClick={() => refreshSessions()}
             >
-              <RefreshCw className="mr-2 h-4 w-4" />
               Refresh
-            </Button>
+            </RefreshButton>
             <Button
               variant="outline"
               size="sm"

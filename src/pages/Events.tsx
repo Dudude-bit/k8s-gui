@@ -2,7 +2,7 @@ import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { RefreshButton } from "@/components/ui/refresh-button";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState } from "react";
-import { RefreshCw, AlertTriangle, Info, Clock, Loader2 } from "lucide-react";
+import { AlertTriangle, Info, Clock, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface InvolvedObjectInfo {
@@ -115,16 +115,12 @@ export function Events() {
               <SelectItem value="all">All</SelectItem>
             </SelectContent>
           </Select>
-          <Button
+          <RefreshButton
+            onRefresh={() => refetch()}
+            isRefreshing={isFetching}
             variant="outline"
             size="icon"
-            onClick={() => refetch()}
-            disabled={isFetching}
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
-            />
-          </Button>
+          />
         </div>
       </div>
 

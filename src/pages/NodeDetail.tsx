@@ -2,6 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,8 +14,10 @@ import {
 } from "lucide-react";
 import { formatKubernetesBytes } from "@/lib/utils";
 import { useNodeMetrics } from "@/hooks/useNodeMetrics";
-import { ResourceUsage } from "@/components/ui/resource-usage";
+import { MetricCard } from "@/components/ui/metric-card";
 import { ResourceDetailHeader } from "@/components/resources/ResourceDetailHeader";
+import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
+import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { useMemo } from "react";
 
 interface NodeAddressInfo {
@@ -148,11 +151,7 @@ export function NodeDetail() {
                 {role}
               </Badge>
             ))}
-            <Badge
-              className={node.status.ready ? "bg-green-500" : "bg-red-500"}
-            >
-              {node.status.ready ? "Ready" : "NotReady"}
-            </Badge>
+            <StatusBadge status={node.status.ready ? "Ready" : "NotReady"} />
           </>
         }
         icon={<Server className="h-8 w-8 text-muted-foreground" />}
@@ -163,55 +162,25 @@ export function NodeDetail() {
 
       {/* Resource Cards */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">CPU Usage</CardTitle>
-            <Cpu className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {nodeWithMetrics ? (
-              <ResourceUsage
-                used={nodeWithMetrics.cpu_usage ?? null}
-                total={node.capacity.cpu ?? null}
-                type="cpu"
-                showProgressBar={true}
-              />
-            ) : (
-              <>
-                <div className="text-2xl font-bold">{node.capacity.cpu || "-"}</div>
-                <p className="text-xs text-muted-foreground">
-                  Allocatable: {node.allocatable.cpu || "-"}
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="CPU Usage"
+          used={nodeWithMetrics?.cpu_usage ?? null}
+          total={node.capacity.cpu ?? null}
+          type="cpu"
+          icon={<Cpu className="h-4 w-4" />}
+          showProgressBar={true}
+          description={node.allocatable.cpu ? `Allocatable: ${node.allocatable.cpu}` : undefined}
+        />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Memory Usage</CardTitle>
-            <MemoryStick className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {nodeWithMetrics ? (
-              <ResourceUsage
-                used={nodeWithMetrics.memory_usage ?? null}
-                total={node.capacity.memory ?? null}
-                type="memory"
-                showProgressBar={true}
-              />
-            ) : (
-              <>
-                <div className="text-2xl font-bold">
-                  {formatKubernetesBytes(node.capacity.memory)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Allocatable: {formatKubernetesBytes(node.allocatable.memory)}
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="Memory Usage"
+          used={nodeWithMetrics?.memory_usage ?? null}
+          total={node.capacity.memory ?? null}
+          type="memory"
+          icon={<MemoryStick className="h-4 w-4" />}
+          showProgressBar={true}
+          description={node.allocatable.memory ? `Allocatable: ${formatKubernetesBytes(node.allocatable.memory)}` : undefined}
+        />
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -308,62 +277,20 @@ export function NodeDetail() {
         </TabsContent>
 
         <TabsContent value="conditions" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Conditions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {node.status.conditions.map((condition, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between rounded-lg border p-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Badge
-                        variant={
-                          condition.status === "True" ? "default" : "secondary"
-                        }
-                      >
-                        {condition.type_}
-                      </Badge>
-                      <span className="text-sm text-muted-foreground">
-                        {condition.message || condition.reason || "-"}
-                      </span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {condition.last_transition_time
-                        ? new Date(
-                            condition.last_transition_time,
-                          ).toLocaleString()
-                        : "-"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <ConditionsDisplay
+            conditions={node.status.conditions.map((c) => ({
+              type_: c.type_,
+              status: c.status,
+              reason: c.reason,
+              message: c.message,
+              last_transition_time: c.last_transition_time,
+            }))}
+            title="Conditions"
+          />
         </TabsContent>
 
         <TabsContent value="labels" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Labels</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(node.labels).map(([key, value]) => (
-                  <Badge
-                    key={key}
-                    variant="outline"
-                    className="font-mono text-xs"
-                  >
-                    {key}={value}
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <LabelsDisplay labels={node.labels} title="Labels" />
         </TabsContent>
       </Tabs>
     </div>

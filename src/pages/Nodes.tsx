@@ -3,13 +3,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
 import { Eye } from "lucide-react";
 import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { formatAge, formatKubernetesBytes, getStatusColor } from "@/lib/utils";
+import { formatAge, formatKubernetesBytes } from "@/lib/utils";
 import { ActionMenu } from "@/components/ui/action-menu";
 
 interface NodeAddressInfo {
@@ -77,7 +78,7 @@ const columns: ColumnDef<NodeInfo>[] = [
     header: "Status",
     cell: ({ row }) => {
       const status = row.original.status.ready ? "Ready" : "NotReady";
-      return <Badge className={getStatusColor(status)}>{status}</Badge>;
+      return <StatusBadge status={status} />;
     },
   },
   {

@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { RefreshButton } from "@/components/ui/refresh-button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,7 +27,6 @@ import {
   Moon,
   Sun,
   Monitor,
-  RefreshCw,
   Command,
   AlertCircle,
   Loader2,
@@ -151,13 +151,11 @@ export function Header() {
           {error && !isLoading && (errorContext || currentContext) && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
+                <RefreshButton
+                  onRefresh={() => connect(errorContext || currentContext || undefined)}
                   variant="ghost"
                   size="icon"
-                  onClick={() => connect(errorContext || currentContext || undefined)}
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
+                />
               </TooltipTrigger>
               <TooltipContent side="bottom">
                 Retry authentication
@@ -194,14 +192,12 @@ export function Header() {
         )}
 
         {/* Refresh button */}
-        <Button
+        <RefreshButton
+          onRefresh={() => refetchNamespaces()}
+          disabled={!isConnected}
           variant="ghost"
           size="icon"
-          onClick={() => refetchNamespaces()}
-          disabled={!isConnected}
-        >
-          <RefreshCw className="h-4 w-4" />
-        </Button>
+        />
       </div>
 
       {/* Right: Search and theme */}

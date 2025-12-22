@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
 import { Eye, Trash2, Database } from "lucide-react";
@@ -29,19 +30,6 @@ interface PersistentVolumeClaimInfo {
   age: string;
 }
 
-const getStatusColor = (status: string) => {
-  switch (status.toLowerCase()) {
-    case "bound":
-      return "bg-green-500/10 text-green-500 border-green-500/20";
-    case "pending":
-      return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
-    case "lost":
-      return "bg-red-500/10 text-red-500 border-red-500/20";
-    default:
-      return "bg-gray-500/10 text-gray-500 border-gray-500/20";
-  }
-};
-
 const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
   {
     accessorKey: "name",
@@ -61,9 +49,7 @@ const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
     accessorKey: "status",
     header: "Status",
     cell: ({ row }) => (
-      <Badge className={getStatusColor(row.original.status)}>
-        {row.original.status}
-      </Badge>
+      <StatusBadge status={row.original.status} />
     ),
   },
   {

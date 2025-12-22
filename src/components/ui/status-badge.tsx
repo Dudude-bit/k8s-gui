@@ -44,6 +44,11 @@ const statusBadgeVariants = cva(
         terminated: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400",
         completed: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400",
         
+        // Service types
+        clusterip: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+        nodeport: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+        loadbalancer: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+        
         // Unknown/Default states
         unknown: "bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400",
         default: "bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400",
@@ -110,6 +115,11 @@ const statusVariantMap: Record<string, VariantProps<typeof statusBadgeVariants>[
   
   // Unknown
   unknown: "unknown",
+  
+  // Service types
+  clusterip: "clusterip",
+  nodeport: "nodeport",
+  loadbalancer: "loadbalancer",
 };
 
 /**

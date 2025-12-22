@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
@@ -73,19 +74,6 @@ export function ServiceDetail() {
   const labels = service.labels ?? {};
   const annotations = service.annotations ?? {};
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case "LoadBalancer":
-        return "bg-purple-500";
-      case "NodePort":
-        return "bg-blue-500";
-      case "ClusterIP":
-        return "bg-green-500";
-      default:
-        return "bg-gray-500";
-    }
-  };
-
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Header */}
@@ -93,9 +81,7 @@ export function ServiceDetail() {
         title={service.name}
         namespace={service.namespace}
         badges={
-          <Badge className={getTypeColor(service.type_)}>
-            {service.type_}
-          </Badge>
+          <StatusBadge status={service.type_} />
         }
         icon={<Network className="h-8 w-8 text-muted-foreground" />}
         onBack={goBack}
@@ -166,27 +152,11 @@ export function ServiceDetail() {
         </TabsContent>
 
         <TabsContent value="selector" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Pod Selector</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(selector).map(([key, value]) => (
-                  <Badge
-                    key={key}
-                    variant="outline"
-                    className="font-mono text-xs"
-                  >
-                    {key}={value}
-                  </Badge>
-                ))}
-                {Object.keys(selector).length === 0 && (
-                  <p className="text-muted-foreground">No selector defined</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <LabelsDisplay
+            labels={selector}
+            title="Pod Selector"
+            emptyMessage="No selector defined"
+          />
         </TabsContent>
 
         <TabsContent value="labels" className="space-y-4">
