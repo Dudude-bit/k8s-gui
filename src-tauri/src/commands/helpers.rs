@@ -250,8 +250,7 @@ pub fn build_list_params(
     params
 }
 
-use tauri::State;
-use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 /// Generic function to get resource YAML for namespace-scoped resources
 pub async fn get_resource_yaml<K>(
@@ -260,7 +259,7 @@ pub async fn get_resource_yaml<K>(
     state: State<'_, AppState>,
 ) -> Result<String>
 where
-    K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope> + Serialize,
+    K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope> + Serialize + Clone + std::fmt::Debug + DeserializeOwned,
     <K as kube::Resource>::DynamicType: Default,
 {
     let ctx = CommandContext::new(&state, namespace)?;
@@ -276,7 +275,7 @@ pub async fn get_cluster_resource_yaml<K>(
     state: State<'_, AppState>,
 ) -> Result<String>
 where
-    K: kube::Resource<Scope = k8s_openapi::ClusterResourceScope> + Serialize,
+    K: kube::Resource<Scope = k8s_openapi::ClusterResourceScope> + Serialize + Clone + std::fmt::Debug + DeserializeOwned,
     <K as kube::Resource>::DynamicType: Default,
 {
     let ctx = ListContext::new(&state, None)?;
@@ -294,7 +293,7 @@ pub async fn delete_resource<K>(
     delete_params: Option<kube::api::DeleteParams>,
 ) -> Result<()>
 where
-    K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope>,
+    K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope> + Clone + std::fmt::Debug + DeserializeOwned,
     <K as kube::Resource>::DynamicType: Default,
 {
     let ctx = CommandContext::new(&state, namespace)?;
@@ -311,7 +310,7 @@ pub async fn get_resource<K, I>(
     state: State<'_, AppState>,
 ) -> Result<I>
 where
-    K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope>,
+    K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope> + Clone + std::fmt::Debug + DeserializeOwned,
     <K as kube::Resource>::DynamicType: Default,
     I: for<'a> From<&'a K>,
 {
@@ -335,7 +334,7 @@ pub async fn list_resources<K, I>(
     state: State<'_, AppState>,
 ) -> Result<Vec<I>>
 where
-    K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope>,
+    K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope> + Clone + std::fmt::Debug + DeserializeOwned,
     <K as kube::Resource>::DynamicType: Default,
     I: for<'a> From<&'a K>,
 {
@@ -355,7 +354,7 @@ pub async fn list_resources_with_params<K, I>(
     state: State<'_, AppState>,
 ) -> Result<Vec<I>>
 where
-    K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope>,
+    K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope> + Clone + std::fmt::Debug + DeserializeOwned,
     <K as kube::Resource>::DynamicType: Default,
     I: for<'a> From<&'a K>,
 {
