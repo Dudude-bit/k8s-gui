@@ -13,6 +13,7 @@ mod oidc;
 mod interactive;
 mod manager;
 mod credentials;
+pub mod license_client;
 
 pub use aws_eks::AwsEksAuth;
 pub use bearer::BearerTokenAuth;

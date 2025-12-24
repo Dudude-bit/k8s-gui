@@ -261,37 +261,6 @@ impl From<base64::DecodeError> for Error {
     }
 }
 
-/// Error response for Tauri commands
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ErrorResponse {
-    pub code: String,
-    pub message: String,
-    pub details: Option<String>,
-    pub retryable: bool,
-}
-
-impl From<Error> for ErrorResponse {
-    fn from(err: Error) -> Self {
-        ErrorResponse {
-            code: err.error_code().to_string(),
-            message: err.to_string(),
-            details: err.details(),
-            retryable: err.is_retryable(),
-        }
-    }
-}
-
-/// Trait for converting errors to Tauri-compatible format
-pub trait IntoTauriError {
-    fn into_tauri_error(self) -> String;
-}
-
-impl<E: fmt::Display> IntoTauriError for E {
-    fn into_tauri_error(self) -> String {
-        self.to_string()
-    }
-}
-
 /// Implement From<Error> for String to work with Tauri commands
 impl From<Error> for String {
     fn from(err: Error) -> Self {

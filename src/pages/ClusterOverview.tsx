@@ -23,7 +23,9 @@ import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { useClusterMetrics } from "@/hooks/useClusterMetrics";
 import { usePodMetrics } from "@/hooks/usePodMetrics";
+import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { ResourceUsage } from "@/components/ui/resource-usage";
+import { LicenseErrorBanner } from "@/components/license/LicenseErrorBanner";
 import { getTopPodsByCPU, getTopPodsByMemory } from "@/lib/resource-utils";
 import { useMemo } from "react";
 import { Cpu, MemoryStick } from "lucide-react";
@@ -97,11 +99,18 @@ export function ClusterOverview() {
     placeholderData: keepPreviousData, // Keep showing previous data while loading
   });
 
-  // Get cluster metrics
-  const { data: clusterMetrics } = useClusterMetrics();
+  // Check premium feature access
+  const { hasAccess } = usePremiumFeature();
 
-  // Get all pod metrics for top pods
-  const { data: allPodMetrics = [] } = usePodMetrics(undefined);
+  // Get cluster metrics (only if user has premium access)
+  const { data: clusterMetrics } = useClusterMetrics({
+    enabled: hasAccess,
+  });
+
+  // Get all pod metrics for top pods (only if user has premium access)
+  const { data: allPodMetrics = [] } = usePodMetrics(undefined, {
+    enabled: hasAccess,
+  });
 
   // Get all pods
   const { data: allPods = [] } = useQuery({
@@ -312,106 +321,112 @@ export function ClusterOverview() {
       </div>
 
       {/* Cluster Resource Usage */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Cluster CPU Usage</CardTitle>
-            <Cpu className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <ResourceUsage
-              used={clusterMetrics?.total_cpu_usage ?? null}
-              total={clusterMetrics?.total_cpu_capacity ?? totalClusterCapacity.cpu}
-              type="cpu"
-              showProgressBar={true}
-            />
-          </CardContent>
-        </Card>
+      {hasAccess ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Cluster CPU Usage</CardTitle>
+              <Cpu className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <ResourceUsage
+                used={clusterMetrics?.total_cpu_usage ?? null}
+                total={clusterMetrics?.total_cpu_capacity ?? totalClusterCapacity.cpu}
+                type="cpu"
+                showProgressBar={true}
+              />
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Cluster Memory Usage</CardTitle>
-            <MemoryStick className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <ResourceUsage
-              used={clusterMetrics?.total_memory_usage ?? null}
-              total={clusterMetrics?.total_memory_capacity ?? totalClusterCapacity.memory}
-              type="memory"
-              showProgressBar={true}
-            />
-          </CardContent>
-        </Card>
-      </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Cluster Memory Usage</CardTitle>
+              <MemoryStick className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <ResourceUsage
+                used={clusterMetrics?.total_memory_usage ?? null}
+                total={clusterMetrics?.total_memory_capacity ?? totalClusterCapacity.memory}
+                type="memory"
+                showProgressBar={true}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        <LicenseErrorBanner message="Cluster metrics are available for premium users only." />
+      )}
 
       {/* Top Pods by Resource Usage */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Top Pods by CPU</CardTitle>
-            <CardDescription>Pods consuming the most CPU resources</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {topPodsByCPU.length > 0 ? (
-                topPodsByCPU.map((pod, idx) => {
-                  const podInfo = podsWithMetrics.find((p) => p.name === pod.name);
-                  return (
-                    <Link
-                      key={pod.name}
-                      to={`/pod/${podInfo?.namespace || 'default'}/${pod.name}`}
-                      className="flex items-center justify-between p-2 rounded-md hover:bg-muted transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">#{idx + 1}</span>
-                        <span className="text-sm">{pod.name}</span>
-                      </div>
-                      <span className="text-sm font-mono">
-                        {pod.cpu_usage > 0 ? `${pod.cpu_usage.toFixed(2)} cores` : '-'}
-                      </span>
-                    </Link>
-                  );
-                })
-              ) : (
-                <p className="text-sm text-muted-foreground">No pod metrics available</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+      {hasAccess && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Top Pods by CPU</CardTitle>
+              <CardDescription>Pods consuming the most CPU resources</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {topPodsByCPU.length > 0 ? (
+                  topPodsByCPU.map((pod, idx) => {
+                    const podInfo = podsWithMetrics.find((p) => p.name === pod.name);
+                    return (
+                      <Link
+                        key={pod.name}
+                        to={`/pod/${podInfo?.namespace || 'default'}/${pod.name}`}
+                        className="flex items-center justify-between p-2 rounded-md hover:bg-muted transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">#{idx + 1}</span>
+                          <span className="text-sm">{pod.name}</span>
+                        </div>
+                        <span className="text-sm font-mono">
+                          {pod.cpu_usage > 0 ? `${pod.cpu_usage.toFixed(2)} cores` : '-'}
+                        </span>
+                      </Link>
+                    );
+                  })
+                ) : (
+                  <p className="text-sm text-muted-foreground">No pod metrics available</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Top Pods by Memory</CardTitle>
-            <CardDescription>Pods consuming the most memory resources</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {topPodsByMemory.length > 0 ? (
-                topPodsByMemory.map((pod, idx) => {
-                  const podInfo = podsWithMetrics.find((p) => p.name === pod.name);
-                  return (
-                    <Link
-                      key={pod.name}
-                      to={`/pod/${podInfo?.namespace || 'default'}/${pod.name}`}
-                      className="flex items-center justify-between p-2 rounded-md hover:bg-muted transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">#{idx + 1}</span>
-                        <span className="text-sm">{pod.name}</span>
-                      </div>
-                      <span className="text-sm font-mono">
-                        {pod.memory_usage > 0 ? `${(pod.memory_usage / (1024 * 1024 * 1024)).toFixed(2)} Gi` : '-'}
-                      </span>
-                    </Link>
-                  );
-                })
-              ) : (
-                <p className="text-sm text-muted-foreground">No pod metrics available</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Top Pods by Memory</CardTitle>
+              <CardDescription>Pods consuming the most memory resources</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {topPodsByMemory.length > 0 ? (
+                  topPodsByMemory.map((pod, idx) => {
+                    const podInfo = podsWithMetrics.find((p) => p.name === pod.name);
+                    return (
+                      <Link
+                        key={pod.name}
+                        to={`/pod/${podInfo?.namespace || 'default'}/${pod.name}`}
+                        className="flex items-center justify-between p-2 rounded-md hover:bg-muted transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">#{idx + 1}</span>
+                          <span className="text-sm">{pod.name}</span>
+                        </div>
+                        <span className="text-sm font-mono">
+                          {pod.memory_usage > 0 ? `${(pod.memory_usage / (1024 * 1024 * 1024)).toFixed(2)} Gi` : '-'}
+                        </span>
+                      </Link>
+                    );
+                  })
+                ) : (
+                  <p className="text-sm text-muted-foreground">No pod metrics available</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Quick Actions */}
       <Card>

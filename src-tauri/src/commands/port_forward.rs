@@ -118,6 +118,8 @@ pub async fn port_forward_pod(
     config: PortForwardRequest,
     state: State<'_, AppState>,
 ) -> Result<PortForwardSessionInfo, String> {
+    crate::commands::helpers::check_premium_license().await
+        .map_err(|e| e.to_string())?;
     if config.local_port == 0 || config.remote_port == 0 {
         return Err("Ports must be greater than 0".to_string());
     }

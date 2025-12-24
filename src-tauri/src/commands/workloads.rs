@@ -32,7 +32,12 @@ pub async fn list_statefulsets(
     state: State<'_, AppState>,
 ) -> Result<Vec<StatefulSetInfo>> {
     let ctx = ListContext::new(&state, namespace)?;
-    let api: kube::Api<StatefulSet> = ctx.api();
+    // Use namespaced API when namespace is provided for proper filtering
+    let api: kube::Api<StatefulSet> = if ctx.namespace.is_some() {
+        ctx.namespaced_api()
+    } else {
+        ctx.api()
+    };
     let list = api.list(&ListParams::default()).await?;
 
     Ok(list
@@ -75,7 +80,12 @@ pub async fn list_daemonsets(
     state: State<'_, AppState>,
 ) -> Result<Vec<DaemonSetInfo>> {
     let ctx = ListContext::new(&state, namespace)?;
-    let api: kube::Api<DaemonSet> = ctx.api();
+    // Use namespaced API when namespace is provided for proper filtering
+    let api: kube::Api<DaemonSet> = if ctx.namespace.is_some() {
+        ctx.namespaced_api()
+    } else {
+        ctx.api()
+    };
     let list = api.list(&ListParams::default()).await?;
 
     Ok(list
@@ -117,7 +127,12 @@ pub async fn list_jobs(
     state: State<'_, AppState>,
 ) -> Result<Vec<JobInfo>> {
     let ctx = ListContext::new(&state, namespace)?;
-    let api: kube::Api<Job> = ctx.api();
+    // Use namespaced API when namespace is provided for proper filtering
+    let api: kube::Api<Job> = if ctx.namespace.is_some() {
+        ctx.namespaced_api()
+    } else {
+        ctx.api()
+    };
     let list = api.list(&ListParams::default()).await?;
 
     Ok(list
@@ -172,7 +187,12 @@ pub async fn list_cronjobs(
     state: State<'_, AppState>,
 ) -> Result<Vec<CronJobInfo>> {
     let ctx = ListContext::new(&state, namespace)?;
-    let api: kube::Api<CronJob> = ctx.api();
+    // Use namespaced API when namespace is provided for proper filtering
+    let api: kube::Api<CronJob> = if ctx.namespace.is_some() {
+        ctx.namespaced_api()
+    } else {
+        ctx.api()
+    };
     let list = api.list(&ListParams::default()).await?;
 
     Ok(list

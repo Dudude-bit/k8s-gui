@@ -232,7 +232,7 @@ pub async fn drain_node(
         }
 
         // Evict the pod
-        let pod_api: kube::Api<Pod> = kube::Api::namespaced((*ctx.client).clone(), &namespace);
+        let pod_api: kube::Api<Pod> = kube::Api::namespaced(ctx.client.clone(), &namespace);
         let evict_params = kube::api::EvictParams::default();
         let _ = pod_api.evict(&pod_name, &evict_params).await;
     }

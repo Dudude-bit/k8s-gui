@@ -31,7 +31,12 @@ pub async fn list_configmaps(
     let ctx = ListContext::new(&state, filters.namespace)?;
     let params = build_list_params(filters.label_selector.as_deref(), None, filters.limit);
 
-    let api: kube::Api<ConfigMap> = ctx.api();
+    // Use namespaced API when namespace is provided for proper filtering
+    let api: kube::Api<ConfigMap> = if ctx.namespace.is_some() {
+        ctx.namespaced_api()
+    } else {
+        ctx.api()
+    };
     let list = api.list(&params).await?;
 
     Ok(list.items.iter().map(ConfigMapInfo::from).collect())
@@ -156,7 +161,12 @@ pub async fn list_secrets(
     let ctx = ListContext::new(&state, filters.namespace)?;
     let params = build_list_params(filters.label_selector.as_deref(), None, filters.limit);
 
-    let api: kube::Api<Secret> = ctx.api();
+    // Use namespaced API when namespace is provided for proper filtering
+    let api: kube::Api<Secret> = if ctx.namespace.is_some() {
+        ctx.namespaced_api()
+    } else {
+        ctx.api()
+    };
     let list = api.list(&params).await?;
 
     let mut secrets: Vec<SecretInfo> = list.items.iter().map(SecretInfo::from).collect();

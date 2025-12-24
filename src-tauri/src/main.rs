@@ -145,16 +145,7 @@ fn main() {
             
             // Generic resource management
             commands::resources::list_resources,
-            commands::resources::get_resource,
-            commands::resources::create_resource,
-            commands::resources::update_resource,
-            commands::resources::delete_resource,
-            commands::resources::watch_resources,
-            commands::resources::stop_watch,
 
-            // Manifest commands
-            commands::manifest::validate_manifest,
-            commands::manifest::apply_manifest,
             
             // Pod commands
             commands::pods::list_pods,
@@ -222,99 +213,41 @@ fn main() {
             
             // Event commands
             commands::events::list_events,
-            commands::events::list_all_events,
-            commands::events::list_warning_events,
-            commands::events::get_resource_events,
-            commands::events::get_pod_events,
-            commands::events::get_deployment_events,
-            commands::events::get_node_events,
-            commands::events::watch_events,
-            commands::events::stop_watch_events,
-            commands::events::get_event_summary,
             
             // Log commands
-            commands::logs::stream_pod_logs,
             commands::logs::get_pod_logs,
             commands::logs::stop_log_stream,
-            commands::logs::search_pod_logs,
-            commands::logs::get_multi_container_logs,
-            commands::logs::download_pod_logs,
             
             // Terminal/Exec commands
-            commands::terminal::exec_in_pod,
             commands::terminal::terminal_input,
             commands::terminal::terminal_resize,
             commands::terminal::close_terminal,
-            commands::terminal::list_terminal_sessions,
             commands::terminal::open_shell,
-            commands::terminal::run_command_in_pod,
-            commands::terminal::copy_from_pod,
-            commands::terminal::copy_to_pod,
             
             // Plugin commands
-            commands::plugins::list_plugins,
-            commands::plugins::get_plugin,
-            commands::plugins::enable_plugin,
-            commands::plugins::disable_plugin,
-            commands::plugins::discover_plugins,
-            commands::plugins::execute_plugin,
-            commands::plugins::list_kubectl_plugins,
-            commands::plugins::execute_kubectl_plugin,
             commands::plugins::list_helm_releases,
-            commands::plugins::get_helm_release,
-            commands::plugins::get_helm_values,
-            commands::plugins::get_helm_manifest,
-            commands::plugins::get_helm_history,
-            commands::plugins::rollback_helm_release,
-            commands::plugins::uninstall_helm_release,
-            commands::plugins::get_context_menu_items,
-            commands::plugins::execute_context_menu_action,
-            commands::plugins::get_resource_renderers,
-            commands::plugins::render_resource,
             
             // Settings commands
-            commands::settings::get_config,
-            commands::settings::update_config,
-            commands::settings::reset_config,
-            commands::settings::get_theme,
-            commands::settings::update_theme,
-            commands::settings::get_kubernetes_config,
-            commands::settings::update_kubernetes_config,
-            commands::settings::get_cache_config,
-            commands::settings::update_cache_config,
             commands::settings::clear_cache,
-            commands::settings::get_plugin_config,
-            commands::settings::update_plugin_config,
-            commands::settings::get_logging_config,
-            commands::settings::update_logging_config,
-            commands::settings::get_keyboard_shortcuts,
-            commands::settings::update_keyboard_shortcut,
-            commands::settings::reset_keyboard_shortcuts,
-            commands::settings::export_settings,
-            commands::settings::import_settings,
-            commands::settings::get_app_info,
 
             // Registry commands
-            commands::registry::search_registry_images,
             commands::registry::set_registry_credentials,
             commands::registry::delete_registry_credentials,
             commands::registry::get_registry_auth_status,
-            commands::registry::import_docker_config,
             
             // Authentication commands
-            commands::auth::get_auth_status,
-            commands::auth::auth_with_kubeconfig,
-            commands::auth::auth_with_token,
-            commands::auth::auth_with_certificate,
-            commands::auth::start_oidc_auth,
-            commands::auth::complete_oidc_auth,
-            commands::auth::auth_with_eks,
-            commands::auth::list_eks_clusters,
-            commands::auth::refresh_auth,
-            commands::auth::save_credentials,
-            commands::auth::delete_credentials,
-            commands::auth::logout,
             commands::auth::cancel_auth_session,
+            
+            // License and user authentication commands
+            commands::license::init_license_client,
+            commands::license::login_user,
+            commands::license::register_user,
+            commands::license::check_license_status,
+            commands::license::activate_license,
+            commands::license::is_license_valid,
+            commands::license::get_user_profile,
+            commands::license::update_user_profile,
+            commands::license::get_payment_history,
             
             // Storage commands
             commands::storage::list_persistent_volumes,

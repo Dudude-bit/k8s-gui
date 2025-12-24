@@ -53,7 +53,12 @@ pub async fn list_events(
         }
     }
 
-    let api: kube::Api<Event> = ctx.api();
+    // Use namespaced API when namespace is provided for proper filtering
+    let api: kube::Api<Event> = if ctx.namespace.is_some() {
+        ctx.namespaced_api()
+    } else {
+        ctx.api()
+    };
     let list = api.list(&params).await?;
 
     let mut events: Vec<EventInfo> = list.items.iter().map(EventInfo::from).collect();

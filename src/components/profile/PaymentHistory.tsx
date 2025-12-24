@@ -1,0 +1,141 @@
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
+
+interface Payment {
+  id: string;
+  amount: string;
+  currency: string;
+  status: string;
+  transaction_id: string | null;
+  payment_provider: string | null;
+  created_at: string;
+}
+
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const getStatusBadge = (status: string) => {
+  const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+    completed: "default",
+    pending: "secondary",
+    failed: "destructive",
+    refunded: "outline",
+  };
+
+  return (
+    <Badge variant={variants[status] || "outline"}>
+      {status.charAt(0).toUpperCase() + status.slice(1)}
+    </Badge>
+  );
+};
+
+export function PaymentHistory() {
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadPayments = async () => {
+      try {
+        const history = await invoke<{ payments: Payment[] }>("get_payment_history");
+        setPayments(history.payments);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadPayments();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Payment History</CardTitle>
+          <CardDescription>Your transaction history</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Payment History</CardTitle>
+          <CardDescription>Your transaction history</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-destructive">{error}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Payment History</CardTitle>
+        <CardDescription>Your transaction history</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {payments.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">
+            No payment history available
+          </p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Transaction ID</TableHead>
+                <TableHead>Provider</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {payments.map((payment) => (
+                <TableRow key={payment.id}>
+                  <TableCell>{formatDate(payment.created_at)}</TableCell>
+                  <TableCell>
+                    {payment.currency} {payment.amount}
+                  </TableCell>
+                  <TableCell>{getStatusBadge(payment.status)}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {payment.transaction_id || "N/A"}
+                  </TableCell>
+                  <TableCell>{payment.payment_provider || "N/A"}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+

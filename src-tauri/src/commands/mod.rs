@@ -27,6 +27,7 @@ pub mod port_forward;
 pub mod manifest;
 pub mod registry;
 pub mod metrics;
+pub mod license;
 
 // Re-export all commands for easy registration
 pub use cluster::*;
@@ -51,3 +52,4 @@ pub use port_forward::*;
 pub use manifest::*;
 pub use registry::*;
 pub use metrics::*;
+pub use license::*;

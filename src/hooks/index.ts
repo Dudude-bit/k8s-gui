@@ -37,3 +37,8 @@ export { useCopyToClipboard } from './useCopyToClipboard';
 export { usePodsWithMetrics, type PodWithMetrics } from './usePodsWithMetrics';
 export { usePodMetrics } from './usePodMetrics';
 export { useResourceWithMetrics } from './useResourceWithMetrics';
+
+// License and user hooks
+export { useLicense } from './useLicense';
+export { usePremiumFeature } from './usePremiumFeature';
+export { useUserProfile } from './useUserProfile';

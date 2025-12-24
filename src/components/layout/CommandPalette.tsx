@@ -196,15 +196,35 @@ export function CommandPalette() {
         const results = await Promise.all(
           kinds.map(async (resource) => {
             try {
+              const queryParams: Record<string, unknown> = {
+                kind: resource.kind,
+                limit: 200,
+              };
+              // For namespaced resources, pass namespace (null/undefined means all namespaces)
+              // For cluster-scoped resources, don't pass namespace
+              if (resource.namespaced) {
+                // Pass null explicitly for "all namespaces", or the namespace string for a specific namespace
+                queryParams.namespace = namespace || null;
+              }
+              
+              console.log(`[CommandPalette] Searching ${resource.kind} with query:`, queryParams);
+              
+              // In Tauri v2, when a command takes a single struct parameter (besides State),
+              // the parameter name must match. Since the Rust function signature is:
+              // list_resources(query: ResourceQuery, state: State)
+              // we need to pass { query: { kind, namespace, limit } }
               const items = await invokeTyped<ResourceListItem[]>("list_resources", {
-                query: {
-                  kind: resource.kind,
-                  namespace: resource.namespaced ? namespace : null,
-                  limit: 200,
-                },
+                query: queryParams,
               });
 
-              return items
+              console.log(`[CommandPalette] Received ${items?.length || 0} items for ${resource.kind}`, items?.slice(0, 2));
+
+              if (!items || !Array.isArray(items)) {
+                console.warn(`[CommandPalette] Invalid response for ${resource.kind}:`, items);
+                return [] as ResourceResult[];
+              }
+
+              const filtered = items
                 .map((item) => {
                   const metadata = item?.metadata || {};
                   const name = metadata.name as string | undefined;
@@ -230,8 +250,11 @@ export function CommandPalette() {
                   };
                 })
                 .filter(Boolean) as ResourceResult[];
+              
+              console.log(`[CommandPalette] Filtered to ${filtered.length} results for ${resource.kind}`);
+              return filtered;
             } catch (error) {
-              console.error(`Failed to search ${resource.kind}:`, error);
+              console.error(`[CommandPalette] Failed to search ${resource.kind}:`, error);
               return [] as ResourceResult[];
             }
           }),

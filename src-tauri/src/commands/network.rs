@@ -89,7 +89,12 @@ pub async fn list_ingresses(
     namespace: Option<String>,
 ) -> Result<Vec<IngressInfo>> {
     let ctx = ListContext::new(&state, namespace)?;
-    let api: kube::Api<Ingress> = ctx.api();
+    // Use namespaced API when namespace is provided for proper filtering
+    let api: kube::Api<Ingress> = if ctx.namespace.is_some() {
+        ctx.namespaced_api()
+    } else {
+        ctx.api()
+    };
     let ingress_list = api.list(&ListParams::default()).await?;
 
     Ok(ingress_list
@@ -195,7 +200,12 @@ pub async fn list_endpoints(
     namespace: Option<String>,
 ) -> Result<Vec<EndpointsInfo>> {
     let ctx = ListContext::new(&state, namespace)?;
-    let api: kube::Api<Endpoints> = ctx.api();
+    // Use namespaced API when namespace is provided for proper filtering
+    let api: kube::Api<Endpoints> = if ctx.namespace.is_some() {
+        ctx.namespaced_api()
+    } else {
+        ctx.api()
+    };
     let endpoints_list = api.list(&ListParams::default()).await?;
 
     Ok(endpoints_list

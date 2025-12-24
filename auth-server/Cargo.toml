@@ -1,0 +1,61 @@
+[package]
+name = "auth-server"
+version = "0.1.0"
+edition = "2021"
+authors = ["K8s GUI Team"]
+description = "Authentication and licensing server for K8s GUI"
+license = "MIT"
+
+[[bin]]
+name = "auth-server"
+path = "src/main.rs"
+
+[dependencies]
+# Web framework
+actix-web = "4.8"
+actix-rt = "2.11"
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json", "bigdecimal"] }
+
+# Password hashing
+argon2 = "0.5"
+
+# JWT
+jsonwebtoken = "9.3"
+chrono = { version = "0.4", features = ["serde"] }
+
+# Async runtime
+tokio = { version = "1.42", features = ["full"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Validation
+validator = { version = "0.18", features = ["derive"] }
+
+# Utilities
+uuid = { version = "1.11", features = ["v4", "serde"] }
+dotenv = "0.15"
+env_logger = "0.11"
+log = "0.4"
+
+# Rate limiting
+dashmap = "6.1"
+
+# CORS
+actix-cors = "0.7"
+
+# Base64 encoding
+base64 = "0.22"
+
+# Random number generation
+rand = "0.8"
+
+# Decimal for money
+bigdecimal = { version = "0.4", features = ["serde"] }
+
+# SHA2 for token hashing
+sha2 = "0.10"
+

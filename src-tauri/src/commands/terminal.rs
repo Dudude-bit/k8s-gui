@@ -31,25 +31,6 @@ pub struct CopyResult {
     pub error: Option<String>,
 }
 
-/// Exec into a pod (interactive session)
-#[tauri::command]
-pub async fn exec_in_pod(
-    namespace: String,
-    pod: String,
-    container: Option<String>,
-    _command: Option<Vec<String>>,
-    _state: State<'_, AppState>,
-) -> Result<String, String> {
-    // Return a session ID for an interactive session
-    // Real implementation would set up WebSocket/PTY
-    Ok(format!(
-        "session-{}-{}-{}",
-        namespace,
-        pod,
-        container.unwrap_or_else(|| "default".to_string())
-    ))
-}
-
 /// Send input to terminal session
 #[tauri::command]
 pub async fn terminal_input(
@@ -73,8 +54,10 @@ pub async fn terminal_resize(
     rows: u16,
     _state: State<'_, AppState>,
 ) -> Result<(), String> {
-    // TODO: Implement terminal resize when PTY support is added
-    tracing::debug!("Terminal resize for session {}: {}x{}", session_id, cols, rows);
+    // Note: Terminal resize requires PTY (pseudo-terminal) support.
+    // Currently, terminal sessions use exec attach which doesn't support resize.
+    // When PTY support is added, this will send SIGWINCH signal or use resize API.
+    tracing::debug!("Terminal resize requested for session {}: {}x{} (PTY resize not yet implemented)", session_id, cols, rows);
     Ok(())
 }
 
@@ -92,26 +75,6 @@ pub async fn close_terminal(
     
     tracing::info!("Terminal session {} closed", session_id);
     Ok(())
-}
-
-/// List active terminal sessions
-#[tauri::command]
-pub async fn list_terminal_sessions(
-    state: State<'_, AppState>,
-) -> Result<Vec<TerminalSessionInfo>, String> {
-    let sessions: Vec<_> = state.terminal_sessions.iter()
-        .map(|r| {
-            let s = r.value();
-            TerminalSessionInfo {
-                id: s.id.clone(),
-                pod: s.pod.clone(),
-                container: s.container.clone(),
-                namespace: s.namespace.clone(),
-                created_at: s.created_at.to_rfc3339(),
-            }
-        })
-        .collect();
-    Ok(sessions)
 }
 
 /// Open a shell in a pod
@@ -244,111 +207,3 @@ pub async fn open_shell(
     Ok(session_id)
 }
 
-/// Run a command in a pod (non-interactive)
-#[tauri::command]
-pub async fn run_command_in_pod(
-    namespace: String,
-    pod: String,
-    container: Option<String>,
-    command: Vec<String>,
-    state: State<'_, AppState>,
-) -> Result<ExecResult, String> {
-    use kube::api::AttachParams;
-    use tokio::io::AsyncReadExt;
-    
-    let context = state.get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
-    
-    let client = state.client_manager.get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
-    
-    let api: kube::Api<k8s_openapi::api::core::v1::Pod> = 
-        kube::Api::namespaced((*client).clone(), &namespace);
-    
-    // Get first container if not specified
-    let container_name = if let Some(c) = container {
-        c
-    } else {
-        let pod_obj = api.get(&pod).await.map_err(|e| e.to_string())?;
-        pod_obj.spec
-            .and_then(|s| s.containers.first().map(|c| c.name.clone()))
-            .unwrap_or_else(|| "".to_string())
-    };
-    
-    let params = AttachParams::default()
-        .container(&container_name)
-        .stdout(true)
-        .stderr(true);
-    
-    let mut attached = api.exec(&pod, command, &params).await.map_err(|e| e.to_string())?;
-    
-    let mut stdout = String::new();
-    let mut stderr = String::new();
-    
-    if let Some(mut stdout_stream) = attached.stdout() {
-        stdout_stream.read_to_string(&mut stdout).await.ok();
-    }
-    
-    if let Some(mut stderr_stream) = attached.stderr() {
-        stderr_stream.read_to_string(&mut stderr).await.ok();
-    }
-    
-    let status = attached.take_status();
-    let exit_code = if let Some(status_future) = status {
-        status_future.await.and_then(|s| s.status).and_then(|s| {
-            if s == "Success" { Some(0) } else { Some(1) }
-        })
-    } else {
-        None
-    };
-    
-    Ok(ExecResult {
-        stdout,
-        stderr,
-        exit_code,
-    })
-}
-
-/// Copy file from pod to local
-#[tauri::command]
-pub async fn copy_from_pod(
-    namespace: String,
-    pod: String,
-    container: Option<String>,
-    remote_path: String,
-    local_path: String,
-    _state: State<'_, AppState>,
-) -> Result<CopyResult, String> {
-    // Stub: would use tar to copy file from pod
-    tracing::debug!(
-        "Copy from pod: {}:{}/{} ({:?}) -> {}",
-        namespace, pod, remote_path, container, local_path
-    );
-    Ok(CopyResult {
-        success: false,
-        bytes_copied: None,
-        error: Some("Copy from pod not yet implemented".to_string()),
-    })
-}
-
-/// Copy file from local to pod
-#[tauri::command]
-pub async fn copy_to_pod(
-    namespace: String,
-    pod: String,
-    container: Option<String>,
-    local_path: String,
-    remote_path: String,
-    _state: State<'_, AppState>,
-) -> Result<CopyResult, String> {
-    // Stub: would use tar to copy file to pod
-    tracing::debug!(
-        "Copy to pod: {} -> {}:{}/{} ({:?})",
-        local_path, namespace, pod, remote_path, container
-    );
-    Ok(CopyResult {
-        success: false,
-        bytes_copied: None,
-        error: Some("Copy to pod not yet implemented".to_string()),
-    })
-}

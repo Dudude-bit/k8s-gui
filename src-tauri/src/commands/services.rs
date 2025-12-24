@@ -23,7 +23,12 @@ pub async fn list_services(
         filters.limit,
     );
 
-    let api: kube::Api<Service> = ctx.api();
+    // Use namespaced API when namespace is provided for proper filtering
+    let api: kube::Api<Service> = if ctx.namespace.is_some() {
+        ctx.namespaced_api()
+    } else {
+        ctx.api()
+    };
     let list = api.list(&params).await?;
 
     let mut services: Vec<ServiceInfo> = list.items.iter().map(ServiceInfo::from).collect();

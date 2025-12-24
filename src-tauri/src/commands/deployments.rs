@@ -25,7 +25,12 @@ pub async fn list_deployments(
         filters.limit,
     );
 
-    let api: kube::Api<Deployment> = ctx.api();
+    // Use namespaced API when namespace is provided for proper filtering
+    let api: kube::Api<Deployment> = if ctx.namespace.is_some() {
+        ctx.namespaced_api()
+    } else {
+        ctx.api()
+    };
     let list = api.list(&params).await?;
 
     Ok(list.items.iter().map(DeploymentInfo::from).collect())

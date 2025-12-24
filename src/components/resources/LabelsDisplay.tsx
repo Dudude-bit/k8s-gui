@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MetadataCard } from "./MetadataCard";
 
 interface LabelsDisplayProps {
   labels: Record<string, string>;
@@ -16,38 +16,22 @@ export function LabelsDisplay({
 }: LabelsDisplayProps) {
   const entries = Object.entries(labels);
 
-  if (entries.length === 0) {
-    return (
-      <Card className={className}>
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">{emptyMessage}</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-wrap gap-2">
-          {entries.map(([key, value]) => (
-            <Badge
-              key={key}
-              variant="outline"
-              className="font-mono text-xs"
-            >
-              {key}={value}
-            </Badge>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+    <MetadataCard
+      title={title}
+      items={entries}
+      emptyMessage={emptyMessage}
+      className={className}
+      itemsContainerClassName="flex flex-wrap gap-2"
+      renderItem={([key, value]) => (
+        <Badge
+          key={key}
+          variant="outline"
+          className="font-mono text-xs"
+        >
+          {key}={value}
+        </Badge>
+      )}
+    />
   );
 }
-

@@ -30,7 +30,10 @@ import {
   Command,
   AlertCircle,
   Loader2,
+  User,
 } from "lucide-react";
+import { LicenseStatusBadge } from "@/components/license/LicenseStatusBadge";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
@@ -200,8 +203,11 @@ export function Header() {
         />
       </div>
 
-      {/* Right: Search and theme */}
+      {/* Right: License, Search, Profile, and theme */}
       <div className="flex items-center gap-2">
+        {/* License status badge */}
+        <LicenseStatusBadge />
+
         {/* Command palette trigger */}
         <Button
           variant="outline"
@@ -215,6 +221,13 @@ export function Header() {
           <kbd className="ml-auto inline-flex h-5 items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
             <Command className="h-3 w-3" />K
           </kbd>
+        </Button>
+
+        {/* Profile link */}
+        <Button variant="ghost" size="icon" asChild>
+          <Link to="/profile">
+            <User className="h-4 w-4" />
+          </Link>
         </Button>
 
         {/* Theme toggle */}

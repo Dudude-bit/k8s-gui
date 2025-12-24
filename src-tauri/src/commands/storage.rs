@@ -123,7 +123,12 @@ pub async fn list_persistent_volume_claims(
     namespace: Option<String>,
 ) -> Result<Vec<PersistentVolumeClaimInfo>> {
     let ctx = ListContext::new(&state, namespace)?;
-    let api: kube::Api<PersistentVolumeClaim> = ctx.api();
+    // Use namespaced API when namespace is provided for proper filtering
+    let api: kube::Api<PersistentVolumeClaim> = if ctx.namespace.is_some() {
+        ctx.namespaced_api()
+    } else {
+        ctx.api()
+    };
     let pvc_list = api.list(&ListParams::default()).await?;
 
     Ok(pvc_list

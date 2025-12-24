@@ -23,7 +23,12 @@ pub async fn list_pods(
         filters.limit,
     );
 
-    let api: kube::Api<Pod> = ctx.api();
+    // Use namespaced API when namespace is provided for proper filtering
+    let api: kube::Api<Pod> = if ctx.namespace.is_some() {
+        ctx.namespaced_api()
+    } else {
+        ctx.api()
+    };
     let list = api.list(&params).await?;
 
     let mut pods: Vec<PodInfo> = list.items.iter().map(PodInfo::from).collect();

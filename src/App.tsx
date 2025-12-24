@@ -13,6 +13,7 @@ const Nodes = lazy(() => import("@/pages/Nodes").then(m => ({ default: m.Nodes }
 const Events = lazy(() => import("@/pages/Events").then(m => ({ default: m.Events })));
 const Helm = lazy(() => import("@/pages/Helm").then(m => ({ default: m.Helm })));
 const Settings = lazy(() => import("@/pages/Settings").then(m => ({ default: m.Settings })));
+const Profile = lazy(() => import("@/pages/Profile").then(m => ({ default: m.Profile })));
 const PodDetail = lazy(() => import("@/pages/PodDetail").then(m => ({ default: m.PodDetail })));
 const DeploymentDetail = lazy(() => import("@/pages/DeploymentDetail").then(m => ({ default: m.DeploymentDetail })));
 const ServiceDetail = lazy(() => import("@/pages/ServiceDetail").then(m => ({ default: m.ServiceDetail })));
@@ -25,6 +26,7 @@ import { useClusterErrorToasts } from "@/hooks/useClusterErrorToasts";
 import { useAuthFlowEvents } from "@/hooks/useAuthFlowEvents";
 import { usePortForwardEvents } from "@/hooks/usePortForwardEvents";
 import { usePortForwardStore } from "@/stores/portForwardStore";
+import { useLicense } from "@/hooks/useLicense";
 
 export default function App() {
   const { theme } = useThemeStore();
@@ -36,6 +38,8 @@ export default function App() {
   useClusterErrorToasts();
   useAuthFlowEvents();
   usePortForwardEvents();
+  // Initialize license check on app start
+  useLicense();
 
   useEffect(() => {
     hydratePortForwards();
@@ -89,6 +93,7 @@ export default function App() {
             <Route path="events" element={<Events />} />
             <Route path="helm" element={<Helm />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="profile" element={<Profile />} />
             <Route path="pod/:namespace/:name" element={<PodDetail />} />
             <Route
               path="deployment/:namespace/:name"

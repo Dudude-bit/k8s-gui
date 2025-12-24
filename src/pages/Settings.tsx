@@ -15,6 +15,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { useToast } from "@/components/ui/use-toast";
 import { PortForwardManager } from "@/components/port-forward/PortForwardManager";
 import { RegistrySettings } from "@/components/registry/RegistrySettings";
+import { LicenseSection } from "@/components/profile/LicenseSection";
+import { Link } from "react-router-dom";
+import { User } from "lucide-react";
 
 export function Settings() {
   const { theme, setTheme } = useThemeStore();
@@ -47,6 +50,34 @@ export function Settings() {
           Customize your K8s GUI experience
         </p>
       </div>
+
+      {/* Account & License Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Account & License</CardTitle>
+          <CardDescription>
+            Manage your account and license information
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">User Profile</p>
+              <p className="text-sm text-muted-foreground">
+                View and edit your profile information
+              </p>
+            </div>
+            <Button variant="outline" asChild>
+              <Link to="/profile">
+                <User className="mr-2 h-4 w-4" />
+                Go to Profile
+              </Link>
+            </Button>
+          </div>
+          <Separator />
+          <LicenseSection />
+        </CardContent>
+      </Card>
 
       {/* Appearance */}
       <Card>

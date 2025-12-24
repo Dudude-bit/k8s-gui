@@ -3,6 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { useState, useCallback, useMemo } from "react";
 import { useResourceYaml, useCopyToClipboard, usePodMetrics } from "@/hooks";
+import { usePremiumFeature } from "@/hooks/usePremiumFeature";
+import { LicenseErrorBanner } from "@/components/license/LicenseErrorBanner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -65,6 +69,7 @@ export function PodDetail() {
   const { toast } = useToast();
   const copyToClipboard = useCopyToClipboard();
   const currentContext = useClusterStore((state) => state.currentContext);
+  const { hasAccess: hasLicenseAccess, checkLicense } = usePremiumFeature();
   const queryClient = useQueryClient();
   const addPortForwardConfig = usePortForwardStore((state) => state.addConfig);
   const startPortForwardConfig = usePortForwardStore(
@@ -125,8 +130,10 @@ export function PodDetail() {
     },
   });
 
-  // Get pod metrics for real-time updates
-  const { data: podMetrics } = usePodMetrics(namespace || undefined);
+  // Get pod metrics for real-time updates (only if user has premium access)
+  const { data: podMetrics } = usePodMetrics(namespace || undefined, {
+    enabled: hasLicenseAccess,
+  });
   const podWithMetrics = useMemo(() => {
     if (!pod) return null;
     const metrics = podMetrics?.find(
@@ -268,14 +275,36 @@ export function PodDetail() {
     }
   };
 
-  const openTerminal = (containerName: string) => {
+  const openTerminal = async (containerName: string) => {
+    if (!hasLicenseAccess) {
+      const hasAccess = await checkLicense();
+      if (!hasAccess) {
+        toast({
+          title: "Premium Feature",
+          description: "Terminal access requires a premium license. Please activate your license.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
     setSelectedContainer(containerName);
     setShowTerminal(true);
   };
 
-  const openPortForwardDialog = () => {
+  const openPortForwardDialog = async () => {
     if (!pod) {
       return;
+    }
+    if (!hasLicenseAccess) {
+      const hasAccess = await checkLicense();
+      if (!hasAccess) {
+        toast({
+          title: "Premium Feature",
+          description: "Port forwarding requires a premium license. Please activate your license.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
     setPortForwardForm({
       name: pod.name,
@@ -449,14 +478,26 @@ export function PodDetail() {
         }
         actions={
           <>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={openPortForwardDialog}
-              disabled={!currentContext}
-            >
-              Port Forward
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={openPortForwardDialog}
+                    disabled={!currentContext || !hasLicenseAccess}
+                  >
+                    {!hasLicenseAccess && <Lock className="mr-2 h-4 w-4" />}
+                    Port Forward
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!hasLicenseAccess && (
+                <TooltipContent>
+                  Premium feature - requires license
+                </TooltipContent>
+              )}
+            </Tooltip>
             <Button
               variant="outline"
               size="sm"
@@ -690,38 +731,42 @@ export function PodDetail() {
           </div>
 
           {/* Resource Usage Metrics */}
-          {podWithMetrics && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">CPU Usage</CardTitle>
-                  <Cpu className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <ResourceUsage
-                    used={podWithMetrics.cpu_usage ?? null}
-                    total={podWithMetrics.cpu_limits ?? podWithMetrics.cpu_requests ?? null}
-                    type="cpu"
-                    showProgressBar={true}
-                  />
-                </CardContent>
-              </Card>
+          {hasLicenseAccess ? (
+            podWithMetrics && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">CPU Usage</CardTitle>
+                    <Cpu className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <ResourceUsage
+                      used={podWithMetrics.cpu_usage ?? null}
+                      total={podWithMetrics.cpu_limits ?? podWithMetrics.cpu_requests ?? null}
+                      type="cpu"
+                      showProgressBar={true}
+                    />
+                  </CardContent>
+                </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Memory Usage</CardTitle>
-                  <MemoryStick className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <ResourceUsage
-                    used={podWithMetrics.memory_usage ?? null}
-                    total={podWithMetrics.memory_limits ?? podWithMetrics.memory_requests ?? null}
-                    type="memory"
-                    showProgressBar={true}
-                  />
-                </CardContent>
-              </Card>
-            </div>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Memory Usage</CardTitle>
+                    <MemoryStick className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <ResourceUsage
+                      used={podWithMetrics.memory_usage ?? null}
+                      total={podWithMetrics.memory_limits ?? podWithMetrics.memory_requests ?? null}
+                      type="memory"
+                      showProgressBar={true}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+            )
+          ) : (
+            <LicenseErrorBanner message="Metrics are available for premium users only." />
           )}
         </TabsContent>
 
@@ -740,14 +785,27 @@ export function PodDetail() {
                     >
                       {container.ready ? "Ready" : "Not Ready"}
                     </Badge>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openTerminal(container.name)}
-                    >
-                      <TerminalIcon className="mr-2 h-4 w-4" />
-                      Shell
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openTerminal(container.name)}
+                            disabled={!hasLicenseAccess}
+                          >
+                            {!hasLicenseAccess && <Lock className="mr-2 h-4 w-4" />}
+                            <TerminalIcon className="mr-2 h-4 w-4" />
+                            Shell
+                          </Button>
+                        </div>
+                      </TooltipTrigger>
+                      {!hasLicenseAccess && (
+                        <TooltipContent>
+                          Premium feature - requires license
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
@@ -803,21 +861,25 @@ export function PodDetail() {
         </TabsContent>
 
         <TabsContent value="logs">
-          <Card className="h-[500px]">
-            <CardContent className="p-0 h-full">
-              <LogViewer
-                key={`${pod.namespace}:${pod.name}`}
-                podName={pod.name}
-                namespace={pod.namespace}
-                containers={pod.containers.map((c) => c.name)}
-                initialContainer={pod.containers[0]?.name}
-                onPodNotFound={() => {
-                  // Refetch to check if pod still exists
-                  refetch();
-                }}
-              />
-            </CardContent>
-          </Card>
+          {hasLicenseAccess ? (
+            <Card className="h-[500px]">
+              <CardContent className="p-0 h-full">
+                <LogViewer
+                  key={`${pod.namespace}:${pod.name}`}
+                  podName={pod.name}
+                  namespace={pod.namespace}
+                  containers={pod.containers.map((c) => c.name)}
+                  initialContainer={pod.containers[0]?.name}
+                  onPodNotFound={() => {
+                    // Refetch to check if pod still exists
+                    refetch();
+                  }}
+                />
+              </CardContent>
+            </Card>
+          ) : (
+            <LicenseErrorBanner message="Logs viewer is available for premium users only." />
+          )}
         </TabsContent>
 
         <TabsContent value="yaml">

@@ -1,8 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { useToast } from "@/components/ui/use-toast";
-
-const DEDUPE_MS = 3000;
+import { useDeduplicatedToast } from "./useDeduplicatedToast";
+import { isLicenseError } from "@/lib/license-error-utils";
 
 function normalizeErrorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -19,27 +18,9 @@ function normalizeErrorMessage(error: unknown): string {
 }
 
 export function useGlobalErrorToasts() {
-  const { toast } = useToast();
-  const lastErrorRef = useRef<{ message: string; time: number } | null>(null);
+  const { emitToast } = useDeduplicatedToast();
 
   useEffect(() => {
-    const emitToast = (title: string, description?: string) => {
-      const message = description || title;
-      const now = Date.now();
-      if (lastErrorRef.current) {
-        const { message: prevMessage, time } = lastErrorRef.current;
-        if (prevMessage === message && now - time < DEDUPE_MS) {
-          return;
-        }
-      }
-      lastErrorRef.current = { message, time: now };
-      toast({
-        title,
-        description,
-        variant: "destructive",
-      });
-    };
-
     const onError = (event: ErrorEvent) => {
       const description =
         event.error?.message || event.message || "Unknown error";
@@ -48,7 +29,12 @@ export function useGlobalErrorToasts() {
 
     const onRejection = (event: PromiseRejectionEvent) => {
       const description = normalizeErrorMessage(event.reason);
-      emitToast("Unhandled promise rejection", description);
+      // Check if it's a license-related error
+      if (isLicenseError(description)) {
+        emitToast("Premium Feature", description);
+      } else {
+        emitToast("Unhandled promise rejection", description);
+      }
     };
 
     window.addEventListener("error", onError);
@@ -70,5 +56,5 @@ export function useGlobalErrorToasts() {
         unlisten();
       }
     };
-  }, [toast]);
+  }, [emitToast]);
 }

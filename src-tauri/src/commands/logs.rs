@@ -26,6 +26,8 @@ pub async fn stream_pod_logs(
     config: StreamLogConfig,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
+    crate::commands::helpers::check_premium_license().await
+        .map_err(|e| e.to_string())?;
     let context = state
         .get_current_context()
         .ok_or_else(|| "No cluster connected".to_string())?;
