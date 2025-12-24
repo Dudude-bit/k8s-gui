@@ -42,3 +42,6 @@ export { useResourceWithMetrics } from './useResourceWithMetrics';
 export { useLicense } from './useLicense';
 export { usePremiumFeature } from './usePremiumFeature';
 export { useUserProfile } from './useUserProfile';
+
+// Navigation hooks
+export { useLoginRedirect } from './useLoginRedirect';

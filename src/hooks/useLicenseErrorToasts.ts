@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import * as React from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { isLicenseError, createLicenseErrorToast } from "@/lib/license-error-utils";
@@ -19,13 +20,15 @@ export function useLicenseErrorToasts() {
       
       // Check if error is license-related
       if (isLicenseError(errorMessage)) {
-        toast(
-          createLicenseErrorToast(errorMessage, (
-            <ToastAction altText="Activate License" onClick={() => setShowActivateDialog(true)}>
-              Activate License
-            </ToastAction>
-          ))
+        const action = React.createElement(
+          ToastAction,
+          {
+            altText: "Activate License",
+            onClick: () => setShowActivateDialog(true),
+          },
+          "Activate License"
         );
+        toast(createLicenseErrorToast(errorMessage, action));
       }
     };
 

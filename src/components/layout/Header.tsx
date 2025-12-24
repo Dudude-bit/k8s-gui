@@ -31,12 +31,14 @@ import {
   AlertCircle,
   Loader2,
   User,
+  LogOut,
 } from "lucide-react";
 import { LicenseStatusBadge } from "@/components/license/LicenseStatusBadge";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
+import { useAuthStore } from "@/stores/authStore";
 
 export function Header() {
   const {
@@ -55,6 +57,8 @@ export function Header() {
     connect,
   } = useClusterStore();
   const { theme, setTheme } = useThemeStore();
+  const { isAuthenticated, logout } = useAuthStore();
+  const navigate = useNavigate();
 
   // Load contexts on mount and auto-connect
   useEffect(() => {
@@ -84,6 +88,15 @@ export function Header() {
   const handleContextChange = (context: string) => {
     switchContext(context);
     connect(context);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
   };
 
   return (
@@ -223,12 +236,35 @@ export function Header() {
           </kbd>
         </Button>
 
-        {/* Profile link */}
-        <Button variant="ghost" size="icon" asChild>
-          <Link to="/profile">
-            <User className="h-4 w-4" />
-          </Link>
-        </Button>
+        {/* Profile menu */}
+        {isAuthenticated ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <User className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link to="/profile">
+                  <User className="mr-2 h-4 w-4" />
+                  Profile
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Button variant="ghost" size="icon" asChild>
+            <Link to="/login">
+              <User className="h-4 w-4" />
+            </Link>
+          </Button>
+        )}
 
         {/* Theme toggle */}
         <DropdownMenu>

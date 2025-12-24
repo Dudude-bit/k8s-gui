@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { useLicenseStore } from "@/stores/licenseStore";
+import { useAuthStore } from "@/stores/authStore";
 import { invoke } from "@tauri-apps/api/core";
 
 interface UsePremiumFeatureResult {
@@ -10,7 +10,7 @@ interface UsePremiumFeatureResult {
 }
 
 export function usePremiumFeature(): UsePremiumFeatureResult {
-  const { licenseStatus, checkLicenseStatus } = useLicenseStore();
+  const { licenseStatus, checkLicenseStatus } = useAuthStore();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 

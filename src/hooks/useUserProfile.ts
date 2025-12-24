@@ -1,9 +1,9 @@
 import { useState, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useLicenseStore, UserProfile } from "@/stores/licenseStore";
+import { useAuthStore, UserProfile } from "@/stores/authStore";
 
 export function useUserProfile() {
-  const { userProfile, isAuthenticated, setUserProfile } = useLicenseStore();
+  const { userProfile, isAuthenticated, setUserProfile } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

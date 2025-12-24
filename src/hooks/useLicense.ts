@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useLicenseStore } from "@/stores/licenseStore";
+import { useAuthStore } from "@/stores/authStore";
 
 export function useLicense() {
   const {
@@ -8,7 +8,7 @@ export function useLicense() {
     licenseError,
     checkLicenseStatus,
     refreshLicensePeriodically,
-  } = useLicenseStore();
+  } = useAuthStore();
 
   useEffect(() => {
     // Check license on mount

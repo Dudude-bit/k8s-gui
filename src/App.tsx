@@ -2,6 +2,7 @@ import { Routes, Route, useLocation } from "react-router-dom";
 import { useCallback, useEffect, lazy, Suspense } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
 // Lazy load all pages for code splitting
 const ClusterOverview = lazy(() => import("@/pages/ClusterOverview").then(m => ({ default: m.ClusterOverview })));
@@ -18,6 +19,7 @@ const PodDetail = lazy(() => import("@/pages/PodDetail").then(m => ({ default: m
 const DeploymentDetail = lazy(() => import("@/pages/DeploymentDetail").then(m => ({ default: m.DeploymentDetail })));
 const ServiceDetail = lazy(() => import("@/pages/ServiceDetail").then(m => ({ default: m.ServiceDetail })));
 const NodeDetail = lazy(() => import("@/pages/NodeDetail").then(m => ({ default: m.NodeDetail })));
+const Login = lazy(() => import("@/pages/Login").then(m => ({ default: m.Login })));
 import { useThemeStore } from "@/stores/themeStore";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { useToast } from "@/components/ui/use-toast";
@@ -82,6 +84,7 @@ export default function App() {
     <ErrorBoundary resetKey={location.pathname} onError={handleError}>
       <Suspense fallback={<PageSkeleton />}>
         <Routes>
+          <Route path="/login" element={<Login />} />
           <Route path="/" element={<Layout />}>
             <Route index element={<ClusterOverview />} />
             <Route path="workloads/*" element={<Workloads />} />
@@ -93,7 +96,14 @@ export default function App() {
             <Route path="events" element={<Events />} />
             <Route path="helm" element={<Helm />} />
             <Route path="settings" element={<Settings />} />
-            <Route path="profile" element={<Profile />} />
+            <Route
+              path="profile"
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
             <Route path="pod/:namespace/:name" element={<PodDetail />} />
             <Route
               path="deployment/:namespace/:name"

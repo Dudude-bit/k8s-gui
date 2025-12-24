@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useLicenseStore } from "@/stores/licenseStore";
+import { useAuthStore } from "@/stores/authStore";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
 import { validateLicenseKey } from "@/lib/validation";
@@ -26,7 +26,7 @@ export function ActivateLicenseDialog({
   const [licenseKey, setLicenseKey] = useState("");
   const [isActivating, setIsActivating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
-  const { activateLicense } = useLicenseStore();
+  const { activateLicense } = useAuthStore();
   const { toast } = useToast();
 
   const handleLicenseKeyChange = (value: string) => {
