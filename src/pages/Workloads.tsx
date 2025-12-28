@@ -1,7 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import { PodList } from "@/components/resources/PodList";
 import { DeploymentList } from "@/components/resources/DeploymentList";
-import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +18,15 @@ import {
   matchJobPods,
   type ResourceWithMetrics,
 } from "@/hooks/useResourceWithMetrics";
-import type { PodInfo } from "@/types/kubernetes";
+import * as commands from "@/generated/commands";
+import type {
+  StatefulSetInfo,
+  DaemonSetInfo,
+  JobInfo,
+  CronJobInfo,
+  PodInfo
+} from "@/generated/types";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 export function Workloads() {
   return (
@@ -39,7 +46,7 @@ export function Workloads() {
 interface BaseResourceInfo {
   name: string;
   namespace: string;
-  created_at: string | null;
+  createdAt: string | null;
 }
 
 // ============= Generic Resource List Component =============
@@ -87,16 +94,23 @@ function GenericResourceList<T extends BaseResourceInfo>({
 }
 
 // ============= StatefulSets =============
-interface StatefulSetInfo extends BaseResourceInfo {
-  replicas: { desired: number; ready: number; current: number };
-}
-
 function StatefulSetList() {
   const { currentNamespace } = useClusterStore();
 
   const { data, isLoading, isFetching, refetch } = useResourceWithMetrics<StatefulSetInfo>(
     ["statefulsets", currentNamespace],
-    () => invoke<StatefulSetInfo[]>("list_statefulsets", { namespace: currentNamespace }),
+    async () => {
+      try {
+        return await commands.listStatefulsets({
+          namespace: currentNamespace || null,
+          labelSelector: null,
+          fieldSelector: null,
+          limit: null,
+        });
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
+    },
     useCallback(matchStatefulSetPods, [])
   );
 
@@ -113,7 +127,7 @@ function StatefulSetList() {
         header: "CPU",
         cell: ({ row }) => (
           <ResourceUsage
-            used={row.original.cpu_usage}
+            used={row.original.cpuUsage}
             total={null}
             type="cpu"
             showProgressBar={false}
@@ -125,7 +139,7 @@ function StatefulSetList() {
         header: "Memory",
         cell: ({ row }) => (
           <ResourceUsage
-            used={row.original.memory_usage}
+            used={row.original.memoryUsage}
             total={null}
             type="memory"
             showProgressBar={false}
@@ -147,7 +161,7 @@ function StatefulSetList() {
       {
         id: "age",
         header: "Age",
-        cell: ({ row }) => formatAge(row.original.created_at),
+        cell: ({ row }) => formatAge(row.original.createdAt),
       },
     ],
     []
@@ -167,18 +181,23 @@ function StatefulSetList() {
 }
 
 // ============= DaemonSets =============
-interface DaemonSetInfo extends BaseResourceInfo {
-  desired: number;
-  current: number;
-  ready: number;
-}
-
 function DaemonSetList() {
   const { currentNamespace } = useClusterStore();
 
   const { data, isLoading, isFetching, refetch } = useResourceWithMetrics<DaemonSetInfo>(
     ["daemonsets", currentNamespace],
-    () => invoke<DaemonSetInfo[]>("list_daemonsets", { namespace: currentNamespace }),
+    async () => {
+      try {
+        return await commands.listDaemonsets({
+          namespace: currentNamespace || null,
+          labelSelector: null,
+          fieldSelector: null,
+          limit: null,
+        });
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
+    },
     useCallback(matchDaemonSetPods, [])
   );
 
@@ -195,7 +214,7 @@ function DaemonSetList() {
         header: "CPU",
         cell: ({ row }) => (
           <ResourceUsage
-            used={row.original.cpu_usage}
+            used={row.original.cpuUsage}
             total={null}
             type="cpu"
             showProgressBar={false}
@@ -207,7 +226,7 @@ function DaemonSetList() {
         header: "Memory",
         cell: ({ row }) => (
           <ResourceUsage
-            used={row.original.memory_usage}
+            used={row.original.memoryUsage}
             total={null}
             type="memory"
             showProgressBar={false}
@@ -239,7 +258,7 @@ function DaemonSetList() {
       {
         id: "age",
         header: "Age",
-        cell: ({ row }) => formatAge(row.original.created_at),
+        cell: ({ row }) => formatAge(row.original.createdAt),
       },
     ],
     []
@@ -259,20 +278,23 @@ function DaemonSetList() {
 }
 
 // ============= Jobs =============
-interface JobInfo extends BaseResourceInfo {
-  completions: number | null;
-  succeeded: number;
-  failed: number;
-  active: number;
-  status: string;
-}
-
 function JobList() {
   const { currentNamespace } = useClusterStore();
 
   const { data, isLoading, isFetching, refetch } = useResourceWithMetrics<JobInfo>(
     ["jobs", currentNamespace],
-    () => invoke<JobInfo[]>("list_jobs", { namespace: currentNamespace }),
+    async () => {
+      try {
+        return await commands.listJobs({
+          namespace: currentNamespace || null,
+          labelSelector: null,
+          fieldSelector: null,
+          limit: null,
+        });
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
+    },
     useCallback(matchJobPods, [])
   );
 
@@ -289,7 +311,7 @@ function JobList() {
         header: "CPU",
         cell: ({ row }) => (
           <ResourceUsage
-            used={row.original.cpu_usage}
+            used={row.original.cpuUsage}
             total={null}
             type="cpu"
             showProgressBar={false}
@@ -301,7 +323,7 @@ function JobList() {
         header: "Memory",
         cell: ({ row }) => (
           <ResourceUsage
-            used={row.original.memory_usage}
+            used={row.original.memoryUsage}
             total={null}
             type="memory"
             showProgressBar={false}
@@ -324,7 +346,7 @@ function JobList() {
       {
         id: "age",
         header: "Age",
-        cell: ({ row }) => formatAge(row.original.created_at),
+        cell: ({ row }) => formatAge(row.original.createdAt),
       },
     ],
     []
@@ -344,18 +366,10 @@ function JobList() {
 }
 
 // ============= CronJobs =============
-interface CronJobInfo extends BaseResourceInfo {
-  schedule: string;
-  suspend: boolean;
-  active: number;
-  last_schedule: string | null;
-}
-
 function CronJobList() {
   const { currentNamespace } = useClusterStore();
 
   // CronJobs need to match pods via their Jobs
-  // Using a more complex matching function that checks job ownership
   const matchCronJobPods = useCallback(
     (cronJob: CronJobInfo, pod: PodInfo): boolean => {
       // CronJob pods have name pattern: {cronjob-name}-{timestamp}-{hash}
@@ -370,7 +384,18 @@ function CronJobList() {
 
   const { data, isLoading, isFetching, refetch } = useResourceWithMetrics<CronJobInfo>(
     ["cronjobs", currentNamespace],
-    () => invoke<CronJobInfo[]>("list_cronjobs", { namespace: currentNamespace }),
+    async () => {
+      try {
+        return await commands.listCronjobs({
+          namespace: currentNamespace || null,
+          labelSelector: null,
+          fieldSelector: null,
+          limit: null,
+        });
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
+    },
     matchCronJobPods
   );
 
@@ -387,7 +412,7 @@ function CronJobList() {
         header: "CPU",
         cell: ({ row }) => (
           <ResourceUsage
-            used={row.original.cpu_usage}
+            used={row.original.cpuUsage}
             total={null}
             type="cpu"
             showProgressBar={false}
@@ -399,7 +424,7 @@ function CronJobList() {
         header: "Memory",
         cell: ({ row }) => (
           <ResourceUsage
-            used={row.original.memory_usage}
+            used={row.original.memoryUsage}
             total={null}
             type="memory"
             showProgressBar={false}
@@ -425,14 +450,14 @@ function CronJobList() {
         id: "last_schedule",
         header: "Last Schedule",
         cell: ({ row }) =>
-          row.original.last_schedule
-            ? formatAge(row.original.last_schedule) + " ago"
+          row.original.lastSchedule
+            ? formatAge(row.original.lastSchedule) + " ago"
             : "Never",
       },
       {
         id: "age",
         header: "Age",
-        cell: ({ row }) => formatAge(row.original.created_at),
+        cell: ({ row }) => formatAge(row.original.createdAt),
       },
     ],
     []

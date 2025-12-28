@@ -63,14 +63,24 @@ fn format_access_mode(mode: &str) -> String {
     }
 }
 
+use crate::commands::filters::ResourceFilters;
+
 /// List all PersistentVolumes in the cluster
 #[tauri::command]
-pub async fn list_persistent_volumes(state: State<'_, AppState>) -> Result<Vec<PersistentVolumeInfo>> {
-    let ctx = ListContext::new(&state, None)?;
-    let api: kube::Api<PersistentVolume> = ctx.cluster_api();
-    let pv_list = api.list(&ListParams::default()).await?;
+pub async fn list_persistent_volumes(
+    filters: Option<ResourceFilters>,
+    state: State<'_, AppState>
+) -> Result<Vec<PersistentVolumeInfo>> {
+    let filters = filters.unwrap_or_default();
+    
+    let list = crate::commands::helpers::list_cluster_resources::<PersistentVolume>(
+        state,
+        filters.label_selector.as_deref(),
+        filters.field_selector.as_deref(),
+        filters.limit,
+    ).await?;
 
-    Ok(pv_list
+    Ok(list
         .into_iter()
         .map(|pv| {
             let spec = pv.spec.as_ref();
@@ -119,19 +129,20 @@ pub async fn list_persistent_volumes(state: State<'_, AppState>) -> Result<Vec<P
 /// List PersistentVolumeClaims
 #[tauri::command]
 pub async fn list_persistent_volume_claims(
+    filters: Option<ResourceFilters>,
     state: State<'_, AppState>,
-    namespace: Option<String>,
 ) -> Result<Vec<PersistentVolumeClaimInfo>> {
-    let ctx = ListContext::new(&state, namespace)?;
-    // Use namespaced API when namespace is provided for proper filtering
-    let api: kube::Api<PersistentVolumeClaim> = if ctx.namespace.is_some() {
-        ctx.namespaced_api()
-    } else {
-        ctx.api()
-    };
-    let pvc_list = api.list(&ListParams::default()).await?;
+    let filters = filters.unwrap_or_default();
+    
+    let list = crate::commands::helpers::list_resources::<PersistentVolumeClaim>(
+        filters.namespace,
+        state,
+        filters.label_selector.as_deref(),
+        filters.field_selector.as_deref(),
+        filters.limit,
+    ).await?;
 
-    Ok(pvc_list
+    Ok(list
         .into_iter()
         .map(|pvc| {
             let spec = pvc.spec.as_ref();
@@ -175,12 +186,20 @@ pub async fn list_persistent_volume_claims(
 
 /// List StorageClasses
 #[tauri::command]
-pub async fn list_storage_classes(state: State<'_, AppState>) -> Result<Vec<StorageClassInfo>> {
-    let ctx = ListContext::new(&state, None)?;
-    let api: kube::Api<StorageClass> = ctx.cluster_api();
-    let sc_list = api.list(&ListParams::default()).await?;
+pub async fn list_storage_classes(
+    filters: Option<ResourceFilters>,
+    state: State<'_, AppState>
+) -> Result<Vec<StorageClassInfo>> {
+    let filters = filters.unwrap_or_default();
+    
+    let list = crate::commands::helpers::list_cluster_resources::<StorageClass>(
+        state,
+        filters.label_selector.as_deref(),
+        filters.field_selector.as_deref(),
+        filters.limit,
+    ).await?;
 
-    Ok(sc_list
+    Ok(list
         .into_iter()
         .map(|sc| {
             let is_default = sc

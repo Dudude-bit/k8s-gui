@@ -16,20 +16,14 @@ pub async fn list_pods(
     state: State<'_, AppState>,
 ) -> Result<Vec<PodInfo>> {
     let filters = filters.unwrap_or_default();
-    let ctx = ListContext::new(&state, filters.namespace)?;
-    let params = build_list_params(
+    
+    let list = crate::commands::helpers::list_resources::<Pod>(
+        filters.namespace,
+        state,
         filters.label_selector.as_deref(),
         filters.field_selector.as_deref(),
         filters.limit,
-    );
-
-    // Use namespaced API when namespace is provided for proper filtering
-    let api: kube::Api<Pod> = if ctx.namespace.is_some() {
-        ctx.namespaced_api()
-    } else {
-        ctx.api()
-    };
-    let list = api.list(&params).await?;
+    ).await?;
 
     let mut pods: Vec<PodInfo> = list.items.iter().map(PodInfo::from).collect();
 
@@ -49,13 +43,7 @@ pub async fn get_pod(
     state: State<'_, AppState>,
 ) -> Result<PodInfo> {
     crate::validation::validate_resource_name(&name)?;
-    
-    let ctx = CommandContext::new(&state, namespace)?;
-    crate::validation::validate_namespace(&ctx.namespace)?;
-
-    let api: kube::Api<Pod> = ctx.namespaced_api();
-    let pod = api.get(&name).await?;
-
+    let pod: Pod = crate::commands::helpers::get_resource(name, namespace, state).await?;
     Ok(PodInfo::from(&pod))
 }
 

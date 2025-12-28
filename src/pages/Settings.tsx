@@ -11,13 +11,14 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { useMutation } from "@tanstack/react-query";
-import { invoke } from "@tauri-apps/api/core";
+import * as commands from "@/generated/commands";
 import { useToast } from "@/components/ui/use-toast";
 import { PortForwardManager } from "@/components/port-forward/PortForwardManager";
 import { RegistrySettings } from "@/components/registry/RegistrySettings";
 import { LicenseSection } from "@/components/profile/LicenseSection";
 import { Link } from "react-router-dom";
 import { User } from "lucide-react";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 export function Settings() {
   const { theme, setTheme } = useThemeStore();
@@ -25,7 +26,11 @@ export function Settings() {
 
   const clearCacheMutation = useMutation({
     mutationFn: async () => {
-      await invoke("clear_cache");
+      try {
+        await commands.clearCache();
+      } catch (err) {
+        throw normalizeTauriError(err);
+      }
     },
     onSuccess: () => {
       toast({

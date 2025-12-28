@@ -9,17 +9,9 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
-
-interface Payment {
-  id: string;
-  amount: string;
-  currency: string;
-  status: string;
-  transaction_id: string | null;
-  payment_provider: string | null;
-  created_at: string;
-}
+import * as commands from "@/generated/commands";
+import type { PaymentInfo } from "@/generated/types";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
@@ -48,17 +40,17 @@ const getStatusBadge = (status: string) => {
 };
 
 export function PaymentHistory() {
-  const [payments, setPayments] = useState<Payment[]>([]);
+  const [payments, setPayments] = useState<PaymentInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadPayments = async () => {
       try {
-        const history = await invoke<{ payments: Payment[] }>("get_payment_history");
+        const history = await commands.getPaymentHistory();
         setPayments(history.payments);
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(normalizeTauriError(err));
       } finally {
         setIsLoading(false);
       }
@@ -120,15 +112,15 @@ export function PaymentHistory() {
             <TableBody>
               {payments.map((payment) => (
                 <TableRow key={payment.id}>
-                  <TableCell>{formatDate(payment.created_at)}</TableCell>
+                  <TableCell>{formatDate(payment.createdAt)}</TableCell>
                   <TableCell>
                     {payment.currency} {payment.amount}
                   </TableCell>
                   <TableCell>{getStatusBadge(payment.status)}</TableCell>
                   <TableCell className="font-mono text-xs">
-                    {payment.transaction_id || "N/A"}
+                    {payment.transactionId || "N/A"}
                   </TableCell>
-                  <TableCell>{payment.payment_provider || "N/A"}</TableCell>
+                  <TableCell>{payment.paymentProvider || "N/A"}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

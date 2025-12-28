@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +20,9 @@ import {
   ArrowDown,
   Loader2,
 } from "lucide-react";
+import * as commands from "@/generated/commands";
+import type { LogLine, StreamLogConfig } from "@/generated/types";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 interface LogViewerProps {
   podName: string;
@@ -28,15 +30,6 @@ interface LogViewerProps {
   containers: string[];
   initialContainer?: string;
   onPodNotFound?: () => void;
-}
-
-interface LogLine {
-  timestamp: string | null;
-  message: string;
-  level?: string;
-  pod: string;
-  container: string;
-  namespace: string;
 }
 
 export function LogViewer({
@@ -65,8 +58,8 @@ export function LogViewer({
   // Filter logs based on search
   const filteredLogs = searchQuery
     ? logs.filter((log) =>
-        log.message.toLowerCase().includes(searchQuery.toLowerCase()),
-      )
+      log.message.toLowerCase().includes(searchQuery.toLowerCase()),
+    )
     : logs;
 
   // Get the actual scroll viewport element
@@ -99,7 +92,7 @@ export function LogViewer({
       const { scrollTop, scrollHeight, clientHeight } = viewport;
       const atBottom = scrollHeight - scrollTop - clientHeight < 50;
       setIsAtBottom(atBottom);
-      
+
       // If user scrolls to bottom manually, re-enable auto-scroll
       if (atBottom && !autoScroll) {
         setAutoScroll(true);
@@ -136,17 +129,18 @@ export function LogViewer({
 
       console.log("Starting log stream for", podName, selectedContainer);
 
-      const streamId = await invoke<string>("stream_pod_logs", {
-        config: {
-          pod_name: podName,
-          namespace,
-          container: selectedContainer,
-          tail_lines: tailLines,
-          follow: true,
-          timestamps: true,
-          previous: false,
-        },
-      });
+      const config: StreamLogConfig = {
+        podName: podName,
+        namespace,
+        container: selectedContainer,
+        tailLines: tailLines,
+        follow: true,
+        timestamps: true,
+        previous: false,
+        sinceSeconds: null,
+      };
+
+      const streamId = await commands.streamPodLogs(config);
 
       console.log("Got stream ID:", streamId);
       streamIdRef.current = streamId;
@@ -166,6 +160,7 @@ export function LogViewer({
             {
               timestamp: event.payload.timestamp,
               message: event.payload.message,
+              level: null, // Event doesn't currently provide level
               pod: event.payload.pod,
               container: event.payload.container,
               namespace,
@@ -179,7 +174,7 @@ export function LogViewer({
       setIsConnecting(false);
     } catch (err) {
       console.error("Failed to start log streaming:", err);
-      const errorMsg = err instanceof Error ? err.message : String(err);
+      const errorMsg = normalizeTauriError(err);
 
       // Check if pod was not found
       const isPodNotFound =
@@ -219,7 +214,7 @@ export function LogViewer({
 
     if (streamIdRef.current) {
       try {
-        await invoke("stop_log_stream", { stream_id: streamIdRef.current });
+        await commands.stopLogStream(streamIdRef.current);
       } catch (err) {
         console.error("Failed to stop log streaming:", err);
       }
@@ -243,14 +238,7 @@ export function LogViewer({
 
   const downloadLogs = async () => {
     try {
-      const logs = await invoke<LogLine[]>("get_pod_logs", {
-        pod_name: podName,
-        namespace,
-        container: selectedContainer,
-        tail_lines: 10000,
-        since_seconds: null,
-        previous: false,
-      });
+      const logs = await commands.getPodLogs(podName, namespace, selectedContainer, 10000, null, false);
 
       const content = logs
         .map((log) => `${log.timestamp || ""} ${log.message}`)

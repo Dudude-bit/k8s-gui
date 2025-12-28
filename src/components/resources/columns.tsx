@@ -24,25 +24,25 @@ interface BaseResource {
 }
 
 interface WithCreatedAt {
-  created_at: string | null;
+  createdAt?: string | null;
 }
 
 interface WithCpuUsage {
-  cpu_usage: string | null;
+  cpuUsage?: string | null;
 }
 
 interface WithMemoryUsage {
-  memory_usage: string | null;
+  memoryUsage?: string | null;
 }
 
 interface WithCpuLimits {
-  cpu_limits?: string | null;
-  cpu_requests?: string | null;
+  cpuLimits?: string | null;
+  cpuRequests?: string | null;
 }
 
 interface WithMemoryLimits {
-  memory_limits?: string | null;
-  memory_requests?: string | null;
+  memoryLimits?: string | null;
+  memoryRequests?: string | null;
 }
 
 interface WithLabels {
@@ -100,7 +100,7 @@ export function createAgeColumn<T extends WithCreatedAt>(): ColumnDef<T> {
   return {
     id: "age",
     header: "Age",
-    cell: ({ row }) => formatAge(row.original.created_at),
+    cell: ({ row }) => formatAge(row.original.createdAt ?? null),
   };
 }
 
@@ -113,14 +113,18 @@ export function createCpuColumn<T extends WithCpuUsage & Partial<WithCpuLimits>>
   return {
     id: "cpu",
     header: "CPU",
-    cell: ({ row }) => (
-      <ResourceUsage
-        used={row.original.cpu_usage}
-        total={row.original.cpu_limits ?? row.original.cpu_requests ?? null}
-        type="cpu"
-        showProgressBar={options?.showProgressBar ?? false}
-      />
-    ),
+    cell: ({ row }) => {
+      const used = row.original.cpuUsage;
+      const total = row.original.cpuLimits ?? row.original.cpuRequests ?? null;
+      return (
+        <ResourceUsage
+          used={used}
+          total={total}
+          type="cpu"
+          showProgressBar={options?.showProgressBar ?? false}
+        />
+      );
+    },
   };
 }
 
@@ -133,14 +137,18 @@ export function createMemoryColumn<T extends WithMemoryUsage & Partial<WithMemor
   return {
     id: "memory",
     header: "Memory",
-    cell: ({ row }) => (
-      <ResourceUsage
-        used={row.original.memory_usage}
-        total={row.original.memory_limits ?? row.original.memory_requests ?? null}
-        type="memory"
-        showProgressBar={options?.showProgressBar ?? false}
-      />
-    ),
+    cell: ({ row }) => {
+      const used = row.original.memoryUsage;
+      const total = row.original.memoryLimits ?? row.original.memoryRequests ?? null;
+      return (
+        <ResourceUsage
+          used={used}
+          total={total}
+          type="memory"
+          showProgressBar={options?.showProgressBar ?? false}
+        />
+      );
+    },
   };
 }
 
@@ -214,41 +222,44 @@ export function createLabelsColumn<T extends WithLabels>(
 /**
  * Creates a data keys column for ConfigMaps/Secrets
  */
-export function createDataKeysColumn<T extends { data_keys: string[] }>(
+export function createDataKeysColumn<T extends { dataKeys?: string[] }>(
   options?: { maxDisplay?: number }
 ): ColumnDef<T> {
   const maxDisplay = options?.maxDisplay ?? 3;
   return {
-    accessorKey: "data_keys",
+    id: "dataKeys",
     header: "Keys",
-    cell: ({ row }) => (
-      <div className="flex flex-wrap gap-1">
-        {row.original.data_keys.slice(0, maxDisplay).map((key, i) => (
-          <Badge key={i} variant="secondary" className="text-xs">
-            {key}
-          </Badge>
-        ))}
-        {row.original.data_keys.length > maxDisplay && (
-          <Badge variant="outline" className="text-xs">
-            +{row.original.data_keys.length - maxDisplay} more
-          </Badge>
-        )}
-      </div>
-    ),
+    cell: ({ row }) => {
+      const keys = row.original.dataKeys ?? [];
+      return (
+        <div className="flex flex-wrap gap-1">
+          {keys.slice(0, maxDisplay).map((key, i) => (
+            <Badge key={i} variant="secondary" className="text-xs">
+              {key}
+            </Badge>
+          ))}
+          {keys.length > maxDisplay && (
+            <Badge variant="outline" className="text-xs">
+              +{keys.length - maxDisplay} more
+            </Badge>
+          )}
+        </div>
+      );
+    },
   };
 }
 
 /**
  * Creates a type badge column
  */
-export function createTypeBadgeColumn<T extends { type_: string }>(
+export function createTypeBadgeColumn<T extends { type?: string }>(
   options?: { header?: string }
 ): ColumnDef<T> {
   return {
     id: "type",
     header: options?.header ?? "Type",
     cell: ({ row }) => (
-      <Badge variant="outline">{row.original.type_}</Badge>
+      <Badge variant="outline">{row.original.type}</Badge>
     ),
   };
 }
@@ -276,7 +287,7 @@ export function createActionsColumn<T extends BaseResource>(
     id: "actions",
     cell: ({ row }) => {
       const resolvedActions = typeof actions === "function"
-        ? actions(setDeleteTarget ?? (() => {}))
+        ? actions(setDeleteTarget ?? (() => { }))
         : actions;
 
       return (

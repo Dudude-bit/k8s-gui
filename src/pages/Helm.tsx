@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
 import { DataTable } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -12,16 +11,9 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { ActionMenu } from "@/components/ui/action-menu";
-
-interface HelmRelease {
-  name: string;
-  namespace: string;
-  revision: string;
-  status: string;
-  chart: string;
-  app_version: string;
-  updated: string;
-}
+import * as commands from "@/generated/commands";
+import type { HelmRelease } from "@/generated/types";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 const columns: ColumnDef<HelmRelease>[] = [
   {
@@ -49,7 +41,7 @@ const columns: ColumnDef<HelmRelease>[] = [
     header: "Chart",
   },
   {
-    accessorKey: "app_version",
+    accessorKey: "appVersion",
     header: "App Version",
   },
   {
@@ -87,11 +79,17 @@ export function Helm() {
   } = useQuery({
     queryKey: ["helm-releases"],
     queryFn: async () => {
-      const result = await invoke<HelmRelease[]>("list_helm_releases", {
-        namespace: null,
-        allNamespaces: true,
-      });
-      return result;
+      try {
+        // listHelmReleases(namespace). Passing null usually implies all namespaces or default namespace logic from backend.
+        // Original call was: invoke<HelmRelease[]>("list_helm_releases", { namespace: null, allNamespaces: true });
+        // The generated `listHelmReleases` takes only `namespace`. 
+        // If the backend implementation of `list_helm_releases` checks for a separate `allNamespaces` argument that IS NOT in the function signature,
+        // then we might be losing that flag. 
+        // However, typically in this project, `namespace: null` implies all namespaces.
+        return await commands.listHelmReleases(null);
+      } catch (err) {
+        throw normalizeTauriError(err);
+      }
     },
     enabled: isConnected,
   });

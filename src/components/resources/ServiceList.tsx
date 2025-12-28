@@ -1,9 +1,9 @@
-import { invoke } from "@tauri-apps/api/core";
+import * as commands from "@/generated/commands";
 import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
-import { Eye, Trash2 } from "lucide-react";
+import { Eye, Trash2, ExternalLink } from "lucide-react";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -11,24 +11,25 @@ import {
 import { useMemo } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceList } from "./ResourceList";
+import type { ServiceInfo, ServicePortInfo } from "@/generated/types";
 import {
   createNameColumn,
   createNamespaceColumn,
   createAgeColumn,
+  createTypeBadgeColumn,
 } from "./columns";
-import type { ServiceInfo, ServicePortInfo } from "@/types/kubernetes";
 
 // Format port for display
 function formatPort(port: ServicePortInfo): string {
-  let result = `${port.port}`;
-  if (port.target_port && port.target_port !== String(port.port)) {
-    result += `:${port.target_port}`;
+  const parts = [String(port.port)];
+  if (port.nodePort) {
+    parts.push(`:${port.nodePort}`);
   }
-  if (port.node_port) {
-    result += `:${port.node_port}`;
+  if (port.targetPort) {
+    parts.push(`>${port.targetPort}`);
   }
-  result += `/${port.protocol}`;
-  return result;
+  parts.push(`/${port.protocol}`);
+  return parts.join("");
 }
 
 export function ServiceList() {
@@ -36,27 +37,33 @@ export function ServiceList() {
 
   const columns = useMemo<ColumnDef<ServiceInfo>[]>(
     () => [
-      createNameColumn<ServiceInfo>("/service"),
+      createNameColumn<ServiceInfo>("/services"),
       createNamespaceColumn<ServiceInfo>(),
+      createTypeBadgeColumn<ServiceInfo>(),
       {
-        id: "type",
-        header: "Type",
+        accessorKey: "clusterIp",
+        header: "Cluster IP",
         cell: ({ row }) => (
-          <Badge variant="outline">{row.original.type_}</Badge>
+          <span className="font-mono text-sm">{row.original.clusterIp}</span>
         ),
       },
       {
-        id: "cluster_ip",
-        header: "Cluster IP",
-        cell: ({ row }) => row.original.cluster_ip || "-",
-      },
-      {
-        id: "external_ip",
-        header: "External IP",
-        cell: ({ row }) =>
-          row.original.external_ips.length > 0
-            ? row.original.external_ips.join(", ")
-            : "-",
+        accessorKey: "externalIps",
+        header: "External IPs",
+        cell: ({ row }) => {
+          const ips = row.original.externalIps;
+          if (!ips || ips.length === 0) return <span className="text-muted-foreground">-</span>;
+          return (
+            <div className="flex flex-col gap-1">
+              {ips.map((ip, i) => (
+                <div key={i} className="flex items-center gap-1 font-mono text-xs">
+                  <ExternalLink className="h-3 w-3" />
+                  {ip}
+                </div>
+              ))}
+            </div>
+          );
+        },
       },
       {
         id: "ports",
@@ -64,7 +71,7 @@ export function ServiceList() {
         cell: ({ row }) => (
           <div className="flex flex-wrap gap-1">
             {row.original.ports.map((port, i) => (
-              <Badge key={i} variant="secondary" className="text-xs">
+              <Badge key={i} variant="outline" className="font-mono text-xs">
                 {formatPort(port)}
               </Badge>
             ))}
@@ -73,7 +80,7 @@ export function ServiceList() {
       },
       createAgeColumn<ServiceInfo>(),
     ],
-    [],
+    []
   );
 
   return (
@@ -81,8 +88,12 @@ export function ServiceList() {
       title="Services"
       queryKey={["services", currentNamespace]}
       queryFn={async () => {
-        const result = await invoke<ServiceInfo[]>("list_services", {
-          filters: { namespace: currentNamespace },
+        const result = await commands.listServices({
+          namespace: currentNamespace,
+          labelSelector: null,
+          fieldSelector: null,
+          limit: null,
+          serviceType: null,
         });
         return result;
       }}
@@ -115,10 +126,7 @@ export function ServiceList() {
       emptyStateLabel="services"
       deleteConfig={{
         mutationFn: async (item) => {
-          await invoke("delete_service", {
-            name: item.name,
-            namespace: item.namespace,
-          });
+          await commands.deleteService(item.name, item.namespace);
         },
         invalidateQueryKeys: [["services"]],
         resourceType: "Service",

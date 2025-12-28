@@ -25,8 +25,10 @@ import { useInfrastructureBuilderStore } from "@/stores/infrastructureBuilderSto
 import { useClusterStore } from "@/stores/clusterStore";
 import { DEFAULT_REGISTRIES, useRegistryStore } from "@/stores/registryStore";
 import { useQuery } from "@tanstack/react-query";
-import { invoke } from "@tauri-apps/api/core";
 import { Trash2, Plus, HelpCircle } from "lucide-react";
+import * as commands from "@/generated/commands";
+import type { RegistryImageResult, RegistrySearchRequest } from "@/generated/types";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 const SERVICE_TYPE_OPTIONS = ["ClusterIP", "NodePort", "LoadBalancer"] as const;
 const SERVICE_SESSION_AFFINITY_OPTIONS = ["None", "ClientIP"] as const;
@@ -44,13 +46,6 @@ const SECRET_TYPE_OPTIONS = [
   "kubernetes.io/service-account-token",
 ] as const;
 const SEARCH_MIN_LENGTH = 2;
-
-interface RegistryImageResult {
-  id: string;
-  name: string;
-  description: string;
-  isOfficial: boolean;
-}
 
 interface KeyValueRow {
   key: string;
@@ -120,16 +115,20 @@ const ImageSearchInput = ({
     const timeoutId = window.setTimeout(async () => {
       setStatus("loading");
       try {
-        const request = {
+        const request: RegistrySearchRequest = {
           query,
-          registry: selectedRegistry,
+          registry: {
+            ...selectedRegistry,
+            baseUrl: selectedRegistry.baseUrl || null,
+            host: selectedRegistry.host || null,
+            project: selectedRegistry.project || null,
+            accountId: selectedRegistry.accountId || null,
+            region: selectedRegistry.region || null,
+          },
           auth: null,
           useSavedAuth: true,
         };
-        const response = await invoke<RegistryImageResult[]>(
-          "search_registry_images",
-          { request },
-        );
+        const response = await commands.searchRegistryImages(request);
         if (cancelled) {
           return;
         }
@@ -277,8 +276,12 @@ export function InspectorPanel({
   const { data: namespaces = [] } = useQuery({
     queryKey: ["namespaces", currentContext],
     queryFn: async () => {
-      const result = await invoke<{ name: string }[]>("list_namespaces");
-      return result.map((ns) => ns.name);
+      try {
+        const result = await commands.listNamespaces();
+        return result.map((ns) => ns.name);
+      } catch (err) {
+        throw normalizeTauriError(err);
+      }
     },
     enabled: isConnected,
   });

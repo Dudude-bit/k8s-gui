@@ -100,6 +100,24 @@ impl User {
         .await?;
         Ok(())
     }
+
+    pub async fn update_password(
+        pool: &sqlx::PgPool,
+        user_id: Uuid,
+        password_hash: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "UPDATE users 
+             SET password_hash = $1, updated_at = CURRENT_TIMESTAMP, 
+                 failed_login_attempts = 0, locked_until = NULL
+             WHERE id = $2"
+        )
+        .bind(password_hash)
+        .bind(user_id)
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]

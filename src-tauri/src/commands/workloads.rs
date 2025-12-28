@@ -9,6 +9,8 @@ use kube::api::ListParams;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
+use crate::commands::filters::ResourceFilters;
+
 // ============= StatefulSet =============
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,17 +30,18 @@ pub struct StatefulSetInfo {
 
 #[tauri::command]
 pub async fn list_statefulsets(
-    namespace: Option<String>,
+    filters: Option<ResourceFilters>,
     state: State<'_, AppState>,
 ) -> Result<Vec<StatefulSetInfo>> {
-    let ctx = ListContext::new(&state, namespace)?;
-    // Use namespaced API when namespace is provided for proper filtering
-    let api: kube::Api<StatefulSet> = if ctx.namespace.is_some() {
-        ctx.namespaced_api()
-    } else {
-        ctx.api()
-    };
-    let list = api.list(&ListParams::default()).await?;
+    let filters = filters.unwrap_or_default();
+    
+    let list = crate::commands::helpers::list_resources::<StatefulSet>(
+        filters.namespace,
+        state,
+        filters.label_selector.as_deref(),
+        filters.field_selector.as_deref(),
+        filters.limit,
+    ).await?;
 
     Ok(list
         .items
@@ -76,17 +79,18 @@ pub struct DaemonSetInfo {
 
 #[tauri::command]
 pub async fn list_daemonsets(
-    namespace: Option<String>,
+    filters: Option<ResourceFilters>,
     state: State<'_, AppState>,
 ) -> Result<Vec<DaemonSetInfo>> {
-    let ctx = ListContext::new(&state, namespace)?;
-    // Use namespaced API when namespace is provided for proper filtering
-    let api: kube::Api<DaemonSet> = if ctx.namespace.is_some() {
-        ctx.namespaced_api()
-    } else {
-        ctx.api()
-    };
-    let list = api.list(&ListParams::default()).await?;
+    let filters = filters.unwrap_or_default();
+    
+    let list = crate::commands::helpers::list_resources::<DaemonSet>(
+        filters.namespace,
+        state,
+        filters.label_selector.as_deref(),
+        filters.field_selector.as_deref(),
+        filters.limit,
+    ).await?;
 
     Ok(list
         .items
@@ -123,17 +127,18 @@ pub struct JobInfo {
 
 #[tauri::command]
 pub async fn list_jobs(
-    namespace: Option<String>,
+    filters: Option<ResourceFilters>,
     state: State<'_, AppState>,
 ) -> Result<Vec<JobInfo>> {
-    let ctx = ListContext::new(&state, namespace)?;
-    // Use namespaced API when namespace is provided for proper filtering
-    let api: kube::Api<Job> = if ctx.namespace.is_some() {
-        ctx.namespaced_api()
-    } else {
-        ctx.api()
-    };
-    let list = api.list(&ListParams::default()).await?;
+    let filters = filters.unwrap_or_default();
+    
+    let list = crate::commands::helpers::list_resources::<Job>(
+        filters.namespace,
+        state,
+        filters.label_selector.as_deref(),
+        filters.field_selector.as_deref(),
+        filters.limit,
+    ).await?;
 
     Ok(list
         .items
@@ -183,17 +188,18 @@ pub struct CronJobInfo {
 
 #[tauri::command]
 pub async fn list_cronjobs(
-    namespace: Option<String>,
+    filters: Option<ResourceFilters>,
     state: State<'_, AppState>,
 ) -> Result<Vec<CronJobInfo>> {
-    let ctx = ListContext::new(&state, namespace)?;
-    // Use namespaced API when namespace is provided for proper filtering
-    let api: kube::Api<CronJob> = if ctx.namespace.is_some() {
-        ctx.namespaced_api()
-    } else {
-        ctx.api()
-    };
-    let list = api.list(&ListParams::default()).await?;
+    let filters = filters.unwrap_or_default();
+    
+    let list = crate::commands::helpers::list_resources::<CronJob>(
+        filters.namespace,
+        state,
+        filters.label_selector.as_deref(),
+        filters.field_selector.as_deref(),
+        filters.limit,
+    ).await?;
 
     Ok(list
         .items

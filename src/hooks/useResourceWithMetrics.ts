@@ -3,11 +3,11 @@ import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useClusterStore } from "@/stores/clusterStore";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
 import { aggregatePodMetrics } from "@/lib/resource-utils";
-import type { PodInfo } from "@/types/kubernetes";
+import type { PodInfo } from "@/generated/types";
 
 export interface ResourceWithMetrics {
-  cpu_usage: string | null;
-  memory_usage: string | null;
+  cpuUsage: string | null;
+  memoryUsage: string | null;
 }
 
 export interface UseResourceWithMetricsOptions {
@@ -68,8 +68,8 @@ export function useResourceWithMetrics<T extends { name: string; namespace: stri
 
       return {
         ...resource,
-        cpu_usage: aggregated.cpu_usage,
-        memory_usage: aggregated.memory_usage,
+        cpuUsage: aggregated.cpuUsage,
+        memoryUsage: aggregated.memoryUsage,
       };
     });
   }, [resources, podsWithMetrics, podMatchFn]);
@@ -125,7 +125,7 @@ export function matchDeploymentPods<T extends { name: string; namespace: string;
 ): boolean {
   const podLabels = pod.labels || {};
   const deploymentLabels = resource.labels || {};
-  
+
   return (
     pod.namespace === resource.namespace &&
     (podLabels["app"] === deploymentLabels["app"] ||

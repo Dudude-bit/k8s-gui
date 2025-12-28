@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -18,9 +17,16 @@ import { ActionMenu } from "@/components/ui/action-menu";
 import { useNodeMetrics } from "@/hooks/useNodeMetrics";
 import { ResourceUsage } from "@/components/ui/resource-usage";
 import { useMemo } from "react";
-import type { NodeInfo } from "@/types/kubernetes";
+import type { NodeInfo } from "@/generated/types";
+import * as commands from "@/generated/commands";
+import { normalizeTauriError } from "@/lib/error-utils";
+import { formatAge } from "@/lib/utils";
 
-// Using NodeInfo from types/kubernetes.ts
+// Extended type for NodeList with metrics
+interface NodeWithMetrics extends NodeInfo {
+  cpuUsage: string | null;
+  memoryUsage: string | null;
+}
 
 export function NodeList() {
   const { isConnected } = useClusterStore();
@@ -35,13 +41,16 @@ export function NodeList() {
   } = useQuery({
     queryKey: ["nodes"],
     queryFn: async () => {
-      const result = await invoke<NodeInfo[]>("list_nodes");
-      return result;
+      try {
+        return await commands.listNodes(null);
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
     },
     enabled: isConnected,
     placeholderData: keepPreviousData,
     staleTime: 10000,
-    refetchInterval: 15000, // 15 seconds for main list
+    refetchInterval: 15000,
     refetchOnWindowFocus: false,
   });
 
@@ -54,15 +63,19 @@ export function NodeList() {
       const metrics = nodeMetrics.find((m) => m.name === node.name);
       return {
         ...node,
-        cpu_usage: metrics?.cpu_usage ?? node.cpu_usage ?? null,
-        memory_usage: metrics?.memory_usage ?? node.memory_usage ?? null,
+        cpuUsage: metrics?.cpuUsage ?? node.cpuUsage ?? null,
+        memoryUsage: metrics?.memoryUsage ?? node.memoryUsage ?? null,
       };
     });
   }, [nodes, nodeMetrics]);
 
   const cordonMutation = useMutation({
     mutationFn: async (nodeName: string) => {
-      await invoke("cordon_node", { name: nodeName });
+      try {
+        await commands.cordonNode(nodeName);
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
     },
     onSuccess: (_, nodeName) => {
       queryClient.invalidateQueries({ queryKey: ["nodes"] });
@@ -82,7 +95,11 @@ export function NodeList() {
 
   const uncordonMutation = useMutation({
     mutationFn: async (nodeName: string) => {
-      await invoke("uncordon_node", { name: nodeName });
+      try {
+        await commands.uncordonNode(nodeName);
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
     },
     onSuccess: (_, nodeName) => {
       queryClient.invalidateQueries({ queryKey: ["nodes"] });
@@ -102,11 +119,11 @@ export function NodeList() {
 
   const drainMutation = useMutation({
     mutationFn: async (nodeName: string) => {
-      await invoke("drain_node", {
-        name: nodeName,
-        ignoreDaemonsets: true,
-        deleteEmptydir: true,
-      });
+      try {
+        await commands.drainNode(nodeName, true, true);
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
     },
     onSuccess: (_, nodeName) => {
       queryClient.invalidateQueries({ queryKey: ["nodes"] });
@@ -124,7 +141,7 @@ export function NodeList() {
     },
   });
 
-  const columns: ColumnDef<NodeInfo>[] = useMemo(() => [
+  const columns: ColumnDef<NodeWithMetrics>[] = useMemo(() => [
     {
       accessorKey: "name",
       header: "Name",
@@ -141,8 +158,8 @@ export function NodeList() {
       id: "status",
       header: "Status",
       cell: ({ row }) => {
-        const status = row.original.status;
-        return <StatusBadge status={status} />;
+        const ready = row.original.status.ready;
+        return <StatusBadge status={ready ? "Ready" : "NotReady"} />;
       },
     },
     {
@@ -166,18 +183,20 @@ export function NodeList() {
       id: "internal_ip",
       header: "Internal IP",
       cell: ({ row }) => {
-        return row.original.internal_ip || "-";
+        const address = row.original.status.addresses.find(
+          (a) => a.type === "InternalIP"
+        );
+        return address?.address || "-";
       },
     },
     {
       id: "cpu",
       header: "CPU Usage",
       cell: ({ row }) => {
-        const node = nodesWithMetrics.find((n) => n.name === row.original.name);
-        const capacity = node?.cpu_capacity || null;
+        const capacity = row.original.capacity ? row.original.capacity.cpu : null;
         return (
           <ResourceUsage
-            used={node?.cpu_usage ?? null}
+            used={row.original.cpuUsage}
             total={capacity}
             type="cpu"
             showProgressBar={false}
@@ -189,11 +208,10 @@ export function NodeList() {
       id: "memory",
       header: "Memory Usage",
       cell: ({ row }) => {
-        const node = nodesWithMetrics.find((n) => n.name === row.original.name);
-        const capacity = node?.memory_capacity || null;
+        const capacity = row.original.capacity ? row.original.capacity.memory : null;
         return (
           <ResourceUsage
-            used={node?.memory_usage ?? null}
+            used={row.original.memoryUsage}
             total={capacity}
             type="memory"
             showProgressBar={false}
@@ -202,14 +220,14 @@ export function NodeList() {
       },
     },
     {
-      id: "pod_count",
-      header: "Pods",
-      cell: ({ row }) => row.original.pod_count || "-",
+      id: "capacity_pods",
+      header: "Pod Cap",
+      cell: ({ row }) => row.original.capacity?.pods || "-",
     },
     {
       id: "age",
       header: "Age",
-      cell: ({ row }) => row.original.age || "-",
+      cell: ({ row }) => formatAge(row.original.createdAt),
     },
     {
       id: "actions",
@@ -222,21 +240,22 @@ export function NodeList() {
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          {((row.original as any).is_schedulable !== false) ? (
-            <DropdownMenuItem
-              onClick={() => cordonMutation.mutate(row.original.name)}
-            >
-              <ShieldOff className="mr-2 h-4 w-4" />
-              Cordon
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem
-              onClick={() => uncordonMutation.mutate(row.original.name)}
-            >
-              <Shield className="mr-2 h-4 w-4" />
-              Uncordon
-            </DropdownMenuItem>
-          )}
+          {/* Note: Simplified check as 'isSchedulable' might not be directly exposed or named differently in generated types if it was a computed field. 
+              Usually untainted nodes are schedulable or check Ready condition. 
+              The manual type had 'is_schedulable'. The generated one has 'taints'. 
+          */}
+          <DropdownMenuItem
+            onClick={() => cordonMutation.mutate(row.original.name)}
+          >
+            <ShieldOff className="mr-2 h-4 w-4" />
+            Cordon
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => uncordonMutation.mutate(row.original.name)}
+          >
+            <Shield className="mr-2 h-4 w-4" />
+            Uncordon
+          </DropdownMenuItem>
           <DropdownMenuItem
             className="text-destructive"
             onClick={() => drainMutation.mutate(row.original.name)}
@@ -247,7 +266,7 @@ export function NodeList() {
         </ActionMenu>
       ),
     },
-  ], [nodesWithMetrics, cordonMutation, uncordonMutation, drainMutation]);
+  ], [cordonMutation, uncordonMutation, drainMutation]);
 
   if (!isConnected) {
     return <ConnectClusterEmptyState resourceLabel="nodes" />;

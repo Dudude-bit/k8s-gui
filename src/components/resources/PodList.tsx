@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
 import { DataTable } from "@/components/ui/data-table";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -22,7 +21,9 @@ import {
   createNamespaceColumn,
   createAgeColumn,
 } from "./columns";
-import type { ContainerInfo } from "@/types/kubernetes";
+import type { ContainerInfo } from "@/generated/types";
+import * as commands from "@/generated/commands";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 // Helper to format ready containers count
 function formatReady(containers: ContainerInfo[]): string {
@@ -39,10 +40,11 @@ export function PodList() {
   // Setup delete functionality with new hook
   const { deleteTarget, setDeleteTarget, confirmDelete, isDeleting } = useResourceDelete<PodWithMetrics>({
     mutationFn: async (item) => {
-      await invoke("delete_pod", {
-        name: item.name,
-        namespace: item.namespace,
-      });
+      try {
+        await commands.deletePod(item.name, item.namespace, false);
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
     },
     invalidateQueryKeys: [["pods"]],
     resourceType: "Pod",
@@ -64,8 +66,8 @@ export function PodList() {
         header: "CPU",
         cell: ({ row }) => (
           <MetricBadge
-            used={row.original.cpu_usage}
-            total={row.original.cpu_limits ?? row.original.cpu_requests}
+            used={row.original.cpuUsage}
+            total={row.original.cpuLimits ?? row.original.cpuRequests}
             type="cpu"
           />
         ),
@@ -75,8 +77,8 @@ export function PodList() {
         header: "Memory",
         cell: ({ row }) => (
           <MetricBadge
-            used={row.original.memory_usage}
-            total={row.original.memory_limits ?? row.original.memory_requests}
+            used={row.original.memoryUsage}
+            total={row.original.memoryLimits ?? row.original.memoryRequests}
             type="memory"
           />
         ),
@@ -90,20 +92,20 @@ export function PodList() {
         id: "restarts",
         header: "Restarts",
         cell: ({ row }) => (
-          <span className={row.original.restart_count > 5 ? "text-yellow-500" : ""}>
-            {row.original.restart_count}
+          <span className={row.original.restartCount > 5 ? "text-yellow-500" : ""}>
+            {row.original.restartCount}
           </span>
         ),
       },
       {
         id: "node",
         header: "Node",
-        cell: ({ row }) => row.original.node_name || "-",
+        cell: ({ row }) => row.original.nodeName || "-",
       },
       {
         id: "ip",
         header: "IP",
-        cell: ({ row }) => row.original.pod_ip || "-",
+        cell: ({ row }) => row.original.podIp || "-",
       },
       createAgeColumn<PodWithMetrics>(),
       {

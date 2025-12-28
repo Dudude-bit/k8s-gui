@@ -4,12 +4,13 @@ import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
-import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useThemeStore } from "@/stores/themeStore";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
+import * as commands from "@/generated/commands";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 interface TerminalProps {
   podName: string;
@@ -17,19 +18,6 @@ interface TerminalProps {
   containerName: string;
   sessionId?: string;
   onClose?: () => void;
-}
-
-interface PodInfo {
-  status?: {
-    phase?: string;
-  };
-  containers?: {
-    name: string;
-    state?: {
-      type?: "running" | "waiting" | "terminated" | "unknown";
-      reason?: string | null;
-    };
-  }[];
 }
 
 type SessionStatus =
@@ -62,49 +50,49 @@ export function Terminal({
     () =>
       isDark
         ? {
-            background: "#1a1a2e",
-            foreground: "#e4e4e7",
-            cursor: "#3b82f6",
-            selectionBackground: "#3b82f680",
-            black: "#09090b",
-            red: "#ef4444",
-            green: "#22c55e",
-            yellow: "#eab308",
-            blue: "#3b82f6",
-            magenta: "#a855f7",
-            cyan: "#06b6d4",
-            white: "#fafafa",
-            brightBlack: "#52525b",
-            brightRed: "#f87171",
-            brightGreen: "#4ade80",
-            brightYellow: "#facc15",
-            brightBlue: "#60a5fa",
-            brightMagenta: "#c084fc",
-            brightCyan: "#22d3ee",
-            brightWhite: "#ffffff",
-          }
+          background: "#1a1a2e",
+          foreground: "#e4e4e7",
+          cursor: "#3b82f6",
+          selectionBackground: "#3b82f680",
+          black: "#09090b",
+          red: "#ef4444",
+          green: "#22c55e",
+          yellow: "#eab308",
+          blue: "#3b82f6",
+          magenta: "#a855f7",
+          cyan: "#06b6d4",
+          white: "#fafafa",
+          brightBlack: "#52525b",
+          brightRed: "#f87171",
+          brightGreen: "#4ade80",
+          brightYellow: "#facc15",
+          brightBlue: "#60a5fa",
+          brightMagenta: "#c084fc",
+          brightCyan: "#22d3ee",
+          brightWhite: "#ffffff",
+        }
         : {
-            background: "#fafafa",
-            foreground: "#18181b",
-            cursor: "#2563eb",
-            selectionBackground: "#3b82f640",
-            black: "#09090b",
-            red: "#dc2626",
-            green: "#16a34a",
-            yellow: "#ca8a04",
-            blue: "#2563eb",
-            magenta: "#9333ea",
-            cyan: "#0891b2",
-            white: "#f4f4f5",
-            brightBlack: "#71717a",
-            brightRed: "#ef4444",
-            brightGreen: "#22c55e",
-            brightYellow: "#eab308",
-            brightBlue: "#3b82f6",
-            brightMagenta: "#a855f7",
-            brightCyan: "#06b6d4",
-            brightWhite: "#ffffff",
-          },
+          background: "#fafafa",
+          foreground: "#18181b",
+          cursor: "#2563eb",
+          selectionBackground: "#3b82f640",
+          black: "#09090b",
+          red: "#dc2626",
+          green: "#16a34a",
+          yellow: "#ca8a04",
+          blue: "#2563eb",
+          magenta: "#9333ea",
+          cyan: "#0891b2",
+          white: "#f4f4f5",
+          brightBlack: "#71717a",
+          brightRed: "#ef4444",
+          brightGreen: "#22c55e",
+          brightYellow: "#eab308",
+          brightBlue: "#3b82f6",
+          brightMagenta: "#a855f7",
+          brightCyan: "#06b6d4",
+          brightWhite: "#ffffff",
+        },
     [isDark],
   );
 
@@ -162,12 +150,7 @@ export function Terminal({
     );
 
     try {
-      const newSessionId = await invoke<string>("open_shell", {
-        pod: podName,
-        namespace,
-        container: containerName,
-        shell: null,
-      });
+      const newSessionId = await commands.openShell(namespace, podName, containerName, null);
 
       activeSessionIdRef.current = newSessionId;
       setSessionStatus("connected");
@@ -202,10 +185,7 @@ export function Terminal({
         if (isClosedRef.current) {
           return;
         }
-        invoke("terminal_input", {
-          sessionId: newSessionId,
-          data,
-        }).catch((err) => {
+        commands.terminalInput(newSessionId, data).catch((err) => {
           console.error("Failed to send input:", err);
           xterm.writeln(`\x1b[31mInput error: ${err}\x1b[0m`);
         });
@@ -216,13 +196,11 @@ export function Terminal({
         disposeData.dispose();
         unlistenOutput();
         unlistenClosed();
-        invoke("close_terminal", { sessionId: newSessionId }).catch(
-          console.error,
-        );
+        commands.closeTerminal(newSessionId).catch(console.error);
       };
     } catch (error) {
       console.error("Failed to open shell:", error);
-      markSessionEnded("error", `Failed to connect: ${error}`, "red");
+      markSessionEnded("error", `Failed to connect: ${normalizeTauriError(error)}`, "red");
     }
   }, [clearSession, containerName, markSessionEnded, namespace, podName]);
 
@@ -256,11 +234,7 @@ export function Terminal({
       fitAddon.fit();
       const activeSessionId = activeSessionIdRef.current || sessionId;
       if (activeSessionId) {
-        invoke("terminal_resize", {
-          sessionId: activeSessionId,
-          cols: xterm.cols,
-          rows: xterm.rows,
-        }).catch(console.error);
+        commands.terminalResize(activeSessionId, xterm.cols, xterm.rows).catch(console.error);
       }
     };
 
@@ -289,10 +263,7 @@ export function Terminal({
       }
 
       try {
-        const pod = await invoke<PodInfo>("get_pod", {
-          name: podName,
-          namespace,
-        });
+        const pod = await commands.getPod(podName, namespace);
         const container = pod.containers?.find(
           (item) => item.name === containerName,
         );
@@ -307,9 +278,14 @@ export function Terminal({
           return;
         }
 
-        if (container.state?.type === "terminated") {
-          const reason = container.state.reason
-            ? `: ${container.state.reason}`
+        if (container.state.type === "Terminated") {
+          // Access 'reason' only if type is Terminated or Waiting.
+          // ContainerState is discriminated union.
+          // TypeScript should narrow it, but we might need explicit check or cast if accessing directly.
+          // In generated type: | { type: "Terminated"; exitCode: number; reason: string | null }
+          const terminatedState = container.state as { reason: string | null };
+          const reason = terminatedState.reason
+            ? `: ${terminatedState.reason}`
             : "";
           markSessionEnded(
             "unavailable",
@@ -320,11 +296,11 @@ export function Terminal({
           return;
         }
 
-        const phase = pod.status?.phase?.toLowerCase();
+        const phase = pod.status.phase.toLowerCase();
         if (phase === "failed" || phase === "succeeded") {
           markSessionEnded(
             "unavailable",
-            `Pod ${pod.status?.phase}`,
+            `Pod ${pod.status.phase}`,
             "yellow",
             true,
           );

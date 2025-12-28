@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import * as commands from "@/generated/commands";
 import { useClusterStore } from "@/stores/clusterStore";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -19,17 +19,7 @@ import {
 } from "@/components/ui/tooltip";
 import { ActionMenu } from "@/components/ui/action-menu";
 
-interface PersistentVolumeInfo {
-  name: string;
-  capacity: string;
-  access_modes: string[];
-  reclaim_policy: string;
-  status: string;
-  claim: string | null;
-  storage_class: string;
-  reason: string | null;
-  age: string;
-}
+import type { PersistentVolumeInfo } from "@/generated/types";
 
 const columns: ColumnDef<PersistentVolumeInfo>[] = [
   {
@@ -48,11 +38,11 @@ const columns: ColumnDef<PersistentVolumeInfo>[] = [
     cell: ({ row }) => <Badge variant="outline">{row.original.capacity}</Badge>,
   },
   {
-    accessorKey: "access_modes",
+    accessorKey: "accessModes",
     header: "Access Modes",
     cell: ({ row }) => (
       <div className="flex flex-wrap gap-1">
-        {row.original.access_modes.map((mode, i) => (
+        {row.original.accessModes.map((mode, i) => (
           <Tooltip key={i}>
             <TooltipTrigger>
               <Badge variant="secondary" className="text-xs">
@@ -71,10 +61,10 @@ const columns: ColumnDef<PersistentVolumeInfo>[] = [
     ),
   },
   {
-    accessorKey: "reclaim_policy",
+    accessorKey: "reclaimPolicy",
     header: "Reclaim Policy",
     cell: ({ row }) => (
-      <Badge variant="outline">{row.original.reclaim_policy}</Badge>
+      <Badge variant="outline">{row.original.reclaimPolicy}</Badge>
     ),
   },
   {
@@ -90,9 +80,9 @@ const columns: ColumnDef<PersistentVolumeInfo>[] = [
     cell: ({ row }) => row.original.claim || "-",
   },
   {
-    accessorKey: "storage_class",
+    accessorKey: "storageClass",
     header: "Storage Class",
-    cell: ({ row }) => row.original.storage_class || "-",
+    cell: ({ row }) => row.original.storageClass || "-",
   },
   {
     accessorKey: "age",
@@ -127,10 +117,7 @@ export function PersistentVolumeList() {
   } = useResourceList(
     ["persistent-volumes"],
     async () => {
-      const result = await invoke<PersistentVolumeInfo[]>(
-        "list_persistent_volumes",
-      );
-      return result;
+      return await commands.listPersistentVolumes(null);
     },
     { enabled: isConnected }
   );

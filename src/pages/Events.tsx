@@ -1,5 +1,4 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
 import { RefreshButton } from "@/components/ui/refresh-button";
@@ -22,27 +21,9 @@ import {
 import { useState } from "react";
 import { AlertTriangle, Info, Clock, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface InvolvedObjectInfo {
-  kind: string;
-  name: string;
-  namespace: string | null;
-  uid: string | null;
-}
-
-interface EventInfo {
-  name: string;
-  namespace: string;
-  uid: string;
-  type_: string;
-  reason: string | null;
-  message: string | null;
-  source: string | null;
-  involved_object: InvolvedObjectInfo;
-  count: number | null;
-  first_timestamp: string | null;
-  last_timestamp: string | null;
-}
+import * as commands from "@/generated/commands";
+import type { EventInfo, EventFilters } from "@/generated/types";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 export function Events() {
   const { isConnected, currentNamespace } = useClusterStore();
@@ -58,14 +39,19 @@ export function Events() {
     queryKey: ["events", currentNamespace, eventType, eventLimit],
     queryFn: async () => {
       const limit = eventLimit === "all" ? null : Number(eventLimit);
-      const result = await invoke<EventInfo[]>("list_events", {
-        filters: {
-          namespace: currentNamespace,
-          event_type: eventType === "all" ? null : eventType,
-          limit,
-        },
-      });
-      return result;
+      const filters: EventFilters = {
+        namespace: currentNamespace,
+        eventType: eventType === "all" ? null : eventType,
+        limit,
+        involvedObjectName: null,
+        involvedObjectKind: null,
+        fieldSelector: null,
+      };
+      try {
+        return await commands.listEvents(filters);
+      } catch (err) {
+        throw normalizeTauriError(err);
+      }
     },
     enabled: isConnected,
     refetchInterval: 5000, // Auto-refresh every 5 seconds
@@ -78,8 +64,8 @@ export function Events() {
     return <ConnectClusterEmptyState resourceLabel="events" />;
   }
 
-  const warningCount = events.filter((e) => e.type_ === "Warning").length;
-  const normalCount = events.filter((e) => e.type_ === "Normal").length;
+  const warningCount = events.filter((e) => e.type === "Warning").length;
+  const normalCount = events.filter((e) => e.type === "Normal").length;
   const showSkeleton = isLoading && events.length === 0;
 
   return (
@@ -175,7 +161,7 @@ export function Events() {
 }
 
 function EventItem({ event }: { event: EventInfo }) {
-  const isWarning = event.type_ === "Warning";
+  const isWarning = event.type === "Warning";
 
   return (
     <div
@@ -193,13 +179,13 @@ function EventItem({ event }: { event: EventInfo }) {
           )}
           <span className="font-medium">{event.reason}</span>
           <Badge variant="outline" className="text-xs">
-            {event.involved_object.kind}/{event.involved_object.name}
+            {event.involvedObject.kind}/{event.involvedObject.name}
           </Badge>
         </div>
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <Clock className="h-3 w-3" />
-          {event.last_timestamp
-            ? new Date(event.last_timestamp).toLocaleString()
+          {event.lastTimestamp
+            ? new Date(event.lastTimestamp).toLocaleString()
             : "Unknown"}
           {(event.count || 0) > 1 && (
             <Badge variant="secondary" className="ml-2">

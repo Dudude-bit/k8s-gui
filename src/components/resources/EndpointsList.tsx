@@ -1,5 +1,5 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { invoke } from "@tauri-apps/api/core";
+import * as commands from "@/generated/commands";
 import { useClusterStore } from "@/stores/clusterStore";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -15,35 +15,7 @@ import {
 } from "@/components/ui/tooltip";
 import { ActionMenu } from "@/components/ui/action-menu";
 
-interface EndpointAddress {
-  ip: string;
-  hostname: string | null;
-  node_name: string | null;
-  target_ref: {
-    kind: string;
-    name: string;
-    namespace: string;
-  } | null;
-}
-
-interface EndpointPort {
-  name: string | null;
-  port: number;
-  protocol: string;
-}
-
-interface EndpointSubset {
-  addresses: EndpointAddress[];
-  not_ready_addresses: EndpointAddress[];
-  ports: EndpointPort[];
-}
-
-interface EndpointsInfo {
-  name: string;
-  namespace: string;
-  subsets: EndpointSubset[];
-  age: string;
-}
+import type { EndpointsInfo } from "@/generated/types";
 
 const columns: ColumnDef<EndpointsInfo>[] = [
   {
@@ -69,7 +41,7 @@ const columns: ColumnDef<EndpointsInfo>[] = [
         0,
       );
       const notReadyCount = row.original.subsets.reduce(
-        (acc, s) => acc + s.not_ready_addresses.length,
+        (acc, s) => acc + s.notReadyAddresses.length,
         0,
       );
 
@@ -93,8 +65,8 @@ const columns: ColumnDef<EndpointsInfo>[] = [
                     s.addresses.map((addr, i) => (
                       <div key={i}>
                         {addr.ip}
-                        {addr.target_ref &&
-                          ` (${addr.target_ref.kind}/${addr.target_ref.name})`}
+                        {addr.targetRef &&
+                          ` (${addr.targetRef.kind}/${addr.targetRef.name})`}
                       </div>
                     )),
                   )}
@@ -112,11 +84,11 @@ const columns: ColumnDef<EndpointsInfo>[] = [
               <TooltipContent>
                 <div className="space-y-1 text-xs">
                   {row.original.subsets.flatMap((s) =>
-                    s.not_ready_addresses.map((addr, i) => (
+                    s.notReadyAddresses.map((addr, i) => (
                       <div key={i}>
                         {addr.ip}
-                        {addr.target_ref &&
-                          ` (${addr.target_ref.kind}/${addr.target_ref.name})`}
+                        {addr.targetRef &&
+                          ` (${addr.targetRef.kind}/${addr.targetRef.name})`}
                       </div>
                     )),
                   )}
@@ -203,10 +175,12 @@ export function EndpointsList() {
   } = useQuery({
     queryKey: ["endpoints", currentNamespace],
     queryFn: async () => {
-      const result = await invoke<EndpointsInfo[]>("list_endpoints", {
-        namespace: currentNamespace,
+      return await commands.listEndpoints({
+        namespace: currentNamespace || null,
+        labelSelector: null,
+        fieldSelector: null,
+        limit: null,
       });
-      return result;
     },
     enabled: isConnected,
     placeholderData: keepPreviousData,

@@ -1,6 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { invoke } from "@tauri-apps/api/core";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,47 +18,8 @@ import { ResourceDetailHeader } from "@/components/resources/ResourceDetailHeade
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { useMemo } from "react";
-
-interface NodeAddressInfo {
-  type_: string;
-  address: string;
-}
-
-interface ConditionInfo {
-  type_: string;
-  status: string;
-  message: string | null;
-  reason: string | null;
-  last_transition_time: string | null;
-}
-
-interface NodeStatusInfo {
-  ready: boolean;
-  conditions: ConditionInfo[];
-  addresses: NodeAddressInfo[];
-}
-
-interface ResourceQuantities {
-  cpu: string | null;
-  memory: string | null;
-  pods: string | null;
-  ephemeral_storage: string | null;
-}
-
-interface NodeInfo {
-  name: string;
-  uid: string;
-  status: NodeStatusInfo;
-  roles: string[];
-  version: string;
-  os: string;
-  arch: string;
-  container_runtime: string;
-  labels: Record<string, string>;
-  capacity: ResourceQuantities;
-  allocatable: ResourceQuantities;
-  created_at: string | null;
-}
+import * as commands from "@/generated/commands";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 export function NodeDetail() {
   const { name } = useParams<{ name: string }>();
@@ -73,7 +33,12 @@ export function NodeDetail() {
   } = useQuery({
     queryKey: ["node", name],
     queryFn: async () => {
-      return invoke<NodeInfo>("get_node", { name });
+      try {
+        if (!name) throw new Error("Name is required");
+        return await commands.getNode(name);
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
     },
     enabled: !!name,
     placeholderData: keepPreviousData,
@@ -82,8 +47,13 @@ export function NodeDetail() {
   const { data: podCount } = useQuery({
     queryKey: ["node-pods", name],
     queryFn: async () => {
-      const pods = await invoke<unknown[]>("get_node_pods", { name });
-      return pods.length;
+      try {
+        if (!name) return 0;
+        const pods = await commands.getNodePods(name);
+        return pods.length;
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
     },
     enabled: !!name,
     placeholderData: keepPreviousData,
@@ -96,8 +66,8 @@ export function NodeDetail() {
     const metrics = nodeMetrics.find((m) => m.name === node.name);
     return {
       ...node,
-      cpu_usage: metrics?.cpu_usage ?? null,
-      memory_usage: metrics?.memory_usage ?? null,
+      cpuUsage: metrics?.cpuUsage ?? null,
+      memoryUsage: metrics?.memoryUsage ?? null,
     };
   }, [node, nodeMetrics]);
 
@@ -127,14 +97,14 @@ export function NodeDetail() {
 
   const getInternalIP = () => {
     const internal = node.status.addresses.find(
-      (a) => a.type_ === "InternalIP",
+      (a) => a.type === "InternalIP",
     );
     return internal?.address || "-";
   };
 
   const getExternalIP = () => {
     const external = node.status.addresses.find(
-      (a) => a.type_ === "ExternalIP",
+      (a) => a.type === "ExternalIP",
     );
     return external?.address || "-";
   };
@@ -164,7 +134,7 @@ export function NodeDetail() {
       <div className="grid gap-4 md:grid-cols-4">
         <MetricCard
           title="CPU Usage"
-          used={nodeWithMetrics?.cpu_usage ?? null}
+          used={nodeWithMetrics?.cpuUsage ?? null}
           total={node.capacity.cpu ?? null}
           type="cpu"
           icon={<Cpu className="h-4 w-4" />}
@@ -174,7 +144,7 @@ export function NodeDetail() {
 
         <MetricCard
           title="Memory Usage"
-          used={nodeWithMetrics?.memory_usage ?? null}
+          used={nodeWithMetrics?.memoryUsage ?? null}
           total={node.capacity.memory ?? null}
           type="memory"
           icon={<MemoryStick className="h-4 w-4" />}
@@ -204,11 +174,11 @@ export function NodeDetail() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold truncate text-lg">
-              {formatKubernetesBytes(node.capacity.ephemeral_storage)}
+              {formatKubernetesBytes(node.capacity.ephemeralStorage)}
             </div>
             <p className="text-xs text-muted-foreground truncate">
               Allocatable:{" "}
-              {formatKubernetesBytes(node.allocatable.ephemeral_storage)}
+              {formatKubernetesBytes(node.allocatable.ephemeralStorage)}
             </p>
           </CardContent>
         </Card>
@@ -250,7 +220,7 @@ export function NodeDetail() {
                 <p className="text-sm font-medium text-muted-foreground">
                   Container Runtime
                 </p>
-                <p>{node.container_runtime}</p>
+                <p>{node.containerRuntime}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">OS</p>
@@ -267,8 +237,8 @@ export function NodeDetail() {
                   Created
                 </p>
                 <p>
-                  {node.created_at
-                    ? new Date(node.created_at).toLocaleString()
+                  {node.createdAt
+                    ? new Date(node.createdAt).toLocaleString()
                     : "-"}
                 </p>
               </div>
@@ -279,11 +249,11 @@ export function NodeDetail() {
         <TabsContent value="conditions" className="space-y-4">
           <ConditionsDisplay
             conditions={node.status.conditions.map((c) => ({
-              type_: c.type_,
+              type_: c.type,
               status: c.status,
               reason: c.reason,
               message: c.message,
-              last_transition_time: c.last_transition_time,
+              last_transition_time: c.lastTransitionTime,
             }))}
             title="Conditions"
           />

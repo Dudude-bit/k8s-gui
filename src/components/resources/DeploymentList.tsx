@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
 import { ColumnDef } from "@tanstack/react-table";
@@ -21,12 +20,14 @@ import {
   createAgeColumn,
   createReplicasColumn,
 } from "./columns";
-import type { DeploymentInfo } from "@/types/kubernetes";
+import type { DeploymentInfo } from "@/generated/types";
+import * as commands from "@/generated/commands";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 // Extended DeploymentInfo with metrics
 type DeploymentInfoWithMetrics = DeploymentInfo & {
-  cpu_usage: string | null;
-  memory_usage: string | null;
+  cpuUsage: string | null;
+  memoryUsage: string | null;
 };
 
 export function DeploymentList() {
@@ -37,32 +38,39 @@ export function DeploymentList() {
 
   // Query function that merges deployments with aggregated metrics
   const queryFn = async (): Promise<DeploymentInfoWithMetrics[]> => {
-    const deployments = await invoke<DeploymentInfo[]>("list_deployments", {
-      filters: { namespace: currentNamespace },
-    });
-
-    // Aggregate metrics per deployment
-    return deployments.map((deployment) => {
-      const deploymentPods = podsWithMetrics.filter((pod) => {
-        const podLabels = pod.labels || {};
-        const deploymentLabels = deployment.labels || {};
-        
-        return (
-          pod.namespace === deployment.namespace &&
-          (podLabels["app"] === deploymentLabels["app"] ||
-            podLabels["deployment"] === deployment.name ||
-            pod.name.startsWith(deployment.name + "-"))
-        );
+    try {
+      const deployments = await commands.listDeployments({
+        namespace: currentNamespace || null,
+        labelSelector: null,
+        fieldSelector: null,
+        limit: null,
       });
 
-      const aggregated = aggregatePodMetrics(deploymentPods);
+      // Aggregate metrics per deployment
+      return deployments.map((deployment) => {
+        const deploymentPods = podsWithMetrics.filter((pod) => {
+          const podLabels = pod.labels || {};
+          const deploymentLabels = deployment.labels || {};
 
-      return {
-        ...deployment,
-        cpu_usage: aggregated.cpu_usage,
-        memory_usage: aggregated.memory_usage,
-      };
-    });
+          return (
+            pod.namespace === deployment.namespace &&
+            (podLabels["app"] === deploymentLabels["app"] ||
+              podLabels["deployment"] === deployment.name ||
+              pod.name.startsWith(deployment.name + "-"))
+          );
+        });
+
+        const aggregatedMetrics = aggregatePodMetrics(deploymentPods);
+
+        return {
+          ...deployment,
+          cpuUsage: aggregatedMetrics.cpuUsage,
+          memoryUsage: aggregatedMetrics.memoryUsage,
+        };
+      });
+    } catch (err) {
+      throw new Error(normalizeTauriError(err));
+    }
   };
 
   const columns = useMemo<ColumnDef<DeploymentInfoWithMetrics>[]>(
@@ -73,14 +81,14 @@ export function DeploymentList() {
         id: "cpu",
         header: "CPU",
         cell: ({ row }) => (
-          <MetricBadge used={row.original.cpu_usage} type="cpu" />
+          <MetricBadge used={row.original.cpuUsage} type="cpu" />
         ),
       },
       {
         id: "memory",
         header: "Memory",
         cell: ({ row }) => (
-          <MetricBadge used={row.original.memory_usage} type="memory" />
+          <MetricBadge used={row.original.memoryUsage} type="memory" />
         ),
       },
       createReplicasColumn<DeploymentInfoWithMetrics>(),
@@ -150,10 +158,11 @@ export function DeploymentList() {
       emptyStateLabel="deployments"
       deleteConfig={{
         mutationFn: async (item) => {
-          await invoke("delete_deployment", {
-            name: item.name,
-            namespace: item.namespace,
-          });
+          try {
+            await commands.deleteDeployment(item.name, item.namespace);
+          } catch (err) {
+            throw new Error(normalizeTauriError(err));
+          }
         },
         invalidateQueryKeys: [["deployments"]],
         resourceType: "Deployment",

@@ -8,6 +8,7 @@ mod handlers;
 mod middleware;
 mod utils;
 mod error;
+mod services;
 
 use actix_web::{web, App, HttpServer};
 
@@ -24,10 +25,18 @@ async fn main() -> std::io::Result<()> {
     log::info!("Starting authentication server on {}:{}", config.host, config.port);
 
     let config_clone = config.clone();
+    let auth_service = services::auth::AuthService::new(db_pool.clone(), config.clone());
+    let auth_service_data = web::Data::new(auth_service);
+    
+    let user_service = services::user::UserService::new(db_pool.clone());
+    let user_service_data = web::Data::new(user_service);
+
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(config_clone.clone()))
             .app_data(web::Data::new(db_pool.clone()))
+            .app_data(auth_service_data.clone())
+            .app_data(user_service_data.clone())
             .wrap(middleware::cors::cors_middleware_with_origins(&config_clone))
             .wrap(middleware::security::SecurityMiddleware)
             .service(

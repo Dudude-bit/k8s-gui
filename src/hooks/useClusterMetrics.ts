@@ -1,14 +1,11 @@
 // Hook for fetching cluster metrics with real-time updates
 
 import { useQuery, keepPreviousData, UseQueryOptions } from "@tanstack/react-query";
-import { invokeTyped } from "@/lib/tauri";
+import * as commands from "@/generated/commands";
+import { ClusterMetrics } from "@/generated/types";
+import { normalizeTauriError } from "@/lib/error-utils";
 
-export interface ClusterMetrics {
-  total_cpu_usage: string | null;
-  total_memory_usage: string | null;
-  total_cpu_capacity: string | null;
-  total_memory_capacity: string | null;
-}
+export type { ClusterMetrics } from "@/generated/types";
 
 export function useClusterMetrics(
   options?: Omit<UseQueryOptions<ClusterMetrics>, "queryKey" | "queryFn">
@@ -16,7 +13,11 @@ export function useClusterMetrics(
   return useQuery({
     queryKey: ["cluster-metrics"],
     queryFn: async () => {
-      return invokeTyped<ClusterMetrics>("get_cluster_metrics", {});
+      try {
+        return await commands.getClusterMetrics();
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
     },
     refetchInterval: 10000, // 10 seconds for real-time updates
     placeholderData: keepPreviousData,
@@ -25,4 +26,6 @@ export function useClusterMetrics(
     ...options,
   });
 }
+
+
 

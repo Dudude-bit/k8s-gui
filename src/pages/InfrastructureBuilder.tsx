@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import ReactFlow, {
   Background,
   Controls,
@@ -59,72 +58,12 @@ import {
   Trash2,
   HelpCircle,
 } from "lucide-react";
+import * as commands from "@/generated/commands";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 const LOCAL_CONTEXT = "__local__";
 const GRID_SPACING_X = 260;
 const GRID_SPACING_Y = 180;
-
-interface ManifestResult {
-  success: boolean;
-  stdout: string;
-  stderr: string;
-  exit_code: number | null;
-}
-
-interface PodInfo {
-  name: string;
-  namespace: string;
-  status: { phase: string };
-  labels: Record<string, string>;
-  containers: { image: string; ports: { container_port: number }[] }[];
-}
-
-interface DeploymentInfo {
-  name: string;
-  namespace: string;
-  replicas: { desired: number; available: number };
-  labels: Record<string, string>;
-  containers?: { image: string; ports: number[] }[];
-}
-
-interface ServiceInfo {
-  name: string;
-  namespace: string;
-  type_: string;
-  session_affinity?: string;
-  ports: { port: number }[];
-  selector: Record<string, string>;
-  labels: Record<string, string>;
-}
-
-interface IngressInfo {
-  name: string;
-  namespace: string;
-  rules: {
-    host: string;
-    paths: {
-      path: string;
-      path_type?: string;
-      backend_service: string;
-      backend_port: string | number;
-    }[];
-  }[];
-}
-
-interface ConfigMapInfo {
-  name: string;
-  namespace: string;
-  data_keys: string[];
-  labels: Record<string, string>;
-}
-
-interface SecretInfo {
-  name: string;
-  namespace: string;
-  type_: string;
-  data_keys: string[];
-  labels: Record<string, string>;
-}
 
 const layoutPosition = (index: number) => ({
   x: (index % 4) * GRID_SPACING_X,
@@ -616,10 +555,7 @@ export function InfrastructureBuilder() {
     }
     setIsValidating(true);
     try {
-      const result = await invoke<ManifestResult>("validate_manifest", {
-        manifest: content,
-        namespace: currentNamespace || null,
-      });
+      const result = await commands.validateManifest(content, currentNamespace || null);
       const message = result.stderr || result.stdout || "Validation completed.";
       setLastResult({
         title: result.success ? "Validation passed" : "Validation failed",
@@ -632,7 +568,7 @@ export function InfrastructureBuilder() {
         variant: result.success ? "default" : "destructive",
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = normalizeTauriError(error);
       setLastResult({ title: "Validation failed", message, success: false });
       toast({
         title: "Validation failed",
@@ -670,10 +606,7 @@ export function InfrastructureBuilder() {
     }
     setIsApplying(true);
     try {
-      const result = await invoke<ManifestResult>("apply_manifest", {
-        manifest: content,
-        namespace: currentNamespace || null,
-      });
+      const result = await commands.applyManifest(content, currentNamespace || null);
       const message = result.stderr || result.stdout || "Apply completed.";
       setLastResult({
         title: result.success ? "Apply succeeded" : "Apply failed",
@@ -686,7 +619,7 @@ export function InfrastructureBuilder() {
         variant: result.success ? "default" : "destructive",
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = normalizeTauriError(error);
       setLastResult({ title: "Apply failed", message, success: false });
       toast({
         title: "Apply failed",
@@ -715,27 +648,16 @@ export function InfrastructureBuilder() {
     }
     setIsImporting(true);
     const namespaceFilter = currentNamespace || null;
+
     try {
       const [pods, deployments, services, ingresses, configmaps, secrets] =
         await Promise.all([
-          invoke<PodInfo[]>("list_pods", {
-            filters: { namespace: namespaceFilter },
-          }),
-          invoke<DeploymentInfo[]>("list_deployments", {
-            filters: { namespace: namespaceFilter },
-          }),
-          invoke<ServiceInfo[]>("list_services", {
-            filters: { namespace: namespaceFilter },
-          }),
-          invoke<IngressInfo[]>("list_ingresses", {
-            namespace: namespaceFilter,
-          }),
-          invoke<ConfigMapInfo[]>("list_configmaps", {
-            filters: { namespace: namespaceFilter },
-          }),
-          invoke<SecretInfo[]>("list_secrets", {
-            filters: { namespace: namespaceFilter },
-          }),
+          commands.listPods({ namespace: namespaceFilter, labelSelector: null, fieldSelector: null, limit: null, statusFilter: null }),
+          commands.listDeployments({ namespace: namespaceFilter, labelSelector: null, fieldSelector: null, limit: null }),
+          commands.listServices({ namespace: namespaceFilter, labelSelector: null, fieldSelector: null, limit: null, serviceType: null }),
+          commands.listIngresses(namespaceFilter),
+          commands.listConfigmaps({ namespace: namespaceFilter, labelSelector: null, limit: null }),
+          commands.listSecrets({ namespace: namespaceFilter, labelSelector: null, limit: null, secretType: null }),
         ]);
 
       const resources: ResourceNodeData[] = [];
@@ -748,7 +670,7 @@ export function InfrastructureBuilder() {
           labels: pod.labels || {},
           origin: "cluster",
           image: container?.image || "nginx:latest",
-          ports: container?.ports?.map((port) => port.container_port) || [],
+          ports: container?.ports?.map((port) => port.containerPort) || [],
           status: pod.status?.phase,
         });
       });
@@ -765,7 +687,7 @@ export function InfrastructureBuilder() {
           ports: container?.ports || [],
           status:
             deployment.replicas?.available >=
-            (deployment.replicas?.desired ?? 1)
+              (deployment.replicas?.desired ?? 1)
               ? "Available"
               : "Progressing",
         });
@@ -777,11 +699,11 @@ export function InfrastructureBuilder() {
           namespace: service.namespace,
           labels: service.labels || {},
           origin: "cluster",
-          serviceType: (service.type_ ||
+          serviceType: (service.type ||
             "ClusterIP") as ServiceResourceData["serviceType"],
           sessionAffinity:
-            service.session_affinity && service.session_affinity.trim()
-              ? (service.session_affinity as ServiceResourceData["sessionAffinity"])
+            service.sessionAffinity && service.sessionAffinity.trim()
+              ? (service.sessionAffinity as ServiceResourceData["sessionAffinity"])
               : "None",
           ports: service.ports?.map((port) => port.port) || [],
           selectors: service.selector || {},
@@ -790,7 +712,7 @@ export function InfrastructureBuilder() {
       ingresses.forEach((ingress) => {
         const rule = ingress.rules?.[0];
         const path = rule?.paths?.[0];
-        const portValue = path?.backend_port ?? 80;
+        const portValue = path?.backendPort ?? "80";
         const port =
           typeof portValue === "number"
             ? portValue
@@ -804,18 +726,18 @@ export function InfrastructureBuilder() {
           host: rule?.host || "",
           path: path?.path || "/",
           pathType:
-            path?.path_type && path.path_type.trim()
-              ? (path.path_type as
-                  | "Prefix"
-                  | "Exact"
-                  | "ImplementationSpecific")
+            path?.pathType && path.pathType.trim()
+              ? (path.pathType as
+                | "Prefix"
+                | "Exact"
+                | "ImplementationSpecific")
               : "Prefix",
-          serviceName: path?.backend_service || "",
+          serviceName: path?.backendService || "",
           servicePort: port,
         });
       });
       configmaps.forEach((configmap) => {
-        const data = configmap.data_keys.reduce<Record<string, string>>(
+        const data = configmap.dataKeys.reduce<Record<string, string>>(
           (acc, key) => {
             acc[key] = "";
             return acc;
@@ -832,7 +754,7 @@ export function InfrastructureBuilder() {
         });
       });
       secrets.forEach((secret) => {
-        const data = secret.data_keys.reduce<Record<string, string>>(
+        const data = secret.dataKeys.reduce<Record<string, string>>(
           (acc, key) => {
             acc[key] = "";
             return acc;
@@ -845,7 +767,7 @@ export function InfrastructureBuilder() {
           namespace: secret.namespace,
           labels: secret.labels || {},
           origin: "cluster",
-          secretType: secret.type_ || "Opaque",
+          secretType: secret.type || "Opaque",
           data,
         });
       });
@@ -868,7 +790,7 @@ export function InfrastructureBuilder() {
     } catch (error) {
       toast({
         title: "Import failed",
-        description: error instanceof Error ? error.message : String(error),
+        description: normalizeTauriError(error),
         variant: "destructive",
       });
     } finally {
@@ -1149,11 +1071,10 @@ export function InfrastructureBuilder() {
               </div>
               {lastResult && (
                 <div
-                  className={`rounded-lg border border-border p-3 text-xs ${
-                    lastResult.success
-                      ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
-                      : "bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-200"
-                  }`}
+                  className={`rounded-lg border border-border p-3 text-xs ${lastResult.success
+                    ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
+                    : "bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-200"
+                    }`}
                 >
                   <div className="font-semibold">{lastResult.title}</div>
                   <pre className="mt-2 whitespace-pre-wrap">
@@ -1185,11 +1106,10 @@ export function InfrastructureBuilder() {
               </div>
               {lastResult && (
                 <div
-                  className={`rounded-lg border border-border p-3 text-xs ${
-                    lastResult.success
-                      ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
-                      : "bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-200"
-                  }`}
+                  className={`rounded-lg border border-border p-3 text-xs ${lastResult.success
+                    ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
+                    : "bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-200"
+                    }`}
                 >
                   <div className="font-semibold">{lastResult.title}</div>
                   <pre className="mt-2 whitespace-pre-wrap">

@@ -16,20 +16,14 @@ pub async fn list_services(
     state: State<'_, AppState>,
 ) -> Result<Vec<ServiceInfo>> {
     let filters = filters.unwrap_or_default();
-    let ctx = ListContext::new(&state, filters.namespace)?;
-    let params = build_list_params(
+    
+    let list = crate::commands::helpers::list_resources::<Service>(
+        filters.namespace,
+        state,
         filters.label_selector.as_deref(),
         filters.field_selector.as_deref(),
         filters.limit,
-    );
-
-    // Use namespaced API when namespace is provided for proper filtering
-    let api: kube::Api<Service> = if ctx.namespace.is_some() {
-        ctx.namespaced_api()
-    } else {
-        ctx.api()
-    };
-    let list = api.list(&params).await?;
+    ).await?;
 
     let mut services: Vec<ServiceInfo> = list.items.iter().map(ServiceInfo::from).collect();
 
@@ -48,11 +42,7 @@ pub async fn get_service(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<ServiceInfo> {
-    let ctx = CommandContext::new(&state, namespace)?;
-
-    let api: kube::Api<Service> = ctx.namespaced_api();
-    let service = api.get(&name).await?;
-
+    let service: Service = crate::commands::helpers::get_resource(name, namespace, state).await?;
     Ok(ServiceInfo::from(&service))
 }
 

@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import * as commands from "@/generated/commands";
 import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
 import { ColumnDef } from "@tanstack/react-table";
@@ -11,6 +11,7 @@ import { useMemo, useCallback } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { YamlViewerAction } from "@/components/ui/yaml-viewer";
 import { YamlEditorMenuAction } from "@/components/ui/yaml-editor";
+import type { SecretInfo } from "@/generated/types";
 import { ResourceList } from "./ResourceList";
 import { useCopyToClipboard } from "@/hooks";
 import {
@@ -19,15 +20,6 @@ import {
   createDataKeysColumn,
 } from "./columns";
 
-interface SecretInfo {
-  name: string;
-  namespace: string;
-  uid: string;
-  type_: string;
-  data_keys: string[];
-  labels: Record<string, string>;
-  created_at: string | null;
-}
 
 const getSecretTypeColor = (type: string): string => {
   switch (type) {
@@ -47,7 +39,7 @@ export function SecretList() {
   const copyToClipboard = useCopyToClipboard();
 
   const handleCopyKeys = useCallback(async (secret: SecretInfo) => {
-    copyToClipboard(secret.data_keys.join("\n"), "Secret keys copied to clipboard.");
+    copyToClipboard(secret.dataKeys.join("\n"), "Secret keys copied to clipboard.");
   }, [copyToClipboard]);
 
   const columns = useMemo<ColumnDef<SecretInfo>[]>(
@@ -67,8 +59,8 @@ export function SecretList() {
         id: "type",
         header: "Type",
         cell: ({ row }) => (
-          <Badge className={getSecretTypeColor(row.original.type_)}>
-            {row.original.type_.replace("kubernetes.io/", "")}
+          <Badge className={getSecretTypeColor(row.original.type)}>
+            {row.original.type.replace("kubernetes.io/", "")}
           </Badge>
         ),
       },
@@ -83,8 +75,12 @@ export function SecretList() {
       title="Secrets"
       queryKey={["secrets", currentNamespace]}
       queryFn={async () => {
-        const result = await invoke<SecretInfo[]>("list_secrets", {
-          filters: { namespace: currentNamespace },
+        const result = await commands.listSecrets({
+          namespace: currentNamespace,
+          labelSelector: null,
+          fieldSelector: null,
+          secretType: null,
+          limit: null,
         });
         return result;
       }}
@@ -98,10 +94,11 @@ export function SecretList() {
                 title="Secret YAML"
                 description={`${row.original.namespace}/${row.original.name}`}
                 fetchYaml={() =>
-                  invoke<string>("get_secret_yaml", {
-                    name: row.original.name,
-                    namespace: row.original.namespace,
-                  })
+                  commands.getSecretYaml(
+                    row.original.name,
+                    row.original.namespace,
+                    false
+                  )
                 }
               />
               <YamlEditorMenuAction
@@ -112,10 +109,11 @@ export function SecretList() {
                   namespace: row.original.namespace,
                 }}
                 fetchYaml={() =>
-                  invoke<string>("get_secret_yaml", {
-                    name: row.original.name,
-                    namespace: row.original.namespace,
-                  })
+                  commands.getSecretYaml(
+                    row.original.name,
+                    row.original.namespace,
+                    false
+                  )
                 }
               />
               <DropdownMenuItem onClick={() => handleCopyKeys(row.original)}>
@@ -137,10 +135,7 @@ export function SecretList() {
       emptyStateLabel="Secrets"
       deleteConfig={{
         mutationFn: async (item) => {
-          await invoke("delete_secret", {
-            name: item.name,
-            namespace: item.namespace,
-          });
+          await commands.deleteSecret(item.name, item.namespace);
         },
         invalidateQueryKeys: [["secrets"]],
         resourceType: "Secret",

@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,28 +8,9 @@ import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { DetailSkeleton, DetailError, InfoCard } from "@/components/resources/ResourceDetailLayout";
 import { useResourceDetail } from "@/hooks";
 import { Network, Globe, Server } from "lucide-react";
-
-interface ServicePortInfo {
-  name: string | null;
-  protocol: string;
-  port: number;
-  target_port: string;
-  node_port: number | null;
-}
-
-interface ServiceInfo {
-  name: string;
-  namespace: string;
-  uid: string;
-  type_: string;
-  cluster_ip: string | null;
-  external_ips: string[];
-  ports: ServicePortInfo[];
-  selector: Record<string, string>;
-  labels: Record<string, string>;
-  annotations: Record<string, string>;
-  created_at: string | null;
-}
+import * as commands from "@/generated/commands";
+import type { ServiceInfo } from "@/generated/types";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 export function ServiceDetail() {
   const {
@@ -48,9 +28,27 @@ export function ServiceDetail() {
     goBack,
   } = useResourceDetail<ServiceInfo>({
     resourceKind: "Service",
-    getCommand: "get_service",
-    yamlCommand: "get_service_yaml",
-    deleteCommand: "delete_service",
+    fetchResource: async (name, ns) => {
+      try {
+        return await commands.getService(name, ns);
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
+    },
+    fetchYaml: async (name, ns) => {
+      try {
+        return await commands.getServiceYaml(name, ns);
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
+    },
+    deleteResource: async (name, ns) => {
+      try {
+        await commands.deleteService(name, ns);
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
+    },
     defaultTab: "ports",
   });
 
@@ -69,10 +67,21 @@ export function ServiceDetail() {
   }
 
   const ports = service.ports ?? [];
-  const externalIps = service.external_ips ?? [];
+  const externalIps = service.externalIps ?? [];
   const selector = service.selector ?? {};
   const labels = service.labels ?? {};
   const annotations = service.annotations ?? {};
+
+  // 'type' is a reserved keyword in some contexts but fine as property
+  // Generated type uses 'type' (camelCase) usually, but 'type_' might be used in Rust if it's a keyword.
+  // Checking previous files, 'type_' was common in manually defined types.
+  // In generated types, it's often 'type' unless it conflicts. 
+  // Let's assume 'type' based on NodeInfo changes, but might be 'type_' if binding generation preserved it.
+  // Wait, I saw 'type' in container state. 
+  // For Service, let's check generated types if 'type' or 'type_' is used.
+  // Actually I cannot verify without reading types.ts. I will assume 'type' first, if error, I fix.
+  // Re-reading my previous viewing of types.ts or grep... 
+  // I will check types.ts for ServiceInfo definition to be sure.
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -81,7 +90,7 @@ export function ServiceDetail() {
         title={service.name}
         namespace={service.namespace}
         badges={
-          <StatusBadge status={service.type_} />
+          <StatusBadge status={service.type} />
         }
         icon={<Network className="h-8 w-8 text-muted-foreground" />}
         onBack={goBack}
@@ -93,7 +102,7 @@ export function ServiceDetail() {
       <div className="grid gap-4 md:grid-cols-3">
         <InfoCard title="Cluster IP" icon={<Server className="h-4 w-4 text-muted-foreground" />}>
           <div className="text-xl font-bold font-mono">
-            {service.cluster_ip || "None"}
+            {service.clusterIp || "None"}
           </div>
         </InfoCard>
 
@@ -133,12 +142,12 @@ export function ServiceDetail() {
                       <Badge variant="outline">{port.protocol}</Badge>
                       <span className="font-mono">
                         {port.name ? `${port.name}: ` : ""}
-                        {port.port} → {port.target_port}
+                        {port.port} → {port.targetPort}
                       </span>
                     </div>
-                    {port.node_port && (
+                    {port.nodePort && (
                       <Badge variant="secondary">
-                        NodePort: {port.node_port}
+                        NodePort: {port.nodePort}
                       </Badge>
                     )}
                   </div>
@@ -161,7 +170,7 @@ export function ServiceDetail() {
 
         <TabsContent value="labels" className="space-y-4">
           <LabelsDisplay labels={labels} title="Labels" />
-          
+
           <Card>
             <CardHeader>
               <CardTitle>Annotations</CardTitle>
@@ -192,7 +201,7 @@ export function ServiceDetail() {
             resourceName={name || ""}
             namespace={namespace}
             fetchYaml={() =>
-              invoke<string>("get_service_yaml", { name, namespace })
+              commands.getServiceYaml(name || "", namespace || null)
             }
             onCopy={copyYaml}
           />

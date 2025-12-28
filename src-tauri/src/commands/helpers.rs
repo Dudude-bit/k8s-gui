@@ -218,3 +218,62 @@ pub fn clean_yaml_for_editor(yaml: &str) -> Result<String> {
     
     Ok(cleaned)
 }
+
+/// Get a single resource
+pub async fn get_resource<K>(
+    name: String,
+    namespace: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<K>
+where
+    K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope> + Clone + std::fmt::Debug + serde::de::DeserializeOwned,
+    K::DynamicType: Default,
+{
+    let ctx = CommandContext::new(&state, namespace)?;
+    let api: Api<K> = ctx.namespaced_api();
+    api.get(&name).await.map_err(Error::from)
+}
+
+/// List resources with common filters
+pub async fn list_resources<K>(
+    namespace: Option<String>,
+    state: State<'_, AppState>,
+    label_selector: Option<&str>,
+    field_selector: Option<&str>,
+    limit: Option<i64>,
+) -> Result<kube::core::ObjectList<K>>
+where
+    K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope> + Clone + std::fmt::Debug + serde::de::DeserializeOwned,
+    K::DynamicType: Default,
+{
+    let ctx = ListContext::new(&state, namespace)?;
+    let params = build_list_params(label_selector, field_selector, limit);
+
+    let api: Api<K> = if ctx.namespace.is_some() {
+        ctx.namespaced_api()
+    } else {
+        // Use cluster-wide list if no namespace specified (for resources that support it)
+        // Note: For namespaced resources, this lists across ALL namespaces
+        ctx.cluster_api()
+    };
+
+    api.list(&params).await.map_err(Error::from)
+}
+
+/// List cluster-scoped resources with common filters
+pub async fn list_cluster_resources<K>(
+    state: State<'_, AppState>,
+    label_selector: Option<&str>,
+    field_selector: Option<&str>,
+    limit: Option<i64>,
+) -> Result<kube::core::ObjectList<K>>
+where
+    K: kube::Resource<Scope = k8s_openapi::ClusterResourceScope> + Clone + std::fmt::Debug + serde::de::DeserializeOwned,
+    K::DynamicType: Default,
+{
+    let ctx = ListContext::new(&state, None)?;
+    let params = build_list_params(label_selector, field_selector, limit);
+
+    let api: Api<K> = ctx.cluster_api();
+    api.list(&params).await.map_err(Error::from)
+}

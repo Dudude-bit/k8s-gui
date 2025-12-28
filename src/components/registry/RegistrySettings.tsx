@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -23,10 +22,11 @@ import {
   RegistryAuth,
   RegistryAuthStatus,
   RegistryConfig,
-  RegistryImportEntry,
   RegistryProvider,
   useRegistryStore,
 } from "@/stores/registryStore";
+import * as commands from "@/generated/commands";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 export function RegistrySettings() {
   const { toast } = useToast();
@@ -78,16 +78,20 @@ export function RegistrySettings() {
   useEffect(() => {
     let cancelled = false;
     setAuthStatusMessage("");
-    invoke<RegistryAuthStatus | null>("get_registry_auth_status", {
-      registryId: selectedRegistryId,
-    })
+    commands.getRegistryAuthStatus(selectedRegistryId)
       .then((status) => {
         if (cancelled) {
           return;
         }
         setSavedAuthByRegistry((prev) => ({
           ...prev,
-          [selectedRegistryId]: status,
+          [selectedRegistryId]: status
+            ? {
+              authType: status.authType as RegistryAuth["authType"],
+              username: status.username ?? undefined,
+              hasCredentials: status.hasCredentials,
+            }
+            : null,
         }));
         if (status?.hasCredentials) {
           setAuthByRegistry((prev) => {
@@ -98,7 +102,7 @@ export function RegistrySettings() {
               ...prev,
               [selectedRegistryId]: {
                 authType: status.authType as RegistryAuth["authType"],
-                username: status.username,
+                username: status.username ?? undefined,
               },
             };
           });
@@ -229,9 +233,7 @@ export function RegistrySettings() {
     setImporting(true);
     const previousSelection = selectedRegistryId;
     try {
-      const entries = await invoke<RegistryImportEntry[]>(
-        "import_docker_config",
-      );
+      const entries = await commands.importDockerConfig();
       if (!entries.length) {
         toast({
           title: "Docker config import",
@@ -278,23 +280,20 @@ export function RegistrySettings() {
 
         if (entry.auth && entry.auth.authType !== "none") {
           try {
-            await invoke("set_registry_credentials", {
-              registryId,
-              auth: entry.auth,
-            });
+            await commands.setRegistryCredentials(registryId, entry.auth);
             setSavedAuthByRegistry((prev) => ({
               ...prev,
               [registryId]: {
-                authType: entry.auth?.authType ?? "none",
-                username: entry.auth?.username,
+                authType: (entry.auth?.authType as RegistryAuth["authType"]) ?? "none",
+                username: entry.auth?.username || undefined,
                 hasCredentials: true,
               },
             }));
             setAuthByRegistry((prev) => ({
               ...prev,
               [registryId]: {
-                authType: entry.auth?.authType ?? "none",
-                username: entry.auth?.username,
+                authType: (entry.auth?.authType as RegistryAuth["authType"]) ?? "none",
+                username: entry.auth?.username || undefined,
               },
             }));
             credentialsSaved += 1;
@@ -311,7 +310,7 @@ export function RegistrySettings() {
     } catch (error) {
       toast({
         title: "Import failed",
-        description: String(error),
+        description: normalizeTauriError(error),
         variant: "destructive",
       });
     } finally {
@@ -408,17 +407,17 @@ export function RegistrySettings() {
             </div>
             {(newRegistryProvider === "registry-v2" ||
               newRegistryProvider === "harbor") && (
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">
-                  Registry URL
-                </Label>
-                <Input
-                  placeholder="registry.example.com"
-                  value={newRegistryUrl}
-                  onChange={(event) => setNewRegistryUrl(event.target.value)}
-                />
-              </div>
-            )}
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">
+                    Registry URL
+                  </Label>
+                  <Input
+                    placeholder="registry.example.com"
+                    value={newRegistryUrl}
+                    onChange={(event) => setNewRegistryUrl(event.target.value)}
+                  />
+                </div>
+              )}
             {newRegistryProvider === "harbor" && (
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">
@@ -521,21 +520,21 @@ export function RegistrySettings() {
             </div>
             {(selectedRegistry.provider === "registry-v2" ||
               selectedRegistry.provider === "harbor") && (
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">
-                  Registry URL
-                </Label>
-                <Input
-                  placeholder="registry.example.com"
-                  value={selectedRegistry.baseUrl ?? ""}
-                  onChange={(event) =>
-                    updateRegistry(selectedRegistry.id, {
-                      baseUrl: event.target.value,
-                    })
-                  }
-                />
-              </div>
-            )}
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">
+                    Registry URL
+                  </Label>
+                  <Input
+                    placeholder="registry.example.com"
+                    value={selectedRegistry.baseUrl ?? ""}
+                    onChange={(event) =>
+                      updateRegistry(selectedRegistry.id, {
+                        baseUrl: event.target.value,
+                      })
+                    }
+                  />
+                </div>
+              )}
             {selectedRegistry.provider === "harbor" && (
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">
@@ -690,9 +689,11 @@ export function RegistrySettings() {
               onClick={async () => {
                 setAuthStatusMessage("");
                 try {
-                  await invoke("set_registry_credentials", {
-                    registryId: selectedRegistryId,
-                    auth: registryAuth,
+                  await commands.setRegistryCredentials(selectedRegistryId, {
+                    ...registryAuth,
+                    username: registryAuth.username ?? null,
+                    password: registryAuth.password ?? null,
+                    token: registryAuth.token ?? null,
                   });
                   setSavedAuthByRegistry((prev) => ({
                     ...prev,
@@ -718,9 +719,7 @@ export function RegistrySettings() {
               onClick={async () => {
                 setAuthStatusMessage("");
                 try {
-                  await invoke("delete_registry_credentials", {
-                    registryId: selectedRegistryId,
-                  });
+                  await commands.deleteRegistryCredentials(selectedRegistryId);
                   setSavedAuthByRegistry((prev) => ({
                     ...prev,
                     [selectedRegistryId]: null,

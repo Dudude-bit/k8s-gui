@@ -1,0 +1,16 @@
+[input]
+source_dir = "src-tauri/src"
+exclude = [
+    "tests",
+    "target",
+]
+
+[output]
+types_file = "src/generated/types.ts"
+commands_file = "src/generated/commands.ts"
+
+[naming]
+type_prefix = ""
+type_suffix = ""
+function_prefix = ""
+function_suffix = ""

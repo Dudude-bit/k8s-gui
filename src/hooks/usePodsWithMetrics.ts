@@ -1,13 +1,14 @@
 import { useMemo } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { invoke } from "@tauri-apps/api/core";
+import * as commands from "@/generated/commands";
 import { useClusterStore } from "@/stores/clusterStore";
 import { usePodMetrics, type PodMetrics } from "@/hooks/usePodMetrics";
-import type { PodInfo } from "@/types/kubernetes";
+import type { PodInfo } from "@/generated/types";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 export interface PodWithMetrics extends PodInfo {
-  cpu_usage: string | null;
-  memory_usage: string | null;
+  cpuUsage: string | null;
+  memoryUsage: string | null;
 }
 
 interface UsePodsWithMetricsOptions {
@@ -35,10 +36,17 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
   } = useQuery({
     queryKey: ["pods", currentNamespace],
     queryFn: async () => {
-      const result = await invoke<PodInfo[]>("list_pods", {
-        filters: { namespace: currentNamespace },
-      });
-      return result;
+      try {
+        return await commands.listPods({
+          namespace: currentNamespace || null,
+          labelSelector: null,
+          fieldSelector: null,
+          limit: null,
+          statusFilter: null,
+        });
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
     },
     enabled,
     placeholderData: keepPreviousData,
@@ -64,8 +72,8 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
       );
       return {
         ...pod,
-        cpu_usage: metrics?.cpu_usage ?? pod.cpu_usage ?? null,
-        memory_usage: metrics?.memory_usage ?? pod.memory_usage ?? null,
+        cpuUsage: metrics?.cpuUsage ?? null,
+        memoryUsage: metrics?.memoryUsage ?? null,
       };
     });
   }, [pods, podMetrics]);
@@ -95,10 +103,17 @@ export function useNamespacePodsWithMetrics(namespace: string | null | undefined
   } = useQuery({
     queryKey: ["pods", namespace],
     queryFn: async () => {
-      const result = await invoke<PodInfo[]>("list_pods", {
-        filters: { namespace: namespace || undefined },
-      });
-      return result;
+      try {
+        return await commands.listPods({
+          namespace: namespace || null,
+          labelSelector: null,
+          fieldSelector: null,
+          limit: null,
+          statusFilter: null,
+        });
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
     },
     enabled: isConnected,
     placeholderData: keepPreviousData,
@@ -118,8 +133,8 @@ export function useNamespacePodsWithMetrics(namespace: string | null | undefined
       );
       return {
         ...pod,
-        cpu_usage: metrics?.cpu_usage ?? pod.cpu_usage ?? null,
-        memory_usage: metrics?.memory_usage ?? pod.memory_usage ?? null,
+        cpuUsage: metrics?.cpuUsage ?? pod.cpuUsage ?? null,
+        memoryUsage: metrics?.memoryUsage ?? pod.memoryUsage ?? null,
       };
     });
   }, [pods, podMetrics]);

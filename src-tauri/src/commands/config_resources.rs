@@ -9,35 +9,27 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use tauri::State;
 
+use crate::commands::filters::ResourceFilters;
+
 // ============================================================================
 // ConfigMap Commands
 // ============================================================================
 
-/// ConfigMap filters
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct ConfigMapFilters {
-    pub namespace: Option<String>,
-    pub label_selector: Option<String>,
-    pub limit: Option<i64>,
-}
-
 /// List ConfigMaps
 #[tauri::command]
 pub async fn list_configmaps(
-    filters: Option<ConfigMapFilters>,
+    filters: Option<ResourceFilters>,
     state: State<'_, AppState>,
 ) -> Result<Vec<ConfigMapInfo>> {
     let filters = filters.unwrap_or_default();
-    let ctx = ListContext::new(&state, filters.namespace)?;
-    let params = build_list_params(filters.label_selector.as_deref(), None, filters.limit);
-
-    // Use namespaced API when namespace is provided for proper filtering
-    let api: kube::Api<ConfigMap> = if ctx.namespace.is_some() {
-        ctx.namespaced_api()
-    } else {
-        ctx.api()
-    };
-    let list = api.list(&params).await?;
+    
+    let list = crate::commands::helpers::list_resources::<ConfigMap>(
+        filters.namespace,
+        state,
+        filters.label_selector.as_deref(),
+        filters.field_selector.as_deref(),
+        filters.limit,
+    ).await?;
 
     Ok(list.items.iter().map(ConfigMapInfo::from).collect())
 }
@@ -147,6 +139,7 @@ use k8s_openapi::api::core::v1::Secret;
 pub struct SecretFilters {
     pub namespace: Option<String>,
     pub label_selector: Option<String>,
+    pub field_selector: Option<String>,
     pub secret_type: Option<String>,
     pub limit: Option<i64>,
 }
@@ -158,16 +151,14 @@ pub async fn list_secrets(
     state: State<'_, AppState>,
 ) -> Result<Vec<SecretInfo>> {
     let filters = filters.unwrap_or_default();
-    let ctx = ListContext::new(&state, filters.namespace)?;
-    let params = build_list_params(filters.label_selector.as_deref(), None, filters.limit);
-
-    // Use namespaced API when namespace is provided for proper filtering
-    let api: kube::Api<Secret> = if ctx.namespace.is_some() {
-        ctx.namespaced_api()
-    } else {
-        ctx.api()
-    };
-    let list = api.list(&params).await?;
+    
+    let list = crate::commands::helpers::list_resources::<Secret>(
+        filters.namespace,
+        state,
+        filters.label_selector.as_deref(),
+        filters.field_selector.as_deref(),
+        filters.limit,
+    ).await?;
 
     let mut secrets: Vec<SecretInfo> = list.items.iter().map(SecretInfo::from).collect();
 

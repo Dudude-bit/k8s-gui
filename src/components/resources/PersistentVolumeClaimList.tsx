@@ -1,5 +1,4 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -18,17 +17,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ActionMenu } from "@/components/ui/action-menu";
-
-interface PersistentVolumeClaimInfo {
-  name: string;
-  namespace: string;
-  status: string;
-  volume: string | null;
-  capacity: string;
-  access_modes: string[];
-  storage_class: string;
-  age: string;
-}
+import * as commands from "@/generated/commands";
+import type { PersistentVolumeClaimInfo } from "@/generated/types";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
   {
@@ -65,11 +56,11 @@ const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
     ),
   },
   {
-    accessorKey: "access_modes",
+    accessorKey: "accessModes",
     header: "Access Modes",
     cell: ({ row }) => (
       <div className="flex flex-wrap gap-1">
-        {row.original.access_modes.map((mode, i) => (
+        {row.original.accessModes.map((mode, i) => (
           <Tooltip key={i}>
             <TooltipTrigger>
               <Badge variant="secondary" className="text-xs">
@@ -88,9 +79,9 @@ const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
     ),
   },
   {
-    accessorKey: "storage_class",
+    accessorKey: "storageClass",
     header: "Storage Class",
-    cell: ({ row }) => row.original.storage_class || "default",
+    cell: ({ row }) => row.original.storageClass || "default",
   },
   {
     accessorKey: "age",
@@ -125,13 +116,16 @@ export function PersistentVolumeClaimList() {
   } = useQuery({
     queryKey: ["persistent-volume-claims", currentNamespace],
     queryFn: async () => {
-      const result = await invoke<PersistentVolumeClaimInfo[]>(
-        "list_persistent_volume_claims",
-        {
-          namespace: currentNamespace,
-        },
-      );
-      return result;
+      try {
+        return await commands.listPersistentVolumeClaims({
+          namespace: currentNamespace || null,
+          labelSelector: null,
+          fieldSelector: null,
+          limit: null,
+        });
+      } catch (err) {
+        throw normalizeTauriError(err);
+      }
     },
     enabled: isConnected,
     placeholderData: keepPreviousData,

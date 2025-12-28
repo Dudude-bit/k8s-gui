@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import * as commands from "@/generated/commands";
 import { useClusterStore } from "@/stores/clusterStore";
 import { ColumnDef } from "@tanstack/react-table";
 import { Trash2, Copy } from "lucide-react";
@@ -10,6 +10,7 @@ import { useMemo, useCallback } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { YamlViewerAction } from "@/components/ui/yaml-viewer";
 import { YamlEditorMenuAction } from "@/components/ui/yaml-editor";
+import type { ConfigMapInfo } from "@/generated/types";
 import { ResourceList } from "./ResourceList";
 import { useCopyToClipboard } from "@/hooks";
 import {
@@ -19,14 +20,6 @@ import {
   createDataKeysColumn,
 } from "./columns";
 
-interface ConfigMapInfo {
-  name: string;
-  namespace: string;
-  uid: string;
-  data_keys: string[];
-  labels: Record<string, string>;
-  created_at: string | null;
-}
 
 export function ConfigMapList() {
   const { currentNamespace } = useClusterStore();
@@ -34,10 +27,7 @@ export function ConfigMapList() {
 
   const handleCopyData = useCallback(async (name: string, namespace: string) => {
     try {
-      const data = await invoke<Record<string, string>>("get_configmap_data", {
-        name,
-        namespace,
-      });
+      const data = await commands.getConfigmapData(name, namespace);
       copyToClipboard(JSON.stringify(data, null, 2), "ConfigMap data copied to clipboard.");
     } catch (error) {
       // Error is handled by copyToClipboard's toast
@@ -59,8 +49,11 @@ export function ConfigMapList() {
       title="ConfigMaps"
       queryKey={["configmaps", currentNamespace]}
       queryFn={async () => {
-        const result = await invoke<ConfigMapInfo[]>("list_configmaps", {
-          filters: { namespace: currentNamespace },
+        const result = await commands.listConfigmaps({
+          namespace: currentNamespace,
+          labelSelector: null,
+          fieldSelector: null,
+          limit: null,
         });
         return result;
       }}
@@ -74,10 +67,7 @@ export function ConfigMapList() {
                 title="ConfigMap YAML"
                 description={`${row.original.namespace}/${row.original.name}`}
                 fetchYaml={() =>
-                  invoke<string>("get_configmap_yaml", {
-                    name: row.original.name,
-                    namespace: row.original.namespace,
-                  })
+                  commands.getConfigmapYaml(row.original.name, row.original.namespace)
                 }
               />
               <YamlEditorMenuAction
@@ -88,10 +78,7 @@ export function ConfigMapList() {
                   namespace: row.original.namespace,
                 }}
                 fetchYaml={() =>
-                  invoke<string>("get_configmap_yaml", {
-                    name: row.original.name,
-                    namespace: row.original.namespace,
-                  })
+                  commands.getConfigmapYaml(row.original.name, row.original.namespace)
                 }
               />
               <DropdownMenuItem
@@ -117,10 +104,7 @@ export function ConfigMapList() {
       emptyStateLabel="ConfigMaps"
       deleteConfig={{
         mutationFn: async (item) => {
-          await invoke("delete_configmap", {
-            name: item.name,
-            namespace: item.namespace,
-          });
+          await commands.deleteConfigmap(item.name, item.namespace);
         },
         invalidateQueryKeys: [["configmaps"]],
         resourceType: "ConfigMap",

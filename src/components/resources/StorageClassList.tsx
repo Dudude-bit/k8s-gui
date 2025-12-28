@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useClusterStore } from "@/stores/clusterStore";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -17,17 +16,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ActionMenu } from "@/components/ui/action-menu";
-
-interface StorageClassInfo {
-  name: string;
-  provisioner: string;
-  reclaim_policy: string;
-  volume_binding_mode: string;
-  allow_volume_expansion: boolean;
-  is_default: boolean;
-  parameters: Record<string, string>;
-  age: string;
-}
+import * as commands from "@/generated/commands";
+import type { StorageClassInfo } from "@/generated/types";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 const columns: ColumnDef<StorageClassInfo>[] = [
   {
@@ -37,7 +28,7 @@ const columns: ColumnDef<StorageClassInfo>[] = [
       <div className="flex items-center gap-2">
         <Layers className="h-4 w-4 text-muted-foreground" />
         <span className="font-medium">{row.original.name}</span>
-        {row.original.is_default && (
+        {row.original.isDefault && (
           <Tooltip>
             <TooltipTrigger>
               <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
@@ -58,27 +49,27 @@ const columns: ColumnDef<StorageClassInfo>[] = [
     ),
   },
   {
-    accessorKey: "reclaim_policy",
+    accessorKey: "reclaimPolicy",
     header: "Reclaim Policy",
     cell: ({ row }) => (
-      <Badge variant="outline">{row.original.reclaim_policy}</Badge>
+      <Badge variant="outline">{row.original.reclaimPolicy}</Badge>
     ),
   },
   {
-    accessorKey: "volume_binding_mode",
+    accessorKey: "volumeBindingMode",
     header: "Binding Mode",
     cell: ({ row }) => (
-      <Badge variant="secondary">{row.original.volume_binding_mode}</Badge>
+      <Badge variant="secondary">{row.original.volumeBindingMode}</Badge>
     ),
   },
   {
-    accessorKey: "allow_volume_expansion",
+    accessorKey: "allowVolumeExpansion",
     header: "Expansion",
     cell: ({ row }) => (
       <Badge
-        variant={row.original.allow_volume_expansion ? "default" : "outline"}
+        variant={row.original.allowVolumeExpansion ? "default" : "outline"}
       >
-        {row.original.allow_volume_expansion ? "Allowed" : "Disabled"}
+        {row.original.allowVolumeExpansion ? "Allowed" : "Disabled"}
       </Badge>
     ),
   },
@@ -140,8 +131,11 @@ export function StorageClassList() {
   } = useResourceList(
     ["storage-classes"],
     async () => {
-      const result = await invoke<StorageClassInfo[]>("list_storage_classes");
-      return result;
+      try {
+        return await commands.listStorageClasses(null);
+      } catch (err) {
+        throw normalizeTauriError(err);
+      }
     },
     { enabled: isConnected }
   );

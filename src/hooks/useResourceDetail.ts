@@ -12,19 +12,18 @@
 import { useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import { invoke } from "@tauri-apps/api/core";
 import { useToast } from "@/components/ui/use-toast";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 export interface UseResourceDetailOptions<T> {
   /** Resource kind for YAML command (e.g., "Pod", "Deployment") */
   resourceKind: string;
-  /** Command name for fetching resource (e.g., "get_pod", "get_deployment") */
-  getCommand: string;
-  /** Command name for fetching YAML (e.g., "get_pod_yaml", "get_deployment_yaml") */
-  yamlCommand: string;
-  /** Command name for deleting resource (e.g., "delete_pod", "delete_deployment") */
-  deleteCommand?: string;
+  /** Function for fetching resource */
+  fetchResource: (name: string, namespace: string | null) => Promise<T>;
+  /** Function for fetching YAML */
+  fetchYaml: (name: string, namespace: string | null) => Promise<string>;
+  /** Function for deleting resource */
+  deleteResource?: (name: string, namespace: string | null) => Promise<void>;
   /** Optional callback when resource is fetched */
   onResourceFetched?: (resource: T) => void;
   /** Optional callback after successful deletion */
@@ -39,33 +38,33 @@ export interface UseResourceDetailResult<T> {
   // Route params
   name: string | undefined;
   namespace: string | undefined;
-  
+
   // Resource data
   resource: T | undefined;
   isLoading: boolean;
   isFetching: boolean;
   error: Error | null;
   refetch: () => void;
-  
+
   // YAML data
   yaml: string | undefined;
   isLoadingYaml: boolean;
   copyYaml: () => void;
-  
+
   // Tab management
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  
+
   // Navigation
   goBack: () => void;
   navigate: ReturnType<typeof useNavigate>;
-  
+
   // Delete mutation
   deleteMutation: ReturnType<typeof useMutation<void, Error, void>> | null;
-  
+
   // Toast
   toast: ReturnType<typeof useToast>["toast"];
-  
+
   // Clipboard
   copyToClipboard: ReturnType<typeof useCopyToClipboard>;
 }
@@ -78,9 +77,9 @@ export function useResourceDetail<T>(
 ): UseResourceDetailResult<T> {
   const {
     resourceKind,
-    getCommand,
-    yamlCommand,
-    deleteCommand,
+    fetchResource,
+    fetchYaml,
+    deleteResource,
     onResourceFetched,
     onDeleted,
     placeholderData = true,
@@ -92,7 +91,7 @@ export function useResourceDetail<T>(
   const { toast } = useToast();
   const copyToClipboard = useCopyToClipboard();
   const queryClient = useQueryClient();
-  
+
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   // Fetch resource data
@@ -105,19 +104,23 @@ export function useResourceDetail<T>(
   } = useQuery({
     queryKey: [resourceKind.toLowerCase(), namespace, name],
     queryFn: async () => {
-      const result = await invoke<T>(getCommand, { name, namespace });
+      if (!name) throw new Error("Name is required");
+      const result = await fetchResource(name, namespace || null);
       onResourceFetched?.(result);
       return result;
     },
-    enabled: !!namespace && !!name,
+    enabled: !!name,
     placeholderData: placeholderData ? keepPreviousData : undefined,
   });
 
   // Fetch YAML (only when YAML tab is active)
   const { data: yaml, isLoading: isLoadingYaml } = useQuery({
     queryKey: [`${resourceKind.toLowerCase()}-yaml`, namespace, name],
-    queryFn: () => invoke<string>(yamlCommand, { name, namespace }),
-    enabled: activeTab === "yaml" && !!namespace && !!name,
+    queryFn: () => {
+      if (!name) throw new Error("Name is required");
+      return fetchYaml(name, namespace || null);
+    },
+    enabled: activeTab === "yaml" && !!name,
   });
 
   // Copy YAML to clipboard
@@ -133,27 +136,28 @@ export function useResourceDetail<T>(
   }, [navigate]);
 
   // Delete mutation
-  const deleteMutation = deleteCommand
+  const deleteMutation = deleteResource
     ? useMutation({
-        mutationFn: async () => {
-          await invoke(deleteCommand, { name, namespace });
-        },
-        onSuccess: () => {
-          toast({
-            title: `${resourceKind} deleted`,
-            description: `${resourceKind} ${name} has been deleted.`,
-          });
-          queryClient.invalidateQueries({ queryKey: [resourceKind.toLowerCase()] });
-          onDeleted?.() ?? goBack();
-        },
-        onError: (err) => {
-          toast({
-            title: "Error",
-            description: `Failed to delete ${resourceKind.toLowerCase()}: ${err}`,
-            variant: "destructive",
-          });
-        },
-      })
+      mutationFn: async () => {
+        if (!name) return;
+        await deleteResource(name, namespace || null);
+      },
+      onSuccess: () => {
+        toast({
+          title: `${resourceKind} deleted`,
+          description: `${resourceKind} ${name} has been deleted.`,
+        });
+        queryClient.invalidateQueries({ queryKey: [resourceKind.toLowerCase()] });
+        onDeleted?.() ?? goBack();
+      },
+      onError: (err) => {
+        toast({
+          title: "Error",
+          description: `Failed to delete ${resourceKind.toLowerCase()}: ${err}`,
+          variant: "destructive",
+        });
+      },
+    })
     : null;
 
   return {

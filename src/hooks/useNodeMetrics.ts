@@ -1,13 +1,9 @@
 // Hook for fetching node metrics with real-time updates
 
 import { useQuery, keepPreviousData, UseQueryOptions } from "@tanstack/react-query";
-import { invokeTyped } from "@/lib/tauri";
-
-export interface NodeMetrics {
-  name: string;
-  cpu_usage: string | null;
-  memory_usage: string | null;
-}
+import * as commands from "@/generated/commands";
+import { normalizeTauriError } from "@/lib/error-utils";
+import type { NodeMetrics } from "@/generated/types";
 
 export function useNodeMetrics(
   options?: Omit<UseQueryOptions<NodeMetrics[]>, "queryKey" | "queryFn">
@@ -15,7 +11,11 @@ export function useNodeMetrics(
   return useQuery({
     queryKey: ["node-metrics"],
     queryFn: async () => {
-      return invokeTyped<NodeMetrics[]>("get_nodes_metrics", {});
+      try {
+        return await commands.getNodesMetrics();
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
     },
     refetchInterval: 8000, // 8 seconds for real-time updates
     placeholderData: keepPreviousData,

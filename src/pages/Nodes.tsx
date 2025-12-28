@@ -1,5 +1,6 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { invoke } from "@tauri-apps/api/core";
+import * as commands from "@/generated/commands";
+import { NodeInfo, NodeAddressInfo } from "@/generated/types";
 import { useClusterStore } from "@/stores/clusterStore";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -12,51 +13,11 @@ import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { formatAge, formatKubernetesBytes } from "@/lib/utils";
 import { ActionMenu } from "@/components/ui/action-menu";
-
-interface NodeAddressInfo {
-  type_: string;
-  address: string;
-}
-
-interface ConditionInfo {
-  type_: string;
-  status: string;
-  message: string | null;
-  reason: string | null;
-  last_transition_time: string | null;
-}
-
-interface NodeStatusInfo {
-  ready: boolean;
-  conditions: ConditionInfo[];
-  addresses: NodeAddressInfo[];
-}
-
-interface ResourceQuantities {
-  cpu: string | null;
-  memory: string | null;
-  pods: string | null;
-  ephemeral_storage: string | null;
-}
-
-interface NodeInfo {
-  name: string;
-  uid: string;
-  status: NodeStatusInfo;
-  roles: string[];
-  version: string;
-  os: string;
-  arch: string;
-  container_runtime: string;
-  labels: Record<string, string>;
-  capacity: ResourceQuantities;
-  allocatable: ResourceQuantities;
-  created_at: string | null;
-}
+import { normalizeTauriError } from "@/lib/error-utils";
 
 // Helper to get internal IP
 function getInternalIP(addresses: NodeAddressInfo[]): string {
-  const internal = addresses.find((a) => a.type_ === "InternalIP");
+  const internal = addresses.find((a) => a.type === "InternalIP");
   return internal?.address || "-";
 }
 
@@ -116,7 +77,7 @@ const columns: ColumnDef<NodeInfo>[] = [
   {
     id: "age",
     header: "Age",
-    cell: ({ row }) => formatAge(row.original.created_at),
+    cell: ({ row }) => formatAge(row.original.createdAt),
   },
   {
     id: "actions",
@@ -144,8 +105,12 @@ export function Nodes() {
   } = useQuery({
     queryKey: ["nodes"],
     queryFn: async () => {
-      const result = await invoke<NodeInfo[]>("list_nodes", { filters: null });
-      return result;
+      try {
+        const result = await commands.listNodes(null);
+        return result;
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
     },
     enabled: isConnected,
     placeholderData: keepPreviousData,

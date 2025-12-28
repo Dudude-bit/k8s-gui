@@ -41,7 +41,7 @@ export const CPU_UNITS: Record<string, number> = {
  */
 export function parseQuantity(value: string | null | undefined): number | null {
   if (!value) return null;
-  
+
   const trimmed = value.trim();
   if (!trimmed) return null;
 
@@ -82,21 +82,21 @@ export function parseQuantity(value: string | null | undefined): number | null {
  */
 export function parseCPU(cpuStr: string | null | undefined): number {
   if (!cpuStr) return 0;
-  
+
   const trimmed = cpuStr.trim();
-  
+
   // Nanocores: "100000000n" -> 0.1 cores
   if (trimmed.endsWith('n')) {
     const nanocores = parseFloat(trimmed.slice(0, -1));
     return isNaN(nanocores) ? 0 : nanocores / 1e9;
   }
-  
+
   // Millicores: "500m" -> 0.5 cores
   if (trimmed.endsWith('m')) {
     const millicores = parseFloat(trimmed.slice(0, -1));
     return isNaN(millicores) ? 0 : millicores / 1000;
   }
-  
+
   // Cores: "2", "0.5", "2.5"
   const cores = parseFloat(trimmed);
   return isNaN(cores) ? 0 : cores;
@@ -111,51 +111,51 @@ export function parseCPU(cpuStr: string | null | undefined): number {
  */
 export function parseMemory(memStr: string | null | undefined): number {
   if (!memStr) return 0;
-  
+
   const trimmed = memStr.trim();
-  
+
   // Binary units (Ki, Mi, Gi, Ti)
   if (trimmed.endsWith('Ki')) {
     const num = parseFloat(trimmed.slice(0, -2));
     return isNaN(num) ? 0 : num * BINARY_UNITS.Ki;
   }
-  
+
   if (trimmed.endsWith('Mi')) {
     const num = parseFloat(trimmed.slice(0, -2));
     return isNaN(num) ? 0 : num * BINARY_UNITS.Mi;
   }
-  
+
   if (trimmed.endsWith('Gi')) {
     const num = parseFloat(trimmed.slice(0, -2));
     return isNaN(num) ? 0 : num * BINARY_UNITS.Gi;
   }
-  
+
   if (trimmed.endsWith('Ti')) {
     const num = parseFloat(trimmed.slice(0, -2));
     return isNaN(num) ? 0 : num * BINARY_UNITS.Ti;
   }
-  
+
   // Decimal units (K, M, G, T) - single character
   if (trimmed.endsWith('K') && !trimmed.endsWith('Ki')) {
     const num = parseFloat(trimmed.slice(0, -1));
     return isNaN(num) ? 0 : num * DECIMAL_UNITS.K;
   }
-  
+
   if (trimmed.endsWith('M') && !trimmed.endsWith('Mi')) {
     const num = parseFloat(trimmed.slice(0, -1));
     return isNaN(num) ? 0 : num * DECIMAL_UNITS.M;
   }
-  
+
   if (trimmed.endsWith('G') && !trimmed.endsWith('Gi')) {
     const num = parseFloat(trimmed.slice(0, -1));
     return isNaN(num) ? 0 : num * DECIMAL_UNITS.G;
   }
-  
+
   if (trimmed.endsWith('T') && !trimmed.endsWith('Ti')) {
     const num = parseFloat(trimmed.slice(0, -1));
     return isNaN(num) ? 0 : num * DECIMAL_UNITS.T;
   }
-  
+
   // Assume bytes if no unit
   const bytes = parseFloat(trimmed);
   return isNaN(bytes) ? 0 : bytes;
@@ -170,16 +170,16 @@ export function parseMemory(memStr: string | null | undefined): number {
  */
 export function formatCPU(cores: number): string {
   if (cores === 0) return '0';
-  
+
   if (cores < 1) {
     const millicores = Math.round(cores * 1000);
     return `${millicores}m`;
   }
-  
+
   if (cores % 1 === 0) {
     return `${cores}`;
   }
-  
+
   return cores.toFixed(2);
 }
 
@@ -193,19 +193,19 @@ export function formatCPU(cores: number): string {
  */
 export function formatMemory(bytes: number, decimals: number = 2): string {
   if (bytes === 0) return '0';
-  
+
   const tib = bytes / BINARY_UNITS.Ti;
   if (tib >= 1) return `${tib.toFixed(decimals)}Ti`;
-  
+
   const gib = bytes / BINARY_UNITS.Gi;
   if (gib >= 1) return `${gib.toFixed(decimals)}Gi`;
-  
+
   const mib = bytes / BINARY_UNITS.Mi;
   if (mib >= 1) return `${mib.toFixed(decimals)}Mi`;
-  
+
   const kib = bytes / BINARY_UNITS.Ki;
   if (kib >= 1) return `${kib.toFixed(decimals)}Ki`;
-  
+
   return `${bytes}B`;
 }
 
@@ -290,20 +290,20 @@ export function formatResourceUsage(
   type: 'cpu' | 'memory'
 ): string {
   if (!used && !total) return '-';
-  
+
   const usedNum = type === 'cpu' ? parseCPU(used) : parseMemory(used);
   const totalNum = type === 'cpu' ? parseCPU(total) : parseMemory(total);
-  
-  const usedFormatted = used 
+
+  const usedFormatted = used
     ? (type === 'cpu' ? used : formatMemory(usedNum))
     : '-';
   const totalFormatted = total
     ? (type === 'cpu' ? total : formatMemory(totalNum))
     : '-';
-  
+
   const percentage = calculateUtilization(usedNum, totalNum);
   const percentageStr = percentage !== null ? ` (${percentage.toFixed(1)}%)` : '';
-  
+
   return `${usedFormatted} / ${totalFormatted}${percentageStr}`;
 }
 
@@ -314,63 +314,65 @@ export function formatResourceUsage(
  * @returns Aggregated CPU and memory usage
  */
 export function aggregatePodMetrics(
-  metrics: Array<{ cpu_usage?: string | null; memory_usage?: string | null }>
-): { cpu_usage: string | null; memory_usage: string | null } {
+  metrics: Array<{ cpuUsage?: string | null; memoryUsage?: string | null }>
+): { cpuUsage: string | null; memoryUsage: string | null } {
   let totalCpuCores = 0;
   let totalMemoryBytes = 0;
-  
+
   for (const metric of metrics) {
-    if (metric.cpu_usage) {
-      totalCpuCores += parseCPU(metric.cpu_usage);
+    const cpu = metric.cpuUsage;
+    if (cpu) {
+      totalCpuCores += parseCPU(cpu);
     }
-    if (metric.memory_usage) {
-      totalMemoryBytes += parseMemory(metric.memory_usage);
+    const memory = metric.memoryUsage;
+    if (memory) {
+      totalMemoryBytes += parseMemory(memory);
     }
   }
-  
+
   return {
-    cpu_usage: totalCpuCores > 0 ? formatCPU(totalCpuCores) : null,
-    memory_usage: totalMemoryBytes > 0 ? formatMemory(totalMemoryBytes) : null,
+    cpuUsage: totalCpuCores > 0 ? formatCPU(totalCpuCores) : null,
+    memoryUsage: totalMemoryBytes > 0 ? formatMemory(totalMemoryBytes) : null,
   };
 }
 
 /**
  * Get top pods by CPU usage
  * 
- * @param pods - Array of pods with cpu_usage
+ * @param pods - Array of pods with cpuUsage
  * @param limit - Maximum number of results
  * @returns Sorted array of top CPU consumers
  */
 export function getTopPodsByCPU(
-  pods: Array<{ name: string; cpu_usage?: string | null }>,
+  pods: Array<{ name: string; cpuUsage?: string | null }>,
   limit: number = 5
-): Array<{ name: string; cpu_usage: number }> {
+): Array<{ name: string; cpuUsage: number }> {
   return pods
     .map(pod => ({
       name: pod.name,
-      cpu_usage: parseCPU(pod.cpu_usage),
+      cpuUsage: parseCPU(pod.cpuUsage),
     }))
-    .sort((a, b) => b.cpu_usage - a.cpu_usage)
+    .sort((a, b) => b.cpuUsage - a.cpuUsage)
     .slice(0, limit);
 }
 
 /**
  * Get top pods by memory usage
  * 
- * @param pods - Array of pods with memory_usage
+ * @param pods - Array of pods with memoryUsage
  * @param limit - Maximum number of results
  * @returns Sorted array of top memory consumers
  */
 export function getTopPodsByMemory(
-  pods: Array<{ name: string; memory_usage?: string | null }>,
+  pods: Array<{ name: string; memoryUsage?: string | null }>,
   limit: number = 5
-): Array<{ name: string; memory_usage: number }> {
+): Array<{ name: string; memoryUsage: number }> {
   return pods
     .map(pod => ({
       name: pod.name,
-      memory_usage: parseMemory(pod.memory_usage),
+      memoryUsage: parseMemory(pod.memoryUsage),
     }))
-    .sort((a, b) => b.memory_usage - a.memory_usage)
+    .sort((a, b) => b.memoryUsage - a.memoryUsage)
     .slice(0, limit);
 }
 
@@ -384,16 +386,16 @@ export function getTopPodsByMemory(
  */
 export function mergeResourceWithMetrics<T extends { name: string; namespace: string }>(
   resources: T[],
-  metrics: Array<{ name: string; namespace: string; cpu_usage: string | null; memory_usage: string | null }>,
-  matchFn: (resource: T, metric: { name: string; namespace: string }) => boolean = (r, m) => 
+  metrics: Array<{ name: string; namespace: string; cpuUsage: string | null; memoryUsage: string | null }>,
+  matchFn: (resource: T, metric: { name: string; namespace: string }) => boolean = (r, m) =>
     r.name === m.name && r.namespace === m.namespace
-): (T & { cpu_usage: string | null; memory_usage: string | null })[] {
+): (T & { cpuUsage: string | null; memoryUsage: string | null })[] {
   return resources.map((resource) => {
     const metric = metrics.find((m) => matchFn(resource, m));
     return {
       ...resource,
-      cpu_usage: metric?.cpu_usage ?? null,
-      memory_usage: metric?.memory_usage ?? null,
+      cpuUsage: metric?.cpuUsage ?? null,
+      memoryUsage: metric?.memoryUsage ?? null,
     };
   });
 }

@@ -18,20 +18,14 @@ pub async fn list_deployments(
     state: State<'_, AppState>,
 ) -> Result<Vec<DeploymentInfo>> {
     let filters = filters.unwrap_or_default();
-    let ctx = ListContext::new(&state, filters.namespace)?;
-    let params = build_list_params(
+    
+    let list = crate::commands::helpers::list_resources::<Deployment>(
+        filters.namespace,
+        state,
         filters.label_selector.as_deref(),
         filters.field_selector.as_deref(),
         filters.limit,
-    );
-
-    // Use namespaced API when namespace is provided for proper filtering
-    let api: kube::Api<Deployment> = if ctx.namespace.is_some() {
-        ctx.namespaced_api()
-    } else {
-        ctx.api()
-    };
-    let list = api.list(&params).await?;
+    ).await?;
 
     Ok(list.items.iter().map(DeploymentInfo::from).collect())
 }
@@ -44,13 +38,7 @@ pub async fn get_deployment(
     state: State<'_, AppState>,
 ) -> Result<DeploymentInfo> {
     crate::validation::validate_resource_name(&name)?;
-    
-    let ctx = CommandContext::new(&state, namespace)?;
-    crate::validation::validate_namespace(&ctx.namespace)?;
-
-    let api: kube::Api<Deployment> = ctx.namespaced_api();
-    let deployment = api.get(&name).await?;
-
+    let deployment: Deployment = crate::commands::helpers::get_resource(name, namespace, state).await?;
     Ok(DeploymentInfo::from(&deployment))
 }
 

@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import * as commands from "@/generated/commands";
 import { useClusterStore } from "@/stores/clusterStore";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -18,36 +18,18 @@ import {
 } from "@/components/ui/tooltip";
 import { ActionMenu } from "@/components/ui/action-menu";
 
-interface IngressRule {
-  host: string;
-  paths: {
-    path: string;
-    path_type: string;
-    backend_service: string;
-    backend_port: number | string;
-  }[];
-}
-
-interface IngressInfo {
-  name: string;
-  namespace: string;
-  class_name: string | null;
-  rules: IngressRule[];
-  load_balancer_ips: string[];
-  tls_hosts: string[];
-  age: string;
-}
+import type { IngressInfo } from "@/generated/types";
 
 const getIngressOpenUrl = (ingress: IngressInfo): string | null => {
   const host =
     ingress.rules.find((rule) => rule.host && rule.host !== "*")?.host ||
-    ingress.load_balancer_ips[0];
+    ingress.loadBalancerIps[0];
 
   if (!host) {
     return null;
   }
 
-  const usesTls = ingress.tls_hosts.includes(host);
+  const usesTls = ingress.tlsHosts.includes(host);
   const scheme = usesTls ? "https" : "http";
   return `${scheme}://${host}`;
 };
@@ -68,9 +50,9 @@ const columns: ColumnDef<IngressInfo>[] = [
     header: "Namespace",
   },
   {
-    accessorKey: "class_name",
+    accessorKey: "className",
     header: "Class",
-    cell: ({ row }) => row.original.class_name || "default",
+    cell: ({ row }) => row.original.className || "default",
   },
   {
     accessorKey: "rules",
@@ -118,7 +100,7 @@ const columns: ColumnDef<IngressInfo>[] = [
             <div className="space-y-1 text-xs">
               {allPaths.map((p, i) => (
                 <div key={i}>
-                  {p.path} → {p.backend_service}:{p.backend_port}
+                  {p.path} → {p.backendService}:{p.backendPort}
                 </div>
               ))}
             </div>
@@ -128,10 +110,10 @@ const columns: ColumnDef<IngressInfo>[] = [
     },
   },
   {
-    accessorKey: "load_balancer_ips",
+    accessorKey: "loadBalancerIps",
     header: "Address",
     cell: ({ row }) => {
-      const ips = row.original.load_balancer_ips;
+      const ips = row.original.loadBalancerIps;
       if (ips.length === 0)
         return <span className="text-muted-foreground">Pending</span>;
       return (
@@ -147,10 +129,10 @@ const columns: ColumnDef<IngressInfo>[] = [
     },
   },
   {
-    accessorKey: "tls_hosts",
+    accessorKey: "tlsHosts",
     header: "TLS",
     cell: ({ row }) => {
-      const tlsHosts = row.original.tls_hosts;
+      const tlsHosts = row.original.tlsHosts;
       if (tlsHosts.length === 0) {
         return <Badge variant="outline">No TLS</Badge>;
       }
@@ -221,10 +203,12 @@ export function IngressList() {
   } = useResourceList(
     ["ingresses", currentNamespace],
     async () => {
-      const result = await invoke<IngressInfo[]>("list_ingresses", {
-        namespace: currentNamespace,
+      return await commands.listIngresses({
+        namespace: currentNamespace || null,
+        labelSelector: null,
+        fieldSelector: null,
+        limit: null,
       });
-      return result;
     },
     { enabled: isConnected }
   );

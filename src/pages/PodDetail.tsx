@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { invoke } from "@tauri-apps/api/core";
+import * as commands from "@/generated/commands";
 import { useState, useCallback, useMemo } from "react";
 import { useResourceYaml, useCopyToClipboard, usePodMetrics } from "@/hooks";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
@@ -44,8 +44,8 @@ import {
   Cpu,
   MemoryStick,
 } from "lucide-react";
-import type { PodInfo } from "@/types/kubernetes";
 import { ResourceUsage } from "@/components/ui/resource-usage";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 const parsePortValue = (value: string) => {
   const parsed = Number(value);
@@ -112,12 +112,17 @@ export function PodDetail() {
   } = useQuery({
     queryKey: ["pod", namespace, name],
     queryFn: async () => {
-      const result = await invoke<PodInfo>("get_pod", { name, namespace });
-      // Save labels for replacement search
-      if (result.labels && Object.keys(result.labels).length > 0) {
-        setSavedLabels(result.labels);
+      try {
+        if (!name) throw new Error("Pod name is required");
+        const result = await commands.getPod(name, namespace || null);
+        // Save labels for replacement search
+        if (result.labels && Object.keys(result.labels).length > 0) {
+          setSavedLabels(result.labels);
+        }
+        return result;
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
       }
-      return result;
     },
     enabled: !!namespace && !!name,
     retry: (failureCount, error) => {
@@ -141,8 +146,8 @@ export function PodDetail() {
     );
     return {
       ...pod,
-      cpu_usage: metrics?.cpu_usage ?? pod.cpu_usage ?? null,
-      memory_usage: metrics?.memory_usage ?? pod.memory_usage ?? null,
+      cpuUsage: metrics?.cpuUsage ?? pod.cpuUsage ?? null,
+      memoryUsage: metrics?.memoryUsage ?? pod.memoryUsage ?? null,
     };
   }, [pod, podMetrics]);
 
@@ -191,19 +196,12 @@ export function PodDetail() {
         const labelSelector = labelParts.join(",");
         console.log("Label selector:", labelSelector);
 
-        interface PodListItem {
-          name: string;
-          namespace: string;
-          status: {
-            phase: string;
-          };
-        }
-
-        const pods = await invoke<PodListItem[]>("list_pods", {
-          filters: {
-            namespace,
-            label_selector: labelSelector,
-          },
+        const pods = await commands.listPods({
+          namespace,
+          labelSelector: labelSelector,
+          fieldSelector: null,
+          limit: null,
+          statusFilter: null
         });
 
         console.log("Found pods:", pods);
@@ -231,7 +229,12 @@ export function PodDetail() {
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      await invoke("delete_pod", { name, namespace });
+      if (!name) return;
+      try {
+        await commands.deletePod(name, namespace || null, null);
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
     },
     onSuccess: () => {
       toast({
@@ -251,7 +254,12 @@ export function PodDetail() {
 
   const restartMutation = useMutation({
     mutationFn: async () => {
-      await invoke("restart_pod", { name, namespace });
+      if (!name) return;
+      try {
+        await commands.restartPod(name, namespace || null);
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
     },
     onSuccess: () => {
       toast({
@@ -355,14 +363,10 @@ export function PodDetail() {
         });
         await startPortForwardConfig(config.id);
       } else {
-        await invoke("port_forward_pod", {
-          pod: pod.name,
-          namespace: pod.namespace,
-          config: {
-            local_port: localPort,
-            remote_port: remotePort,
-            auto_reconnect: portForwardForm.autoReconnect,
-          },
+        await commands.portForwardPod(pod.name, pod.namespace, {
+          localPort: localPort,
+          remotePort: remotePort,
+          autoReconnect: portForwardForm.autoReconnect,
         });
       }
 
@@ -706,21 +710,21 @@ export function PodDetail() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Node</span>
-                  <span>{pod.node_name || "-"}</span>
+                  <span>{pod.nodeName || "-"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Pod IP</span>
-                  <span>{pod.pod_ip || "-"}</span>
+                  <span>{pod.podIp || "-"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Host IP</span>
-                  <span>{pod.host_ip || "-"}</span>
+                  <span>{pod.hostIp || "-"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Started</span>
                   <span>
-                    {pod.created_at
-                      ? new Date(pod.created_at).toLocaleString()
+                    {pod.createdAt
+                      ? new Date(pod.createdAt).toLocaleString()
                       : "-"}
                   </span>
                 </div>
@@ -741,8 +745,8 @@ export function PodDetail() {
                   </CardHeader>
                   <CardContent>
                     <ResourceUsage
-                      used={podWithMetrics.cpu_usage ?? null}
-                      total={podWithMetrics.cpu_limits ?? podWithMetrics.cpu_requests ?? null}
+                      used={podWithMetrics.cpuUsage ?? null}
+                      total={podWithMetrics.cpuLimits ?? podWithMetrics.cpuRequests ?? null}
                       type="cpu"
                       showProgressBar={true}
                     />
@@ -756,8 +760,8 @@ export function PodDetail() {
                   </CardHeader>
                   <CardContent>
                     <ResourceUsage
-                      used={podWithMetrics.memory_usage ?? null}
-                      total={podWithMetrics.memory_limits ?? podWithMetrics.memory_requests ?? null}
+                      used={podWithMetrics.memoryUsage ?? null}
+                      total={podWithMetrics.memoryLimits ?? podWithMetrics.memoryRequests ?? null}
                       type="memory"
                       showProgressBar={true}
                     />
@@ -820,16 +824,16 @@ export function PodDetail() {
                     <div className="flex items-center gap-2">
                       <Badge
                         variant={
-                          container.state.type === "running"
+                          container.state.type === "Running"
                             ? "success"
-                            : container.state.type === "waiting"
+                            : container.state.type === "Waiting"
                               ? "warning"
                               : "secondary"
                         }
                       >
                         {container.state.type}
                       </Badge>
-                      {container.state.reason && (
+                      {'reason' in container.state && container.state.reason && (
                         <span className="text-xs text-muted-foreground">
                           ({container.state.reason})
                         </span>
@@ -840,20 +844,12 @@ export function PodDetail() {
                     <span className="text-muted-foreground">Restarts</span>
                     <span
                       className={
-                        container.restart_count > 5 ? "text-yellow-500" : ""
+                        container.restartCount > 5 ? "text-yellow-500" : ""
                       }
                     >
-                      {container.restart_count}
+                      {container.restartCount}
                     </span>
                   </div>
-                  {container.started_at && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Started At</span>
-                      <span>
-                        {new Date(container.started_at).toLocaleString()}
-                      </span>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             ))}
@@ -889,9 +885,7 @@ export function PodDetail() {
             resourceKind="Pod"
             resourceName={name || ""}
             namespace={namespace}
-            fetchYaml={() =>
-              invoke<string>("get_pod_yaml", { name, namespace })
-            }
+            fetchYaml={() => commands.getPodYaml(name || "", namespace || null)}
             onCopy={copyYaml}
           />
         </TabsContent>
@@ -899,11 +893,11 @@ export function PodDetail() {
         <TabsContent value="conditions">
           <ConditionsDisplay
             conditions={pod.status.conditions.map((c) => ({
-              type_: c.type_,
+              type_: c.type,
               status: c.status,
               reason: c.reason,
               message: c.message,
-              last_transition_time: c.last_transition_time,
+              last_transition_time: c.lastTransitionTime,
             }))}
             title="Pod Conditions"
           />

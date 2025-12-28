@@ -1,14 +1,11 @@
 // Hook for fetching pod metrics with real-time updates
 
 import { useQuery, keepPreviousData, UseQueryOptions } from "@tanstack/react-query";
-import { invokeTyped } from "@/lib/tauri";
+import * as commands from "@/generated/commands";
+import { PodMetrics } from "@/generated/types";
+import { normalizeTauriError } from "@/lib/error-utils";
 
-export interface PodMetrics {
-  name: string;
-  namespace: string;
-  cpu_usage: string | null;
-  memory_usage: string | null;
-}
+export type { PodMetrics } from "@/generated/types";
 
 export function usePodMetrics(
   namespace: string | null | undefined,
@@ -17,9 +14,11 @@ export function usePodMetrics(
   return useQuery({
     queryKey: ["pod-metrics", namespace],
     queryFn: async () => {
-      return invokeTyped<PodMetrics[]>("get_pods_metrics", {
-        namespace: namespace || null,
-      });
+      try {
+        return await commands.getPodsMetrics(namespace ?? null);
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
     },
     refetchInterval: 8000, // 8 seconds for real-time updates
     placeholderData: keepPreviousData,

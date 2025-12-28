@@ -1,5 +1,5 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { invoke } from "@tauri-apps/api/core";
+import * as commands from "@/generated/commands";
 import { useClusterStore } from "@/stores/clusterStore";
 import {
   Card,
@@ -19,7 +19,7 @@ import {
   Clock,
   Loader2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatBytes } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { useClusterMetrics } from "@/hooks/useClusterMetrics";
 import { usePodMetrics } from "@/hooks/usePodMetrics";
@@ -29,56 +29,22 @@ import { LicenseErrorBanner } from "@/components/license/LicenseErrorBanner";
 import { getTopPodsByCPU, getTopPodsByMemory } from "@/lib/resource-utils";
 import { useMemo } from "react";
 import { Cpu, MemoryStick } from "lucide-react";
-import type { PodInfo } from "@/types/kubernetes";
-
-interface ClusterInfo {
-  name: string;
-  server: string;
-  version: string;
-}
-
-interface PodStats {
-  total: number;
-  running: number;
-  pending: number;
-  failed: number;
-  succeeded: number;
-}
-
-interface DeploymentStats {
-  total: number;
-  available: number;
-  unavailable: number;
-  progressing: number;
-}
-
-interface ServiceStats {
-  total: number;
-  cluster_ip: number;
-  node_port: number;
-  load_balancer: number;
-}
-
-interface NodeStats {
-  total: number;
-  ready: number;
-  not_ready: number;
-}
-
-interface ClusterStats {
-  pods: PodStats;
-  deployments: DeploymentStats;
-  services: ServiceStats;
-  nodes: NodeStats;
-}
+import { normalizeTauriError } from "@/lib/error-utils";
 
 export function ClusterOverview() {
   const { isConnected, currentContext, currentNamespace } = useClusterStore();
 
   const { data: clusterInfo, isLoading: isLoadingCluster } = useQuery({
     queryKey: ["cluster-info", currentContext],
-    queryFn: async () => invoke<ClusterInfo>("get_cluster_info"),
-    enabled: isConnected,
+    queryFn: async () => {
+      try {
+        if (!currentContext) return null;
+        return await commands.getClusterInfo(currentContext);
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
+    },
+    enabled: isConnected && !!currentContext,
     placeholderData: keepPreviousData,
   });
 
@@ -90,9 +56,11 @@ export function ClusterOverview() {
   } = useQuery({
     queryKey: ["overview-stats", currentContext, currentNamespace],
     queryFn: async () => {
-      return invoke<ClusterStats>("get_cluster_stats", {
-        namespace: currentNamespace,
-      });
+      try {
+        return await commands.getClusterStats(currentNamespace);
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
     },
     enabled: isConnected,
     staleTime: 10000, // 10 seconds cache
@@ -116,10 +84,18 @@ export function ClusterOverview() {
   const { data: allPods = [] } = useQuery({
     queryKey: ["pods", undefined],
     queryFn: async () => {
-      const result = await invoke<PodInfo[]>("list_pods", {
-        filters: { namespace: undefined },
-      });
-      return result;
+      try {
+        const result = await commands.listPods({
+          namespace: null,
+          labelSelector: null,
+          fieldSelector: null,
+          limit: null,
+          statusFilter: null
+        });
+        return result;
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
     },
     enabled: isConnected,
     placeholderData: keepPreviousData,
@@ -136,8 +112,8 @@ export function ClusterOverview() {
       );
       return {
         ...pod,
-        cpu_usage: metrics?.cpu_usage ?? pod.cpu_usage ?? null,
-        memory_usage: metrics?.memory_usage ?? pod.memory_usage ?? null,
+        cpuUsage: metrics?.cpuUsage ?? pod.cpuUsage ?? null,
+        memoryUsage: metrics?.memoryUsage ?? pod.memoryUsage ?? null,
       };
     });
   }, [allPods, allPodMetrics]);
@@ -155,8 +131,8 @@ export function ClusterOverview() {
   const totalClusterCapacity = useMemo(() => {
     // This would ideally come from node metrics, but for now we'll use clusterMetrics if available
     return {
-      cpu: clusterMetrics?.total_cpu_capacity ?? null,
-      memory: clusterMetrics?.total_memory_capacity ?? null,
+      cpu: clusterMetrics?.totalCpuCapacity ?? null,
+      memory: clusterMetrics?.totalMemoryCapacity ?? null,
     };
   }, [clusterMetrics]);
 
@@ -200,7 +176,7 @@ export function ClusterOverview() {
             {currentContext}
           </h1>
           <p className="text-muted-foreground">
-            {clusterInfo?.server || "Connected cluster"}
+            {clusterInfo?.context || "Connected cluster"}
             {currentNamespace && ` • ${currentNamespace}`}
             {!currentNamespace && " • All namespaces"}
           </p>
@@ -330,8 +306,8 @@ export function ClusterOverview() {
             </CardHeader>
             <CardContent>
               <ResourceUsage
-                used={clusterMetrics?.total_cpu_usage ?? null}
-                total={clusterMetrics?.total_cpu_capacity ?? totalClusterCapacity.cpu}
+                used={clusterMetrics?.totalCpuUsage ?? null}
+                total={clusterMetrics?.totalCpuCapacity ?? totalClusterCapacity.cpu}
                 type="cpu"
                 showProgressBar={true}
               />
@@ -345,8 +321,8 @@ export function ClusterOverview() {
             </CardHeader>
             <CardContent>
               <ResourceUsage
-                used={clusterMetrics?.total_memory_usage ?? null}
-                total={clusterMetrics?.total_memory_capacity ?? totalClusterCapacity.memory}
+                used={clusterMetrics?.totalMemoryUsage ?? null}
+                total={clusterMetrics?.totalMemoryCapacity ?? totalClusterCapacity.memory}
                 type="memory"
                 showProgressBar={true}
               />
@@ -380,9 +356,9 @@ export function ClusterOverview() {
                           <span className="text-sm font-medium">#{idx + 1}</span>
                           <span className="text-sm">{pod.name}</span>
                         </div>
-                        <span className="text-sm font-mono">
-                          {pod.cpu_usage > 0 ? `${pod.cpu_usage.toFixed(2)} cores` : '-'}
-                        </span>
+                        <div className="text-sm font-medium">
+                          {pod.cpuUsage.toFixed(2)}m
+                        </div>
                       </Link>
                     );
                   })
@@ -413,9 +389,9 @@ export function ClusterOverview() {
                           <span className="text-sm font-medium">#{idx + 1}</span>
                           <span className="text-sm">{pod.name}</span>
                         </div>
-                        <span className="text-sm font-mono">
-                          {pod.memory_usage > 0 ? `${(pod.memory_usage / (1024 * 1024 * 1024)).toFixed(2)} Gi` : '-'}
-                        </span>
+                        <div className="text-sm font-medium">
+                          {formatBytes(pod.memoryUsage)}
+                        </div>
                       </Link>
                     );
                   })

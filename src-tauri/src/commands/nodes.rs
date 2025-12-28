@@ -14,6 +14,8 @@ use tauri::State;
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct NodeFilters {
     pub label_selector: Option<String>,
+    pub field_selector: Option<String>,
+    pub limit: Option<i64>,
     pub ready_only: Option<bool>,
 }
 
@@ -24,11 +26,13 @@ pub async fn list_nodes(
     state: State<'_, AppState>,
 ) -> Result<Vec<NodeInfo>> {
     let filters = filters.unwrap_or_default();
-    let ctx = ListContext::new(&state, None)?;
-    let params = build_list_params(filters.label_selector.as_deref(), None, None);
-
-    let api: kube::Api<Node> = ctx.cluster_api();
-    let list = api.list(&params).await?;
+    
+    let list = crate::commands::helpers::list_cluster_resources::<Node>(
+        state,
+        filters.label_selector.as_deref(),
+        filters.field_selector.as_deref(),
+        filters.limit,
+    ).await?;
 
     let mut nodes: Vec<NodeInfo> = list.items.iter().map(NodeInfo::from).collect();
 

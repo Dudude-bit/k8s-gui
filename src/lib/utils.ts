@@ -8,6 +8,8 @@ export function cn(...inputs: ClassValue[]) {
 // Re-export quantity utilities from k8s-quantity for backward compatibility
 export {
   formatBytes,
+  formatMemory,
+  formatCPU,
   parseQuantity as parseKubernetesQuantity,
   formatKubernetesBytes,
 } from './k8s-quantity';
