@@ -15,7 +15,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { useNodeMetrics } from "@/hooks/useNodeMetrics";
-import { ResourceUsage } from "@/components/ui/resource-usage";
+import { MetricBadge } from "@/components/ui/metric-card";
 import { useMemo } from "react";
 import type { NodeInfo } from "@/generated/types";
 import * as commands from "@/generated/commands";
@@ -195,11 +195,10 @@ export function NodeList() {
       cell: ({ row }) => {
         const capacity = row.original.capacity ? row.original.capacity.cpu : null;
         return (
-          <ResourceUsage
+          <MetricBadge
             used={row.original.cpuUsage}
             total={capacity}
             type="cpu"
-            showProgressBar={false}
           />
         );
       },
@@ -210,11 +209,10 @@ export function NodeList() {
       cell: ({ row }) => {
         const capacity = row.original.capacity ? row.original.capacity.memory : null;
         return (
-          <ResourceUsage
+          <MetricBadge
             used={row.original.memoryUsage}
             total={capacity}
             type="memory"
-            showProgressBar={false}
           />
         );
       },

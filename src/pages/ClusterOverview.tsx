@@ -24,11 +24,10 @@ import { Link } from "react-router-dom";
 import { useClusterMetrics } from "@/hooks/useClusterMetrics";
 import { usePodMetrics } from "@/hooks/usePodMetrics";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
-import { ResourceUsage } from "@/components/ui/resource-usage";
+import { MetricCard } from "@/components/ui/metric-card";
 import { LicenseErrorBanner } from "@/components/license/LicenseErrorBanner";
-import { getTopPodsByCPU, getTopPodsByMemory } from "@/lib/resource-utils";
+import { getTopPodsByCPU, getTopPodsByMemory } from "@/lib/k8s-quantity";
 import { useMemo } from "react";
-import { Cpu, MemoryStick } from "lucide-react";
 import { normalizeTauriError } from "@/lib/error-utils";
 
 export function ClusterOverview() {
@@ -299,35 +298,21 @@ export function ClusterOverview() {
       {/* Cluster Resource Usage */}
       {hasAccess ? (
         <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Cluster CPU Usage</CardTitle>
-              <Cpu className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <ResourceUsage
-                used={clusterMetrics?.totalCpuUsage ?? null}
-                total={clusterMetrics?.totalCpuCapacity ?? totalClusterCapacity.cpu}
-                type="cpu"
-                showProgressBar={true}
-              />
-            </CardContent>
-          </Card>
+          <MetricCard
+            title="Cluster CPU Usage"
+            used={clusterMetrics?.totalCpuUsage ?? null}
+            total={clusterMetrics?.totalCpuCapacity ?? totalClusterCapacity.cpu}
+            type="cpu"
+            showProgressBar
+          />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Cluster Memory Usage</CardTitle>
-              <MemoryStick className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <ResourceUsage
-                used={clusterMetrics?.totalMemoryUsage ?? null}
-                total={clusterMetrics?.totalMemoryCapacity ?? totalClusterCapacity.memory}
-                type="memory"
-                showProgressBar={true}
-              />
-            </CardContent>
-          </Card>
+          <MetricCard
+            title="Cluster Memory Usage"
+            used={clusterMetrics?.totalMemoryUsage ?? null}
+            total={clusterMetrics?.totalMemoryCapacity ?? totalClusterCapacity.memory}
+            type="memory"
+            showProgressBar
+          />
         </div>
       ) : (
         <LicenseErrorBanner message="Cluster metrics are available for premium users only." />

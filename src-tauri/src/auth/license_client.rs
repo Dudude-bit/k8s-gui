@@ -1,77 +1,69 @@
 //! License client for connecting to auth-server
+//! 
+//! Uses progenitor-generated client for type-safe API calls
 
+use crate::auth::generated_client::{self, types};
 use crate::error::{Error, Result};
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::{RwLock, Mutex};
-use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LicenseStatus {
-    pub has_license: bool,
-    pub license_key: Option<String>,
-    pub subscription_type: Option<String>,
-    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
-    pub is_valid: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AuthTokens {
-    pub access_token: String,
-    pub refresh_token: String,
-    pub token_type: String,
-    pub expires_in: i64,
-}
+// Re-export generated types for external use
+pub use types::{
+    AuthResponse as AuthTokens,
+    LicenseStatusResponse as LicenseStatus,
+    ProfileResponse as UserProfile,
+    UpdateProfileRequest,
+    PaymentHistoryResponse,
+    PaymentInfo,
+};
 
 pub struct LicenseClient {
     base_url: String,
-    // Issue #8: Token storage in memory
-    // NOTE: Tokens are stored in plain Arc<RwLock<Option<String>>> without encryption.
-    // For a desktop Tauri app, this is acceptable but not ideal. In production, consider:
-    // 1. Using Tauri's secure storage plugin (tauri-plugin-store) for token persistence
-    // 2. Encrypting tokens in memory using OS keychain/credential store
-    // 3. Minimizing token lifetime and clearing when not needed
-    // Current implementation is functional but tokens are accessible in memory dumps.
     access_token: Arc<RwLock<Option<String>>>,
     refresh_token: Arc<RwLock<Option<String>>>,
-    client: reqwest::Client,
+    client: generated_client::Client,
     cached_status: Arc<RwLock<Option<(LicenseStatus, chrono::DateTime<chrono::Utc>)>>>,
-    // Issue #10 Fix: Track in-flight requests to prevent race conditions
     status_request: Arc<Mutex<Option<tokio::task::JoinHandle<Result<LicenseStatus>>>>>,
 }
 
 impl LicenseClient {
     pub fn new(base_url: String) -> Self {
+        let client = generated_client::Client::new(&base_url);
+        
         Self {
             base_url,
             access_token: Arc::new(RwLock::new(None)),
             refresh_token: Arc::new(RwLock::new(None)),
-            client: reqwest::Client::new(),
+            client,
             cached_status: Arc::new(RwLock::new(None)),
             status_request: Arc::new(Mutex::new(None)),
         }
     }
 
+    /// Creates an authenticated progenitor client with Bearer token
+    fn create_authenticated_client(&self, token: &str) -> generated_client::Client {
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert(
+            reqwest::header::AUTHORIZATION,
+            reqwest::header::HeaderValue::from_str(&format!("Bearer {}", token)).unwrap(),
+        );
+        let reqwest_client = reqwest::Client::builder()
+            .default_headers(headers)
+            .build()
+            .unwrap();
+        generated_client::Client::new_with_client(&self.base_url, reqwest_client)
+    }
+
     pub async fn login(&self, email: &str, password: &str) -> Result<AuthTokens> {
-        let response = self.client
-            .post(&format!("{}/api/v1/auth/login", self.base_url))
-            .json(&serde_json::json!({
-                "email": email,
-                "password": password
-            }))
-            .send()
-            .await
-            .map_err(|e| Error::Internal(format!("Failed to send login request: {}", e)))?;
+        let body = types::LoginRequest {
+            email: email.to_string(),
+            password: password.to_string(),
+        };
 
-        if !response.status().is_success() {
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(Error::Internal(format!("Login failed: {}", error_text)));
-        }
+        let response = self.client.login(&body).await
+            .map_err(|e| Error::Internal(format!("Login failed: {}", e)))?;
 
-        let tokens: AuthTokens = response.json().await
-            .map_err(|e| Error::Internal(format!("Failed to parse response: {}", e)))?;
+        let tokens = response.into_inner();
 
         *self.access_token.write().await = Some(tokens.access_token.clone());
         *self.refresh_token.write().await = Some(tokens.refresh_token.clone());
@@ -79,26 +71,25 @@ impl LicenseClient {
         Ok(tokens)
     }
 
-    pub async fn register(&self, email: &str, password: &str, first_name: Option<String>, last_name: Option<String>) -> Result<AuthTokens> {
-        let response = self.client
-            .post(&format!("{}/api/v1/auth/register", self.base_url))
-            .json(&serde_json::json!({
-                "email": email,
-                "password": password,
-                "first_name": first_name,
-                "last_name": last_name
-            }))
-            .send()
-            .await
-            .map_err(|e| Error::Internal(format!("Failed to send register request: {}", e)))?;
+    pub async fn register(
+        &self,
+        email: &str,
+        password: &str,
+        first_name: Option<String>,
+        last_name: Option<String>,
+    ) -> Result<AuthTokens> {
+        let body = types::RegisterRequest {
+            email: email.to_string(),
+            password: password.to_string(),
+            first_name,
+            last_name,
+            company: None,
+        };
 
-        if !response.status().is_success() {
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(Error::Internal(format!("Registration failed: {}", error_text)));
-        }
+        let response = self.client.register(&body).await
+            .map_err(|e| Error::Internal(format!("Registration failed: {}", e)))?;
 
-        let tokens: AuthTokens = response.json().await
-            .map_err(|e| Error::Internal(format!("Failed to parse response: {}", e)))?;
+        let tokens = response.into_inner();
 
         *self.access_token.write().await = Some(tokens.access_token.clone());
         *self.refresh_token.write().await = Some(tokens.refresh_token.clone());
@@ -112,7 +103,6 @@ impl LicenseClient {
             return Ok(());
         }
 
-        // Try to refresh
         let refresh_token = self.refresh_token.read().await.clone();
         if let Some(ref token) = refresh_token {
             self.refresh_access_token(token).await?;
@@ -124,21 +114,14 @@ impl LicenseClient {
     }
 
     async fn refresh_access_token(&self, refresh_token: &str) -> Result<()> {
-        let response = self.client
-            .post(&format!("{}/api/v1/auth/refresh", self.base_url))
-            .json(&serde_json::json!({
-                "refresh_token": refresh_token
-            }))
-            .send()
-            .await
-            .map_err(|e| Error::Internal(format!("Failed to refresh token: {}", e)))?;
+        let body = types::RefreshRequest {
+            refresh_token: refresh_token.to_string(),
+        };
 
-        if !response.status().is_success() {
-            return Err(Error::Internal("Token refresh failed".to_string()));
-        }
+        let response = self.client.refresh(&body).await
+            .map_err(|e| Error::Internal(format!("Token refresh failed: {}", e)))?;
 
-        let tokens: AuthTokens = response.json().await
-            .map_err(|e| Error::Internal(format!("Failed to parse response: {}", e)))?;
+        let tokens = response.into_inner();
 
         *self.access_token.write().await = Some(tokens.access_token);
         *self.refresh_token.write().await = Some(tokens.refresh_token);
@@ -147,23 +130,21 @@ impl LicenseClient {
     }
 
     pub async fn get_license_status(&self, force_refresh: bool) -> Result<LicenseStatus> {
-        // Issue #10 Fix: Check cache first with proper locking
+        // Check cache first
         if !force_refresh {
             let cache_guard = self.cached_status.read().await;
             if let Some((status, cached_at)) = cache_guard.as_ref() {
-                // Cache valid for 1 hour
                 if cached_at > &(chrono::Utc::now() - chrono::Duration::hours(1)) {
                     return Ok(status.clone());
                 }
             }
-            drop(cache_guard); // Release read lock
+            drop(cache_guard);
         }
 
-        // Issue #10 Fix: Check if request already in flight
+        // Check if request already in flight
         {
             let mut request_guard = self.status_request.lock().await;
             if let Some(handle) = request_guard.take() {
-                // Wait for existing request
                 drop(request_guard);
                 return handle.await.map_err(|e| {
                     Error::Internal(format!("License status request failed: {:?}", e))
@@ -171,96 +152,40 @@ impl LicenseClient {
             }
         }
 
-        // Prepare for new request
         self.ensure_token_valid().await?;
 
         let access_token = self.access_token.read().await.clone()
             .ok_or_else(|| Error::Internal("Not authenticated".to_string()))?;
 
-        let base_url = self.base_url.clone();
-        let client = self.client.clone();
-        let cached_status = Arc::clone(&self.cached_status);
-        let status_request = Arc::clone(&self.status_request);
+        let auth_client = self.create_authenticated_client(&access_token);
+        let response = auth_client.get_status().await
+            .map_err(|e| Error::Internal(format!("Failed to get license status: {}", e)))?;
 
-        // Start new request
-        let handle = tokio::spawn(async move {
-            let result = async {
-                let response = client
-                    .get(&format!("{}/api/v1/license/status", base_url))
-                    .header("Authorization", format!("Bearer {}", access_token))
-                    .send()
-                    .await
-                    .map_err(|e| Error::Internal(format!("Failed to get license status: {}", e)))?;
+        let status = response.into_inner();
 
-                if !response.status().is_success() {
-                    return Err(Error::Internal("Failed to get license status".to_string()));
-                }
+        *self.cached_status.write().await = Some((status.clone(), chrono::Utc::now()));
 
-                let status: LicenseStatus = response.json().await
-                    .map_err(|e| Error::Internal(format!("Failed to parse response: {}", e)))?;
-
-                // Update cache
-                *cached_status.write().await = Some((status.clone(), chrono::Utc::now()));
-
-                Ok(status)
-            }.await;
-
-            // Clear the in-flight request regardless of success/failure
-            let _ = status_request.lock().await.take();
-            
-            result
-        });
-
-        // Store handle
-        {
-            let mut request_guard = self.status_request.lock().await;
-            *request_guard = Some(handle);
-        }
-
-        // Wait for the request we just started
-        let mut request_guard = self.status_request.lock().await;
-        if let Some(handle) = request_guard.take() {
-            drop(request_guard);
-            handle.await.map_err(|e| {
-                Error::Internal(format!("License status request failed: {:?}", e))
-            })?
-        } else {
-            Err(Error::Internal("Failed to start license status request".to_string()))
-        }
+        Ok(status)
     }
 
     pub async fn activate_license(&self, license_key: &str) -> Result<LicenseStatus> {
         self.ensure_token_valid().await?;
 
-        // Issue #11 Fix: Always clear cache before activation attempt
         *self.cached_status.write().await = None;
 
         let access_token = self.access_token.read().await.clone()
             .ok_or_else(|| Error::Internal("Not authenticated".to_string()))?;
 
-        let response = self.client
-            .post(&format!("{}/api/v1/license/activate", self.base_url))
-            .header("Authorization", format!("Bearer {}", access_token))
-            .json(&serde_json::json!({
-                "license_key": license_key
-            }))
-            .send()
-            .await
-            .map_err(|e| {
-                // Issue #11 Fix: Cache already cleared, error will force refresh
-                Error::Internal(format!("Failed to activate license: {}", e))
-            })?;
+        let body = types::ActivateLicenseRequest {
+            license_key: license_key.to_string(),
+        };
 
-        if !response.status().is_success() {
-            let error_text = response.text().await.unwrap_or_default();
-            // Issue #11 Fix: Cache already cleared on error, will force refresh on next check
-            return Err(Error::Internal(format!("License activation failed: {}", error_text)));
-        }
+        let auth_client = self.create_authenticated_client(&access_token);
+        let response = auth_client.activate(&body).await
+            .map_err(|e| Error::Internal(format!("Failed to activate license: {}", e)))?;
 
-        let status: LicenseStatus = response.json().await
-            .map_err(|e| Error::Internal(format!("Failed to parse response: {}", e)))?;
+        let status = response.into_inner();
 
-        // Update cache with new status
         *self.cached_status.write().await = Some((status.clone(), chrono::Utc::now()));
 
         Ok(status)
@@ -272,11 +197,10 @@ impl LicenseClient {
     }
 
     pub fn clear_auth(&self) {
-        // Clone Arc references to clear tokens in spawned task
         let access_token = Arc::clone(&self.access_token);
         let refresh_token = Arc::clone(&self.refresh_token);
         let cached_status = Arc::clone(&self.cached_status);
-        
+
         tokio::spawn(async move {
             *access_token.write().await = None;
             *refresh_token.write().await = None;
@@ -290,22 +214,11 @@ impl LicenseClient {
         let access_token = self.access_token.read().await.clone()
             .ok_or_else(|| Error::Internal("Not authenticated".to_string()))?;
 
-        let response = self.client
-            .get(&format!("{}/api/v1/user/profile", self.base_url))
-            .header("Authorization", format!("Bearer {}", access_token))
-            .send()
-            .await
+        let auth_client = self.create_authenticated_client(&access_token);
+        let response = auth_client.get_profile().await
             .map_err(|e| Error::Internal(format!("Failed to get user profile: {}", e)))?;
 
-        if !response.status().is_success() {
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(Error::Internal(format!("Failed to get user profile: {}", error_text)));
-        }
-
-        let profile: UserProfile = response.json().await
-            .map_err(|e| Error::Internal(format!("Failed to parse response: {}", e)))?;
-
-        Ok(profile)
+        Ok(response.into_inner())
     }
 
     pub async fn update_user_profile(&self, updates: UpdateProfileRequest) -> Result<UserProfile> {
@@ -314,23 +227,11 @@ impl LicenseClient {
         let access_token = self.access_token.read().await.clone()
             .ok_or_else(|| Error::Internal("Not authenticated".to_string()))?;
 
-        let response = self.client
-            .put(&format!("{}/api/v1/user/profile", self.base_url))
-            .header("Authorization", format!("Bearer {}", access_token))
-            .json(&updates)
-            .send()
-            .await
+        let auth_client = self.create_authenticated_client(&access_token);
+        let response = auth_client.update_profile(&updates).await
             .map_err(|e| Error::Internal(format!("Failed to update user profile: {}", e)))?;
 
-        if !response.status().is_success() {
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(Error::Internal(format!("Failed to update user profile: {}", error_text)));
-        }
-
-        let profile: UserProfile = response.json().await
-            .map_err(|e| Error::Internal(format!("Failed to parse response: {}", e)))?;
-
-        Ok(profile)
+        Ok(response.into_inner())
     }
 
     pub async fn get_payment_history(&self) -> Result<PaymentHistoryResponse> {
@@ -339,61 +240,10 @@ impl LicenseClient {
         let access_token = self.access_token.read().await.clone()
             .ok_or_else(|| Error::Internal("Not authenticated".to_string()))?;
 
-        let response = self.client
-            .get(&format!("{}/api/v1/payments/history", self.base_url))
-            .header("Authorization", format!("Bearer {}", access_token))
-            .send()
-            .await
+        let auth_client = self.create_authenticated_client(&access_token);
+        let response = auth_client.get_history(None, None).await
             .map_err(|e| Error::Internal(format!("Failed to get payment history: {}", e)))?;
 
-        if !response.status().is_success() {
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(Error::Internal(format!("Failed to get payment history: {}", error_text)));
-        }
-
-        let history: PaymentHistoryResponse = response.json().await
-            .map_err(|e| Error::Internal(format!("Failed to parse response: {}", e)))?;
-
-        Ok(history)
+        Ok(response.into_inner())
     }
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UserProfile {
-    pub user_id: uuid::Uuid,
-    pub email: String,
-    pub first_name: Option<String>,
-    pub last_name: Option<String>,
-    pub company: Option<String>,
-    pub email_verified: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateProfileRequest {
-    pub first_name: Option<String>,
-    pub last_name: Option<String>,
-    pub company: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PaymentHistoryResponse {
-    pub payments: Vec<PaymentInfo>,
-    pub total: usize,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PaymentInfo {
-    pub id: uuid::Uuid,
-    pub license_id: Option<uuid::Uuid>,
-    pub amount: String,
-    pub currency: String,
-    pub status: String,
-    pub transaction_id: Option<String>,
-    pub payment_provider: Option<String>,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-}
-

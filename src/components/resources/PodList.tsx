@@ -1,11 +1,7 @@
 import { useClusterStore } from "@/stores/clusterStore";
-import { DataTable } from "@/components/ui/data-table";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
 import { Eye, Trash2, Terminal, FileText } from "lucide-react";
-import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -13,7 +9,6 @@ import {
 import { useMemo } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { usePodsWithMetrics, type PodWithMetrics } from "@/hooks/usePodsWithMetrics";
-import { useResourceDelete } from "@/hooks/useResource";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { MetricBadge } from "@/components/ui/metric-card";
 import {
@@ -24,6 +19,7 @@ import {
 import type { ContainerInfo } from "@/generated/types";
 import * as commands from "@/generated/commands";
 import { normalizeTauriError } from "@/lib/error-utils";
+import { ResourceList } from "./ResourceList";
 
 // Helper to format ready containers count
 function formatReady(containers: ContainerInfo[]): string {
@@ -32,23 +28,13 @@ function formatReady(containers: ContainerInfo[]): string {
 }
 
 export function PodList() {
-  const { isConnected } = useClusterStore();
+  const { currentNamespace } = useClusterStore();
+  const { data: podsWithMetrics } = usePodsWithMetrics();
 
-  // Use centralized pods with metrics hook
-  const { data: podsWithMetrics, isLoading, isFetching, refetch } = usePodsWithMetrics();
-
-  // Setup delete functionality with new hook
-  const { deleteTarget, setDeleteTarget, confirmDelete, isDeleting } = useResourceDelete<PodWithMetrics>({
-    mutationFn: async (item) => {
-      try {
-        await commands.deletePod(item.name, item.namespace, false);
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
-    invalidateQueryKeys: [["pods"]],
-    resourceType: "Pod",
-  });
+  // Wrap the data from the hook into a query function for ResourceList
+  const queryFn = async (): Promise<PodWithMetrics[]> => {
+    return podsWithMetrics;
+  };
 
   const columns = useMemo<ColumnDef<PodWithMetrics>[]>(
     () => [
@@ -108,77 +94,62 @@ export function PodList() {
         cell: ({ row }) => row.original.podIp || "-",
       },
       createAgeColumn<PodWithMetrics>(),
-      {
-        id: "actions",
-        cell: ({ row }) => (
-          <ActionMenu>
-            <DropdownMenuItem asChild>
-              <Link to={`/pod/${row.original.namespace}/${row.original.name}`}>
-                <Eye className="mr-2 h-4 w-4" />
-                View Details
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <FileText className="mr-2 h-4 w-4" />
-              View Logs
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Terminal className="mr-2 h-4 w-4" />
-              Shell
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={() => setDeleteTarget(row.original)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
-          </ActionMenu>
-        ),
-      },
     ],
-    [setDeleteTarget]
+    []
   );
 
-  if (!isConnected) {
-    return <ConnectClusterEmptyState resourceLabel="pods" />;
-  }
-
-  const showSkeleton = isLoading && podsWithMetrics.length === 0;
-
   return (
-    <div className="space-y-4 animate-in fade-in duration-200">
-      <ResourceListHeader
-        title="Pods"
-        isFetching={isFetching}
-        isLoading={isLoading}
-        onRefresh={() => refetch()}
-      />
-      <DataTable
-        columns={columns}
-        data={podsWithMetrics}
-        isLoading={showSkeleton}
-        isFetching={isFetching && !isLoading}
-      />
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDeleteTarget(null);
+    <ResourceList<PodWithMetrics>
+      title="Pods"
+      // We use the same query key structure but include podsWithMetrics length/content hash to force update
+      // when the hook updates.
+      queryKey={["pods-list-view", currentNamespace, JSON.stringify(podsWithMetrics.map(p => p.name))]}
+      queryFn={queryFn}
+      columns={(setDeleteTarget) => [
+        ...columns,
+        {
+          id: "actions",
+          cell: ({ row }) => (
+            <ActionMenu>
+              <DropdownMenuItem asChild>
+                <Link to={`/pod/${row.original.namespace}/${row.original.name}`}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Details
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <FileText className="mr-2 h-4 w-4" />
+                View Logs
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Terminal className="mr-2 h-4 w-4" />
+                Shell
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => setDeleteTarget(row.original)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </ActionMenu>
+          ),
+        },
+      ]}
+      emptyStateLabel="pods"
+      deleteConfig={{
+        mutationFn: async (item) => {
+          try {
+            await commands.deletePod(item.name, item.namespace, false);
+          } catch (err) {
+            throw new Error(normalizeTauriError(err));
           }
-        }}
-        title="Delete pod?"
-        description={
-          deleteTarget
-            ? `This will delete ${deleteTarget.name} in ${deleteTarget.namespace}.`
-            : undefined
-        }
-        confirmLabel="Delete"
-        confirmVariant="destructive"
-        confirmDisabled={isDeleting}
-        onConfirm={confirmDelete}
-      />
-    </div>
+        },
+        invalidateQueryKeys: [["pods"]],
+        resourceType: "Pod",
+      }}
+      staleTime={10000}
+    />
   );
 }

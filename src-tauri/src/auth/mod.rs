@@ -14,6 +14,8 @@ mod interactive;
 mod manager;
 mod credentials;
 pub mod license_client;
+pub mod auth_client_hooks;
+pub mod generated_client;
 
 pub use aws_eks::AwsEksAuth;
 pub use bearer::BearerTokenAuth;

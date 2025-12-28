@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { useAuthStore } from "@/stores/authStore";
-import { getProfile as apiGetProfile, updateProfile as apiUpdateProfile, ProfileResponse } from "@/lib/api/auth";
+import * as commands from "@/generated/commands";
+import type { UserProfile } from "@/generated/types";
 
 export function useUserProfile() {
   const { userProfile, isAuthenticated, setUserProfile } = useAuthStore();
@@ -16,7 +17,7 @@ export function useUserProfile() {
     setError(null);
 
     try {
-      const profile = await apiGetProfile();
+      const profile = await commands.getUserProfile();
       setUserProfile(profile);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -25,17 +26,16 @@ export function useUserProfile() {
     }
   }, [isAuthenticated, setUserProfile]);
 
-  const updateProfile = useCallback(async (updates: Partial<ProfileResponse>) => {
+  const updateProfile = useCallback(async (updates: Partial<UserProfile>) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // Create request object from updates
-      const updated = await apiUpdateProfile({
-        firstName: updates.firstName ?? null,
-        lastName: updates.lastName ?? null,
-        company: updates.company ?? null,
-      });
+      const updated = await commands.updateUserProfile(
+        updates.firstName ?? null,
+        updates.lastName ?? null,
+        updates.company ?? null,
+      );
       setUserProfile(updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -53,4 +53,3 @@ export function useUserProfile() {
     updateProfile,
   };
 }
-

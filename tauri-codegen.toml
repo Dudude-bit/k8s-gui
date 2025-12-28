@@ -4,6 +4,7 @@ exclude = [
     "tests",
     "target",
 ]
+use_cargo_expand = true
 
 [output]
 types_file = "src/generated/types.ts"

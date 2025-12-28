@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useClusterStore } from "@/stores/clusterStore";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
-import { aggregatePodMetrics } from "@/lib/resource-utils";
+import { aggregatePodMetrics } from "@/lib/k8s-quantity";
 import type { PodInfo } from "@/generated/types";
 
 export interface ResourceWithMetrics {

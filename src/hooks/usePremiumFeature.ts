@@ -21,15 +21,15 @@ export function usePremiumFeature(): UsePremiumFeatureResult {
     setError(null);
 
     try {
-      // Quick check first
+      // Check via Tauri command
       const isValid = await commands.isLicenseValid();
 
       if (!isValid) {
         // Refresh status to get latest info
         await checkLicenseStatus(true);
 
-        // Issue #15 Fix: Provide specific error messages based on license status
-        const status = licenseStatus;
+        // Get fresh status from store
+        const status = useAuthStore.getState().licenseStatus;
         if (!status?.hasLicense) {
           setError("Premium feature requires a license. Please purchase or activate a license.");
         } else if (status.hasLicense && !status.isValid) {
@@ -69,4 +69,3 @@ export function usePremiumFeature(): UsePremiumFeatureResult {
     isLoading,
   };
 }
-

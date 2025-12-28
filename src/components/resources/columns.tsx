@@ -9,7 +9,7 @@ import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatAge } from "@/lib/utils";
-import { ResourceUsage } from "@/components/ui/resource-usage";
+import { MetricBadge } from "@/components/ui/metric-card";
 import { Eye, Trash2 } from "lucide-react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import {
@@ -104,8 +104,10 @@ export function createAgeColumn<T extends WithCreatedAt>(): ColumnDef<T> {
   };
 }
 
+// ... (import MetricBadge)
+
 /**
- * Creates a CPU usage column with ResourceUsage component
+ * Creates a CPU usage column with MetricBadge component
  */
 export function createCpuColumn<T extends WithCpuUsage & Partial<WithCpuLimits>>(
   options?: { showProgressBar?: boolean }
@@ -117,11 +119,10 @@ export function createCpuColumn<T extends WithCpuUsage & Partial<WithCpuLimits>>
       const used = row.original.cpuUsage;
       const total = row.original.cpuLimits ?? row.original.cpuRequests ?? null;
       return (
-        <ResourceUsage
+        <MetricBadge
           used={used}
           total={total}
           type="cpu"
-          showProgressBar={options?.showProgressBar ?? false}
         />
       );
     },
@@ -129,7 +130,7 @@ export function createCpuColumn<T extends WithCpuUsage & Partial<WithCpuLimits>>
 }
 
 /**
- * Creates a Memory usage column with ResourceUsage component
+ * Creates a Memory usage column with MetricBadge component
  */
 export function createMemoryColumn<T extends WithMemoryUsage & Partial<WithMemoryLimits>>(
   options?: { showProgressBar?: boolean }
@@ -141,16 +142,16 @@ export function createMemoryColumn<T extends WithMemoryUsage & Partial<WithMemor
       const used = row.original.memoryUsage;
       const total = row.original.memoryLimits ?? row.original.memoryRequests ?? null;
       return (
-        <ResourceUsage
+        <MetricBadge
           used={used}
           total={total}
           type="memory"
-          showProgressBar={options?.showProgressBar ?? false}
         />
       );
     },
   };
 }
+
 
 /**
  * Creates a status badge column

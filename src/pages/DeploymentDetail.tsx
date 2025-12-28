@@ -40,7 +40,7 @@ import { ResourceDetailHeader } from "@/components/resources/ResourceDetailHeade
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { MetricPair } from "@/components/ui/metric-card";
-import { aggregatePodMetrics, parseKubernetesCPU, parseKubernetesMemory, formatCPU, formatMemory } from "@/lib/resource-utils";
+import { aggregatePodMetrics, parseCPU as parseKubernetesCPU, parseMemory as parseKubernetesMemory, formatCPU, formatMemory } from "@/lib/k8s-quantity";
 import { normalizeTauriError } from "@/lib/error-utils";
 
 export function DeploymentDetail() {

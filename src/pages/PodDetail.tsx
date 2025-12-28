@@ -41,10 +41,8 @@ import {
   Activity,
   AlertCircle,
   Search,
-  Cpu,
-  MemoryStick,
 } from "lucide-react";
-import { ResourceUsage } from "@/components/ui/resource-usage";
+import { MetricCard } from "@/components/ui/metric-card";
 import { normalizeTauriError } from "@/lib/error-utils";
 
 const parsePortValue = (value: string) => {
@@ -738,35 +736,21 @@ export function PodDetail() {
           {hasLicenseAccess ? (
             podWithMetrics && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">CPU Usage</CardTitle>
-                    <Cpu className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <ResourceUsage
-                      used={podWithMetrics.cpuUsage ?? null}
-                      total={podWithMetrics.cpuLimits ?? podWithMetrics.cpuRequests ?? null}
-                      type="cpu"
-                      showProgressBar={true}
-                    />
-                  </CardContent>
-                </Card>
+                <MetricCard
+                  title="CPU Usage"
+                  used={podWithMetrics.cpuUsage}
+                  total={podWithMetrics.cpuLimits ?? podWithMetrics.cpuRequests}
+                  type="cpu"
+                  showProgressBar
+                />
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Memory Usage</CardTitle>
-                    <MemoryStick className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <ResourceUsage
-                      used={podWithMetrics.memoryUsage ?? null}
-                      total={podWithMetrics.memoryLimits ?? podWithMetrics.memoryRequests ?? null}
-                      type="memory"
-                      showProgressBar={true}
-                    />
-                  </CardContent>
-                </Card>
+                <MetricCard
+                  title="Memory Usage"
+                  used={podWithMetrics.memoryUsage}
+                  total={podWithMetrics.memoryLimits ?? podWithMetrics.memoryRequests}
+                  type="memory"
+                  showProgressBar
+                />
               </div>
             )
           ) : (
@@ -824,9 +808,9 @@ export function PodDetail() {
                     <div className="flex items-center gap-2">
                       <Badge
                         variant={
-                          container.state.type === "Running"
+                          container.state.type === "running"
                             ? "success"
-                            : container.state.type === "Waiting"
+                            : container.state.type === "waiting"
                               ? "warning"
                               : "secondary"
                         }

@@ -27,7 +27,7 @@ export type { StatusBadgeProps, ConditionBadgeProps, ResourceTypeBadgeProps, Res
 export { MetricCard, MetricBadge, MetricRow, MetricPair, NodeResourceCard } from "./metric-card";
 export type { MetricCardProps, MetricBadgeProps, MetricRowProps, MetricPairProps, NodeResourceCardProps } from "./metric-card";
 
-export { ResourceUsage } from "./resource-usage";
+
 
 export { ActionMenu } from "./action-menu";
 export { ConfirmDialog } from "./confirm-dialog";

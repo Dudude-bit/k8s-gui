@@ -1,16 +1,6 @@
 import { create } from "zustand";
-import {
-  AuthResponse,
-  ProfileResponse,
-  LicenseStatusResponse,
-  login as apiLogin,
-  register as apiRegister,
-  logout as apiLogout,
-  refresh as apiRefresh,
-  getStatus as apiGetStatus,
-  activate as apiActivate,
-  getProfile as apiGetProfile,
-} from "@/lib/api/auth";
+import * as commands from "@/generated/commands";
+import type { AuthTokens, LicenseStatus, UserProfile } from "@/generated/types";
 import {
   isTokenValid,
   shouldRefreshToken,
@@ -19,7 +9,7 @@ import {
 } from "@/lib/auth-utils";
 
 // Re-export types for convenience
-export type { AuthResponse, ProfileResponse, LicenseStatusResponse };
+export type { AuthTokens, LicenseStatus, UserProfile };
 
 interface AuthState {
   // Token state
@@ -30,11 +20,11 @@ interface AuthState {
   error: string | null;
 
   // User state
-  user: ProfileResponse | null;
-  userProfile: ProfileResponse | null; // Alias for user, for backward compatibility
+  user: UserProfile | null;
+  userProfile: UserProfile | null;
 
   // License state
-  licenseStatus: LicenseStatusResponse | null;
+  licenseStatus: LicenseStatus | null;
   isCheckingLicense: boolean;
   licenseError: string | null;
   lastLicenseCheck: number | null;
@@ -43,8 +33,6 @@ interface AuthState {
   // Token refresh
   refreshTimerId: NodeJS.Timeout | null;
   refreshIntervalId: NodeJS.Timeout | null;
-
-
 
   // Actions - Authentication
   login: (email: string, password: string) => Promise<void>;
@@ -57,7 +45,7 @@ interface AuthState {
   logout: () => Promise<void>;
   refreshAccessToken: () => Promise<boolean>;
   checkAuth: () => Promise<void>;
-  setTokens: (tokens: AuthResponse) => void;
+  setTokens: (tokens: AuthTokens) => void;
   clearTokens: () => void;
   initializeAuth: () => Promise<void>;
 
@@ -66,7 +54,7 @@ interface AuthState {
   checkLicenseStatus: (forceRefresh?: boolean) => Promise<void>;
   activateLicense: (licenseKey: string) => Promise<void>;
   refreshLicensePeriodically: () => (() => void);
-  setUserProfile: (profile: ProfileResponse) => void;
+  setUserProfile: (profile: UserProfile) => void;
 }
 
 const STORAGE_KEYS = {
@@ -91,7 +79,6 @@ function loadTokensFromStorage(): {
     const accessToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
     const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
 
-    // Validate token format
     const validAccessToken =
       accessToken && isValidTokenFormat(accessToken) ? accessToken : null;
     const validRefreshToken =
@@ -163,10 +150,9 @@ function scheduleTokenRefresh(
     return null;
   }
 
-  // Refresh 5 minutes before expiration
   const refreshTime = Math.max(
     timeUntilExpiration - 5 * 60 * 1000,
-    60 * 1000, // At least 1 minute from now
+    60 * 1000,
   );
 
   return setTimeout(async () => {
@@ -178,7 +164,7 @@ function scheduleTokenRefresh(
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  // Initial state - Authentication
+  // Initial state
   accessToken: null,
   refreshToken: null,
   isAuthenticated: false,
@@ -187,8 +173,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   userProfile: null,
   refreshTimerId: null,
-
-  // Initial state - License
   licenseStatus: null,
   isCheckingLicense: false,
   licenseError: null,
@@ -196,23 +180,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   authServerUrl: null,
   refreshIntervalId: null,
 
-  /**
-   * Set tokens and update state
-   */
-  setTokens: (tokens: AuthResponse) => {
+  setTokens: (tokens: AuthTokens) => {
     const { accessToken, refreshToken } = tokens;
     const isValid = isTokenValid(accessToken);
 
-    // Clear existing refresh timer
     const currentTimer = get().refreshTimerId;
     if (currentTimer) {
       clearTimeout(currentTimer);
     }
 
-    // Save to storage
     saveTokensToStorage(accessToken, refreshToken);
 
-    // Schedule refresh if token is valid
     let refreshTimerId: NodeJS.Timeout | null = null;
     if (isValid) {
       refreshTimerId = scheduleTokenRefresh(accessToken, () =>
@@ -229,23 +207,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
   },
 
-  /**
-   * Clear tokens and reset state
-   */
   clearTokens: () => {
-    // Clear refresh timer
     const currentTimer = get().refreshTimerId;
     if (currentTimer) {
       clearTimeout(currentTimer);
     }
 
-    // Clear license refresh interval
     const licenseInterval = get().refreshIntervalId;
     if (licenseInterval) {
       clearInterval(licenseInterval);
     }
 
-    // Clear storage
     clearTokensFromStorage();
 
     set({
@@ -261,29 +233,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
   },
 
-  /**
-   * Login user
-   */
   login: async (email: string, password: string) => {
     set({ loading: true, error: null });
 
     try {
-      // Call generated client to login
-      const tokens = await apiLogin({ email, password });
+      // Call Tauri command
+      const tokens = await commands.loginUser(email, password);
 
-      // Store tokens in React state
       get().setTokens(tokens);
 
       // Load user profile
       try {
-        const userProfile = await apiGetProfile();
+        const userProfile = await commands.getUserProfile();
         set({ user: userProfile, userProfile });
       } catch (profileError) {
         console.warn("Failed to load user profile:", profileError);
-        // Don't fail login if profile load fails
       }
 
-      // Check license status after login
+      // Check license status
       await get().checkLicenseStatus(true);
 
       set({ loading: false });
@@ -300,9 +267,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  /**
-   * Register new user
-   */
   register: async (
     email: string,
     password: string,
@@ -312,27 +276,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
 
     try {
-      // Call generated client to register
-      const tokens = await apiRegister({
-        email,
-        password,
-        firstName,
-        lastName,
-      });
+      // Call Tauri command
+      const tokens = await commands.registerUser(email, password, firstName ?? null, lastName ?? null);
 
-      // Store tokens in React state
       get().setTokens(tokens);
 
       // Load user profile
       try {
-        const userProfile = await apiGetProfile();
+        const userProfile = await commands.getUserProfile();
         set({ user: userProfile, userProfile });
       } catch (profileError) {
         console.warn("Failed to load user profile:", profileError);
-        // Don't fail registration if profile load fails
       }
 
-      // Check license status after registration
+      // Check license status
       await get().checkLicenseStatus(true);
 
       set({ loading: false });
@@ -349,89 +306,52 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  /**
-   * Logout user
-   */
   logout: async () => {
-    const { refreshToken } = get();
-
-    // Try to call backend logout (don't fail if it fails)
-    if (refreshToken) {
-      try {
-        await apiLogout({ refreshToken });
-      } catch (error) {
-        console.warn("Backend logout failed:", error);
-      }
-    }
-
-    // Clear tokens and state
+    // Clear tokens and state (no backend logout command for now)
     get().clearTokens();
   },
 
-  /**
-   * Refresh access token
-   */
   refreshAccessToken: async (): Promise<boolean> => {
-    const { refreshToken } = get();
-
-    if (!refreshToken) {
-      console.warn("No refresh token available");
+    // Token refresh is handled by Tauri LicenseClient internally
+    // For now, just check if we're still authenticated
+    const { accessToken } = get();
+    if (!accessToken) {
       return false;
     }
 
-    try {
-      // Call generated client
-      const tokens = await apiRefresh({ refreshToken });
-
-      // Update tokens
-      get().setTokens(tokens);
+    if (isTokenValid(accessToken)) {
       return true;
-    } catch (error) {
-      console.error("Token refresh failed:", error);
-      // If refresh fails, clear tokens (user needs to re-login)
-      get().clearTokens();
-      return false;
     }
+
+    // Token expired, clear and return false
+    get().clearTokens();
+    return false;
   },
 
-  /**
-   * Check authentication status and validate tokens
-   */
   checkAuth: async () => {
     const { accessToken, refreshToken } = get();
 
-    // If no tokens, not authenticated
     if (!accessToken || !refreshToken) {
       set({ isAuthenticated: false });
       return;
     }
 
-    // Check if access token is valid
     if (isTokenValid(accessToken)) {
       set({ isAuthenticated: true });
       return;
     }
 
-    // Access token expired, try to refresh
     if (shouldRefreshToken(accessToken) || !isTokenValid(accessToken)) {
       const refreshed = await get().refreshAccessToken();
-      if (refreshed) {
-        set({ isAuthenticated: true });
-      } else {
-        set({ isAuthenticated: false });
-      }
+      set({ isAuthenticated: refreshed });
     } else {
       set({ isAuthenticated: false });
     }
   },
 
-  /**
-   * Initialize auth state from localStorage
-   */
   initializeAuth: async () => {
     set({ loading: true });
 
-    // Load tokens from storage
     const { accessToken, refreshToken } = loadTokensFromStorage();
 
     if (!accessToken || !refreshToken) {
@@ -439,21 +359,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
 
-    // Set tokens in state
     set({ accessToken, refreshToken });
 
-    // Check if tokens are valid
     await get().checkAuth();
 
-    // Load user profile if authenticated
     if (get().isAuthenticated) {
       try {
-        const userProfile = await apiGetProfile();
+        const userProfile = await commands.getUserProfile();
         set({ user: userProfile, userProfile });
       } catch (profileError) {
         console.warn("Failed to load user profile:", profileError);
-        // If profile load fails, token might be invalid
-        // Clear tokens to force re-login
         get().clearTokens();
       }
     }
@@ -461,14 +376,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: false });
   },
 
-  /**
-   * Initialize license client
-   */
   initClient: async (authServerUrl: string) => {
     try {
-      // Update global base URL if we were using it in a way that needs init
-      // But Axios instance defaults to /api/v1 which is proxied
-      // So we might not need this anymore unless we want to store the URL
+      // Initialize Tauri license client
+      await commands.initLicenseClient(authServerUrl);
       set({ authServerUrl });
       // Check license status after initialization
       await get().checkLicenseStatus();
@@ -478,9 +389,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  /**
-   * Check license status
-   */
   checkLicenseStatus: async (forceRefresh = false) => {
     const state = get();
     if (state.isCheckingLicense && !forceRefresh) {
@@ -490,7 +398,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isCheckingLicense: true, licenseError: null });
 
     try {
-      const status = await apiGetStatus();
+      const status = await commands.checkLicenseStatus(forceRefresh);
       set({
         licenseStatus: status,
         isCheckingLicense: false,
@@ -506,12 +414,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  /**
-   * Activate license
-   */
   activateLicense: async (licenseKey: string) => {
     try {
-      const status = await apiActivate({ licenseKey });
+      const status = await commands.activateLicense(licenseKey);
       set({
         licenseStatus: status,
         licenseError: null,
@@ -523,11 +428,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  /**
-   * Refresh license periodically
-   */
   refreshLicensePeriodically: () => {
-    // Clear existing interval if any
     const state = get();
     if (state.refreshIntervalId) {
       clearInterval(state.refreshIntervalId);
@@ -542,7 +443,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     set({ refreshIntervalId: interval });
 
-    // Return cleanup function
     return () => {
       const currentState = get();
       if (currentState.refreshIntervalId) {
@@ -552,10 +452,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     };
   },
 
-  /**
-   * Set user profile (for backward compatibility)
-   */
-  setUserProfile: (profile: ProfileResponse) => {
+  setUserProfile: (profile: UserProfile) => {
     set({ userProfile: profile, user: profile });
   },
 }));
