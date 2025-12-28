@@ -7,6 +7,7 @@ use tokio::sync::{RwLock, Mutex};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LicenseStatus {
     pub has_license: bool,
     pub license_key: Option<String>,
@@ -16,6 +17,7 @@ pub struct LicenseStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AuthTokens {
     pub access_token: String,
     pub refresh_token: String,
@@ -357,6 +359,7 @@ impl LicenseClient {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UserProfile {
     pub user_id: uuid::Uuid,
     pub email: String,
@@ -367,6 +370,7 @@ pub struct UserProfile {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateProfileRequest {
     pub first_name: Option<String>,
     pub last_name: Option<String>,
@@ -374,12 +378,14 @@ pub struct UpdateProfileRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PaymentHistoryResponse {
     pub payments: Vec<PaymentInfo>,
     pub total: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PaymentInfo {
     pub id: uuid::Uuid,
     pub license_id: Option<uuid::Uuid>,

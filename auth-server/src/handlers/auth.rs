@@ -7,6 +7,15 @@ use crate::services::auth::{
     ForgotPasswordRequest, ResetPasswordRequest
 };
 
+#[utoipa::path(
+    post,
+    path = "/api/auth/register",
+    request_body = RegisterRequest,
+    responses(
+        (status = 201, description = "User registered successfully", body = AuthResponse),
+        (status = 400, description = "Validation error")
+    )
+)]
 pub async fn register(
     req: web::Json<RegisterRequest>,
     service: web::Data<AuthService>,
@@ -15,6 +24,15 @@ pub async fn register(
     Ok(HttpResponse::Created().json(response))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/auth/login",
+    request_body = LoginRequest,
+    responses(
+        (status = 200, description = "User logged in successfully", body = AuthResponse),
+        (status = 401, description = "Invalid credentials")
+    )
+)]
 pub async fn login(
     req: web::Json<LoginRequest>,
     service: web::Data<AuthService>,
@@ -31,6 +49,15 @@ pub async fn login(
     Ok(HttpResponse::Ok().json(response))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/auth/refresh",
+    request_body = RefreshRequest,
+    responses(
+        (status = 200, description = "Token refreshed successfully", body = AuthResponse),
+        (status = 401, description = "Invalid refresh token")
+    )
+)]
 pub async fn refresh(
     req: web::Json<RefreshRequest>,
     service: web::Data<AuthService>,
@@ -39,6 +66,14 @@ pub async fn refresh(
     Ok(HttpResponse::Ok().json(response))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/auth/logout",
+    request_body = RefreshRequest,
+    responses(
+        (status = 200, description = "Logged out successfully", body = MessageResponse)
+    )
+)]
 pub async fn logout(
     req: web::Json<RefreshRequest>,
     service: web::Data<AuthService>,
@@ -47,6 +82,14 @@ pub async fn logout(
     Ok(HttpResponse::Ok().json(response))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/auth/forgot-password",
+    request_body = ForgotPasswordRequest,
+    responses(
+        (status = 200, description = "Password reset email sent", body = MessageResponse)
+    )
+)]
 pub async fn forgot_password(
     req: web::Json<ForgotPasswordRequest>,
     service: web::Data<AuthService>,
@@ -55,6 +98,14 @@ pub async fn forgot_password(
     Ok(HttpResponse::Ok().json(response))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/auth/reset-password",
+    request_body = ResetPasswordRequest,
+    responses(
+        (status = 200, description = "Password reset successfully", body = MessageResponse)
+    )
+)]
 pub async fn reset_password(
     req: web::Json<ResetPasswordRequest>,
     service: web::Data<AuthService>,

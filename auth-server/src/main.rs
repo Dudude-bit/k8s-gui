@@ -9,8 +9,12 @@ mod middleware;
 mod utils;
 mod error;
 mod services;
+mod openapi;
 
 use actix_web::{web, App, HttpServer};
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
+use crate::openapi::ApiDoc;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -39,6 +43,10 @@ async fn main() -> std::io::Result<()> {
             .app_data(user_service_data.clone())
             .wrap(middleware::cors::cors_middleware_with_origins(&config_clone))
             .wrap(middleware::security::SecurityMiddleware)
+            .service(
+                SwaggerUi::new("/swagger-ui/{_:.*}")
+                    .url("/api-docs/openapi.json", ApiDoc::openapi())
+            )
             .service(
                 web::scope("/api/v1")
                     .service(

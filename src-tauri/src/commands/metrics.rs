@@ -44,6 +44,7 @@ pub async fn get_pod_metrics_command(
 
 /// Cluster metrics (aggregated)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClusterMetrics {
     pub total_cpu_usage: Option<String>,
     pub total_memory_usage: Option<String>,

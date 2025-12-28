@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { useAuthStore, UserProfile } from "@/stores/authStore";
+import { useAuthStore } from "@/stores/authStore";
+import { getProfile as apiGetProfile, updateProfile as apiUpdateProfile, ProfileResponse } from "@/lib/api/auth";
 
 export function useUserProfile() {
   const { userProfile, isAuthenticated, setUserProfile } = useAuthStore();
@@ -16,7 +16,7 @@ export function useUserProfile() {
     setError(null);
 
     try {
-      const profile = await invoke<UserProfile>("get_user_profile");
+      const profile = await apiGetProfile();
       setUserProfile(profile);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -25,15 +25,16 @@ export function useUserProfile() {
     }
   }, [isAuthenticated, setUserProfile]);
 
-  const updateProfile = useCallback(async (updates: Partial<UserProfile>) => {
+  const updateProfile = useCallback(async (updates: Partial<ProfileResponse>) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const updated = await invoke<UserProfile>("update_user_profile", {
-        first_name: updates.first_name,
-        last_name: updates.last_name,
-        company: updates.company,
+      // Create request object from updates
+      const updated = await apiUpdateProfile({
+        firstName: updates.firstName ?? null,
+        lastName: updates.lastName ?? null,
+        company: updates.company ?? null,
       });
       setUserProfile(updated);
     } catch (err) {

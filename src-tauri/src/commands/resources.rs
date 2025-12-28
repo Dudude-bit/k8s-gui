@@ -9,6 +9,7 @@ use tauri::State;
 
 /// Resource query parameters
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResourceQuery {
     pub kind: String,
     pub namespace: Option<String>,

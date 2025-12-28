@@ -9,6 +9,7 @@ use tokio::sync::oneshot;
 
 /// Log stream configuration from frontend
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StreamLogConfig {
     pub pod_name: String,
     pub namespace: Option<String>,

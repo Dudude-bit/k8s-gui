@@ -15,6 +15,7 @@ use tauri::State;
 
 /// Information about a PersistentVolume
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PersistentVolumeInfo {
     pub name: String,
     pub capacity: String,
@@ -29,6 +30,7 @@ pub struct PersistentVolumeInfo {
 
 /// Information about a PersistentVolumeClaim
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PersistentVolumeClaimInfo {
     pub name: String,
     pub namespace: String,
@@ -42,6 +44,7 @@ pub struct PersistentVolumeClaimInfo {
 
 /// Information about a StorageClass
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StorageClassInfo {
     pub name: String,
     pub provisioner: String,

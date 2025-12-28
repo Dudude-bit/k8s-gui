@@ -42,6 +42,7 @@
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-web-links": "^0.11.0",
     "@xterm/xterm": "^5.5.0",
+    "axios": "^1.13.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
@@ -57,6 +58,8 @@
     "zustand": "^4.5.4"
   },
   "devDependencies": {
+    "@orval/axios": "^7.17.2",
+    "@orval/query": "^7.17.2",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.14.10",
     "@types/react": "^18.3.3",
@@ -68,6 +71,7 @@
     "eslint": "^8.57.0",
     "eslint-plugin-react-hooks": "^4.6.2",
     "eslint-plugin-react-refresh": "^0.4.8",
+    "orval": "^7.17.2",
     "postcss": "^8.4.39",
     "prettier": "^3.3.3",
     "tailwindcss": "^3.4.6",

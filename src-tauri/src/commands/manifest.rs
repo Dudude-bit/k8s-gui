@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ManifestResult {
     pub success: bool,
     pub stdout: String,
@@ -21,6 +22,7 @@ pub struct ManifestResult {
 
 /// Information about a single applied resource
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AppliedResource {
     pub kind: String,
     pub name: String,

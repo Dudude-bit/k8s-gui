@@ -208,6 +208,7 @@ pub async fn get_deployment_pods(
 
 /// Rollout status
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RolloutStatus {
     pub replicas: i32,
     pub ready_replicas: i32,
@@ -218,6 +219,7 @@ pub struct RolloutStatus {
 
 /// Deployment condition
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DeploymentCondition {
     pub condition_type: String,
     pub status: String,

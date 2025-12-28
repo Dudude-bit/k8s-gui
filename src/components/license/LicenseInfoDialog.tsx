@@ -28,7 +28,7 @@ const formatDate = (dateString: string | null | undefined): string => {
 };
 
 // Issue #18 Fix: Consistent subscription type display
-const getSubscriptionTypeDisplay = (type: string | null): string => {
+const getSubscriptionTypeDisplay = (type: string | null | undefined): string => {
   switch (type) {
     case "monthly":
       return "Monthly";
@@ -109,7 +109,7 @@ export function LicenseInfoDialog({
                     <Crown className="h-3 w-3 mr-1" />
                     Active
                   </>
-                ) : licenseStatus.has_license ? (
+                ) : licenseStatus.hasLicense ? (
                   <>
                     <Clock className="h-3 w-3 mr-1" />
                     Expired
@@ -120,36 +120,36 @@ export function LicenseInfoDialog({
               </Badge>
             </div>
 
-            {licenseStatus.has_license && (
+            {licenseStatus.hasLicense && (
               <>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Subscription Type</span>
                   <div className="flex items-center gap-2">
-                    {licenseStatus.subscription_type === "infinite" ? (
+                    {licenseStatus.subscriptionType === "infinite" ? (
                       <Infinity className="h-4 w-4" />
                     ) : (
                       <Calendar className="h-4 w-4" />
                     )}
                     <span className="text-sm">
-                      {getSubscriptionTypeDisplay(licenseStatus.subscription_type)}
+                      {getSubscriptionTypeDisplay(licenseStatus.subscriptionType)}
                     </span>
                   </div>
                 </div>
 
-                {licenseStatus.expires_at && (
+                {licenseStatus.expiresAt && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Expires At</span>
                     <span className="text-sm">
-                      {formatDate(licenseStatus.expires_at)}
+                      {formatDate(licenseStatus.expiresAt)}
                     </span>
                   </div>
                 )}
 
-                {licenseStatus.license_key && (
+                {licenseStatus.licenseKey && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">License Key</span>
                     <code className="text-xs bg-muted px-2 py-1 rounded">
-                      {licenseStatus.license_key.substring(0, 8)}...
+                      {licenseStatus.licenseKey.substring(0, 8)}...
                     </code>
                   </div>
                 )}

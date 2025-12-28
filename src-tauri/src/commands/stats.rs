@@ -10,6 +10,7 @@ use tauri::State;
 
 /// Pod statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PodStats {
     pub total: usize,
     pub running: usize,
@@ -20,6 +21,7 @@ pub struct PodStats {
 
 /// Deployment statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DeploymentStats {
     pub total: usize,
     pub available: usize,
@@ -28,12 +30,14 @@ pub struct DeploymentStats {
 
 /// Service statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ServiceStats {
     pub total: usize,
 }
 
 /// Node statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NodeStats {
     pub total: usize,
     pub ready: usize,
@@ -41,6 +45,7 @@ pub struct NodeStats {
 
 /// Overall cluster statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClusterStats {
     pub pods: PodStats,
     pub deployments: DeploymentStats,

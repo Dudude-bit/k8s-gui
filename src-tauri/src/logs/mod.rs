@@ -18,6 +18,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 
 /// Log streaming configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LogConfig {
     /// Pod name
     pub pod: String,
@@ -117,6 +118,7 @@ impl LogConfig {
 
 /// Log line with parsed metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LogLine {
     /// Timestamp (if available)
     pub timestamp: Option<DateTime<Utc>>,
@@ -314,6 +316,7 @@ impl LogStreamer {
 
 /// Log filter for searching and filtering logs
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LogFilter {
     /// Search query
     pub query: Option<String>,

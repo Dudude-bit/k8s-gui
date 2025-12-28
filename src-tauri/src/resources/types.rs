@@ -16,6 +16,7 @@ use crate::utils::quantities::{parse_cpu, parse_memory, format_cpu};
 
 /// Simplified pod information for frontend
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PodInfo {
     pub name: String,
     pub namespace: String,
@@ -151,6 +152,7 @@ fn format_cpu_millicores(millicores: f64) -> String {
 
 /// Pod status information
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PodStatusInfo {
     pub phase: String,
     pub ready: bool,
@@ -202,6 +204,7 @@ impl PodStatusInfo {
 
 /// Condition information
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ConditionInfo {
     pub type_: String,
     pub status: String,
@@ -236,6 +239,7 @@ impl From<&NodeCondition> for ConditionInfo {
 
 /// Container information
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ContainerInfo {
     pub name: String,
     pub image: String,
@@ -309,6 +313,7 @@ pub enum ContainerState {
 
 /// Container port information
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ContainerPortInfo {
     pub name: Option<String>,
     pub container_port: i32,
@@ -317,6 +322,7 @@ pub struct ContainerPortInfo {
 
 /// Deployment information for frontend
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DeploymentInfo {
     pub name: String,
     pub namespace: String,
@@ -332,6 +338,7 @@ pub struct DeploymentInfo {
 
 /// Deployment container specification for frontend
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DeploymentContainerInfo {
     pub name: String,
     pub image: String,
@@ -341,6 +348,7 @@ pub struct DeploymentContainerInfo {
 
 /// Container resource requests/limits
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DeploymentContainerResources {
     pub requests: BTreeMap<String, String>,
     pub limits: BTreeMap<String, String>,
@@ -348,6 +356,7 @@ pub struct DeploymentContainerResources {
 
 /// Replica information
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ReplicaInfo {
     pub desired: i32,
     pub ready: i32,
@@ -445,6 +454,7 @@ fn map_quantities(input: Option<&BTreeMap<String, Quantity>>) -> BTreeMap<String
 
 /// Service information for frontend
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ServiceInfo {
     pub name: String,
     pub namespace: String,
@@ -462,6 +472,7 @@ pub struct ServiceInfo {
 
 /// Service port information
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ServicePortInfo {
     pub name: Option<String>,
     pub port: i32,
@@ -525,6 +536,7 @@ impl From<&Service> for ServiceInfo {
 
 /// Node information for frontend
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NodeInfo {
     pub name: String,
     pub uid: String,
@@ -546,6 +558,7 @@ pub struct NodeInfo {
 
 /// Node status information
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NodeStatusInfo {
     pub ready: bool,
     pub conditions: Vec<ConditionInfo>,
@@ -554,6 +567,7 @@ pub struct NodeStatusInfo {
 
 /// Node address information
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NodeAddressInfo {
     pub type_: String,
     pub address: String,
@@ -561,6 +575,7 @@ pub struct NodeAddressInfo {
 
 /// Taint information
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TaintInfo {
     pub key: String,
     pub value: Option<String>,
@@ -569,6 +584,7 @@ pub struct TaintInfo {
 
 /// Resource quantities
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct ResourceQuantities {
     pub cpu: Option<String>,
     pub memory: Option<String>,
@@ -689,6 +705,7 @@ impl From<&Node> for NodeInfo {
 
 /// Namespace information
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NamespaceInfo {
     pub name: String,
     pub uid: String,
@@ -715,6 +732,7 @@ impl From<&Namespace> for NamespaceInfo {
 
 /// ConfigMap information
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ConfigMapInfo {
     pub name: String,
     pub namespace: String,
@@ -743,6 +761,7 @@ impl From<&ConfigMap> for ConfigMapInfo {
 
 /// Secret information (without sensitive data)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SecretInfo {
     pub name: String,
     pub namespace: String,
@@ -773,6 +792,7 @@ impl From<&Secret> for SecretInfo {
 
 /// Event information
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EventInfo {
     pub name: String,
     pub namespace: String,
@@ -789,6 +809,7 @@ pub struct EventInfo {
 
 /// Involved object information
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InvolvedObjectInfo {
     pub kind: String,
     pub name: String,

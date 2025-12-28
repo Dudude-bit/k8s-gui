@@ -11,8 +11,8 @@ export function ProfileForm() {
   const { userProfile, updateProfile, isLoading, loadProfile } = useUserProfile();
   const { toast } = useToast();
   const [formData, setFormData] = useState({
-    firstName: userProfile?.first_name || "",
-    lastName: userProfile?.last_name || "",
+    firstName: userProfile?.firstName || "",
+    lastName: userProfile?.lastName || "",
     company: userProfile?.company || "",
   });
 
@@ -23,8 +23,8 @@ export function ProfileForm() {
   useEffect(() => {
     if (userProfile) {
       setFormData({
-        firstName: userProfile.first_name || "",
-        lastName: userProfile.last_name || "",
+        firstName: userProfile.firstName || "",
+        lastName: userProfile.lastName || "",
         company: userProfile.company || "",
       });
     }
@@ -34,8 +34,8 @@ export function ProfileForm() {
     e.preventDefault();
     try {
       await updateProfile({
-        first_name: formData.firstName || null,
-        last_name: formData.lastName || null,
+        firstName: formData.firstName || null,
+        lastName: formData.lastName || null,
         company: formData.company || null,
       });
       toast({

@@ -7,6 +7,7 @@ use tauri::State;
 
 /// Terminal session info
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TerminalSessionInfo {
     pub id: String,
     pub pod: String,
@@ -17,6 +18,7 @@ pub struct TerminalSessionInfo {
 
 /// Exec command result
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ExecResult {
     pub stdout: String,
     pub stderr: String,
@@ -25,6 +27,7 @@ pub struct ExecResult {
 
 /// Copy operation result
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CopyResult {
     pub success: bool,
     pub bytes_copied: Option<u64>,

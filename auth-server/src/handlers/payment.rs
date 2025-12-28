@@ -2,19 +2,22 @@
 
 use actix_web::{web, HttpResponse, Responder, HttpRequest};
 use serde::{Deserialize, Serialize};
+use utoipa::{ToSchema, IntoParams};
 use sqlx::PgPool;
 use uuid::Uuid;
 use crate::error::{AppError, Result};
 use crate::db::models::{Payment, License};
 use crate::middleware::auth::get_user_id_from_http_request;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct PaymentHistoryResponse {
     pub payments: Vec<PaymentInfo>,
     pub total: usize,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct PaymentInfo {
     pub id: Uuid,
     pub license_id: Option<Uuid>,
@@ -26,6 +29,19 @@ pub struct PaymentInfo {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/payment/history",
+    responses(
+        (status = 200, description = "List payment history", body = PaymentHistoryResponse)
+    ),
+    params(
+        PaginationQuery
+    ),
+    security(
+        ("bearer_auth" = [])
+    )
+)]
 pub async fn get_history(
     req: HttpRequest,
     pool: web::Data<PgPool>,
@@ -63,7 +79,7 @@ pub async fn get_history(
     }))
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, IntoParams)]
 pub struct PaginationQuery {
     pub limit: Option<i64>,
     pub offset: Option<i64>,
@@ -93,8 +109,8 @@ pub async fn handle_webhook(
     let payload = body.into_inner();
     
     // Check if payment already processed (idempotency)
-    if let Some(ref transaction_id) = payload.transaction_id {
-        if let Ok(Some(existing_payment)) = Payment::find_by_transaction_id(pool.as_ref(), transaction_id).await {
+    if !payload.transaction_id.is_empty() {
+        if let Ok(Some(existing_payment)) = Payment::find_by_transaction_id(pool.as_ref(), &payload.transaction_id).await {
             // Payment already processed
             return Ok(HttpResponse::Ok().json(serde_json::json!({
                 "status": "already_processed",
@@ -112,7 +128,7 @@ pub async fn handle_webhook(
     })?;
 
     // Parse amount
-    let amount = payload.amount.parse::<rust_decimal::Decimal>()
+    let amount = payload.amount.parse::<bigdecimal::BigDecimal>()
         .map_err(|_| AppError::Validation("Invalid amount format".to_string()))?;
 
     // Parse payment status
@@ -133,7 +149,7 @@ pub async fn handle_webhook(
         &payload.currency,
         payment_status,
         Some(payload.transaction_id.clone()),
-        payload.payment_provider.as_deref(),
+        payload.payment_provider.clone(),
     ).await.map_err(|e| AppError::Internal(format!("Failed to create payment record: {}", e)))?;
 
     // If payment is completed, extend the license

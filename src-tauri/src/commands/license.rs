@@ -15,12 +15,14 @@ static LICENSE_CLIENT: once_cell::sync::Lazy<Arc<RwLock<Option<LicenseClient>>>>
     once_cell::sync::Lazy::new(|| Arc::new(RwLock::new(None)));
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LoginRequest {
     pub email: String,
     pub password: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RegisterRequest {
     pub email: String,
     pub password: String,
@@ -29,6 +31,7 @@ pub struct RegisterRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ActivateLicenseRequest {
     pub license_key: String,
 }

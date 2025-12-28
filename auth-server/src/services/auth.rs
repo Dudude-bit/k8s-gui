@@ -7,13 +7,15 @@ use crate::utils::password::{hash_password, verify_password, validate_password_s
 use crate::utils::validation::validate_email;
 use validator::Validate;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use chrono::{Duration, Utc, DateTime};
 use uuid::Uuid;
 use base64::Engine;
 use rand::Rng;
 use sha2::{Sha256, Digest};
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct RegisterRequest {
     #[validate(email)]
     pub email: String,
@@ -24,30 +26,35 @@ pub struct RegisterRequest {
     pub company: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct LoginRequest {
     pub email: String,
     pub password: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct RefreshRequest {
     pub refresh_token: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ForgotPasswordRequest {
     pub email: String,
     pub password: Option<String>, // Redundant but keeping struct structure
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ResetPasswordRequest {
     pub token: String,
     pub new_password: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct AuthResponse {
     pub access_token: String,
     pub refresh_token: String,
@@ -55,7 +62,8 @@ pub struct AuthResponse {
     pub expires_in: i64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct MessageResponse {
     pub message: String,
 }

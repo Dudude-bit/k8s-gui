@@ -19,8 +19,8 @@ export function useLicense() {
     return cleanup;
   }, [checkLicenseStatus, refreshLicensePeriodically]);
 
-  const hasValidLicense = licenseStatus?.is_valid ?? false;
-  const hasLicense = licenseStatus?.has_license ?? false;
+  const hasValidLicense = licenseStatus?.isValid ?? false;
+  const hasLicense = licenseStatus?.hasLicense ?? false;
 
   return {
     licenseStatus,

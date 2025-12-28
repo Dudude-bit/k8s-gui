@@ -14,6 +14,7 @@ use tauri::State;
 
 /// Information about an Ingress rule path
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IngressPath {
     pub path: String,
     pub path_type: String,
@@ -23,6 +24,7 @@ pub struct IngressPath {
 
 /// Information about an Ingress rule
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IngressRule {
     pub host: String,
     pub paths: Vec<IngressPath>,
@@ -30,6 +32,7 @@ pub struct IngressRule {
 
 /// Information about an Ingress
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IngressInfo {
     pub name: String,
     pub namespace: String,
@@ -42,6 +45,7 @@ pub struct IngressInfo {
 
 /// Target reference for an endpoint address
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EndpointTargetRef {
     pub kind: String,
     pub name: String,
@@ -50,6 +54,7 @@ pub struct EndpointTargetRef {
 
 /// Address in an endpoint subset
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EndpointAddress {
     pub ip: String,
     pub hostname: Option<String>,
@@ -59,6 +64,7 @@ pub struct EndpointAddress {
 
 /// Port in an endpoint subset
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EndpointPort {
     pub name: Option<String>,
     pub port: i32,
@@ -67,6 +73,7 @@ pub struct EndpointPort {
 
 /// Subset of endpoints
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EndpointSubset {
     pub addresses: Vec<EndpointAddress>,
     pub not_ready_addresses: Vec<EndpointAddress>,
@@ -75,6 +82,7 @@ pub struct EndpointSubset {
 
 /// Information about Endpoints
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EndpointsInfo {
     pub name: String,
     pub namespace: String,

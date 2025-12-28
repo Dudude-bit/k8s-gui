@@ -17,6 +17,7 @@ pub mod helpers;
 
 /// Pod metrics from Metrics API
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PodMetrics {
     pub name: String,
     pub namespace: String,
@@ -26,6 +27,7 @@ pub struct PodMetrics {
 
 /// Node metrics from Metrics API
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NodeMetrics {
     pub name: String,
     pub cpu_usage: Option<String>,       // in millicores or cores
@@ -34,6 +36,7 @@ pub struct NodeMetrics {
 
 /// Cluster metrics (aggregated)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ClusterMetrics {
     pub total_cpu_usage: Option<String>,
     pub total_memory_usage: Option<String>,

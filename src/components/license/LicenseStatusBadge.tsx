@@ -20,17 +20,17 @@ export function LicenseStatusBadge() {
   const getBadgeVariant = () => {
     if (hasValidLicense) {
       // Issue #16 Fix: Check if expiring soon (within 7 days)
-      if (licenseStatus.subscription_type === "monthly" && licenseStatus.expires_at) {
-        const expiresAt = new Date(licenseStatus.expires_at);
+      if (licenseStatus.subscriptionType === "monthly" && licenseStatus.expiresAt) {
+        const expiresAt = new Date(licenseStatus.expiresAt);
         const daysUntilExpiry = Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-        
+
         if (daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
           return "secondary"; // Warning variant for expiring soon
         }
       }
       return "default";
     }
-    if (licenseStatus.has_license) {
+    if (licenseStatus.hasLicense) {
       return "destructive"; // Expired
     }
     return "outline"; // No license
@@ -39,10 +39,10 @@ export function LicenseStatusBadge() {
   const getBadgeContent = () => {
     if (hasValidLicense) {
       // Issue #16 Fix: Show expiration warning for monthly licenses expiring soon
-      if (licenseStatus.subscription_type === "monthly" && licenseStatus.expires_at) {
-        const expiresAt = new Date(licenseStatus.expires_at);
+      if (licenseStatus.subscriptionType === "monthly" && licenseStatus.expiresAt) {
+        const expiresAt = new Date(licenseStatus.expiresAt);
         const daysUntilExpiry = Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-        
+
         if (daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
           return (
             <>
@@ -52,8 +52,8 @@ export function LicenseStatusBadge() {
           );
         }
       }
-      
-      if (licenseStatus.subscription_type === "infinite") {
+
+      if (licenseStatus.subscriptionType === "infinite") {
         return (
           <>
             <Crown className="h-3 w-3 mr-1" />
@@ -68,7 +68,7 @@ export function LicenseStatusBadge() {
         </>
       );
     }
-    if (licenseStatus.has_license) {
+    if (licenseStatus.hasLicense) {
       return (
         <>
           <Clock className="h-3 w-3 mr-1" />

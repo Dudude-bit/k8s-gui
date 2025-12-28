@@ -655,9 +655,9 @@ export function InfrastructureBuilder() {
           commands.listPods({ namespace: namespaceFilter, labelSelector: null, fieldSelector: null, limit: null, statusFilter: null }),
           commands.listDeployments({ namespace: namespaceFilter, labelSelector: null, fieldSelector: null, limit: null }),
           commands.listServices({ namespace: namespaceFilter, labelSelector: null, fieldSelector: null, limit: null, serviceType: null }),
-          commands.listIngresses(namespaceFilter),
-          commands.listConfigmaps({ namespace: namespaceFilter, labelSelector: null, limit: null }),
-          commands.listSecrets({ namespace: namespaceFilter, labelSelector: null, limit: null, secretType: null }),
+          commands.listIngresses({ namespace: namespaceFilter, labelSelector: null, fieldSelector: null, limit: null }),
+          commands.listConfigmaps({ namespace: namespaceFilter, labelSelector: null, fieldSelector: null, limit: null }),
+          commands.listSecrets({ namespace: namespaceFilter, labelSelector: null, fieldSelector: null, limit: null, secretType: null }),
         ]);
 
       const resources: ResourceNodeData[] = [];

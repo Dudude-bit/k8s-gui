@@ -1,5 +1,16 @@
 import { create } from "zustand";
-import { invoke } from "@tauri-apps/api/core";
+import {
+  AuthResponse,
+  ProfileResponse,
+  LicenseStatusResponse,
+  login as apiLogin,
+  register as apiRegister,
+  logout as apiLogout,
+  refresh as apiRefresh,
+  getStatus as apiGetStatus,
+  activate as apiActivate,
+  getProfile as apiGetProfile,
+} from "@/lib/api/auth";
 import {
   isTokenValid,
   shouldRefreshToken,
@@ -7,32 +18,8 @@ import {
   getTimeUntilExpiration,
 } from "@/lib/auth-utils";
 
-export interface AuthTokens {
-  access_token: string;
-  refresh_token: string;
-  token_type: string;
-  expires_in: number;
-}
-
-export interface User {
-  user_id: string;
-  email: string;
-  first_name: string | null;
-  last_name: string | null;
-  company: string | null;
-  email_verified: boolean;
-}
-
-// UserProfile is an alias for User for backward compatibility
-export type UserProfile = User;
-
-export interface LicenseStatus {
-  has_license: boolean;
-  license_key: string | null;
-  subscription_type: "monthly" | "infinite" | null;
-  expires_at: string | null;
-  is_valid: boolean;
-}
+// Re-export types for convenience
+export type { AuthResponse, ProfileResponse, LicenseStatusResponse };
 
 interface AuthState {
   // Token state
@@ -43,11 +30,11 @@ interface AuthState {
   error: string | null;
 
   // User state
-  user: User | null;
-  userProfile: UserProfile | null; // Alias for user, for backward compatibility
+  user: ProfileResponse | null;
+  userProfile: ProfileResponse | null; // Alias for user, for backward compatibility
 
   // License state
-  licenseStatus: LicenseStatus | null;
+  licenseStatus: LicenseStatusResponse | null;
   isCheckingLicense: boolean;
   licenseError: string | null;
   lastLicenseCheck: number | null;
@@ -55,7 +42,9 @@ interface AuthState {
 
   // Token refresh
   refreshTimerId: NodeJS.Timeout | null;
-  refreshIntervalId: NodeJS.Timeout | null; // For license refresh
+  refreshIntervalId: NodeJS.Timeout | null;
+
+
 
   // Actions - Authentication
   login: (email: string, password: string) => Promise<void>;
@@ -68,7 +57,7 @@ interface AuthState {
   logout: () => Promise<void>;
   refreshAccessToken: () => Promise<boolean>;
   checkAuth: () => Promise<void>;
-  setTokens: (tokens: AuthTokens) => void;
+  setTokens: (tokens: AuthResponse) => void;
   clearTokens: () => void;
   initializeAuth: () => Promise<void>;
 
@@ -77,7 +66,7 @@ interface AuthState {
   checkLicenseStatus: (forceRefresh?: boolean) => Promise<void>;
   activateLicense: (licenseKey: string) => Promise<void>;
   refreshLicensePeriodically: () => (() => void);
-  setUserProfile: (profile: UserProfile) => void;
+  setUserProfile: (profile: ProfileResponse) => void;
 }
 
 const STORAGE_KEYS = {
@@ -210,8 +199,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   /**
    * Set tokens and update state
    */
-  setTokens: (tokens: AuthTokens) => {
-    const { access_token: accessToken, refresh_token: refreshToken } = tokens;
+  setTokens: (tokens: AuthResponse) => {
+    const { accessToken, refreshToken } = tokens;
     const isValid = isTokenValid(accessToken);
 
     // Clear existing refresh timer
@@ -279,18 +268,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
 
     try {
-      // Call Tauri command to login
-      const tokens = await invoke<AuthTokens>("login_user", {
-        email,
-        password,
-      });
+      // Call generated client to login
+      const tokens = await apiLogin({ email, password });
 
       // Store tokens in React state
       get().setTokens(tokens);
 
       // Load user profile
       try {
-        const userProfile = await invoke<User>("get_user_profile");
+        const userProfile = await apiGetProfile();
         set({ user: userProfile, userProfile });
       } catch (profileError) {
         console.warn("Failed to load user profile:", profileError);
@@ -326,8 +312,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
 
     try {
-      // Call Tauri command to register
-      const tokens = await invoke<AuthTokens>("register_user", {
+      // Call generated client to register
+      const tokens = await apiRegister({
         email,
         password,
         firstName,
@@ -339,7 +325,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // Load user profile
       try {
-        const userProfile = await invoke<User>("get_user_profile");
+        const userProfile = await apiGetProfile();
         set({ user: userProfile, userProfile });
       } catch (profileError) {
         console.warn("Failed to load user profile:", profileError);
@@ -372,20 +358,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // Try to call backend logout (don't fail if it fails)
     if (refreshToken) {
       try {
-        const authServerUrl =
-          get().authServerUrl ||
-          (import.meta as any).env?.VITE_AUTH_SERVER_URL ||
-          "http://localhost:8080";
-
-        await fetch(`${authServerUrl}/api/v1/auth/logout`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            refresh_token: refreshToken,
-          }),
-        });
+        await apiLogout({ refreshToken });
       } catch (error) {
         console.warn("Backend logout failed:", error);
       }
@@ -407,28 +380,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     try {
-      // Get auth server URL from environment or use default
-      const authServerUrl =
-        get().authServerUrl ||
-        (import.meta as any).env?.VITE_AUTH_SERVER_URL ||
-        "http://localhost:8080";
-
-      // Make direct HTTP call to refresh endpoint
-      const response = await fetch(`${authServerUrl}/api/v1/auth/refresh`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          refresh_token: refreshToken,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Token refresh failed");
-      }
-
-      const tokens: AuthTokens = await response.json();
+      // Call generated client
+      const tokens = await apiRefresh({ refreshToken });
 
       // Update tokens
       get().setTokens(tokens);
@@ -495,7 +448,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // Load user profile if authenticated
     if (get().isAuthenticated) {
       try {
-        const userProfile = await invoke<User>("get_user_profile");
+        const userProfile = await apiGetProfile();
         set({ user: userProfile, userProfile });
       } catch (profileError) {
         console.warn("Failed to load user profile:", profileError);
@@ -513,7 +466,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
    */
   initClient: async (authServerUrl: string) => {
     try {
-      await invoke("init_license_client", { authServerUrl });
+      // Update global base URL if we were using it in a way that needs init
+      // But Axios instance defaults to /api/v1 which is proxied
+      // So we might not need this anymore unless we want to store the URL
       set({ authServerUrl });
       // Check license status after initialization
       await get().checkLicenseStatus();
@@ -535,9 +490,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isCheckingLicense: true, licenseError: null });
 
     try {
-      const status = await invoke<LicenseStatus>("check_license_status", {
-        forceRefresh,
-      });
+      const status = await apiGetStatus();
       set({
         licenseStatus: status,
         isCheckingLicense: false,
@@ -558,9 +511,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
    */
   activateLicense: async (licenseKey: string) => {
     try {
-      const status = await invoke<LicenseStatus>("activate_license", {
-        licenseKey,
-      });
+      const status = await apiActivate({ licenseKey });
       set({
         licenseStatus: status,
         licenseError: null,
@@ -604,7 +555,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   /**
    * Set user profile (for backward compatibility)
    */
-  setUserProfile: (profile: UserProfile) => {
+  setUserProfile: (profile: ProfileResponse) => {
     set({ userProfile: profile, user: profile });
   },
 }));

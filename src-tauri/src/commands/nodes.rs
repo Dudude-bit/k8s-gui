@@ -12,6 +12,7 @@ use tauri::State;
 
 /// Node list filters
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NodeFilters {
     pub label_selector: Option<String>,
     pub field_selector: Option<String>,
@@ -67,6 +68,7 @@ pub async fn get_node_yaml(name: String, state: State<'_, AppState>) -> Result<S
 
 /// Node resource usage
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NodeResourceUsage {
     pub cpu_capacity: String,
     pub cpu_allocatable: String,
@@ -111,6 +113,7 @@ pub async fn get_node_resources(
 
 /// Node condition
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NodeCondition {
     pub condition_type: String,
     pub status: String,

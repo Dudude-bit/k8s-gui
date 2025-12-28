@@ -59,3 +59,6 @@ bigdecimal = { version = "0.4", features = ["serde"] }
 # SHA2 for token hashing
 sha2 = "0.10"
 
+# OpenAPI
+utoipa = { version = "4.2", features = ["actix_extras", "chrono", "uuid", "decimal"] }
+utoipa-swagger-ui = { version = "7.0", features = ["actix-web"] }

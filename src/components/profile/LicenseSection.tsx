@@ -41,7 +41,7 @@ export function LicenseSection() {
                       <Crown className="h-3 w-3 mr-1" />
                       Active
                     </>
-                  ) : licenseStatus.has_license ? (
+                  ) : licenseStatus.hasLicense ? (
                     <>
                       <Clock className="h-3 w-3 mr-1" />
                       Expired
@@ -55,36 +55,36 @@ export function LicenseSection() {
                 </Badge>
               </div>
 
-              {licenseStatus.has_license && (
+              {licenseStatus.hasLicense && (
                 <>
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Subscription Type</span>
                     <div className="flex items-center gap-2">
-                      {licenseStatus.subscription_type === "infinite" ? (
+                      {licenseStatus.subscriptionType === "infinite" ? (
                         <Infinity className="h-4 w-4" />
                       ) : (
                         <Calendar className="h-4 w-4" />
                       )}
                       <span className="text-sm capitalize">
-                        {licenseStatus.subscription_type || "N/A"}
+                        {licenseStatus.subscriptionType || "N/A"}
                       </span>
                     </div>
                   </div>
 
-                  {licenseStatus.expires_at && (
+                  {licenseStatus.expiresAt && (
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Expires At</span>
                       <span className="text-sm">
-                        {formatDate(licenseStatus.expires_at)}
+                        {formatDate(licenseStatus.expiresAt)}
                       </span>
                     </div>
                   )}
 
-                  {licenseStatus.license_key && (
+                  {licenseStatus.licenseKey && (
                     <div className="space-y-2">
                       <span className="text-sm font-medium">License Key</span>
                       <code className="block text-xs bg-muted px-3 py-2 rounded font-mono break-all">
-                        {licenseStatus.license_key}
+                        {licenseStatus.licenseKey}
                       </code>
                     </div>
                   )}

@@ -136,6 +136,7 @@ use k8s_openapi::api::core::v1::Secret;
 
 /// Secret filters
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SecretFilters {
     pub namespace: Option<String>,
     pub label_selector: Option<String>,

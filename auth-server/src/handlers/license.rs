@@ -2,6 +2,7 @@
 
 use actix_web::{web, HttpResponse, Responder, HttpRequest};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use sqlx::PgPool;
 use uuid::Uuid;
 use crate::error::{AppError, Result};
@@ -11,7 +12,8 @@ use crate::middleware::auth::get_user_id_from_http_request;
 use crate::utils::validation::validate_license_key;
 use chrono::{Duration, Utc};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct LicenseStatusResponse {
     pub has_license: bool,
     pub license_key: Option<String>,
@@ -20,11 +22,22 @@ pub struct LicenseStatusResponse {
     pub is_valid: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ActivateLicenseRequest {
     pub license_key: String,
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/license/status",
+    responses(
+        (status = 200, description = "Get license status", body = LicenseStatusResponse)
+    ),
+    security(
+        ("bearer_auth" = [])
+    )
+)]
 pub async fn get_status(
     req: HttpRequest,
     pool: web::Data<PgPool>,
@@ -63,6 +76,17 @@ pub async fn get_status(
     }))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/license/activate",
+    request_body = ActivateLicenseRequest,
+    responses(
+        (status = 200, description = "Activate license", body = LicenseStatusResponse)
+    ),
+    security(
+        ("bearer_auth" = [])
+    )
+)]
 pub async fn activate(
     req: HttpRequest,
     body: web::Json<ActivateLicenseRequest>,
@@ -166,6 +190,19 @@ pub async fn activate(
     }))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/license/validate",
+    params(
+        ("license_key" = String, Query, description = "License key to validate")
+    ),
+    responses(
+        (status = 200, description = "Validate license status")
+    ),
+    security(
+        ("bearer_auth" = [])
+    )
+)]
 pub async fn validate(
     req: HttpRequest,
     pool: web::Data<PgPool>,

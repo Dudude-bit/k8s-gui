@@ -6,6 +6,7 @@ use tauri::State;
 
 /// Authentication result
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AuthResultResponse {
     pub success: bool,
     pub context: Option<String>,

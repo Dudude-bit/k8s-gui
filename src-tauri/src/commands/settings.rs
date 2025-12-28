@@ -8,6 +8,7 @@ use std::path::PathBuf;
 
 /// Theme configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ThemeConfig {
     pub dark_mode: bool,
     pub accent_color: String,
@@ -17,6 +18,7 @@ pub struct ThemeConfig {
 
 /// Kubernetes configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct KubernetesConfig {
     pub default_namespace: String,
     pub kubeconfig_path: Option<String>,
@@ -27,6 +29,7 @@ pub struct KubernetesConfig {
 
 /// Cache configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CacheConfig {
     pub enabled: bool,
     pub ttl_seconds: u64,
@@ -35,6 +38,7 @@ pub struct CacheConfig {
 
 /// Plugin configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PluginConfig {
     pub kubectl_plugins: bool,
     pub plugin_dirs: Vec<String>,
@@ -44,6 +48,7 @@ pub struct PluginConfig {
 
 /// Logging configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LoggingConfig {
     pub level: String,
     pub file: Option<String>,
@@ -51,6 +56,7 @@ pub struct LoggingConfig {
 
 /// Keyboard shortcut
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct KeyboardShortcut {
     pub id: String,
     pub action: String,
@@ -60,6 +66,7 @@ pub struct KeyboardShortcut {
 
 /// App info
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AppInfo {
     pub version: String,
     pub name: String,

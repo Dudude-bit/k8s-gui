@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 /// Base filters for Kubernetes resources
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct ResourceFilters {
     pub namespace: Option<String>,
     pub label_selector: Option<String>,
@@ -13,6 +14,7 @@ pub struct ResourceFilters {
 
 /// Pod-specific filters (extends ResourceFilters)
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct PodFilters {
     pub namespace: Option<String>,
     pub label_selector: Option<String>,
@@ -35,6 +37,7 @@ impl From<ResourceFilters> for PodFilters {
 
 /// Deployment-specific filters (extends ResourceFilters)
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct DeploymentFilters {
     pub namespace: Option<String>,
     pub label_selector: Option<String>,
@@ -55,6 +58,7 @@ impl From<ResourceFilters> for DeploymentFilters {
 
 /// Service-specific filters (extends ResourceFilters)
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct ServiceFilters {
     pub namespace: Option<String>,
     pub label_selector: Option<String>,

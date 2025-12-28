@@ -8,10 +8,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { useState, useEffect } from "react";
-import * as commands from "@/generated/commands";
-import type { PaymentInfo } from "@/generated/types";
-import { normalizeTauriError } from "@/lib/error-utils";
+import { useGetHistory } from "@/lib/api/auth";
+
 
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
@@ -40,24 +38,14 @@ const getStatusBadge = (status: string) => {
 };
 
 export function PaymentHistory() {
-  const [payments, setPayments] = useState<PaymentInfo[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data,
+    isLoading,
+    error: apiError
+  } = useGetHistory();
 
-  useEffect(() => {
-    const loadPayments = async () => {
-      try {
-        const history = await commands.getPaymentHistory();
-        setPayments(history.payments);
-      } catch (err) {
-        setError(normalizeTauriError(err));
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadPayments();
-  }, []);
+  const payments = data?.payments || [];
+  const error = apiError ? (apiError as Error).message : null;
 
   if (isLoading) {
     return (

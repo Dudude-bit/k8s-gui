@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useAuthStore } from "@/stores/authStore";
-import { invoke } from "@tauri-apps/api/core";
+import * as commands from "@/generated/commands";
 
 interface UsePremiumFeatureResult {
   hasAccess: boolean;
@@ -14,7 +14,7 @@ export function usePremiumFeature(): UsePremiumFeatureResult {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const hasAccess = licenseStatus?.is_valid ?? false;
+  const hasAccess = licenseStatus?.isValid ?? false;
 
   const checkLicense = useCallback(async (): Promise<boolean> => {
     setIsLoading(true);
@@ -22,24 +22,24 @@ export function usePremiumFeature(): UsePremiumFeatureResult {
 
     try {
       // Quick check first
-      const isValid = await invoke<boolean>("is_license_valid");
-      
+      const isValid = await commands.isLicenseValid();
+
       if (!isValid) {
         // Refresh status to get latest info
         await checkLicenseStatus(true);
-        
+
         // Issue #15 Fix: Provide specific error messages based on license status
         const status = licenseStatus;
-        if (!status?.has_license) {
+        if (!status?.hasLicense) {
           setError("Premium feature requires a license. Please purchase or activate a license.");
-        } else if (status.has_license && !status.is_valid) {
-          if (status.subscription_type === "monthly" && status.expires_at) {
-            const expired = new Date(status.expires_at) < new Date();
+        } else if (status.hasLicense && !status.isValid) {
+          if (status.subscriptionType === "monthly" && status.expiresAt) {
+            const expired = new Date(status.expiresAt) < new Date();
             if (expired) {
-              const expiryDate = new Date(status.expires_at).toLocaleDateString();
+              const expiryDate = new Date(status.expiresAt).toLocaleDateString();
               setError(`Your monthly subscription expired on ${expiryDate}. Please renew to continue using premium features.`);
             } else {
-              const expiryDate = new Date(status.expires_at).toLocaleDateString();
+              const expiryDate = new Date(status.expiresAt).toLocaleDateString();
               setError(`Your monthly subscription expires on ${expiryDate}. Please renew before expiration.`);
             }
           } else {
