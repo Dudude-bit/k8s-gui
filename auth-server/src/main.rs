@@ -35,6 +35,19 @@ async fn main() -> std::io::Result<()> {
     let user_service = services::user::UserService::new(db_pool.clone());
     let user_service_data = web::Data::new(user_service);
 
+    // Spawn background task for cleaning up expired tokens
+    let cleanup_pool = db_pool.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(60 * 60)); // Every hour
+        loop {
+            interval.tick().await;
+            match crate::db::models::token::RefreshToken::cleanup_expired(&cleanup_pool).await {
+                Ok(count) => log::info!("Cleaned up {} expired refresh tokens", count),
+                Err(e) => log::error!("Failed to clean up expired tokens: {}", e),
+            }
+        }
+    });
+
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(config_clone.clone()))
@@ -42,7 +55,11 @@ async fn main() -> std::io::Result<()> {
             .app_data(auth_service_data.clone())
             .app_data(user_service_data.clone())
             .wrap(middleware::cors::cors_middleware_with_origins(&config_clone))
-            .wrap(middleware::security::SecurityMiddleware)
+            .wrap(actix_web::middleware::DefaultHeaders::new()
+                .add(("X-Content-Type-Options", "nosniff"))
+                .add(("X-Frame-Options", "DENY"))
+                .add(("X-XSS-Protection", "1; mode=block"))
+            )
             .service(
                 SwaggerUi::new("/swagger-ui/{_:.*}")
                     .url("/api-docs/openapi.json", ApiDoc::openapi())
@@ -76,6 +93,11 @@ async fn main() -> std::io::Result<()> {
                                 web::resource("/activate")
                                     .wrap(middleware::auth::AuthMiddleware)
                                     .route(web::post().to(handlers::license::activate))
+                            )
+                            .service(
+                                web::resource("/checkout")
+                                    .wrap(middleware::auth::AuthMiddleware)
+                                    .route(web::post().to(handlers::license::checkout))
                             )
                             .service(
                                 web::resource("/validate")

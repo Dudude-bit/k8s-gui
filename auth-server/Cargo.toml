@@ -62,3 +62,5 @@ sha2 = "0.10"
 # OpenAPI
 utoipa = { version = "4.2", features = ["actix_extras", "chrono", "uuid", "decimal"] }
 utoipa-swagger-ui = { version = "7.0", features = ["actix-web"] }
+hmac = "0.12.1"
+hex = "0.4.3"
