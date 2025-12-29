@@ -658,13 +658,6 @@ export interface UserProfile {
   userId: string;
 }
 
-export interface AuthTokens {
-  accessToken: string;
-  expiresIn: number;
-  refreshToken: string;
-  tokenType: string;
-}
-
 export type ContainerState =
   | { type: "running" }
   | { type: "waiting", reason: string | null }

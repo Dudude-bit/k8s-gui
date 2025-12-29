@@ -17,6 +17,12 @@ pub use types::{
     PaymentInfo,
 };
 
+use keyring::Entry;
+
+const SERVICE_NAME: &str = "k8s-gui-auth";
+const ACCESS_TOKEN_KEY: &str = "access_token";
+const REFRESH_TOKEN_KEY: &str = "refresh_token";
+
 pub struct LicenseClient {
     base_url: String,
     access_token: Arc<RwLock<Option<String>>>,
@@ -30,13 +36,54 @@ impl LicenseClient {
     pub fn new(base_url: String) -> Self {
         let client = generated_client::Client::new(&base_url);
         
+        let (access_token, refresh_token) = Self::load_tokens_from_keyring();
+
         Self {
             base_url,
-            access_token: Arc::new(RwLock::new(None)),
-            refresh_token: Arc::new(RwLock::new(None)),
+            access_token: Arc::new(RwLock::new(access_token)),
+            refresh_token: Arc::new(RwLock::new(refresh_token)),
             client,
             cached_status: Arc::new(RwLock::new(None)),
             status_request: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    fn load_tokens_from_keyring() -> (Option<String>, Option<String>) {
+        let access_token = Entry::new(SERVICE_NAME, ACCESS_TOKEN_KEY)
+            .and_then(|e| e.get_password())
+            .ok();
+            
+        let refresh_token = Entry::new(SERVICE_NAME, REFRESH_TOKEN_KEY)
+            .and_then(|e| e.get_password())
+            .ok();
+            
+        if access_token.is_some() {
+            tracing::info!("Restored access token from keyring");
+        }
+        
+        (access_token, refresh_token)
+    }
+
+    fn save_tokens_to_keyring(access_token: &str, refresh_token: &str) {
+        if let Ok(entry) = Entry::new(SERVICE_NAME, ACCESS_TOKEN_KEY) {
+            if let Err(e) = entry.set_password(access_token) {
+                tracing::error!("Failed to save access token to keyring: {}", e);
+            }
+        }
+        
+        if let Ok(entry) = Entry::new(SERVICE_NAME, REFRESH_TOKEN_KEY) {
+            if let Err(e) = entry.set_password(refresh_token) {
+                tracing::error!("Failed to save refresh token to keyring: {}", e);
+            }
+        }
+    }
+
+    fn clear_tokens_from_keyring() {
+        if let Ok(entry) = Entry::new(SERVICE_NAME, ACCESS_TOKEN_KEY) {
+            let _ = entry.delete_password();
+        }
+        if let Ok(entry) = Entry::new(SERVICE_NAME, REFRESH_TOKEN_KEY) {
+            let _ = entry.delete_password();
         }
     }
 
@@ -68,7 +115,15 @@ impl LicenseClient {
         *self.access_token.write().await = Some(tokens.access_token.clone());
         *self.refresh_token.write().await = Some(tokens.refresh_token.clone());
 
+        Self::save_tokens_to_keyring(&tokens.access_token, &tokens.refresh_token);
+
         Ok(tokens)
+    }
+
+    pub async fn set_tokens(&self, access_token: String, refresh_token: String) {
+        Self::save_tokens_to_keyring(&access_token, &refresh_token);
+        *self.access_token.write().await = Some(access_token);
+        *self.refresh_token.write().await = Some(refresh_token);
     }
 
     pub async fn register(
@@ -93,6 +148,8 @@ impl LicenseClient {
 
         *self.access_token.write().await = Some(tokens.access_token.clone());
         *self.refresh_token.write().await = Some(tokens.refresh_token.clone());
+
+        Self::save_tokens_to_keyring(&tokens.access_token, &tokens.refresh_token);
 
         Ok(tokens)
     }
@@ -123,8 +180,10 @@ impl LicenseClient {
 
         let tokens = response.into_inner();
 
-        *self.access_token.write().await = Some(tokens.access_token);
-        *self.refresh_token.write().await = Some(tokens.refresh_token);
+        *self.access_token.write().await = Some(tokens.access_token.clone());
+        *self.refresh_token.write().await = Some(tokens.refresh_token.clone());
+
+        Self::save_tokens_to_keyring(&tokens.access_token, &tokens.refresh_token);
 
         Ok(())
     }
@@ -202,6 +261,7 @@ impl LicenseClient {
         let cached_status = Arc::clone(&self.cached_status);
 
         tokio::spawn(async move {
+            Self::clear_tokens_from_keyring();
             *access_token.write().await = None;
             *refresh_token.write().await = None;
             *cached_status.write().await = None;

@@ -23,7 +23,13 @@ fn main() {
 
     tracing::info!("Starting K8s GUI application");
 
+    // Default auth server URL (can be overridden by env var if needed, but for now hardcoded default)
+    // In production, this should likely be a compile-time constant or config
+    let auth_server_url = std::env::var("VITE_AUTH_SERVER_URL").unwrap_or_else(|_| "http://localhost:8080".to_string());
+    let license_client = k8s_gui_lib::auth::license_client::LicenseClient::new(auth_server_url);
+
     tauri::Builder::default()
+        .manage(license_client)
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -239,8 +245,9 @@ fn main() {
             commands::auth::cancel_auth_session,
             
             // License and user authentication commands
-            commands::license::init_license_client,
+            // License and user authentication commands
             commands::license::login_user,
+            commands::license::logout_user,
             commands::license::register_user,
             commands::license::check_license_status,
             commands::license::activate_license,
