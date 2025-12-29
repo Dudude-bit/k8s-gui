@@ -1,7 +1,6 @@
 //! Configuration management
 
 use std::env;
-use base64::Engine;
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -14,6 +13,8 @@ pub struct Config {
     pub cors_allowed_origins: Vec<String>,
     pub host: String,
     pub port: u16,
+    /// Secret for verifying webhook signatures (e.g., from Stripe)
+    pub webhook_secret: Option<String>,
 }
 
 impl Config {
@@ -22,7 +23,7 @@ impl Config {
             database_url: env::var("DATABASE_URL")
                 .map_err(|_| "DATABASE_URL not set")?,
             jwt_secret: env::var("JWT_SECRET")
-                .unwrap_or_else(|_| Self::generate_jwt_secret()),
+                .map_err(|_| "JWT_SECRET not set - this is required for security")?,
             jwt_expiry: env::var("JWT_EXPIRY")
                 .unwrap_or_else(|_| "3600".to_string())
                 .parse()
@@ -49,14 +50,8 @@ impl Config {
                 .unwrap_or_else(|_| "8080".to_string())
                 .parse()
                 .unwrap_or(8080),
+            webhook_secret: env::var("WEBHOOK_SECRET").ok(),
         })
-    }
-
-    fn generate_jwt_secret() -> String {
-        use rand::Rng;
-        let mut rng = rand::thread_rng();
-        let bytes: Vec<u8> = (0..64).map(|_| rng.gen()).collect();
-        base64::engine::general_purpose::STANDARD.encode(&bytes)
     }
 }
 

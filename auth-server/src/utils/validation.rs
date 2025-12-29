@@ -1,6 +1,6 @@
 //! Input validation utilities
 
-use validator::{Validate, ValidationError};
+use validator::ValidationError;
 
 /// Validate email format
 pub fn validate_email(email: &str) -> Result<(), ValidationError> {

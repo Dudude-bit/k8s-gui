@@ -10,10 +10,12 @@ mod utils;
 mod error;
 mod services;
 mod openapi;
+mod tasks;
 
 use actix_web::{web, App, HttpServer};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
+use std::sync::Arc;
 use crate::openapi::ApiDoc;
 
 #[actix_web::main]
@@ -34,6 +36,9 @@ async fn main() -> std::io::Result<()> {
     
     let user_service = services::user::UserService::new(db_pool.clone());
     let user_service_data = web::Data::new(user_service);
+
+    // Spawn background tasks for cleanup
+    tasks::spawn_background_tasks(Arc::new(db_pool.clone()));
 
     HttpServer::new(move || {
         App::new()

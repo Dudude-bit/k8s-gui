@@ -42,6 +42,14 @@ impl RefreshToken {
             .await?;
         Ok(())
     }
+
+    /// Delete all expired refresh tokens. Returns the number of deleted tokens.
+    pub async fn cleanup_expired(pool: &PgPool) -> Result<u64> {
+        let result = sqlx::query("DELETE FROM refresh_tokens WHERE expires_at < CURRENT_TIMESTAMP")
+            .execute(pool)
+            .await?;
+        Ok(result.rows_affected())
+    }
 }
 
 #[derive(Debug, FromRow)]
@@ -88,5 +96,15 @@ impl PasswordResetToken {
         .execute(pool)
         .await?;
         Ok(())
+    }
+
+    /// Delete all expired or used password reset tokens. Returns the number of deleted tokens.
+    pub async fn cleanup_expired(pool: &PgPool) -> Result<u64> {
+        let result = sqlx::query(
+            "DELETE FROM password_reset_tokens WHERE expires_at < CURRENT_TIMESTAMP OR used = TRUE"
+        )
+        .execute(pool)
+        .await?;
+        Ok(result.rows_affected())
     }
 }

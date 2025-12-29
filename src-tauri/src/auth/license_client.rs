@@ -80,10 +80,10 @@ impl LicenseClient {
 
     fn clear_tokens_from_keyring() {
         if let Ok(entry) = Entry::new(SERVICE_NAME, ACCESS_TOKEN_KEY) {
-            let _ = entry.delete_password();
+            let _ = entry.delete_credential();
         }
         if let Ok(entry) = Entry::new(SERVICE_NAME, REFRESH_TOKEN_KEY) {
-            let _ = entry.delete_password();
+            let _ = entry.delete_credential();
         }
     }
 
@@ -253,6 +253,24 @@ impl LicenseClient {
     pub async fn check_license_valid(&self) -> Result<bool> {
         let status = self.get_license_status(false).await?;
         Ok(status.is_valid)
+    }
+
+    /// Check that premium license is valid, return error if not.
+    /// Use this before executing premium features.
+    pub async fn require_premium_license(&self) -> Result<()> {
+        match self.check_license_valid().await {
+            Ok(true) => Ok(()),
+            Ok(false) => Err(Error::Internal(
+                "Premium feature requires a valid license. Please activate your license.".to_string()
+            )),
+            Err(e) => {
+                tracing::error!("License check failed: {}. Blocking access to premium feature.", e);
+                Err(Error::Internal(format!(
+                    "License validation failed: {}. Premium features are unavailable until license status can be verified.",
+                    e
+                )))
+            }
+        }
     }
 
     pub fn clear_auth(&self) {

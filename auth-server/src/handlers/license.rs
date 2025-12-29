@@ -4,7 +4,6 @@ use actix_web::{web, HttpResponse, Responder, HttpRequest};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use sqlx::PgPool;
-use uuid::Uuid;
 use crate::error::{AppError, Result};
 use crate::db::models::License;
 use crate::db::models::AuditLog;
@@ -30,7 +29,7 @@ pub struct ActivateLicenseRequest {
 
 #[utoipa::path(
     get,
-    path = "/api/license/status",
+    path = "/api/v1/license/status",
     responses(
         (status = 200, description = "Get license status", body = LicenseStatusResponse)
     ),
@@ -55,22 +54,11 @@ pub async fn get_status(
         AuditLog::log_license_check(pool.as_ref(), user_id, is_valid, ip.as_deref()).await.ok();
     }
 
-    // Issue #7 Fix: Mask license keys in responses
+    // Mask license keys in responses
     Ok(HttpResponse::Ok().json(LicenseStatusResponse {
         has_license: license.is_some(),
-        license_key: license.as_ref().map(|l| {
-            // Mask license key: show only first 8 characters
-            let key = &l.license_key;
-            if key.len() > 8 {
-                format!("{}...", &key[..8])
-            } else {
-                "***".to_string()
-            }
-        }),
-        subscription_type: license.as_ref().map(|l| match l.subscription_type {
-            crate::db::models::license::SubscriptionType::Monthly => "monthly".to_string(),
-            crate::db::models::license::SubscriptionType::Infinite => "infinite".to_string(),
-        }),
+        license_key: license.as_ref().map(|l| l.masked_key()),
+        subscription_type: license.as_ref().map(|l| l.subscription_type.to_string()),
         expires_at: license.as_ref().and_then(|l| l.expires_at),
         is_valid: license.as_ref().map(|l| l.is_valid()).unwrap_or(false),
     }))
@@ -78,7 +66,7 @@ pub async fn get_status(
 
 #[utoipa::path(
     post,
-    path = "/api/license/activate",
+    path = "/api/v1/license/activate",
     request_body = ActivateLicenseRequest,
     responses(
         (status = 200, description = "Activate license", body = LicenseStatusResponse)
@@ -116,19 +104,8 @@ pub async fn activate(
         // License is already active for this user, return current status
         return Ok(HttpResponse::Ok().json(LicenseStatusResponse {
             has_license: true,
-            license_key: Some({
-                // Issue #7 Fix: Mask license key
-                let key = &license.license_key;
-                if key.len() > 8 {
-                    format!("{}...", &key[..8])
-                } else {
-                    "***".to_string()
-                }
-            }),
-            subscription_type: Some(match license.subscription_type {
-                crate::db::models::license::SubscriptionType::Monthly => "monthly".to_string(),
-                crate::db::models::license::SubscriptionType::Infinite => "infinite".to_string(),
-            }),
+            license_key: Some(license.masked_key()),
+            subscription_type: Some(license.subscription_type.to_string()),
             expires_at: license.expires_at,
             is_valid: license.is_valid(),
         }));
@@ -172,19 +149,8 @@ pub async fn activate(
 
     Ok(HttpResponse::Ok().json(LicenseStatusResponse {
         has_license: true,
-        license_key: Some({
-            // Issue #7 Fix: Mask license key to prevent exposing sensitive information
-            let key = &new_license.license_key;
-            if key.len() > 8 {
-                format!("{}...", &key[..8])
-            } else {
-                "***".to_string()
-            }
-        }),
-        subscription_type: Some(match new_license.subscription_type {
-            crate::db::models::license::SubscriptionType::Monthly => "monthly".to_string(),
-            crate::db::models::license::SubscriptionType::Infinite => "infinite".to_string(),
-        }),
+        license_key: Some(new_license.masked_key()),
+        subscription_type: Some(new_license.subscription_type.to_string()),
         expires_at: new_license.expires_at,
         is_valid: new_license.is_valid(),
     }))
@@ -192,7 +158,7 @@ pub async fn activate(
 
 #[utoipa::path(
     get,
-    path = "/api/license/validate",
+    path = "/api/v1/license/validate",
     params(
         ("license_key" = String, Query, description = "License key to validate")
     ),
@@ -225,10 +191,7 @@ pub async fn validate(
 
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "valid": license.is_valid(),
-        "subscription_type": match license.subscription_type {
-            crate::db::models::license::SubscriptionType::Monthly => "monthly",
-            crate::db::models::license::SubscriptionType::Infinite => "infinite",
-        },
+        "subscription_type": license.subscription_type.as_str(),
         "expires_at": license.expires_at,
     })))
 }

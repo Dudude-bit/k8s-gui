@@ -9,7 +9,7 @@ use crate::services::auth::{
 
 #[utoipa::path(
     post,
-    path = "/api/auth/register",
+    path = "/api/v1/auth/register",
     request_body = RegisterRequest,
     responses(
         (status = 201, description = "User registered successfully", body = AuthResponse),
@@ -26,7 +26,7 @@ pub async fn register(
 
 #[utoipa::path(
     post,
-    path = "/api/auth/login",
+    path = "/api/v1/auth/login",
     request_body = LoginRequest,
     responses(
         (status = 200, description = "User logged in successfully", body = AuthResponse),
@@ -51,7 +51,7 @@ pub async fn login(
 
 #[utoipa::path(
     post,
-    path = "/api/auth/refresh",
+    path = "/api/v1/auth/refresh",
     request_body = RefreshRequest,
     responses(
         (status = 200, description = "Token refreshed successfully", body = AuthResponse),
@@ -68,7 +68,7 @@ pub async fn refresh(
 
 #[utoipa::path(
     post,
-    path = "/api/auth/logout",
+    path = "/api/v1/auth/logout",
     request_body = RefreshRequest,
     responses(
         (status = 200, description = "Logged out successfully", body = MessageResponse)
@@ -84,7 +84,7 @@ pub async fn logout(
 
 #[utoipa::path(
     post,
-    path = "/api/auth/forgot-password",
+    path = "/api/v1/auth/forgot-password",
     request_body = ForgotPasswordRequest,
     responses(
         (status = 200, description = "Password reset email sent", body = MessageResponse)
@@ -100,7 +100,7 @@ pub async fn forgot_password(
 
 #[utoipa::path(
     post,
-    path = "/api/auth/reset-password",
+    path = "/api/v1/auth/reset-password",
     request_body = ResetPasswordRequest,
     responses(
         (status = 200, description = "Password reset successfully", body = MessageResponse)

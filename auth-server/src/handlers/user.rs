@@ -3,11 +3,11 @@
 use actix_web::{web, HttpResponse, Responder, HttpRequest};
 use crate::error::{AppError, Result};
 use crate::middleware::auth::get_user_id_from_http_request;
-use crate::services::user::{UserService, UpdateProfileRequest, ProfileResponse};
+use crate::services::user::{UserService, UpdateProfileRequest};
 
 #[utoipa::path(
     get,
-    path = "/api/user/profile",
+    path = "/api/v1/user/profile",
     responses(
         (status = 200, description = "Get user profile", body = ProfileResponse)
     ),
@@ -28,7 +28,7 @@ pub async fn get_profile(
 
 #[utoipa::path(
     put,
-    path = "/api/user/profile",
+    path = "/api/v1/user/profile",
     request_body = UpdateProfileRequest,
     responses(
         (status = 200, description = "Update user profile", body = ProfileResponse)

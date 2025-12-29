@@ -5,9 +5,29 @@ use serde::{Deserialize, Serialize};
 use utoipa::{ToSchema, IntoParams};
 use sqlx::PgPool;
 use uuid::Uuid;
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
+use crate::config::Config;
 use crate::error::{AppError, Result};
 use crate::db::models::{Payment, License};
 use crate::middleware::auth::get_user_id_from_http_request;
+
+type HmacSha256 = Hmac<Sha256>;
+
+/// Verify webhook signature using HMAC-SHA256
+/// The signature should be passed in the `X-Webhook-Signature` header
+fn verify_webhook_signature(payload: &[u8], signature: &str, secret: &str) -> bool {
+    let Ok(mut mac) = HmacSha256::new_from_slice(secret.as_bytes()) else {
+        return false;
+    };
+    mac.update(payload);
+    
+    let Ok(signature_bytes) = hex::decode(signature) else {
+        return false;
+    };
+    
+    mac.verify_slice(&signature_bytes).is_ok()
+}
 
 #[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -31,7 +51,7 @@ pub struct PaymentInfo {
 
 #[utoipa::path(
     get,
-    path = "/api/payment/history",
+    path = "/api/v1/payments/history",
     responses(
         (status = 200, description = "List payment history", body = PaymentHistoryResponse)
     ),
@@ -85,28 +105,45 @@ pub struct PaginationQuery {
     pub offset: Option<i64>,
 }
 
-// Issue #2 Fix: Payment webhook handler for subscription renewals
+// Payment webhook handler for subscription renewals and initial purchases
 #[derive(Debug, Deserialize)]
 pub struct PaymentWebhookPayload {
     pub transaction_id: String,
     pub user_id: Option<Uuid>,
+    /// License ID for renewals. If not provided and payment is completed, a new license will be created.
     pub license_id: Option<Uuid>,
     pub amount: String,
     pub currency: String,
     pub status: String,
     pub payment_provider: Option<String>,
-    pub signature: Option<String>, // For webhook signature verification
+    /// Subscription type for new licenses: "monthly" or "infinite"/"lifetime"
+    pub subscription_type: Option<String>,
 }
 
 pub async fn handle_webhook(
     req: HttpRequest,
-    body: web::Json<PaymentWebhookPayload>,
+    body: web::Bytes,
     pool: web::Data<PgPool>,
+    config: web::Data<Config>,
 ) -> Result<impl Responder> {
-    // TODO: Verify webhook signature here (e.g., Stripe signature verification)
-    // For now, we'll trust the payload but in production this must be verified
+    // Verify webhook signature if configured
+    if let Some(ref secret) = config.webhook_secret {
+        let signature = req.headers()
+            .get("X-Webhook-Signature")
+            .and_then(|h| h.to_str().ok())
+            .ok_or_else(|| AppError::Authentication("Missing X-Webhook-Signature header".to_string()))?;
+        
+        if !verify_webhook_signature(&body, signature, secret) {
+            log::warn!("Webhook signature verification failed");
+            return Err(AppError::Authentication("Invalid webhook signature".to_string()));
+        }
+    } else {
+        log::warn!("WEBHOOK_SECRET not configured - webhook signature verification is disabled!");
+    }
     
-    let payload = body.into_inner();
+    // Parse payload
+    let payload: PaymentWebhookPayload = serde_json::from_slice(&body)
+        .map_err(|e| AppError::Validation(format!("Invalid JSON payload: {}", e)))?;
     
     // Check if payment already processed (idempotency)
     if !payload.transaction_id.is_empty() {
@@ -123,10 +160,6 @@ pub async fn handle_webhook(
         AppError::Validation("user_id is required in webhook payload".to_string())
     })?;
 
-    let license_id = payload.license_id.ok_or_else(|| {
-        AppError::Validation("license_id is required in webhook payload".to_string())
-    })?;
-
     // Parse amount
     let amount = payload.amount.parse::<bigdecimal::BigDecimal>()
         .map_err(|_| AppError::Validation("Invalid amount format".to_string()))?;
@@ -138,6 +171,44 @@ pub async fn handle_webhook(
         "failed" | "declined" => crate::db::models::payment::PaymentStatus::Failed,
         "refunded" => crate::db::models::payment::PaymentStatus::Refunded,
         _ => return Err(AppError::Validation(format!("Unknown payment status: {}", payload.status))),
+    };
+
+    // Determine license_id - create if not provided (initial purchase)
+    let license_id = if let Some(id) = payload.license_id {
+        id
+    } else if matches!(payment_status, crate::db::models::payment::PaymentStatus::Completed) {
+        // Initial purchase - create a new license
+        let subscription_type = payload.subscription_type
+            .as_deref()
+            .unwrap_or("monthly");
+        
+        let sub_type = match subscription_type {
+            "infinite" | "lifetime" => crate::db::models::license::SubscriptionType::Infinite,
+            _ => crate::db::models::license::SubscriptionType::Monthly,
+        };
+        
+        let expires_at = match sub_type {
+            crate::db::models::license::SubscriptionType::Monthly => {
+                Some(chrono::Utc::now() + chrono::Duration::days(30))
+            },
+            crate::db::models::license::SubscriptionType::Infinite => None,
+        };
+        
+        // Generate license key
+        let license_key = Uuid::new_v4().to_string();
+        
+        let new_license = License::create(
+            pool.as_ref(),
+            user_id,
+            license_key,
+            sub_type,
+            expires_at,
+        ).await.map_err(|e| AppError::Internal(format!("Failed to create license: {}", e)))?;
+        
+        log::info!("Created new license {} for user {} via payment webhook", new_license.id, user_id);
+        new_license.id
+    } else {
+        return Err(AppError::Validation("license_id is required for non-completed payments".to_string()));
     };
 
     // Create payment record
@@ -152,8 +223,8 @@ pub async fn handle_webhook(
         payload.payment_provider.clone(),
     ).await.map_err(|e| AppError::Internal(format!("Failed to create payment record: {}", e)))?;
 
-    // If payment is completed, extend the license
-    if matches!(payment_status, crate::db::models::payment::PaymentStatus::Completed) {
+    // If payment is completed and license already existed, extend it
+    if matches!(payment_status, crate::db::models::payment::PaymentStatus::Completed) && payload.license_id.is_some() {
         // Extend monthly license by 1 month
         if let Err(e) = License::extend_monthly(pool.as_ref(), license_id, user_id, 1).await {
             log::error!("Failed to extend license {} for user {}: {}", license_id, user_id, e);
@@ -164,7 +235,8 @@ pub async fn handle_webhook(
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "status": "processed",
         "payment_id": payment.id,
-        "license_extended": matches!(payment_status, crate::db::models::payment::PaymentStatus::Completed)
+        "license_id": license_id,
+        "license_created": payload.license_id.is_none()
     })))
 }
 

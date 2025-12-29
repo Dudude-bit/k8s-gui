@@ -8,8 +8,7 @@ use crate::utils::validation::validate_email;
 use validator::Validate;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-use chrono::{Duration, Utc, DateTime};
-use uuid::Uuid;
+use chrono::{Duration, Utc};
 use base64::Engine;
 use rand::Rng;
 use sha2::{Sha256, Digest};
@@ -43,7 +42,6 @@ pub struct RefreshRequest {
 #[serde(rename_all = "camelCase")]
 pub struct ForgotPasswordRequest {
     pub email: String,
-    pub password: Option<String>, // Redundant but keeping struct structure
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -250,9 +248,10 @@ impl AuthService {
             let expires_at = Utc::now() + Duration::hours(1);
             PasswordResetToken::create(&self.pool, user.id, token_hash, expires_at).await?;
 
-            // In a real implementation, send password reset email with token
-            // For now, just log it (in production, send email)
-            log::info!("Password reset token generated for user: {} (token: {})", user.id, token);
+            // TODO: Send password reset email with token
+            // In production, integrate with email service (e.g., AWS SES, SendGrid)
+            // For now, the token is stored but email is not sent
+            log::info!("Password reset requested for user: {}", user.id);
         }
 
         Ok(MessageResponse {

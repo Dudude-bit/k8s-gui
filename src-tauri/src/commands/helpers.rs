@@ -21,22 +21,6 @@ pub fn get_k8s_client(state: &State<'_, AppState>) -> Result<Client> {
         .map(|c| (*c).clone())
 }
 
-/// Check if license is valid for premium features
-pub async fn check_premium_license() -> Result<()> {
-    use crate::commands::license::is_license_valid;
-    
-    match is_license_valid().await {
-        Ok(true) => Ok(()),
-        Ok(false) => Err(Error::Internal("Premium feature requires a valid license. Please activate your license.".to_string())),
-        Err(e) => {
-            // If license check failed, block access to prevent bypassing license restrictions
-            // Log the error for debugging but deny access
-            eprintln!("License check failed: {}. Blocking access to premium feature.", e);
-            Err(Error::Internal(format!("License validation failed: {}. Premium features are unavailable until license status can be verified.", e)))
-        }
-    }
-}
-
 /// Build ListParams from optional selectors and limit
 pub fn build_list_params(
     label_selector: Option<&str>,

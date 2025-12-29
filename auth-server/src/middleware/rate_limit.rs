@@ -97,8 +97,16 @@ where
         let limiter = self.limiter.clone();
 
         // Get IP address from request
-        let ip = req.connection_info().peer_addr()
-            .map(|s| s.to_string())
+        // Check X-Forwarded-For header first (for reverse proxy scenarios)
+        // then fall back to peer address
+        let ip = req.headers()
+            .get("X-Forwarded-For")
+            .and_then(|h| h.to_str().ok())
+            .and_then(|s| s.split(',').next()) // Take first IP in chain
+            .map(|s| s.trim().to_string())
+            .or_else(|| {
+                req.connection_info().peer_addr().map(|s| s.to_string())
+            })
             .unwrap_or_else(|| "unknown".to_string());
 
         // Check rate limit

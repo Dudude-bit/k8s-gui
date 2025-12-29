@@ -12,6 +12,22 @@ pub enum SubscriptionType {
     Infinite,
 }
 
+impl SubscriptionType {
+    /// Get the string representation of the subscription type
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            SubscriptionType::Monthly => "monthly",
+            SubscriptionType::Infinite => "infinite",
+        }
+    }
+}
+
+impl std::fmt::Display for SubscriptionType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct License {
     pub id: Uuid,
@@ -39,6 +55,16 @@ impl License {
                     false
                 }
             }
+        }
+    }
+
+    /// Get a masked version of the license key for safe display
+    /// Shows only first 8 characters followed by "..."
+    pub fn masked_key(&self) -> String {
+        if self.license_key.len() > 8 {
+            format!("{}...", &self.license_key[..8])
+        } else {
+            "***".to_string()
         }
     }
 

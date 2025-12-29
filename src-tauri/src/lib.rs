@@ -21,7 +21,6 @@ pub mod cache;
 pub mod utils;
 pub mod validation;
 pub mod metrics;
-pub mod middleware;
 
 pub use error::{Error, Result};
 pub use state::AppState;

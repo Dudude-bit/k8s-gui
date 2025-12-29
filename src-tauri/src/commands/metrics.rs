@@ -6,6 +6,7 @@ use crate::commands::helpers::get_k8s_client;
 use crate::error::Result;
 use crate::metrics::{get_node_metrics, get_pod_metrics, get_single_pod_metrics, NodeMetrics, PodMetrics};
 use crate::state::AppState;
+use crate::auth::license_client::LicenseClient;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -14,8 +15,9 @@ use tauri::State;
 pub async fn get_pods_metrics(
     namespace: Option<String>,
     state: State<'_, AppState>,
+    license: State<'_, LicenseClient>,
 ) -> Result<Vec<PodMetrics>> {
-    crate::commands::helpers::check_premium_license().await?;
+    license.require_premium_license().await?;
     let client = get_k8s_client(&state)?;
     get_pod_metrics(&client, namespace.as_deref(), &state).await
 }
@@ -24,8 +26,9 @@ pub async fn get_pods_metrics(
 #[tauri::command]
 pub async fn get_nodes_metrics(
     state: State<'_, AppState>,
+    license: State<'_, LicenseClient>,
 ) -> Result<Vec<NodeMetrics>> {
-    crate::commands::helpers::check_premium_license().await?;
+    license.require_premium_license().await?;
     let client = get_k8s_client(&state)?;
     get_node_metrics(&client, &state).await
 }
@@ -36,8 +39,9 @@ pub async fn get_pod_metrics_command(
     name: String,
     namespace: String,
     state: State<'_, AppState>,
+    license: State<'_, LicenseClient>,
 ) -> Result<Option<PodMetrics>> {
-    crate::commands::helpers::check_premium_license().await?;
+    license.require_premium_license().await?;
     let client = get_k8s_client(&state)?;
     get_single_pod_metrics(&client, &namespace, &name, &state).await
 }

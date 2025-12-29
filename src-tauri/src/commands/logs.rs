@@ -26,8 +26,9 @@ pub struct StreamLogConfig {
 pub async fn stream_pod_logs(
     config: StreamLogConfig,
     state: State<'_, AppState>,
+    license: State<'_, crate::auth::license_client::LicenseClient>,
 ) -> Result<String, String> {
-    crate::commands::helpers::check_premium_license().await
+    license.require_premium_license().await
         .map_err(|e| e.to_string())?;
     let context = state
         .get_current_context()
