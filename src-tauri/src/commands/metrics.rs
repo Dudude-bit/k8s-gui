@@ -4,10 +4,7 @@
 
 use crate::auth::license_client::LicenseClient;
 use crate::error::Result;
-use crate::metrics::{
-    get_node_metrics, get_pod_metrics, get_single_pod_metrics, ClusterMetrics, NodeMetrics,
-    PodMetrics,
-};
+use crate::metrics::{get_node_metrics, get_pod_metrics, ClusterMetrics, NodeMetrics, PodMetrics};
 use crate::state::AppState;
 use tauri::State;
 
@@ -30,18 +27,6 @@ pub async fn get_nodes_metrics(
 ) -> Result<Vec<NodeMetrics>> {
     license.require_premium_license().await?;
     get_node_metrics(&state).await
-}
-
-/// Get metrics for a specific pod (premium feature)
-#[tauri::command]
-pub async fn get_pod_metrics_command(
-    name: String,
-    namespace: String,
-    state: State<'_, AppState>,
-    license: State<'_, LicenseClient>,
-) -> Result<Option<PodMetrics>> {
-    license.require_premium_license().await?;
-    get_single_pod_metrics(&namespace, &name, &state).await
 }
 
 /// Get aggregated cluster metrics

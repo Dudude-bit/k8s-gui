@@ -189,14 +189,6 @@ export function useResourceDetail<T>(
 }
 
 /**
- * Loading skeleton component props
- */
-export interface DetailLoadingProps {
-  /** Number of skeleton items */
-  count?: number;
-}
-
-/**
  * Error state component props
  */
 export interface DetailErrorProps {

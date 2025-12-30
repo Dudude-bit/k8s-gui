@@ -148,7 +148,6 @@ fn main() {
 
             // Namespace management
             commands::namespace::list_namespaces,
-            commands::namespace::get_current_namespace,
             commands::namespace::switch_namespace,
 
             // Generic resource management
@@ -160,8 +159,6 @@ fn main() {
             commands::pods::get_pod,
             commands::pods::get_pod_yaml,
             commands::pods::delete_pod,
-            commands::pods::get_pod_containers,
-            commands::pods::get_container_statuses,
             commands::pods::restart_pod,
 
             // Deployment commands
@@ -180,8 +177,6 @@ fn main() {
             commands::services::get_service,
             commands::services::get_service_yaml,
             commands::services::delete_service,
-            commands::services::get_service_endpoints,
-            commands::services::get_service_pods,
 
             // Port-forward commands
             commands::port_forward::port_forward_pod,
@@ -193,25 +188,17 @@ fn main() {
             commands::config_resources::get_configmap,
             commands::config_resources::get_configmap_data,
             commands::config_resources::get_configmap_yaml,
-            commands::config_resources::create_configmap,
-            commands::config_resources::update_configmap,
             commands::config_resources::delete_configmap,
 
             // Secret commands
             commands::config_resources::list_secrets,
             commands::config_resources::get_secret,
-            commands::config_resources::get_secret_data,
             commands::config_resources::get_secret_yaml,
-            commands::config_resources::create_secret,
-            commands::config_resources::update_secret,
             commands::config_resources::delete_secret,
 
             // Node commands
             commands::nodes::list_nodes,
             commands::nodes::get_node,
-            commands::nodes::get_node_yaml,
-            commands::nodes::get_node_resources,
-            commands::nodes::get_node_conditions,
             commands::nodes::get_node_pods,
             commands::nodes::cordon_node,
             commands::nodes::uncordon_node,
@@ -273,7 +260,6 @@ fn main() {
             // Metrics API
             commands::metrics::get_pods_metrics,
             commands::metrics::get_nodes_metrics,
-            commands::metrics::get_pod_metrics_command,
             commands::metrics::get_cluster_metrics,
 
             // Workloads commands

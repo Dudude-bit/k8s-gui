@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invokeTyped } from "@/lib/tauri";
 import CodeMirror from "@uiw/react-codemirror";
 import { yaml as yamlLanguage } from "@codemirror/lang-yaml";
 import { EditorView } from "@codemirror/view";
@@ -372,7 +372,7 @@ export function YamlEditorDialog() {
     setValidationResult(null);
 
     try {
-      const result = await invoke<ManifestResult>("validate_manifest", {
+      const result = await invokeTyped<ManifestResult>("validate_manifest", {
         manifest: editedContent,
         namespace: resourceKey?.namespace || currentNamespace || null,
       });
@@ -409,7 +409,7 @@ export function YamlEditorDialog() {
     setApplyResult(null);
 
     try {
-      const result = await invoke<ManifestResult>("apply_manifest", {
+      const result = await invokeTyped<ManifestResult>("apply_manifest", {
         manifest: editedContent,
         namespace: resourceKey?.namespace || currentNamespace || null,
       });

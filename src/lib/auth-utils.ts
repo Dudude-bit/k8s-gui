@@ -59,14 +59,3 @@ export function isTokenExpired(token: string): boolean {
   return Date.now() >= expiration;
 }
 
-/**
- * Check if token is valid (not expired)
- * @param token JWT token string
- * @returns true if token is valid and not expired
- */
-export function isTokenValid(token: string): boolean {
-  if (!token || token.trim() === "") {
-    return false;
-  }
-  return !isTokenExpired(token);
-}

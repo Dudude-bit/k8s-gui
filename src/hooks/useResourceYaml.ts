@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { invoke } from "@tauri-apps/api/core";
+import { invokeTyped } from "@/lib/tauri";
 
 /**
  * Hook for loading YAML of a Kubernetes resource
@@ -13,7 +13,7 @@ export function useResourceYaml(
   return useQuery({
     queryKey: [`${resourceKind.toLowerCase()}-yaml`, namespace, name],
     queryFn: () =>
-      invoke<string>(`get_${resourceKind.toLowerCase()}_yaml`, {
+      invokeTyped<string>(`get_${resourceKind.toLowerCase()}_yaml`, {
         name,
         namespace,
       }),

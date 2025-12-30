@@ -16,7 +16,6 @@ export {
   formatBytes,
   formatMemory,
   formatCPU,
-  parseQuantity as parseKubernetesQuantity,
   formatKubernetesBytes,
 } from "./k8s-quantity";
 

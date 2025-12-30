@@ -3,15 +3,6 @@
  */
 
 /**
- * API error structure from auth-server
- */
-export interface ApiError {
-  error: string;
-  code: number;
-  error_code?: string;
-}
-
-/**
  * Normalize Tauri error to a readable string message
  *
  * Tauri errors can be:

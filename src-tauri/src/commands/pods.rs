@@ -1,7 +1,6 @@
 //! Pod-specific commands
 
 use k8s_openapi::api::core::v1::Pod;
-use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::commands::filters::PodFilters;
@@ -81,86 +80,6 @@ pub async fn delete_pod(
     api.delete(&name, &dp).await?;
 
     Ok(())
-}
-
-/// Get containers in a pod
-#[tauri::command]
-pub async fn get_pod_containers(
-    name: String,
-    namespace: Option<String>,
-    state: State<'_, AppState>,
-) -> Result<Vec<String>> {
-    let ctx = CommandContext::new(&state, namespace)?;
-
-    let api: kube::Api<Pod> = ctx.namespaced_api();
-    let pod = api.get(&name).await?;
-
-    let containers: Vec<String> = pod
-        .spec
-        .map(|s| s.containers.into_iter().map(|c| c.name).collect())
-        .unwrap_or_default();
-
-    Ok(containers)
-}
-
-/// Container status information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContainerStatus {
-    pub name: String,
-    pub ready: bool,
-    pub restart_count: i32,
-    pub state: String,
-    pub started: bool,
-    pub image: String,
-}
-
-/// Get container statuses for a pod
-#[tauri::command]
-pub async fn get_container_statuses(
-    name: String,
-    namespace: Option<String>,
-    state: State<'_, AppState>,
-) -> Result<Vec<ContainerStatus>> {
-    let ctx = CommandContext::new(&state, namespace)?;
-
-    let api: kube::Api<Pod> = ctx.namespaced_api();
-    let pod = api.get(&name).await?;
-
-    let statuses: Vec<ContainerStatus> = pod
-        .status
-        .and_then(|s| s.container_statuses)
-        .map(|cs| {
-            cs.into_iter()
-                .map(|c| {
-                    let state_str = if c.state.as_ref().and_then(|s| s.running.as_ref()).is_some() {
-                        "Running"
-                    } else if c.state.as_ref().and_then(|s| s.waiting.as_ref()).is_some() {
-                        "Waiting"
-                    } else if c
-                        .state
-                        .as_ref()
-                        .and_then(|s| s.terminated.as_ref())
-                        .is_some()
-                    {
-                        "Terminated"
-                    } else {
-                        "Unknown"
-                    };
-
-                    ContainerStatus {
-                        name: c.name,
-                        ready: c.ready,
-                        restart_count: c.restart_count,
-                        state: state_str.to_string(),
-                        started: c.started.unwrap_or(false),
-                        image: c.image,
-                    }
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-
-    Ok(statuses)
 }
 
 /// Restart a pod (delete and let the controller recreate it)

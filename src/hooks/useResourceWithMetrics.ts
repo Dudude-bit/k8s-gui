@@ -127,23 +127,3 @@ export function matchJobPods<T extends { name: string; namespace: string }>(
   );
 }
 
-/**
- * Match pods for Deployments (via labels or name prefix)
- */
-export function matchDeploymentPods<
-  T extends {
-    name: string;
-    namespace: string;
-    labels?: Record<string, string>;
-  },
->(resource: T, pod: PodInfo): boolean {
-  const podLabels = pod.labels || {};
-  const deploymentLabels = resource.labels || {};
-
-  return (
-    pod.namespace === resource.namespace &&
-    (podLabels["app"] === deploymentLabels["app"] ||
-      podLabels["deployment"] === resource.name ||
-      pod.name.startsWith(resource.name + "-"))
-  );
-}

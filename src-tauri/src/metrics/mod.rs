@@ -365,22 +365,6 @@ pub async fn get_node_metrics(state: &AppState) -> Result<Vec<NodeMetrics>> {
     metrics_client.get_node_metrics().await
 }
 
-/// Get metrics for a specific pod
-///
-/// # Errors
-///
-/// Returns an error if the Metrics API request fails or the response cannot be parsed.
-pub async fn get_single_pod_metrics(
-    namespace: &str,
-    pod_name: &str,
-    state: &AppState,
-) -> Result<Option<PodMetrics>> {
-    let metrics = get_pod_metrics(Some(namespace), state).await?;
-    Ok(metrics
-        .into_iter()
-        .find(|m| m.name == pod_name && m.namespace == namespace))
-}
-
 /// Get aggregated cluster metrics (total CPU/memory usage and capacity)
 ///
 /// # Errors

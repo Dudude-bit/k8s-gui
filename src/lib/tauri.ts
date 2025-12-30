@@ -24,20 +24,3 @@ export async function invokeTyped<T>(
   }
 }
 
-/**
- * Helper to create type-safe command functions
- *
- * @param cmd - Tauri command name
- * @returns A function that invokes the command with optional arguments
- * @template T - Return type of the command
- * @example
- * ```ts
- * const getPods = createTauriCommand<Pod[]>("list_pods");
- * const pods = await getPods({ namespace: "default" });
- * ```
- */
-export function createTauriCommand<T>(
-  cmd: string
-): (args?: Record<string, unknown>) => Promise<T> {
-  return (args?: Record<string, unknown>) => invokeTyped<T>(cmd, args);
-}

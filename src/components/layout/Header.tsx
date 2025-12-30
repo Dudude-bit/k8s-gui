@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import * as commands from "@/generated/commands";
 import { useClusterStore } from "@/stores/clusterStore";
 import { useThemeStore } from "@/stores/themeStore";
 import {
@@ -93,8 +94,8 @@ export function Header() {
   const { data: namespaces = [], refetch: refetchNamespaces } = useQuery({
     queryKey: ["namespaces", currentContext],
     queryFn: async () => {
-      const result = await invoke<{ name: string }[]>("list_namespaces");
-      return result.map((ns) => ns.name);
+      const result = await commands.listNamespaces();
+      return result.map((ns: { name: string }) => ns.name);
     },
     enabled: isConnected,
   });

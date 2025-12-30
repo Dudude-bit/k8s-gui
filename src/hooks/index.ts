@@ -7,14 +7,9 @@ export {
   useResource,
   useResourceList,
   useResourceMutation,
-  useResourceDelete,
-  useResourceCrud,
   type UseResourceOptions,
   type MutationToastConfig,
   type UseResourceMutationOptions,
-  type ResourceWithIdentity,
-  type UseResourceDeleteConfig,
-  type UseResourceCrudConfig,
 } from "./useResource";
 
 // Detail page hook

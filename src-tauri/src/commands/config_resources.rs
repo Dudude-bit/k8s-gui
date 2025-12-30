@@ -73,58 +73,6 @@ pub async fn get_configmap_yaml(
     crate::commands::helpers::get_resource_yaml::<ConfigMap>(name, namespace, state).await
 }
 
-/// Create `ConfigMap`
-#[tauri::command]
-pub async fn create_configmap(
-    name: String,
-    data: BTreeMap<String, String>,
-    namespace: Option<String>,
-    state: State<'_, AppState>,
-) -> Result<ConfigMapInfo> {
-    let ctx = CommandContext::new(&state, namespace)?;
-
-    let configmap = ConfigMap {
-        metadata: k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta {
-            name: Some(name),
-            namespace: Some(ctx.namespace.clone()),
-            ..Default::default()
-        },
-        data: Some(data),
-        ..Default::default()
-    };
-
-    let api: kube::Api<ConfigMap> = ctx.namespaced_api();
-    let created = api
-        .create(&kube::api::PostParams::default(), &configmap)
-        .await?;
-
-    Ok(ConfigMapInfo::from(&created))
-}
-
-/// Update `ConfigMap` data
-#[tauri::command]
-pub async fn update_configmap(
-    name: String,
-    data: BTreeMap<String, String>,
-    namespace: Option<String>,
-    state: State<'_, AppState>,
-) -> Result<ConfigMapInfo> {
-    let ctx = CommandContext::new(&state, namespace)?;
-
-    let patch = serde_json::json!({ "data": data });
-
-    let api: kube::Api<ConfigMap> = ctx.namespaced_api();
-    let updated = api
-        .patch(
-            &name,
-            &kube::api::PatchParams::default(),
-            &kube::api::Patch::Merge(&patch),
-        )
-        .await?;
-
-    Ok(ConfigMapInfo::from(&updated))
-}
-
 /// Delete `ConfigMap`
 #[tauri::command]
 pub async fn delete_configmap(
@@ -193,41 +141,6 @@ pub async fn get_secret(
     Ok(SecretInfo::from(&secret))
 }
 
-/// Get Secret data (decoded from base64)
-#[tauri::command]
-pub async fn get_secret_data(
-    name: String,
-    namespace: Option<String>,
-    decode: bool,
-    state: State<'_, AppState>,
-) -> Result<BTreeMap<String, String>> {
-    let ctx = CommandContext::new(&state, namespace)?;
-    let api: kube::Api<Secret> = ctx.namespaced_api();
-    let secret = api.get(&name).await?;
-
-    let data = secret.data.unwrap_or_default();
-
-    if decode {
-        Ok(data
-            .into_iter()
-            .map(|(k, v)| {
-                let decoded_value =
-                    String::from_utf8(v.0).unwrap_or_else(|_| "[binary data]".to_string());
-                (k, decoded_value)
-            })
-            .collect())
-    } else {
-        Ok(data
-            .into_iter()
-            .map(|(k, v)| {
-                let encoded_value =
-                    base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &v.0);
-                (k, encoded_value)
-            })
-            .collect())
-    }
-}
-
 /// Get Secret YAML (with data redacted)
 #[tauri::command]
 pub async fn get_secret_yaml(
@@ -251,74 +164,6 @@ pub async fn get_secret_yaml(
     let yaml = serde_yaml::to_string(&secret)
         .map_err(|e| crate::error::Error::Serialization(e.to_string()))?;
     crate::commands::helpers::clean_yaml_for_editor(&yaml)
-}
-
-/// Create Secret
-#[tauri::command]
-pub async fn create_secret(
-    name: String,
-    data: BTreeMap<String, String>,
-    secret_type: Option<String>,
-    namespace: Option<String>,
-    state: State<'_, AppState>,
-) -> Result<SecretInfo> {
-    let ctx = CommandContext::new(&state, namespace)?;
-
-    let encoded_data: BTreeMap<String, k8s_openapi::ByteString> = data
-        .into_iter()
-        .map(|(k, v)| (k, k8s_openapi::ByteString(v.into_bytes())))
-        .collect();
-
-    let secret = Secret {
-        metadata: k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta {
-            name: Some(name),
-            namespace: Some(ctx.namespace.clone()),
-            ..Default::default()
-        },
-        type_: Some(secret_type.unwrap_or_else(|| "Opaque".to_string())),
-        data: Some(encoded_data),
-        ..Default::default()
-    };
-
-    let api: kube::Api<Secret> = ctx.namespaced_api();
-    let created = api
-        .create(&kube::api::PostParams::default(), &secret)
-        .await?;
-
-    Ok(SecretInfo::from(&created))
-}
-
-/// Update Secret data
-#[tauri::command]
-pub async fn update_secret(
-    name: String,
-    data: BTreeMap<String, String>,
-    namespace: Option<String>,
-    state: State<'_, AppState>,
-) -> Result<SecretInfo> {
-    let ctx = CommandContext::new(&state, namespace)?;
-
-    let encoded_data: BTreeMap<String, String> = data
-        .into_iter()
-        .map(|(k, v)| {
-            let encoded =
-                base64::Engine::encode(&base64::engine::general_purpose::STANDARD, v.as_bytes());
-            (k, encoded)
-        })
-        .collect();
-
-    let patch = serde_json::json!({ "data": encoded_data });
-
-    let api: kube::Api<Secret> = ctx.namespaced_api();
-    let updated = api
-        .patch(
-            &name,
-            &kube::api::PatchParams::default(),
-            &kube::api::Patch::Merge(&patch),
-        )
-        .await?;
-
-    Ok(SecretInfo::from(&updated))
 }
 
 /// Delete Secret

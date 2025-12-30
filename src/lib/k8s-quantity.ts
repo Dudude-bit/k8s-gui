@@ -279,43 +279,6 @@ export function getUtilizationColor(
 }
 
 /**
- * Format resource usage with percentage
- * Format: "500m / 2 (25%)" for CPU, "512Mi / 4Gi (12.5%)" for Memory
- *
- * @param used - Used amount string
- * @param total - Total/limit amount string
- * @param type - Resource type ('cpu' or 'memory')
- * @returns Formatted usage string
- */
-export function formatResourceUsage(
-  used: string | null | undefined,
-  total: string | null | undefined,
-  type: "cpu" | "memory"
-): string {
-  if (!used && !total) return "-";
-
-  const usedNum = type === "cpu" ? parseCPU(used) : parseMemory(used);
-  const totalNum = type === "cpu" ? parseCPU(total) : parseMemory(total);
-
-  const usedFormatted = used
-    ? type === "cpu"
-      ? used
-      : formatMemory(usedNum)
-    : "-";
-  const totalFormatted = total
-    ? type === "cpu"
-      ? total
-      : formatMemory(totalNum)
-    : "-";
-
-  const percentage = calculateUtilization(usedNum, totalNum);
-  const percentageStr =
-    percentage !== null ? ` (${percentage.toFixed(1)}%)` : "";
-
-  return `${usedFormatted} / ${totalFormatted}${percentageStr}`;
-}
-
-/**
  * Aggregate pod metrics (sum CPU and memory)
  *
  * @param metrics - Array of metrics objects
@@ -384,35 +347,3 @@ export function getTopPodsByMemory(
     .slice(0, limit);
 }
 
-/**
- * Merge resource with its metrics
- *
- * @param resources - Array of resources
- * @param metrics - Array of metrics
- * @param matchFn - Function to match resource with metric
- * @returns Resources merged with metrics
- */
-export function mergeResourceWithMetrics<
-  T extends { name: string; namespace: string },
->(
-  resources: T[],
-  metrics: Array<{
-    name: string;
-    namespace: string;
-    cpuUsage: string | null;
-    memoryUsage: string | null;
-  }>,
-  matchFn: (
-    resource: T,
-    metric: { name: string; namespace: string }
-  ) => boolean = (r, m) => r.name === m.name && r.namespace === m.namespace
-): (T & { cpuUsage: string | null; memoryUsage: string | null })[] {
-  return resources.map((resource) => {
-    const metric = metrics.find((m) => matchFn(resource, m));
-    return {
-      ...resource,
-      cpuUsage: metric?.cpuUsage ?? null,
-      memoryUsage: metric?.memoryUsage ?? null,
-    };
-  });
-}
