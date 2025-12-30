@@ -1,3 +1,13 @@
+/**
+ * Authentication Store
+ *
+ * Manages user authentication state, session handling, and license status.
+ * Handles login/logout/registration flows and persists authentication
+ * through the Tauri backend keychain.
+ *
+ * @module stores/authStore
+ */
+
 import { create } from "zustand";
 import * as commands from "@/generated/commands";
 import type { LicenseStatus, UserProfile } from "@/generated/types";
@@ -6,6 +16,7 @@ import { normalizeTauriError } from "@/lib/error-utils";
 // Re-export types for convenience
 export type { LicenseStatus, UserProfile };
 
+/** Authentication store state and actions */
 interface AuthState {
   // Token state (kept in memory for UI awareness, but authoritative source is backend)
   isAuthenticated: boolean;

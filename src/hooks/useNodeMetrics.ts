@@ -1,4 +1,11 @@
-// Hook for fetching node metrics with real-time updates
+/**
+ * Node Metrics Hook
+ *
+ * Fetches CPU and memory metrics for Kubernetes nodes with real-time updates.
+ * Automatically refreshes every 8 seconds.
+ *
+ * @module hooks/useNodeMetrics
+ */
 
 import {
   useQuery,
@@ -9,6 +16,20 @@ import * as commands from "@/generated/commands";
 import { normalizeTauriError } from "@/lib/error-utils";
 import type { NodeMetrics } from "@/generated/types";
 
+/**
+ * Hook for fetching node metrics
+ *
+ * @param options - Additional React Query options
+ * @returns Query result with array of node metrics
+ * @example
+ * ```tsx
+ * const { data: metrics, isLoading } = useNodeMetrics();
+ *
+ * metrics?.forEach(node => {
+ *   console.log(`${node.name}: ${node.cpuUsage}`);
+ * });
+ * ```
+ */
 export function useNodeMetrics(
   options?: Omit<UseQueryOptions<NodeMetrics[]>, "queryKey" | "queryFn">
 ) {

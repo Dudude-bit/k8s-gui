@@ -1,40 +1,23 @@
+//! Authentication service
+//!
+//! This module provides user authentication, registration, and token management.
+//! It uses common DTOs from k8s_gui_common for consistency with the Tauri client.
+
 use crate::config::Config;
 use crate::db::models::{token::RefreshToken, AuditLog, User, UserProfile};
 use crate::error::{Error, Result};
 use crate::utils::jwt::{hash_refresh_token, JwtService};
 use crate::utils::password::{hash_password, verify_password};
-use k8s_gui_common::validation::{validate_email, validate_password};
 use chrono::{Duration, Utc};
-use serde::{Deserialize, Serialize};
+use k8s_gui_common::validation::{validate_email, validate_password};
+use serde::Serialize;
 use sqlx::PgPool;
 use uuid::Uuid;
-use validator::Validate;
 
-#[derive(Debug, Deserialize, Validate)]
-#[serde(rename_all = "camelCase")]
-pub struct RegisterRequest {
-    #[validate(email)]
-    pub email: String,
-    #[validate(length(min = 8, max = 128))]
-    pub password: String,
-    pub first_name: Option<String>,
-    pub last_name: Option<String>,
-    pub company: Option<String>,
-}
+// Re-export common DTOs
+pub use k8s_gui_common::{LoginRequest, MessageResponse, RefreshRequest, RegisterRequest};
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LoginRequest {
-    pub email: String,
-    pub password: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RefreshRequest {
-    pub refresh_token: String,
-}
-
+/// Authentication response with tokens
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthResponse {
@@ -43,12 +26,6 @@ pub struct AuthResponse {
     pub refresh_token: String,
     pub token_type: String,
     pub expires_in: i64,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MessageResponse {
-    pub message: String,
 }
 
 pub struct AuthService {
@@ -62,12 +39,9 @@ impl AuthService {
     }
 
     pub async fn register(&self, req: RegisterRequest) -> Result<AuthResponse> {
-        req.validate()?;
-
-        validate_email(&req.email)
-            .map_err(|e| Error::Validation(e))?;
-        validate_password(&req.password)
-            .map_err(|e| Error::Validation(e))?;
+        // Validate email and password using common validation utilities
+        validate_email(&req.email).map_err(Error::Validation)?;
+        validate_password(&req.password).map_err(Error::Validation)?;
 
         // Check if user already exists
         if User::find_by_email(&self.pool, &req.email).await?.is_some() {

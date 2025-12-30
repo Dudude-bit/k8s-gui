@@ -1,4 +1,14 @@
-//! Rate limiting utilities using DashMap for thread-safe in-memory storage
+//! Rate limiting utilities
+//!
+//! This module provides thread-safe, in-memory rate limiting for API endpoints.
+//! It uses DashMap for concurrent access and supports sliding window rate limiting.
+//!
+//! # Features
+//!
+//! - Configurable request limits per time window
+//! - Per-key (e.g., per-IP) tracking
+//! - Automatic cleanup of expired entries
+//! - Pre-configured limiters for common endpoints (login, registration)
 
 use dashmap::DashMap;
 use std::time::{Duration, Instant};

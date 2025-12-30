@@ -1,4 +1,14 @@
 //! Password hashing and verification utilities
+//!
+//! This module provides secure password hashing using the Argon2 algorithm,
+//! which is the winner of the Password Hashing Competition and recommended
+//! for password storage. It uses the default Argon2id variant with secure defaults.
+//!
+//! # Security
+//!
+//! - Uses random salt generation for each password
+//! - Argon2id variant (resistant to both side-channel and GPU attacks)
+//! - Constant-time comparison for verification
 
 use argon2::password_hash::{rand_core::OsRng, SaltString};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};

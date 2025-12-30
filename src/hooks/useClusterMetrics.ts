@@ -1,4 +1,11 @@
-// Hook for fetching cluster metrics with real-time updates
+/**
+ * Cluster Metrics Hook
+ *
+ * Fetches aggregated cluster-wide CPU and memory metrics with real-time updates.
+ * Automatically refreshes every 10 seconds.
+ *
+ * @module hooks/useClusterMetrics
+ */
 
 import {
   useQuery,
@@ -11,6 +18,20 @@ import { normalizeTauriError } from "@/lib/error-utils";
 
 export type { ClusterMetrics } from "@/generated/types";
 
+/**
+ * Hook for fetching cluster-wide metrics
+ *
+ * @param options - Additional React Query options
+ * @returns Query result with cluster metrics data
+ * @example
+ * ```tsx
+ * const { data: metrics, isLoading } = useClusterMetrics();
+ *
+ * if (metrics) {
+ *   console.log(`CPU: ${metrics.totalCpuUsage}`);
+ * }
+ * ```
+ */
 export function useClusterMetrics(
   options?: Omit<UseQueryOptions<ClusterMetrics>, "queryKey" | "queryFn">
 ) {

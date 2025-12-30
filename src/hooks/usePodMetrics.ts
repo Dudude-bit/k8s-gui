@@ -1,4 +1,11 @@
-// Hook for fetching pod metrics with real-time updates
+/**
+ * Pod Metrics Hook
+ *
+ * Fetches CPU and memory metrics for pods with real-time updates.
+ * Automatically refreshes every 8 seconds.
+ *
+ * @module hooks/usePodMetrics
+ */
 
 import {
   useQuery,
@@ -11,6 +18,21 @@ import { normalizeTauriError } from "@/lib/error-utils";
 
 export type { PodMetrics } from "@/generated/types";
 
+/**
+ * Hook for fetching pod metrics
+ *
+ * @param namespace - Namespace to filter pods (null for all namespaces)
+ * @param options - Additional React Query options
+ * @returns Query result with array of pod metrics
+ * @example
+ * ```tsx
+ * const { data: metrics } = usePodMetrics("default");
+ *
+ * metrics?.forEach(pod => {
+ *   console.log(`${pod.name}: ${pod.cpuUsage}`);
+ * });
+ * ```
+ */
 export function usePodMetrics(
   namespace: string | null | undefined,
   options?: Omit<UseQueryOptions<PodMetrics[]>, "queryKey" | "queryFn">

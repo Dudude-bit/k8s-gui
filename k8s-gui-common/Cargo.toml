@@ -7,6 +7,19 @@ description = "Common utilities shared between k8s-gui projects"
 license = "MIT"
 
 [dependencies]
+# Logging and tracing
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+
+# Date and time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Error handling
+thiserror = "2.0"
+
+[dev-dependencies]
+serde_json = "1.0"
 

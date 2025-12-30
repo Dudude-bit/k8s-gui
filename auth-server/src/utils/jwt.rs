@@ -1,4 +1,13 @@
 //! JWT token generation and validation
+//!
+//! This module provides JWT (JSON Web Token) functionality for user authentication.
+//! It handles generation and validation of both access tokens and refresh tokens,
+//! with support for token expiration and type validation.
+//!
+//! # Token Types
+//!
+//! - **Access tokens**: Short-lived tokens for API authentication
+//! - **Refresh tokens**: Long-lived tokens for obtaining new access tokens
 
 use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};

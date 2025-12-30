@@ -1,4 +1,14 @@
 //! Resource cache with TTL support
+//!
+//! This module provides in-memory caching for Kubernetes resources with
+//! time-to-live (TTL) expiration, size limits, and automatic eviction.
+//! It also includes utilities for rate limiting and request debouncing.
+//!
+//! # Components
+//!
+//! - `ResourceCache`: TTL-based cache for Kubernetes resource data
+//! - `Debouncer`: Prevents rapid-fire API requests
+//! - `RateLimiter`: Limits request frequency per time window
 
 use dashmap::DashMap;
 use parking_lot::RwLock;

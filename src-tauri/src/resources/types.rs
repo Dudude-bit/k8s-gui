@@ -70,18 +70,18 @@ impl From<&Pod> for PodInfo {
                     if let Some(resources) = &container.resources {
                         if let Some(requests) = &resources.requests {
                             if let Some(cpu) = requests.get("cpu") {
-                                total_cpu_requests_millicores += parse_cpu_quantity(&cpu.0);
+                                total_cpu_requests_millicores += parse_cpu(&cpu.0);
                             }
                             if let Some(memory) = requests.get("memory") {
-                                total_memory_requests_bytes += parse_memory_quantity(&memory.0);
+                                total_memory_requests_bytes += parse_memory(&memory.0);
                             }
                         }
                         if let Some(limits) = &resources.limits {
                             if let Some(cpu) = limits.get("cpu") {
-                                total_cpu_limits_millicores += parse_cpu_quantity(&cpu.0);
+                                total_cpu_limits_millicores += parse_cpu(&cpu.0);
                             }
                             if let Some(memory) = limits.get("memory") {
-                                total_memory_limits_bytes += parse_memory_quantity(&memory.0);
+                                total_memory_limits_bytes += parse_memory(&memory.0);
                             }
                         }
                     }
@@ -89,12 +89,12 @@ impl From<&Pod> for PodInfo {
 
                 // Format aggregated values
                 let cpu_requests = if total_cpu_requests_millicores > 0.0 {
-                    Some(format_cpu_millicores(total_cpu_requests_millicores))
+                    Some(format_cpu(total_cpu_requests_millicores))
                 } else {
                     None
                 };
                 let cpu_limits = if total_cpu_limits_millicores > 0.0 {
-                    Some(format_cpu_millicores(total_cpu_limits_millicores))
+                    Some(format_cpu(total_cpu_limits_millicores))
                 } else {
                     None
                 };
@@ -135,18 +135,6 @@ impl From<&Pod> for PodInfo {
     }
 }
 
-// Legacy aliases for backward compatibility - use crate::utils::quantities directly for new code
-fn parse_cpu_quantity(cpu_str: &str) -> f64 {
-    parse_cpu(cpu_str)
-}
-
-fn parse_memory_quantity(mem_str: &str) -> u64 {
-    parse_memory(mem_str)
-}
-
-fn format_cpu_millicores(millicores: f64) -> String {
-    format_cpu(millicores)
-}
 
 /// Pod status information
 #[derive(Debug, Clone, Serialize, Deserialize)]

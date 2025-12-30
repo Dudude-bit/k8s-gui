@@ -1,32 +1,15 @@
 //! License and authentication commands
+//!
+//! This module provides Tauri commands for user authentication,
+//! license management, and user profile operations.
 
 use crate::auth::license_client::{
     LicenseClient, LicenseStatus, PaymentHistoryResponse, UpdateProfileRequest, UserProfile,
 };
 use crate::error::{Error, Result};
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LoginRequest {
-    pub email: String,
-    pub password: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RegisterRequest {
-    pub email: String,
-    pub password: String,
-    pub first_name: Option<String>,
-    pub last_name: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ActivateLicenseRequest {
-    pub license_key: String,
-}
+// Re-export common DTOs for external use
+pub use k8s_gui_common::{ActivateLicenseRequest, LoginRequest, RegisterRequest};
 
 /// Login user
 #[tauri::command]

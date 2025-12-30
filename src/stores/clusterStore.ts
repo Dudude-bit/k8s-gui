@@ -1,9 +1,20 @@
+/**
+ * Cluster Store
+ *
+ * Manages Kubernetes cluster connection state including contexts,
+ * namespaces, and connection status. Handles loading contexts from
+ * kubeconfig and connecting/disconnecting from clusters.
+ *
+ * @module stores/clusterStore
+ */
+
 import { create } from "zustand";
 
 import type { ClusterContext } from "@/types/kubernetes";
 import { normalizeTauriError } from "@/lib/error-utils";
 import * as commands from "@/generated/commands";
 
+/** Cluster store state and actions */
 interface ClusterState {
   contexts: ClusterContext[];
   currentContext: string | null;

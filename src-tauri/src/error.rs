@@ -2,7 +2,11 @@
 //!
 //! This module provides a comprehensive error type that covers all possible
 //! error scenarios in the application, with proper conversion from library errors.
+//!
+//! The `Error` type implements the `ErrorExt` trait from `k8s_gui_common` for
+//! consistent error handling across all K8s GUI projects.
 
+use k8s_gui_common::ErrorExt;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -150,13 +154,9 @@ impl Serialize for Error {
     }
 }
 
-impl Error {
-    /// Get error code for frontend handling
-    ///
-    /// # Returns
-    ///
-    /// A static string representing the error code.
-    pub fn error_code(&self) -> &'static str {
+/// Implement ErrorExt trait for unified error handling
+impl ErrorExt for Error {
+    fn error_code(&self) -> &'static str {
         match self {
             Error::KubeApi(_) => "KUBE_API_ERROR",
             Error::Config(_) => "CONFIG_ERROR",
@@ -179,13 +179,7 @@ impl Error {
         }
     }
 
-    /// Get additional details for debugging
-    ///
-    /// # Returns
-    ///
-    /// Returns `Some(String)` with detailed error information if available,
-    /// or `None` if no additional details are available.
-    pub fn details(&self) -> Option<String> {
+    fn details(&self) -> Option<String> {
         match self {
             Error::KubeApi(e) => Some(format!("{e:?}")),
             Error::NotFound {
@@ -201,19 +195,15 @@ impl Error {
         }
     }
 
-    /// Check if error is retryable
-    ///
-    /// # Returns
-    ///
-    /// Returns `true` if the operation that caused this error can be safely retried,
-    /// `false` otherwise.
-    pub fn is_retryable(&self) -> bool {
+    fn is_retryable(&self) -> bool {
         matches!(
             self,
             Error::Connection(_) | Error::Timeout(_) | Error::Auth(AuthError::TokenExpired)
         )
     }
+}
 
+impl Error {
     /// Create a not found error
     ///
     /// # Arguments

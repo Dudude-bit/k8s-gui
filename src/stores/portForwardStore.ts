@@ -1,3 +1,13 @@
+/**
+ * Port Forward Store
+ *
+ * Manages port forwarding configurations and active sessions.
+ * Persists port forward configurations to localStorage and tracks
+ * active sessions from the Tauri backend.
+ *
+ * @module stores/portForwardStore
+ */
+
 import { create } from "zustand";
 import * as commands from "@/generated/commands";
 import type {
@@ -5,39 +15,79 @@ import type {
   PortForwardRequest,
 } from "@/generated/types";
 
+/** LocalStorage key for port forward configurations */
 const CONFIG_STORAGE_KEY = "k8s-gui.port-forward.configs";
 
+/**
+ * Saved port forward configuration
+ *
+ * Represents a user-defined port forward rule that can be
+ * started/stopped and is persisted across sessions.
+ */
 export interface PortForwardConfig {
+  /** Unique identifier */
   id: string;
+  /** Kubernetes context name */
   context: string;
+  /** Display name for the configuration */
   name: string;
+  /** Target pod name */
   pod: string;
+  /** Target namespace */
   namespace: string;
+  /** Local port to listen on */
   localPort: number;
+  /** Remote port on the pod */
   remotePort: number;
+  /** Whether to automatically reconnect on failure */
   autoReconnect: boolean;
+  /** ISO timestamp when created */
   createdAt: string;
 }
 
+/**
+ * Active port forward session
+ *
+ * Represents a currently running port forward from the backend.
+ */
 export interface PortForwardSession {
+  /** Session ID from backend */
   id: string;
+  /** Kubernetes context name */
   context: string;
+  /** Target pod name */
   pod: string;
+  /** Target namespace */
   namespace: string;
+  /** Local port being listened on */
   localPort: number;
+  /** Remote port on the pod */
   remotePort: number;
+  /** Whether auto-reconnect is enabled */
   autoReconnect: boolean;
+  /** ISO timestamp when started */
   createdAt: string;
 }
 
+/**
+ * Port forward status update from backend events
+ */
 export interface PortForwardStatus {
+  /** Session ID */
   id: string;
+  /** Target pod name */
   pod: string;
+  /** Target namespace */
   namespace: string;
+  /** Local port */
   localPort: number;
+  /** Remote port */
   remotePort: number;
+  /** Current status (e.g., "active", "connecting", "failed") */
   status: string;
+  /** Optional status message */
   message?: string | null;
+  /** Reconnection attempt number */
   attempt?: number | null;
 }
 
