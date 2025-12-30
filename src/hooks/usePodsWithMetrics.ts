@@ -19,13 +19,13 @@ interface UsePodsWithMetricsOptions {
 /**
  * Centralized hook for fetching pods with their metrics.
  * This hook is shared across components to avoid duplicate queries.
- * 
+ *
  * TanStack Query handles caching, so multiple components using this hook
  * with the same namespace will share the cached data.
  */
 export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
   const { isConnected, currentNamespace } = useClusterStore();
-  const enabled = isConnected && (options?.enabled !== false);
+  const enabled = isConnected && options?.enabled !== false;
 
   // Fetch pods - cached by TanStack Query
   const {
@@ -87,4 +87,3 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
     refetch: refetchPods,
   };
 }
-

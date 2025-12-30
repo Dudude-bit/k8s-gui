@@ -5,7 +5,11 @@ import { useState, useCallback, useMemo } from "react";
 import { useResourceYaml, useCopyToClipboard, usePodMetrics } from "@/hooks";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { LicenseErrorBanner } from "@/components/license/LicenseErrorBanner";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -71,26 +75,26 @@ export function PodDetail() {
   const queryClient = useQueryClient();
   const addPortForwardConfig = usePortForwardStore((state) => state.addConfig);
   const startPortForwardConfig = usePortForwardStore(
-    (state) => state.startConfig,
+    (state) => state.startConfig
   );
   const refreshPortForwards = usePortForwardStore(
-    (state) => state.refreshSessions,
+    (state) => state.refreshSessions
   );
   const portForwardSessions = usePortForwardStore((state) => state.sessions);
   const stopPortForwardSession = usePortForwardStore(
-    (state) => state.stopSession,
+    (state) => state.stopSession
   );
   const portForwardStatusBySession = usePortForwardStore(
-    (state) => state.statusBySession,
+    (state) => state.statusBySession
   );
   const [activeTab, setActiveTab] = useState("overview");
   const [showTerminal, setShowTerminal] = useState(false);
   const [selectedContainer, setSelectedContainer] = useState<string | null>(
-    null,
+    null
   );
   const [isSearchingReplacement, setIsSearchingReplacement] = useState(false);
   const [savedLabels, setSavedLabels] = useState<Record<string, string> | null>(
-    null,
+    null
   );
   const [portForwardOpen, setPortForwardOpen] = useState(false);
   const [portForwardBusy, setPortForwardBusy] = useState(false);
@@ -157,7 +161,7 @@ export function PodDetail() {
         "findReplacementPod called with labels:",
         labels,
         "namespace:",
-        namespace,
+        namespace
       );
 
       if (!labels || !namespace) {
@@ -199,7 +203,7 @@ export function PodDetail() {
           labelSelector: labelSelector,
           fieldSelector: null,
           limit: null,
-          statusFilter: null
+          statusFilter: null,
         });
 
         console.log("Found pods:", pods);
@@ -207,7 +211,7 @@ export function PodDetail() {
         // Find a running pod that's not the current one
         // status.phase is the phase string (Running, Pending, etc.)
         const replacement = pods.find(
-          (p) => p.name !== name && p.status.phase === "Running",
+          (p) => p.name !== name && p.status.phase === "Running"
         );
 
         console.log("Replacement pod:", replacement);
@@ -220,7 +224,7 @@ export function PodDetail() {
         setIsSearchingReplacement(false);
       }
     },
-    [savedLabels, namespace, name],
+    [savedLabels, namespace, name]
   );
 
   const { data: podYaml } = useResourceYaml("Pod", name, namespace, activeTab);
@@ -287,7 +291,8 @@ export function PodDetail() {
       if (!hasAccess) {
         toast({
           title: "Premium Feature",
-          description: "Terminal access requires a premium license. Please activate your license.",
+          description:
+            "Terminal access requires a premium license. Please activate your license.",
           variant: "destructive",
         });
         return;
@@ -306,7 +311,8 @@ export function PodDetail() {
       if (!hasAccess) {
         toast({
           title: "Premium Feature",
-          description: "Port forwarding requires a premium license. Please activate your license.",
+          description:
+            "Port forwarding requires a premium license. Please activate your license.",
           variant: "destructive",
         });
         return;
@@ -440,7 +446,7 @@ export function PodDetail() {
                     });
                     navigate(
                       `/pod/${replacement.namespace}/${replacement.name}`,
-                      { replace: true },
+                      { replace: true }
                     );
                   } else {
                     toast({
@@ -466,7 +472,7 @@ export function PodDetail() {
     (session) =>
       session.context === currentContext &&
       session.pod === pod.name &&
-      session.namespace === pod.namespace,
+      session.namespace === pod.namespace
   );
 
   return (
@@ -475,9 +481,7 @@ export function PodDetail() {
       <ResourceDetailHeader
         title={pod.name}
         namespace={pod.namespace}
-        badges={
-          <StatusBadge status={pod.status.phase} />
-        }
+        badges={<StatusBadge status={pod.status.phase} />}
         actions={
           <>
             <Tooltip>
@@ -747,7 +751,9 @@ export function PodDetail() {
                 <MetricCard
                   title="Memory Usage"
                   used={podWithMetrics.memoryUsage}
-                  total={podWithMetrics.memoryLimits ?? podWithMetrics.memoryRequests}
+                  total={
+                    podWithMetrics.memoryLimits ?? podWithMetrics.memoryRequests
+                  }
                   type="memory"
                   showProgressBar
                 />
@@ -782,7 +788,9 @@ export function PodDetail() {
                             onClick={() => openTerminal(container.name)}
                             disabled={!hasLicenseAccess}
                           >
-                            {!hasLicenseAccess && <Lock className="mr-2 h-4 w-4" />}
+                            {!hasLicenseAccess && (
+                              <Lock className="mr-2 h-4 w-4" />
+                            )}
                             <TerminalIcon className="mr-2 h-4 w-4" />
                             Shell
                           </Button>
@@ -817,11 +825,12 @@ export function PodDetail() {
                       >
                         {container.state.type}
                       </Badge>
-                      {'reason' in container.state && container.state.reason && (
-                        <span className="text-xs text-muted-foreground">
-                          ({container.state.reason})
-                        </span>
-                      )}
+                      {"reason" in container.state &&
+                        container.state.reason && (
+                          <span className="text-xs text-muted-foreground">
+                            ({container.state.reason})
+                          </span>
+                        )}
                     </div>
                   </div>
                   <div className="flex justify-between">

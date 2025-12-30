@@ -31,7 +31,7 @@ pub struct ResourceCache {
 
 impl ResourceCache {
     /// Create a new cache with the specified TTL
-    #[must_use] 
+    #[must_use]
     pub fn new(ttl_seconds: u64) -> Self {
         Self {
             cache: DashMap::new(),
@@ -41,7 +41,7 @@ impl ResourceCache {
     }
 
     /// Create with custom settings
-    #[must_use] 
+    #[must_use]
     pub fn with_settings(ttl_seconds: u64, max_entries: usize) -> Self {
         Self {
             cache: DashMap::new(),
@@ -51,7 +51,7 @@ impl ResourceCache {
     }
 
     /// Generate cache key for a resource
-    #[must_use] 
+    #[must_use]
     pub fn resource_key(kind: &str, namespace: Option<&str>, name: Option<&str>) -> String {
         match (namespace, name) {
             (Some(ns), Some(n)) => format!("{kind}:{ns}:{n}"),
@@ -62,7 +62,7 @@ impl ResourceCache {
     }
 
     /// Get a cached value
-    #[must_use] 
+    #[must_use]
     pub fn get(&self, key: &str) -> Option<serde_json::Value> {
         if let Some(entry) = self.cache.get(key) {
             if entry.is_expired() {
@@ -77,10 +77,9 @@ impl ResourceCache {
     }
 
     /// Get a typed cached value
-    #[must_use] 
+    #[must_use]
     pub fn get_typed<T: for<'de> Deserialize<'de>>(&self, key: &str) -> Option<T> {
-        self.get(key)
-            .and_then(|v| serde_json::from_value(v).ok())
+        self.get(key).and_then(|v| serde_json::from_value(v).ok())
     }
 
     /// Set a cached value with default TTL
@@ -100,7 +99,7 @@ impl ResourceCache {
         // Evict if at capacity
         if self.cache.len() >= self.max_entries {
             self.evict_expired();
-            
+
             // If still at capacity, remove oldest entry
             if self.cache.len() >= self.max_entries {
                 self.evict_oldest();
@@ -112,7 +111,7 @@ impl ResourceCache {
             created_at: Instant::now(),
             ttl,
         };
-        
+
         self.cache.insert(key.to_string(), entry);
     }
 
@@ -156,10 +155,7 @@ impl ResourceCache {
 
     /// Evict oldest entry
     fn evict_oldest(&self) {
-        let oldest = self
-            .cache
-            .iter()
-            .min_by_key(|entry| entry.created_at);
+        let oldest = self.cache.iter().min_by_key(|entry| entry.created_at);
 
         if let Some(entry) = oldest {
             let key = entry.key().clone();
@@ -169,23 +165,23 @@ impl ResourceCache {
     }
 
     /// Get cache size
-    #[must_use] 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.cache.len()
     }
 
     /// Check if cache is empty
-    #[must_use] 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.cache.is_empty()
     }
 
     /// Get cache statistics
-    #[must_use] 
+    #[must_use]
     pub fn stats(&self) -> CacheStats {
         let total = self.cache.len();
         let mut expired = 0;
-        
+
         for entry in &self.cache {
             if entry.is_expired() {
                 expired += 1;
@@ -237,7 +233,7 @@ pub struct Debouncer {
 
 impl Debouncer {
     /// Create a new debouncer with the specified delay
-    #[must_use] 
+    #[must_use]
     pub fn new(delay_ms: u64) -> Self {
         Self {
             last_call: RwLock::new(None),
@@ -248,13 +244,13 @@ impl Debouncer {
     /// Check if the action should be executed
     pub fn should_execute(&self) -> bool {
         let mut last = self.last_call.write();
-        
+
         if let Some(last_time) = *last {
             if last_time.elapsed() < self.delay {
                 return false;
             }
         }
-        
+
         *last = Some(Instant::now());
         true
     }
@@ -279,7 +275,7 @@ pub struct RateLimiter {
 
 impl RateLimiter {
     /// Create a new rate limiter
-    #[must_use] 
+    #[must_use]
     pub fn new(max_requests: u32, window_seconds: u64) -> Self {
         Self {
             count: RwLock::new(0),
@@ -330,9 +326,9 @@ mod tests {
     #[test]
     fn test_cache_basic() {
         let cache = ResourceCache::new(60);
-        
+
         cache.set("test", serde_json::json!({"foo": "bar"}));
-        
+
         let value = cache.get("test").unwrap();
         assert_eq!(value["foo"], "bar");
     }
@@ -341,7 +337,7 @@ mod tests {
     fn test_cache_key_generation() {
         let key = ResourceCache::resource_key("Pod", Some("default"), Some("nginx"));
         assert_eq!(key, "Pod:default:nginx");
-        
+
         let key = ResourceCache::resource_key("Namespace", None, Some("default"));
         assert_eq!(key, "Namespace::default");
     }
@@ -349,10 +345,10 @@ mod tests {
     #[test]
     fn test_debouncer() {
         let debouncer = Debouncer::new(100);
-        
+
         assert!(debouncer.should_execute());
         assert!(!debouncer.should_execute());
-        
+
         std::thread::sleep(Duration::from_millis(150));
         assert!(debouncer.should_execute());
     }
@@ -360,12 +356,12 @@ mod tests {
     #[test]
     fn test_rate_limiter() {
         let limiter = RateLimiter::new(3, 1);
-        
+
         assert!(limiter.allow());
         assert!(limiter.allow());
         assert!(limiter.allow());
         assert!(!limiter.allow()); // Should be blocked
-        
+
         assert_eq!(limiter.remaining(), 0);
     }
 }

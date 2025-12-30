@@ -26,9 +26,14 @@ export function RefreshButton({
       className={className}
       {...props}
     >
-      <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin", children && "mr-2")} />
+      <RefreshCw
+        className={cn(
+          "h-4 w-4",
+          isRefreshing && "animate-spin",
+          children && "mr-2"
+        )}
+      />
       {children}
     </Button>
   );
 }
-

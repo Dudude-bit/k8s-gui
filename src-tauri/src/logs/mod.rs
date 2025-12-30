@@ -1,5 +1,5 @@
 //! Log streaming module
-//! 
+//!
 //! Provides real-time log streaming from Kubernetes pods with filtering and search.
 
 use crate::error::{Error, Result};
@@ -12,8 +12,8 @@ use kube::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::{broadcast, oneshot};
 use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::sync::{broadcast, oneshot};
 
 /// Log streaming configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -64,7 +64,7 @@ impl Default for LogConfig {
 
 impl LogConfig {
     /// Create a new log config
-    #[must_use] 
+    #[must_use]
     pub fn new(pod: &str, namespace: &str) -> Self {
         Self {
             pod: pod.to_string(),
@@ -74,28 +74,28 @@ impl LogConfig {
     }
 
     /// Set container
-    #[must_use] 
+    #[must_use]
     pub fn with_container(mut self, container: &str) -> Self {
         self.container = Some(container.to_string());
         self
     }
 
     /// Set tail lines
-    #[must_use] 
+    #[must_use]
     pub fn with_tail(mut self, lines: i64) -> Self {
         self.tail_lines = Some(lines);
         self
     }
 
     /// Set follow
-    #[must_use] 
+    #[must_use]
     pub fn with_follow(mut self, follow: bool) -> Self {
         self.follow = follow;
         self
     }
 
     /// Convert to kube `LogParams`
-    #[must_use] 
+    #[must_use]
     pub fn to_log_params(&self) -> LogParams {
         let mut params = LogParams {
             follow: self.follow,
@@ -152,7 +152,7 @@ pub enum LogLevel {
 
 impl LogLevel {
     /// Parse log level from message
-    #[must_use] 
+    #[must_use]
     pub fn parse(message: &str) -> Self {
         let lower = message.to_lowercase();
         if lower.contains("error") || lower.contains(" err ") {
@@ -179,7 +179,7 @@ pub struct LogStreamer {
 
 impl LogStreamer {
     /// Create a new log streamer
-    #[must_use] 
+    #[must_use]
     pub fn new(client: Arc<Client>, event_tx: broadcast::Sender<AppEvent>) -> Self {
         Self { client, event_tx }
     }
@@ -187,7 +187,7 @@ impl LogStreamer {
     /// Get logs (non-streaming)
     pub async fn get_logs(&self, config: &LogConfig) -> Result<Vec<LogLine>> {
         let api: Api<Pod> = Api::namespaced((*self.client).clone(), &config.namespace);
-        
+
         let mut params = config.to_log_params();
         params.follow = false;
 
@@ -196,9 +196,17 @@ impl LogStreamer {
             .await
             .map_err(|e| Error::LogStream(format!("Failed to get logs: {e}")))?;
 
-        let container = config.container.clone().unwrap_or_else(|| "main".to_string());
-        
-        Ok(Self::parse_logs(&logs, &config.pod, &container, &config.namespace))
+        let container = config
+            .container
+            .clone()
+            .unwrap_or_else(|| "main".to_string());
+
+        Ok(Self::parse_logs(
+            &logs,
+            &config.pod,
+            &container,
+            &config.namespace,
+        ))
     }
 
     /// Stream logs
@@ -211,7 +219,10 @@ impl LogStreamer {
         let api: Api<Pod> = Api::namespaced((*self.client).clone(), &config.namespace);
         let params = config.to_log_params();
 
-        let container = config.container.clone().unwrap_or_else(|| "main".to_string());
+        let container = config
+            .container
+            .clone()
+            .unwrap_or_else(|| "main".to_string());
         let pod = config.pod.clone();
         let namespace = config.namespace.clone();
 
@@ -240,7 +251,7 @@ impl LogStreamer {
                                 &container,
                                 &namespace,
                             );
-                            
+
                             let _ = self.event_tx.send(AppEvent::LogMessage {
                                 stream_id: stream_id.clone(),
                                 pod: pod.clone(),
@@ -270,31 +281,24 @@ impl LogStreamer {
     }
 
     /// Parse log output into log lines
-    fn parse_logs(
-        logs: &str,
-        pod: &str,
-        container: &str,
-        namespace: &str,
-    ) -> Vec<LogLine> {
+    fn parse_logs(logs: &str, pod: &str, container: &str, namespace: &str) -> Vec<LogLine> {
         logs.lines()
             .map(|line| Self::parse_log_line(line, pod, container, namespace))
             .collect()
     }
 
     /// Parse a single log line
-    fn parse_log_line(
-        line: &str,
-        pod: &str,
-        container: &str,
-        namespace: &str,
-    ) -> LogLine {
+    fn parse_log_line(line: &str, pod: &str, container: &str, namespace: &str) -> LogLine {
         // Try to parse timestamp from the beginning of the line
         // Kubernetes log timestamps are in RFC3339 format
         let (timestamp, message) = if line.len() > 30 {
             if let Some(space_idx) = line.find(' ') {
                 let potential_ts = &line[..space_idx];
                 if let Ok(ts) = DateTime::parse_from_rfc3339(potential_ts) {
-                    (Some(ts.with_timezone(&Utc)), line[space_idx + 1..].to_string())
+                    (
+                        Some(ts.with_timezone(&Utc)),
+                        line[space_idx + 1..].to_string(),
+                    )
                 } else {
                     (None, line.to_string())
                 }
@@ -342,7 +346,7 @@ pub struct LogFilter {
 
 impl LogFilter {
     /// Apply filter to log lines
-    #[must_use] 
+    #[must_use]
     pub fn apply(&self, logs: &[LogLine]) -> Vec<LogLine> {
         logs.iter()
             .filter(|log| self.matches(log))
@@ -351,7 +355,7 @@ impl LogFilter {
     }
 
     /// Check if a log line matches the filter
-    #[must_use] 
+    #[must_use]
     pub fn matches(&self, log: &LogLine) -> bool {
         // Filter by container
         if !self.containers.is_empty() && !self.containers.contains(&log.container) {

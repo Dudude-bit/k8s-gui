@@ -38,11 +38,11 @@ const columns: ColumnDef<EndpointsInfo>[] = [
     cell: ({ row }) => {
       const readyCount = row.original.subsets.reduce(
         (acc, s) => acc + s.addresses.length,
-        0,
+        0
       );
       const notReadyCount = row.original.subsets.reduce(
         (acc, s) => acc + s.notReadyAddresses.length,
-        0,
+        0
       );
 
       if (readyCount === 0 && notReadyCount === 0) {
@@ -68,7 +68,7 @@ const columns: ColumnDef<EndpointsInfo>[] = [
                         {addr.targetRef &&
                           ` (${addr.targetRef.kind}/${addr.targetRef.name})`}
                       </div>
-                    )),
+                    ))
                   )}
                 </div>
               </TooltipContent>
@@ -90,7 +90,7 @@ const columns: ColumnDef<EndpointsInfo>[] = [
                         {addr.targetRef &&
                           ` (${addr.targetRef.kind}/${addr.targetRef.name})`}
                       </div>
-                    )),
+                    ))
                   )}
                 </div>
               </TooltipContent>

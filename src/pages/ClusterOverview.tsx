@@ -89,7 +89,7 @@ export function ClusterOverview() {
           labelSelector: null,
           fieldSelector: null,
           limit: null,
-          statusFilter: null
+          statusFilter: null,
         });
         return result;
       } catch (err) {
@@ -191,7 +191,7 @@ export function ClusterOverview() {
         <Card
           className={cn(
             "transition-all duration-200",
-            isFetching && "opacity-70",
+            isFetching && "opacity-70"
           )}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -225,7 +225,7 @@ export function ClusterOverview() {
         <Card
           className={cn(
             "transition-all duration-200",
-            isFetching && "opacity-70",
+            isFetching && "opacity-70"
           )}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -255,7 +255,7 @@ export function ClusterOverview() {
         <Card
           className={cn(
             "transition-all duration-200",
-            isFetching && "opacity-70",
+            isFetching && "opacity-70"
           )}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -276,7 +276,7 @@ export function ClusterOverview() {
         <Card
           className={cn(
             "transition-all duration-200",
-            isFetching && "opacity-70",
+            isFetching && "opacity-70"
           )}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -309,7 +309,9 @@ export function ClusterOverview() {
           <MetricCard
             title="Cluster Memory Usage"
             used={clusterMetrics?.totalMemoryUsage ?? null}
-            total={clusterMetrics?.totalMemoryCapacity ?? totalClusterCapacity.memory}
+            total={
+              clusterMetrics?.totalMemoryCapacity ?? totalClusterCapacity.memory
+            }
             type="memory"
             showProgressBar
           />
@@ -324,21 +326,27 @@ export function ClusterOverview() {
           <Card>
             <CardHeader>
               <CardTitle>Top Pods by CPU</CardTitle>
-              <CardDescription>Pods consuming the most CPU resources</CardDescription>
+              <CardDescription>
+                Pods consuming the most CPU resources
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 {topPodsByCPU.length > 0 ? (
                   topPodsByCPU.map((pod, idx) => {
-                    const podInfo = podsWithMetrics.find((p) => p.name === pod.name);
+                    const podInfo = podsWithMetrics.find(
+                      (p) => p.name === pod.name
+                    );
                     return (
                       <Link
                         key={pod.name}
-                        to={`/pod/${podInfo?.namespace || 'default'}/${pod.name}`}
+                        to={`/pod/${podInfo?.namespace || "default"}/${pod.name}`}
                         className="flex items-center justify-between p-2 rounded-md hover:bg-muted transition-colors"
                       >
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">#{idx + 1}</span>
+                          <span className="text-sm font-medium">
+                            #{idx + 1}
+                          </span>
                           <span className="text-sm">{pod.name}</span>
                         </div>
                         <div className="text-sm font-medium">
@@ -348,7 +356,9 @@ export function ClusterOverview() {
                     );
                   })
                 ) : (
-                  <p className="text-sm text-muted-foreground">No pod metrics available</p>
+                  <p className="text-sm text-muted-foreground">
+                    No pod metrics available
+                  </p>
                 )}
               </div>
             </CardContent>
@@ -357,21 +367,27 @@ export function ClusterOverview() {
           <Card>
             <CardHeader>
               <CardTitle>Top Pods by Memory</CardTitle>
-              <CardDescription>Pods consuming the most memory resources</CardDescription>
+              <CardDescription>
+                Pods consuming the most memory resources
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 {topPodsByMemory.length > 0 ? (
                   topPodsByMemory.map((pod, idx) => {
-                    const podInfo = podsWithMetrics.find((p) => p.name === pod.name);
+                    const podInfo = podsWithMetrics.find(
+                      (p) => p.name === pod.name
+                    );
                     return (
                       <Link
                         key={pod.name}
-                        to={`/pod/${podInfo?.namespace || 'default'}/${pod.name}`}
+                        to={`/pod/${podInfo?.namespace || "default"}/${pod.name}`}
                         className="flex items-center justify-between p-2 rounded-md hover:bg-muted transition-colors"
                       >
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">#{idx + 1}</span>
+                          <span className="text-sm font-medium">
+                            #{idx + 1}
+                          </span>
                           <span className="text-sm">{pod.name}</span>
                         </div>
                         <div className="text-sm font-medium">
@@ -381,7 +397,9 @@ export function ClusterOverview() {
                     );
                   })
                 ) : (
-                  <p className="text-sm text-muted-foreground">No pod metrics available</p>
+                  <p className="text-sm text-muted-foreground">
+                    No pod metrics available
+                  </p>
                 )}
               </div>
             </CardContent>
@@ -431,7 +449,7 @@ function QuickActionButton({
       to={href}
       className={cn(
         "flex items-center gap-2 rounded-lg border border-border p-3",
-        "transition-colors hover:bg-accent",
+        "transition-colors hover:bg-accent"
       )}
     >
       <Icon className="h-4 w-4 text-muted-foreground" />

@@ -17,10 +17,10 @@ pub const TERABYTE: u64 = 1000 * 1000 * 1000 * 1000;
 
 /// Parse CPU quantity string to millicores (f64)
 /// Supports formats: "500m", "0.5", "2", "2.5", "100n" (nanocores)
-#[must_use] 
+#[must_use]
 pub fn parse_cpu(cpu_str: &str) -> f64 {
     let cpu_str = cpu_str.trim();
-    
+
     if cpu_str.ends_with('m') {
         // Millicores: "500m" -> 500.0 millicores
         cpu_str[..cpu_str.len() - 1].parse::<f64>().unwrap_or(0.0)
@@ -40,10 +40,10 @@ pub fn parse_cpu(cpu_str: &str) -> f64 {
 
 /// Parse memory quantity string to bytes (u64)
 /// Supports formats: "512Mi", "1Gi", "1024Ki", "1073741824", "128974848", "100M", "1G"
-#[must_use] 
+#[must_use]
 pub fn parse_memory(mem_str: &str) -> u64 {
     let mem_str = mem_str.trim();
-    
+
     // Binary units (Ki, Mi, Gi, Ti)
     if mem_str.ends_with("Ki") {
         let num = mem_str[..mem_str.len() - 2].parse::<f64>().unwrap_or(0.0);
@@ -78,7 +78,7 @@ pub fn parse_memory(mem_str: &str) -> u64 {
 
 /// Parse a generic Kubernetes quantity to f64
 /// Handles both CPU and memory formats
-#[must_use] 
+#[must_use]
 pub fn parse_quantity(value: &str) -> Option<f64> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
@@ -119,7 +119,7 @@ pub fn parse_quantity(value: &str) -> Option<f64> {
 
 /// Format millicores to string representation
 /// Returns "500m" for < 1000 millicores, or "2" for >= 1000 millicores
-#[must_use] 
+#[must_use]
 pub fn format_cpu(millicores: f64) -> String {
     if millicores < 1000.0 {
         format!("{}m", millicores as u64)
@@ -135,37 +135,37 @@ pub fn format_cpu(millicores: f64) -> String {
 
 /// Format bytes to human-readable string
 /// Returns format like "512Mi", "1Gi", etc.
-#[must_use] 
+#[must_use]
 pub fn format_memory(bytes: u64) -> String {
     if bytes == 0 {
         return "0".to_string();
     }
-    
+
     let tib = bytes as f64 / TEBIBYTE as f64;
     if tib >= 1.0 {
         return format!("{tib:.2}Ti");
     }
-    
+
     let gib = bytes as f64 / GIBIBYTE as f64;
     if gib >= 1.0 {
         return format!("{gib:.2}Gi");
     }
-    
+
     let mib = bytes as f64 / MEBIBYTE as f64;
     if mib >= 1.0 {
         return format!("{mib:.2}Mi");
     }
-    
+
     let kib = bytes as f64 / KIBIBYTE as f64;
     if kib >= 1.0 {
         return format!("{kib:.2}Ki");
     }
-    
+
     format!("{bytes}")
 }
 
 /// Calculate utilization percentage
-#[must_use] 
+#[must_use]
 pub fn calculate_utilization(used: f64, total: f64) -> Option<f64> {
     if total <= 0.0 {
         return None;
@@ -208,4 +208,3 @@ mod tests {
         assert_eq!(format_memory(1024 * 1024 * 1024), "1.00Gi");
     }
 }
-

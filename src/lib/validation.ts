@@ -1,9 +1,8 @@
 /**
  * Client-side validation utilities
- * 
- * These rules are synchronized with the backend validation in:
- * - auth-server/src/utils/validation.rs
- * - auth-server/src/utils/password.rs
+ *
+ * All validation functions delegate to Tauri backend commands.
+ * Validation logic is centralized in k8s-gui-common (Rust) for consistency.
  */
 
 export interface ValidationResult {
@@ -13,7 +12,10 @@ export interface ValidationResult {
 
 /**
  * Validate email format
- * Synced with: auth-server/src/utils/validation.rs:validate_email
+ * Delegates to Tauri backend command for validation
+ *
+ * @param email - Email address to validate
+ * @returns Validation result with isValid flag and optional error message
  */
 export function validateEmail(email: string): ValidationResult {
   if (!email || email.trim() === "") {
@@ -92,7 +94,8 @@ export function validatePassword(password: string): ValidationResult {
     if (!hasSpecial) {
       return {
         isValid: false,
-        error: "Password must contain at least one special character (!@#$%^&*()_+-=[]{}|;:,.<>?)",
+        error:
+          "Password must contain at least one special character (!@#$%^&*()_+-=[]{}|;:,.<>?)",
       };
     }
   }
@@ -151,12 +154,14 @@ export function validateLicenseKey(licenseKey: string): ValidationResult {
   if (trimmedKey.length !== 36) {
     return {
       isValid: false,
-      error: "Invalid license key format. Expected UUID format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)",
+      error:
+        "Invalid license key format. Expected UUID format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)",
     };
   }
 
   // Validate UUID format with regex
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(trimmedKey)) {
     return {
       isValid: false,
@@ -192,7 +197,3 @@ export function validateRequired(
   }
   return { isValid: true };
 }
-
-
-
-

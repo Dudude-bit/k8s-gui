@@ -50,50 +50,50 @@ export function Terminal({
     () =>
       isDark
         ? {
-          background: "#1a1a2e",
-          foreground: "#e4e4e7",
-          cursor: "#3b82f6",
-          selectionBackground: "#3b82f680",
-          black: "#09090b",
-          red: "#ef4444",
-          green: "#22c55e",
-          yellow: "#eab308",
-          blue: "#3b82f6",
-          magenta: "#a855f7",
-          cyan: "#06b6d4",
-          white: "#fafafa",
-          brightBlack: "#52525b",
-          brightRed: "#f87171",
-          brightGreen: "#4ade80",
-          brightYellow: "#facc15",
-          brightBlue: "#60a5fa",
-          brightMagenta: "#c084fc",
-          brightCyan: "#22d3ee",
-          brightWhite: "#ffffff",
-        }
+            background: "#1a1a2e",
+            foreground: "#e4e4e7",
+            cursor: "#3b82f6",
+            selectionBackground: "#3b82f680",
+            black: "#09090b",
+            red: "#ef4444",
+            green: "#22c55e",
+            yellow: "#eab308",
+            blue: "#3b82f6",
+            magenta: "#a855f7",
+            cyan: "#06b6d4",
+            white: "#fafafa",
+            brightBlack: "#52525b",
+            brightRed: "#f87171",
+            brightGreen: "#4ade80",
+            brightYellow: "#facc15",
+            brightBlue: "#60a5fa",
+            brightMagenta: "#c084fc",
+            brightCyan: "#22d3ee",
+            brightWhite: "#ffffff",
+          }
         : {
-          background: "#fafafa",
-          foreground: "#18181b",
-          cursor: "#2563eb",
-          selectionBackground: "#3b82f640",
-          black: "#09090b",
-          red: "#dc2626",
-          green: "#16a34a",
-          yellow: "#ca8a04",
-          blue: "#2563eb",
-          magenta: "#9333ea",
-          cyan: "#0891b2",
-          white: "#f4f4f5",
-          brightBlack: "#71717a",
-          brightRed: "#ef4444",
-          brightGreen: "#22c55e",
-          brightYellow: "#eab308",
-          brightBlue: "#3b82f6",
-          brightMagenta: "#a855f7",
-          brightCyan: "#06b6d4",
-          brightWhite: "#ffffff",
-        },
-    [isDark],
+            background: "#fafafa",
+            foreground: "#18181b",
+            cursor: "#2563eb",
+            selectionBackground: "#3b82f640",
+            black: "#09090b",
+            red: "#dc2626",
+            green: "#16a34a",
+            yellow: "#ca8a04",
+            blue: "#2563eb",
+            magenta: "#9333ea",
+            cyan: "#0891b2",
+            white: "#f4f4f5",
+            brightBlack: "#71717a",
+            brightRed: "#ef4444",
+            brightGreen: "#22c55e",
+            brightYellow: "#eab308",
+            brightBlue: "#3b82f6",
+            brightMagenta: "#a855f7",
+            brightCyan: "#06b6d4",
+            brightWhite: "#ffffff",
+          },
+    [isDark]
   );
 
   const clearSession = useCallback(() => {
@@ -110,7 +110,7 @@ export function Terminal({
       status: SessionStatus,
       message: string,
       color: "yellow" | "red" = "yellow",
-      autoClose = false,
+      autoClose = false
     ) => {
       if (isClosedRef.current) {
         return;
@@ -127,7 +127,7 @@ export function Terminal({
         setTimeout(() => onClose(), 300);
       }
     },
-    [clearSession, onClose],
+    [clearSession, onClose]
   );
 
   const startSession = useCallback(async () => {
@@ -146,17 +146,22 @@ export function Terminal({
 
     xterm.clear();
     xterm.writeln(
-      `\x1b[33mConnecting to ${podName}/${containerName}...\x1b[0m\r\n`,
+      `\x1b[33mConnecting to ${podName}/${containerName}...\x1b[0m\r\n`
     );
 
     try {
-      const newSessionId = await commands.openShell(namespace, podName, containerName, null);
+      const newSessionId = await commands.openShell(
+        namespace,
+        podName,
+        containerName,
+        null
+      );
 
       activeSessionIdRef.current = newSessionId;
       setSessionStatus("connected");
 
       xterm.writeln(
-        `\x1b[32mConnected to ${podName}/${containerName}\x1b[0m\r\n`,
+        `\x1b[32mConnected to ${podName}/${containerName}\x1b[0m\r\n`
       );
 
       const unlistenOutput = await listen<{ session_id: string; data: string }>(
@@ -165,7 +170,7 @@ export function Terminal({
           if (event.payload.session_id === newSessionId) {
             xterm.write(event.payload.data);
           }
-        },
+        }
       );
 
       const unlistenClosed = await listen<{
@@ -200,7 +205,11 @@ export function Terminal({
       };
     } catch (error) {
       console.error("Failed to open shell:", error);
-      markSessionEnded("error", `Failed to connect: ${normalizeTauriError(error)}`, "red");
+      markSessionEnded(
+        "error",
+        `Failed to connect: ${normalizeTauriError(error)}`,
+        "red"
+      );
     }
   }, [clearSession, containerName, markSessionEnded, namespace, podName]);
 
@@ -234,7 +243,9 @@ export function Terminal({
       fitAddon.fit();
       const activeSessionId = activeSessionIdRef.current || sessionId;
       if (activeSessionId) {
-        commands.terminalResize(activeSessionId, xterm.cols, xterm.rows).catch(console.error);
+        commands
+          .terminalResize(activeSessionId, xterm.cols, xterm.rows)
+          .catch(console.error);
       }
     };
 
@@ -265,7 +276,7 @@ export function Terminal({
       try {
         const pod = await commands.getPod(podName, namespace);
         const container = pod.containers?.find(
-          (item) => item.name === containerName,
+          (item) => item.name === containerName
         );
 
         if (!container) {
@@ -273,25 +284,24 @@ export function Terminal({
             "unavailable",
             "Container not found",
             "yellow",
-            true,
+            true
           );
           return;
         }
 
-        if (container.state.type === "Terminated") {
-          // Access 'reason' only if type is Terminated or Waiting.
+        if (container.state.type === "terminated") {
+          // Access 'reason' only if type is terminated or waiting.
           // ContainerState is discriminated union.
           // TypeScript should narrow it, but we might need explicit check or cast if accessing directly.
-          // In generated type: | { type: "Terminated"; exitCode: number; reason: string | null }
-          const terminatedState = container.state as { reason: string | null };
-          const reason = terminatedState.reason
-            ? `: ${terminatedState.reason}`
+          // In generated type: | { type: "terminated"; exitCode: number; reason: string | null }
+          const reason = container.state.reason
+            ? `: ${container.state.reason}`
             : "";
           markSessionEnded(
             "unavailable",
             `Container terminated${reason}`,
             "yellow",
-            true,
+            true
           );
           return;
         }
@@ -302,7 +312,7 @@ export function Terminal({
             "unavailable",
             `Pod ${pod.status.phase}`,
             "yellow",
-            true,
+            true
           );
         }
       } catch (error) {

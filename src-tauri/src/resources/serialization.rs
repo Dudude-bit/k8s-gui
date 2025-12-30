@@ -61,7 +61,7 @@ pub struct ResourceList<T> {
 }
 
 impl<T> ResourceList<T> {
-    #[must_use] 
+    #[must_use]
     pub fn new(items: Vec<T>, total: usize, page: usize, per_page: usize) -> Self {
         Self {
             items,
@@ -72,7 +72,7 @@ impl<T> ResourceList<T> {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn with_continue(mut self, token: Option<String>) -> Self {
         self.continue_token = token;
         self
@@ -94,27 +94,27 @@ pub enum ResourceKind {
     PersistentVolumeClaim,
     ServiceAccount,
     Event,
-    
+
     // Apps resources
     Deployment,
     ReplicaSet,
     StatefulSet,
     DaemonSet,
-    
+
     // Batch resources
     Job,
     CronJob,
-    
+
     // Networking
     Ingress,
     NetworkPolicy,
-    
+
     // RBAC
     Role,
     RoleBinding,
     ClusterRole,
     ClusterRoleBinding,
-    
+
     // Custom
     CustomResourceDefinition,
     Custom,
@@ -122,7 +122,7 @@ pub enum ResourceKind {
 
 impl ResourceKind {
     /// Get the API version for this resource kind
-    #[must_use] 
+    #[must_use]
     pub fn api_version(&self) -> &'static str {
         match self {
             ResourceKind::Pod
@@ -135,28 +135,28 @@ impl ResourceKind {
             | ResourceKind::PersistentVolumeClaim
             | ResourceKind::ServiceAccount
             | ResourceKind::Event => "v1",
-            
+
             ResourceKind::Deployment
             | ResourceKind::ReplicaSet
             | ResourceKind::StatefulSet
             | ResourceKind::DaemonSet => "apps/v1",
-            
+
             ResourceKind::Job | ResourceKind::CronJob => "batch/v1",
-            
+
             ResourceKind::Ingress | ResourceKind::NetworkPolicy => "networking.k8s.io/v1",
-            
+
             ResourceKind::Role | ResourceKind::RoleBinding => "rbac.authorization.k8s.io/v1",
             ResourceKind::ClusterRole | ResourceKind::ClusterRoleBinding => {
                 "rbac.authorization.k8s.io/v1"
             }
-            
+
             ResourceKind::CustomResourceDefinition => "apiextensions.k8s.io/v1",
             ResourceKind::Custom => "",
         }
     }
 
     /// Check if this is a namespaced resource
-    #[must_use] 
+    #[must_use]
     pub fn is_namespaced(&self) -> bool {
         !matches!(
             self,
@@ -170,7 +170,7 @@ impl ResourceKind {
     }
 
     /// Get the plural name for API calls
-    #[must_use] 
+    #[must_use]
     pub fn plural(&self) -> &'static str {
         match self {
             ResourceKind::Pod => "pods",

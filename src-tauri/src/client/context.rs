@@ -51,7 +51,7 @@ impl ClusterContext {
     }
 
     /// Set insecure TLS verification
-    #[must_use] 
+    #[must_use]
     pub fn with_insecure_tls(mut self, insecure: bool) -> Self {
         self.insecure_skip_tls_verify = insecure;
         self
@@ -89,7 +89,7 @@ mod tests {
             namespace: Some("default".to_string()),
             is_current: true,
         };
-        
+
         assert_eq!(info.name, "test");
         assert!(info.is_current);
     }
@@ -99,7 +99,7 @@ mod tests {
         let ctx = ClusterContext::new("prod", "https://k8s.example.com:6443")
             .with_namespace("production")
             .with_insecure_tls(false);
-        
+
         assert_eq!(ctx.name, "prod");
         assert_eq!(ctx.default_namespace, "production");
         assert!(!ctx.insecure_skip_tls_verify);

@@ -12,7 +12,7 @@ pub struct CredentialStore {
 
 impl CredentialStore {
     /// Create a new credential store
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             service: SERVICE_NAME.to_string(),
@@ -28,11 +28,11 @@ impl CredentialStore {
     pub fn store(&self, key: &str, value: &str) -> Result<()> {
         let entry = Entry::new(&self.service, key)
             .map_err(|e| Error::Keyring(format!("Failed to create keyring entry: {e}")))?;
-        
+
         entry
             .set_password(value)
             .map_err(|e| Error::Keyring(format!("Failed to store credential: {e}")))?;
-        
+
         tracing::debug!("Stored credential for key: {}", key);
         Ok(())
     }
@@ -46,11 +46,13 @@ impl CredentialStore {
     pub fn get(&self, key: &str) -> Result<Option<String>> {
         let entry = Entry::new(&self.service, key)
             .map_err(|e| Error::Keyring(format!("Failed to create keyring entry: {e}")))?;
-        
+
         match entry.get_password() {
             Ok(password) => Ok(Some(password)),
             Err(keyring::Error::NoEntry) => Ok(None),
-            Err(e) => Err(Error::Keyring(format!("Failed to retrieve credential: {e}"))),
+            Err(e) => Err(Error::Keyring(format!(
+                "Failed to retrieve credential: {e}"
+            ))),
         }
     }
 
@@ -63,7 +65,7 @@ impl CredentialStore {
     pub fn delete(&self, key: &str) -> Result<()> {
         let entry = Entry::new(&self.service, key)
             .map_err(|e| Error::Keyring(format!("Failed to create keyring entry: {e}")))?;
-        
+
         match entry.delete_credential() {
             Ok(()) => {
                 tracing::debug!("Deleted credential for key: {}", key);
@@ -129,7 +131,12 @@ impl CredentialStore {
     /// # Errors
     ///
     /// Returns an error if storing the AWS credentials fails.
-    pub fn store_aws_credentials(&self, profile: &str, access_key: &str, secret_key: &str) -> Result<()> {
+    pub fn store_aws_credentials(
+        &self,
+        profile: &str,
+        access_key: &str,
+        secret_key: &str,
+    ) -> Result<()> {
         let creds = format!("{access_key}:{secret_key}");
         let key = format!("aws:{profile}");
         self.store(&key, &creds)
@@ -175,11 +182,11 @@ mod tests {
         let store = CredentialStore::new();
         let key = "test-key";
         let value = "test-value";
-        
+
         store.store(key, value).unwrap();
         let retrieved = store.get(key).unwrap();
         assert_eq!(retrieved, Some(value.to_string()));
-        
+
         store.delete(key).unwrap();
         let deleted = store.get(key).unwrap();
         assert_eq!(deleted, None);
@@ -191,11 +198,11 @@ mod tests {
         let store = CredentialStore::new();
         let context = "test-context";
         let token = "test-token";
-        
+
         store.store_token(context, token).unwrap();
         let retrieved = store.get_token(context).unwrap();
         assert_eq!(retrieved, Some(token.to_string()));
-        
+
         store.delete_token(context).unwrap();
     }
 }

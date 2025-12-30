@@ -1,5 +1,5 @@
 //! Authentication manager
-//! 
+//!
 //! Manages authentication state and token refresh for all contexts.
 
 use super::{AuthConfig, AuthMethod, AuthProvider, AuthResult, AuthStatus};
@@ -12,20 +12,20 @@ use std::sync::Arc;
 pub struct AuthManager {
     /// Authentication results by context
     auth_results: DashMap<String, AuthResult>,
-    
+
     /// Authentication providers by context
     providers: DashMap<String, Arc<dyn AuthProvider>>,
-    
+
     /// Authentication status by context
     status: DashMap<String, AuthStatus>,
-    
+
     /// Token refresh tasks
     refresh_tasks: DashMap<String, tokio::task::JoinHandle<()>>,
 }
 
 impl AuthManager {
     /// Create a new authentication manager
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             auth_results: DashMap::new(),
@@ -42,13 +42,15 @@ impl AuthManager {
     /// Returns an error if the authentication provider cannot be created or
     /// if authentication fails.
     pub async fn authenticate(&self, context: &str, config: &AuthConfig) -> Result<AuthResult> {
-        self.status.insert(context.to_string(), AuthStatus::Authenticating);
-        
+        self.status
+            .insert(context.to_string(), AuthStatus::Authenticating);
+
         let provider = Self::create_provider(config)?;
-        
+
         match provider.authenticate().await {
             Ok(result) => {
-                self.auth_results.insert(context.to_string(), result.clone());
+                self.auth_results
+                    .insert(context.to_string(), result.clone());
                 self.providers.insert(context.to_string(), provider);
                 self.status.insert(
                     context.to_string(),
@@ -57,12 +59,12 @@ impl AuthManager {
                         expires_at: result.expires_at,
                     },
                 );
-                
+
                 // Start auto-refresh if supported
                 if result.expires_at.is_some() {
                     self.start_auto_refresh(context).await;
                 }
-                
+
                 Ok(result)
             }
             Err(e) => {
@@ -88,21 +90,22 @@ impl AuthManager {
             .providers
             .get(context)
             .ok_or_else(|| Error::Auth(AuthError::MissingCredentials))?;
-        
+
         let current = self
             .auth_results
             .get(context)
             .ok_or_else(|| Error::Auth(AuthError::MissingCredentials))?;
-        
+
         if !provider.supports_refresh() {
             return Err(Error::Auth(AuthError::RefreshFailed(
                 "Provider does not support refresh".to_string(),
             )));
         }
-        
+
         let result = provider.refresh(&current).await?;
-        self.auth_results.insert(context.to_string(), result.clone());
-        
+        self.auth_results
+            .insert(context.to_string(), result.clone());
+
         self.status.insert(
             context.to_string(),
             AuthStatus::Authenticated {
@@ -110,18 +113,18 @@ impl AuthManager {
                 expires_at: result.expires_at,
             },
         );
-        
+
         Ok(result)
     }
 
     /// Get authentication result for a context
-    #[must_use] 
+    #[must_use]
     pub fn get_auth(&self, context: &str) -> Option<AuthResult> {
         self.auth_results.get(context).map(|r| r.clone())
     }
 
     /// Get authentication status for a context
-    #[must_use] 
+    #[must_use]
     pub fn get_status(&self, context: &str) -> AuthStatus {
         self.status
             .get(context)
@@ -129,7 +132,7 @@ impl AuthManager {
     }
 
     /// Check if authentication is valid
-    #[must_use] 
+    #[must_use]
     pub fn is_authenticated(&self, context: &str) -> bool {
         if let Some(result) = self.auth_results.get(context) {
             !result.is_expired()
@@ -142,8 +145,9 @@ impl AuthManager {
     pub fn logout(&self, context: &str) {
         self.auth_results.remove(context);
         self.providers.remove(context);
-        self.status.insert(context.to_string(), AuthStatus::NotAuthenticated);
-        
+        self.status
+            .insert(context.to_string(), AuthStatus::NotAuthenticated);
+
         if let Some((_, handle)) = self.refresh_tasks.remove(context) {
             handle.abort();
         }
@@ -153,11 +157,9 @@ impl AuthManager {
     fn create_provider(config: &AuthConfig) -> Result<Arc<dyn AuthProvider>> {
         let provider: Arc<dyn AuthProvider> = match &config.method {
             AuthMethod::Kubeconfig => Arc::new(KubeconfigAuth::new()),
-            
-            AuthMethod::BearerToken { token } => {
-                Arc::new(BearerTokenAuth::new(token.clone()))
-            }
-            
+
+            AuthMethod::BearerToken { token } => Arc::new(BearerTokenAuth::new(token.clone())),
+
             AuthMethod::Certificate {
                 client_certificate_data: _,
                 client_key_data: _,
@@ -165,7 +167,7 @@ impl AuthManager {
                 // For certificate auth, we'll use kubeconfig provider with cert data
                 Arc::new(KubeconfigAuth::new())
             }
-            
+
             AuthMethod::Oidc {
                 issuer_url,
                 client_id,
@@ -179,7 +181,7 @@ impl AuthManager {
                 client_secret.clone(),
                 scopes.clone(),
             )),
-            
+
             AuthMethod::AwsEks {
                 cluster_name: _,
                 region,
@@ -191,7 +193,7 @@ impl AuthManager {
                 profile.clone(),
             )),
         };
-        
+
         Ok(provider)
     }
 
@@ -209,19 +211,19 @@ impl AuthManager {
     /// Start automatic token refresh
     async fn start_auto_refresh(&self, context: &str) {
         let context = context.to_string();
-        
+
         // Cancel existing refresh task
         if let Some((_, handle)) = self.refresh_tasks.remove(&context) {
             handle.abort();
         }
-        
+
         // We would start a background task here to refresh tokens
         // This is a simplified version
         tracing::debug!("Auto-refresh enabled for context: {}", context);
     }
 
     /// List all authenticated contexts
-    #[must_use] 
+    #[must_use]
     pub fn authenticated_contexts(&self) -> Vec<String> {
         self.auth_results
             .iter()

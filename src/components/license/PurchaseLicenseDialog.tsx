@@ -6,7 +6,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Crown, Infinity } from "lucide-react";
 
 interface PurchaseLicenseDialogProps {
@@ -34,9 +40,7 @@ export function PurchaseLicenseDialog({
                 <Crown className="h-5 w-5" />
                 Monthly Subscription
               </CardTitle>
-              <CardDescription>
-                Perfect for regular use
-              </CardDescription>
+              <CardDescription>Perfect for regular use</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -76,17 +80,15 @@ export function PurchaseLicenseDialog({
                 <li>✓ Priority support</li>
                 <li>✓ Best value</li>
               </ul>
-              <Button className="w-full">
-                Buy Lifetime
-              </Button>
+              <Button className="w-full">Buy Lifetime</Button>
             </CardContent>
           </Card>
         </div>
         <div className="text-sm text-muted-foreground text-center mt-4">
-          Premium features include: Metrics, Logs, Terminal, Port Forwarding, and more
+          Premium features include: Metrics, Logs, Terminal, Port Forwarding,
+          and more
         </div>
       </DialogContent>
     </Dialog>
   );
 }
-

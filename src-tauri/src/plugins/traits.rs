@@ -1,5 +1,5 @@
 //! Plugin traits for extensibility
-//! 
+//!
 //! Defines the core traits that plugins must implement.
 
 use crate::error::Result;
@@ -21,7 +21,11 @@ pub trait PluginCommand: Send + Sync {
     fn usage(&self) -> &str;
 
     /// Execute the command
-    async fn execute(&self, args: &[String], context: &PluginContext) -> Result<super::PluginResult>;
+    async fn execute(
+        &self,
+        args: &[String],
+        context: &PluginContext,
+    ) -> Result<super::PluginResult>;
 
     /// Get command flags
     fn flags(&self) -> Vec<CommandFlag> {
@@ -63,7 +67,7 @@ pub struct ContextMenuItem {
 
 impl ContextMenuItem {
     /// Create a new context menu item
-    #[must_use] 
+    #[must_use]
     pub fn new(id: &str, label: &str) -> Self {
         Self {
             id: id.to_string(),
@@ -76,28 +80,28 @@ impl ContextMenuItem {
     }
 
     /// Set icon
-    #[must_use] 
+    #[must_use]
     pub fn with_icon(mut self, icon: &str) -> Self {
         self.icon = Some(icon.to_string());
         self
     }
 
     /// Set shortcut
-    #[must_use] 
+    #[must_use]
     pub fn with_shortcut(mut self, shortcut: &str) -> Self {
         self.shortcut = Some(shortcut.to_string());
         self
     }
 
     /// Mark as dangerous
-    #[must_use] 
+    #[must_use]
     pub fn dangerous(mut self) -> Self {
         self.dangerous = true;
         self
     }
 
     /// Add submenu
-    #[must_use] 
+    #[must_use]
     pub fn with_submenu(mut self, items: Vec<ContextMenuItem>) -> Self {
         self.submenu = items;
         self
@@ -243,7 +247,7 @@ impl Default for PluginContext {
 
 impl PluginContext {
     /// Create a new plugin context
-    #[must_use] 
+    #[must_use]
     pub fn new(kube_context: &str, namespace: &str) -> Self {
         Self {
             kube_context: kube_context.to_string(),
@@ -253,21 +257,21 @@ impl PluginContext {
     }
 
     /// Set kubeconfig path
-    #[must_use] 
+    #[must_use]
     pub fn with_kubeconfig(mut self, path: &str) -> Self {
         self.kubeconfig_path = Some(path.to_string());
         self
     }
 
     /// Add environment variable
-    #[must_use] 
+    #[must_use]
     pub fn with_env(mut self, key: &str, value: &str) -> Self {
         self.env.insert(key.to_string(), value.to_string());
         self
     }
 
     /// Set timeout
-    #[must_use] 
+    #[must_use]
     pub fn with_timeout(mut self, secs: u64) -> Self {
         self.timeout_secs = secs;
         self

@@ -1,4 +1,10 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useLicense } from "@/hooks/useLicense";
@@ -58,7 +64,9 @@ export function LicenseSection() {
               {licenseStatus.hasLicense && (
                 <>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Subscription Type</span>
+                    <span className="text-sm font-medium">
+                      Subscription Type
+                    </span>
                     <div className="flex items-center gap-2">
                       {licenseStatus.subscriptionType === "infinite" ? (
                         <Infinity className="h-4 w-4" />
@@ -93,7 +101,10 @@ export function LicenseSection() {
 
               {!hasValidLicense && (
                 <div className="pt-4 border-t space-y-2">
-                  <Button onClick={() => setShowPurchase(true)} className="w-full">
+                  <Button
+                    onClick={() => setShowPurchase(true)}
+                    className="w-full"
+                  >
                     Purchase License
                   </Button>
                   <Button
@@ -135,4 +146,3 @@ export function LicenseSection() {
     </>
   );
 }
-

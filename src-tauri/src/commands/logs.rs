@@ -28,7 +28,9 @@ pub async fn stream_pod_logs(
     state: State<'_, AppState>,
     license: State<'_, crate::auth::license_client::LicenseClient>,
 ) -> Result<String, String> {
-    license.require_premium_license().await
+    license
+        .require_premium_license()
+        .await
         .map_err(|e| e.to_string())?;
     let context = state
         .get_current_context()
@@ -39,21 +41,24 @@ pub async fn stream_pod_logs(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = config.namespace.clone().unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = config
+        .namespace
+        .clone()
+        .unwrap_or_else(|| state.get_namespace(&context));
 
     let mut log_config = LogConfig::new(&config.pod_name, &namespace)
         .with_follow(config.follow)
         .with_tail(config.tail_lines.unwrap_or(100));
-    
+
     if let Some(ref container) = config.container {
         log_config = log_config.with_container(container);
     }
 
     let stream_id = uuid::Uuid::new_v4().to_string();
     let event_tx = state.event_tx.clone();
-    
+
     let streamer = LogStreamer::new(Arc::new((*client).clone()), event_tx);
-    
+
     let (cancel_tx, cancel_rx) = oneshot::channel();
     let stream_id_clone = stream_id.clone();
 
@@ -69,7 +74,10 @@ pub async fn stream_pod_logs(
 
     // Spawn background task to stream logs
     tokio::spawn(async move {
-        if let Err(e) = streamer.stream_logs(stream_id_clone.clone(), log_config, cancel_rx).await {
+        if let Err(e) = streamer
+            .stream_logs(stream_id_clone.clone(), log_config, cancel_rx)
+            .await
+        {
             tracing::error!("Log stream {} error: {}", stream_id_clone, e);
         }
     });
@@ -102,14 +110,16 @@ pub async fn get_pod_logs(
     let mut log_config = LogConfig::new(&pod_name, &namespace)
         .with_follow(false)
         .with_tail(tail_lines.unwrap_or(1000));
-    
+
     if let Some(container) = container {
         log_config = log_config.with_container(&container);
     }
 
     let event_tx = state.event_tx.clone();
     let streamer = LogStreamer::new(Arc::new((*client).clone()), event_tx);
-    let logs = streamer.get_logs(&log_config).await
+    let logs = streamer
+        .get_logs(&log_config)
+        .await
         .map_err(|e| e.to_string())?;
 
     Ok(logs)
@@ -117,10 +127,7 @@ pub async fn get_pod_logs(
 
 /// Stop log streaming
 #[tauri::command]
-pub async fn stop_log_stream(
-    stream_id: String,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
+pub async fn stop_log_stream(stream_id: String, state: State<'_, AppState>) -> Result<(), String> {
     if let Some((_, log_stream)) = state.log_streams.remove(&stream_id) {
         let _ = log_stream.cancel_tx.send(());
         tracing::info!("Log stream {} stopped", stream_id);
@@ -154,25 +161,36 @@ pub async fn search_pod_logs(
     let mut log_config = LogConfig::new(&pod_name, &namespace)
         .with_follow(false)
         .with_tail(tail_lines.unwrap_or(10000));
-    
+
     if let Some(container) = container {
         log_config = log_config.with_container(&container);
     }
 
     let event_tx = state.event_tx.clone();
     let streamer = LogStreamer::new(Arc::new((*client).clone()), event_tx);
-    let all_logs = streamer.get_logs(&log_config).await
+    let all_logs = streamer
+        .get_logs(&log_config)
+        .await
         .map_err(|e| e.to_string())?;
 
     // Apply filter
     let filtered: Vec<LogLine> = if regex {
         let re = regex::Regex::new(&query).map_err(|e| format!("Invalid regex: {e}"))?;
-        all_logs.into_iter().filter(|line| re.is_match(&line.message)).collect()
+        all_logs
+            .into_iter()
+            .filter(|line| re.is_match(&line.message))
+            .collect()
     } else if case_sensitive {
-        all_logs.into_iter().filter(|line| line.message.contains(&query)).collect()
+        all_logs
+            .into_iter()
+            .filter(|line| line.message.contains(&query))
+            .collect()
     } else {
         let query_lower = query.to_lowercase();
-        all_logs.into_iter().filter(|line| line.message.to_lowercase().contains(&query_lower)).collect()
+        all_logs
+            .into_iter()
+            .filter(|line| line.message.to_lowercase().contains(&query_lower))
+            .collect()
     };
 
     Ok(filtered)
@@ -198,7 +216,7 @@ pub async fn get_multi_container_logs(
     let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
 
     // First get the pod to list containers
-    let pod_api: kube::Api<k8s_openapi::api::core::v1::Pod> = 
+    let pod_api: kube::Api<k8s_openapi::api::core::v1::Pod> =
         kube::Api::namespaced((*client).clone(), &namespace);
     let pod = pod_api.get(&pod_name).await.map_err(|e| e.to_string())?;
 
@@ -251,16 +269,17 @@ pub async fn download_pod_logs(
 
     let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
 
-    let mut log_config = LogConfig::new(&pod_name, &namespace)
-        .with_follow(false);
-    
+    let mut log_config = LogConfig::new(&pod_name, &namespace).with_follow(false);
+
     if let Some(container) = container {
         log_config = log_config.with_container(&container);
     }
 
     let event_tx = state.event_tx.clone();
     let streamer = LogStreamer::new(Arc::new((*client).clone()), event_tx);
-    let logs = streamer.get_logs(&log_config).await
+    let logs = streamer
+        .get_logs(&log_config)
+        .await
         .map_err(|e| e.to_string())?;
 
     if format.as_str() == "json" {

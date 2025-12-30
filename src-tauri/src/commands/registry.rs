@@ -171,7 +171,9 @@ fn load_saved_auth(registry_id: &str) -> Result<Option<RegistryAuth>, String> {
     let key = registry_key(registry_id);
     let raw = store.get(&key).map_err(|e: Error| e.to_string())?;
     if let Some(value) = raw {
-        serde_json::from_str(&value).map(Some).map_err(|e| e.to_string())
+        serde_json::from_str(&value)
+            .map(Some)
+            .map_err(|e| e.to_string())
     } else {
         Ok(None)
     }
@@ -243,14 +245,21 @@ async fn search_registry_catalog(
     auth_header: Option<String>,
     project_filter: Option<&str>,
 ) -> Result<Vec<RegistryImageResult>, String> {
-    let url = format!("{}/v2/_catalog?n={}", base_url.trim_end_matches('/'), SEARCH_LIMIT);
+    let url = format!(
+        "{}/v2/_catalog?n={}",
+        base_url.trim_end_matches('/'),
+        SEARCH_LIMIT
+    );
     let mut request = client.get(url);
     if let Some(header) = auth_header {
         request = request.header("Authorization", header);
     }
     let response = request.send().await.map_err(|e| e.to_string())?;
     if !response.status().is_success() {
-        return Err(format!("Registry request failed with {}", response.status()));
+        return Err(format!(
+            "Registry request failed with {}",
+            response.status()
+        ));
     }
     let payload: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
     let repositories = payload
@@ -291,7 +300,10 @@ async fn search_registry_catalog(
     Ok(results)
 }
 
-async fn search_docker_hub(client: &Client, query: &str) -> Result<Vec<RegistryImageResult>, String> {
+async fn search_docker_hub(
+    client: &Client,
+    query: &str,
+) -> Result<Vec<RegistryImageResult>, String> {
     let url = format!(
         "https://hub.docker.com/v2/search/repositories/?query={}&page_size={}",
         urlencoding::encode(query),
@@ -299,7 +311,10 @@ async fn search_docker_hub(client: &Client, query: &str) -> Result<Vec<RegistryI
     );
     let response = client.get(url).send().await.map_err(|e| e.to_string())?;
     if !response.status().is_success() {
-        return Err(format!("Docker Hub search failed with {}", response.status()));
+        return Err(format!(
+            "Docker Hub search failed with {}",
+            response.status()
+        ));
     }
     let payload: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
     let results = match payload.get("results").and_then(|value| value.as_array()) {
@@ -475,17 +490,27 @@ pub async fn search_registry_images(
                 .map(|value| normalize_base_url(value))
                 .ok_or_else(|| "Harbor base URL is required".to_string())?;
             let project_filter = request.registry.project.as_deref();
-            search_harbor(&client, &base_url, &request.query, auth_header, project_filter).await
+            search_harbor(
+                &client,
+                &base_url,
+                &request.query,
+                auth_header,
+                project_filter,
+            )
+            .await
         }
         "gcr" => {
-            let host = request
-                .registry
-                .host
-                .as_deref()
-                .unwrap_or("gcr.io");
+            let host = request.registry.host.as_deref().unwrap_or("gcr.io");
             let base_url = normalize_base_url(host);
             let project_filter = request.registry.project.as_deref();
-            search_registry_catalog(&client, &base_url, &request.query, auth_header, project_filter).await
+            search_registry_catalog(
+                &client,
+                &base_url,
+                &request.query,
+                auth_header,
+                project_filter,
+            )
+            .await
         }
         "ecr" => {
             let account_id = request
@@ -498,9 +523,8 @@ pub async fn search_registry_images(
                 .region
                 .as_ref()
                 .ok_or_else(|| "ECR region is required".to_string())?;
-            let base_url = normalize_base_url(&format!(
-                "{account_id}.dkr.ecr.{region}.amazonaws.com"
-            ));
+            let base_url =
+                normalize_base_url(&format!("{account_id}.dkr.ecr.{region}.amazonaws.com"));
             search_registry_catalog(&client, &base_url, &request.query, auth_header, None).await
         }
         "registry-v2" => {

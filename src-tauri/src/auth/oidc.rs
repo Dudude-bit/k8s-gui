@@ -33,7 +33,7 @@ struct OidcDiscovery {
 
 impl OidcAuth {
     /// Create a new OIDC auth provider
-    #[must_use] 
+    #[must_use]
     pub fn new(
         issuer_url: String,
         client_id: String,
@@ -54,19 +54,18 @@ impl OidcAuth {
             "{}/.well-known/openid-configuration",
             self.issuer_url.trim_end_matches('/')
         );
-        
+
         let client = reqwest::Client::new();
         let response = client
             .get(&discovery_url)
             .send()
             .await
             .map_err(|e| Error::Auth(AuthError::Oidc(format!("Discovery failed: {e}"))))?;
-        
-        let discovery: OidcDiscovery = response
-            .json()
-            .await
-            .map_err(|e| Error::Auth(AuthError::Oidc(format!("Invalid discovery document: {e}"))))?;
-        
+
+        let discovery: OidcDiscovery = response.json().await.map_err(|e| {
+            Error::Auth(AuthError::Oidc(format!("Invalid discovery document: {e}")))
+        })?;
+
         Ok(discovery)
     }
 
@@ -74,36 +73,41 @@ impl OidcAuth {
     async fn refresh_token(&self, refresh_token: &str) -> Result<TokenResponse> {
         let discovery = self.discover().await?;
         let client = reqwest::Client::new();
-        
+
         let mut params = vec![
             ("grant_type", "refresh_token"),
             ("refresh_token", refresh_token),
             ("client_id", &self.client_id),
         ];
-        
+
         if let Some(secret) = &self.client_secret {
             params.push(("client_secret", secret));
         }
-        
+
         let response = client
             .post(&discovery.token_endpoint)
             .form(&params)
             .send()
             .await
-            .map_err(|e| Error::Auth(AuthError::RefreshFailed(format!("Token refresh failed: {e}"))))?;
-        
+            .map_err(|e| {
+                Error::Auth(AuthError::RefreshFailed(format!(
+                    "Token refresh failed: {e}"
+                )))
+            })?;
+
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
             return Err(Error::Auth(AuthError::RefreshFailed(format!(
                 "Token refresh failed: {error_text}"
             ))));
         }
-        
-        let token_response: TokenResponse = response
-            .json()
-            .await
-            .map_err(|e| Error::Auth(AuthError::RefreshFailed(format!("Invalid token response: {e}"))))?;
-        
+
+        let token_response: TokenResponse = response.json().await.map_err(|e| {
+            Error::Auth(AuthError::RefreshFailed(format!(
+                "Invalid token response: {e}"
+            )))
+        })?;
+
         Ok(token_response)
     }
 }
@@ -113,35 +117,41 @@ impl AuthProvider for OidcAuth {
     async fn authenticate(&self) -> Result<AuthResult> {
         // OIDC authentication typically requires user interaction
         // This is a simplified flow for cases where we have a refresh token
-        
+
         // In a real implementation, this would:
         // 1. Open a browser for user authentication
         // 2. Listen on a callback URL
         // 3. Exchange the authorization code for tokens
-        
+
         Err(Error::Auth(AuthError::Oidc(
-            "Interactive OIDC authentication required. Please use the UI to authenticate.".to_string(),
+            "Interactive OIDC authentication required. Please use the UI to authenticate."
+                .to_string(),
         )))
     }
 
     async fn refresh(&self, auth: &AuthResult) -> Result<AuthResult> {
-        let refresh_token = auth
-            .refresh_token
-            .as_ref()
-            .ok_or_else(|| Error::Auth(AuthError::RefreshFailed("No refresh token available".to_string())))?;
-        
+        let refresh_token = auth.refresh_token.as_ref().ok_or_else(|| {
+            Error::Auth(AuthError::RefreshFailed(
+                "No refresh token available".to_string(),
+            ))
+        })?;
+
         let token_response = self.refresh_token(refresh_token).await?;
-        
+
         let expires_at = token_response.expires_in.and_then(|secs| {
-            secs.try_into().ok().map(|secs_i64: i64| {
-                chrono::Utc::now() + chrono::Duration::seconds(secs_i64)
-            })
+            secs.try_into()
+                .ok()
+                .map(|secs_i64: i64| chrono::Utc::now() + chrono::Duration::seconds(secs_i64))
         });
-        
+
         Ok(AuthResult {
-            token: token_response.id_token.unwrap_or(token_response.access_token),
+            token: token_response
+                .id_token
+                .unwrap_or(token_response.access_token),
             expires_at,
-            refresh_token: token_response.refresh_token.or_else(|| auth.refresh_token.clone()),
+            refresh_token: token_response
+                .refresh_token
+                .or_else(|| auth.refresh_token.clone()),
             token_type: token_response.token_type,
         })
     }
@@ -171,17 +181,17 @@ impl OidcAuth {
     /// is invalid or missing required endpoints.
     pub async fn generate_auth_url(&self, redirect_uri: &str) -> Result<OidcAuthorizationUrl> {
         let discovery = self.discover().await?;
-        
+
         let state = uuid::Uuid::new_v4().to_string();
         let code_verifier = generate_code_verifier();
         let code_challenge = generate_code_challenge(&code_verifier);
-        
+
         let scopes = if self.scopes.is_empty() {
             "openid email profile".to_string()
         } else {
             self.scopes.join(" ")
         };
-        
+
         let url = format!(
             "{}?response_type=code&client_id={}&redirect_uri={}&scope={}&state={}&code_challenge={}&code_challenge_method=S256",
             discovery.authorization_endpoint,
@@ -191,7 +201,7 @@ impl OidcAuth {
             urlencoding::encode(&state),
             urlencoding::encode(&code_challenge),
         );
-        
+
         Ok(OidcAuthorizationUrl {
             url,
             state,
@@ -213,7 +223,7 @@ impl OidcAuth {
     ) -> Result<AuthResult> {
         let discovery = self.discover().await?;
         let client = reqwest::Client::new();
-        
+
         let mut params = vec![
             ("grant_type", "authorization_code"),
             ("code", code),
@@ -221,38 +231,40 @@ impl OidcAuth {
             ("client_id", &self.client_id),
             ("code_verifier", code_verifier),
         ];
-        
+
         if let Some(secret) = &self.client_secret {
             params.push(("client_secret", secret));
         }
-        
+
         let response = client
             .post(&discovery.token_endpoint)
             .form(&params)
             .send()
             .await
             .map_err(|e| Error::Auth(AuthError::Oidc(format!("Code exchange failed: {e}"))))?;
-        
+
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
             return Err(Error::Auth(AuthError::Oidc(format!(
                 "Code exchange failed: {error_text}"
             ))));
         }
-        
+
         let token_response: TokenResponse = response
             .json()
             .await
             .map_err(|e| Error::Auth(AuthError::Oidc(format!("Invalid token response: {e}"))))?;
-        
+
         let expires_at = token_response.expires_in.and_then(|secs| {
-            secs.try_into().ok().map(|secs_i64: i64| {
-                chrono::Utc::now() + chrono::Duration::seconds(secs_i64)
-            })
+            secs.try_into()
+                .ok()
+                .map(|secs_i64: i64| chrono::Utc::now() + chrono::Duration::seconds(secs_i64))
         });
-        
+
         Ok(AuthResult {
-            token: token_response.id_token.unwrap_or(token_response.access_token),
+            token: token_response
+                .id_token
+                .unwrap_or(token_response.access_token),
             expires_at,
             refresh_token: token_response.refresh_token,
             token_type: token_response.token_type,
@@ -264,7 +276,7 @@ impl OidcAuth {
 fn generate_code_verifier() -> String {
     use base64::Engine;
     use rand::Rng;
-    
+
     let mut rng = rand::thread_rng();
     let bytes: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
@@ -273,8 +285,8 @@ fn generate_code_verifier() -> String {
 /// Generate code challenge from verifier for PKCE
 fn generate_code_challenge(verifier: &str) -> String {
     use base64::Engine;
-    use sha2::{Sha256, Digest};
-    
+    use sha2::{Digest, Sha256};
+
     let mut hasher = Sha256::new();
     hasher.update(verifier.as_bytes());
     let hash = hasher.finalize();
@@ -293,7 +305,7 @@ mod tests {
             Some("client-secret".to_string()),
             vec!["openid".to_string()],
         );
-        
+
         assert_eq!(auth.name(), "oidc");
         assert!(auth.supports_refresh());
     }

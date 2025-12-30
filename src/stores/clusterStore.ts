@@ -1,6 +1,8 @@
-import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
+import { create } from "zustand";
+
 import type { ClusterContext } from "@/types/kubernetes";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 interface ClusterState {
   contexts: ClusterContext[];
@@ -41,9 +43,9 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
       const currentContext = await invoke<string | null>("get_current_context");
       set({ contexts, currentContext, isLoading: false });
     } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : String(error), 
-        isLoading: false 
+      set({
+        error: normalizeTauriError(error),
+        isLoading: false,
       });
     }
   },
@@ -51,7 +53,9 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
   switchContext: async (context: string) => {
     const previousContext = get().currentContext;
     const nextNamespace =
-      previousContext && previousContext !== context ? "" : get().currentNamespace;
+      previousContext && previousContext !== context
+        ? ""
+        : get().currentNamespace;
     set({
       currentContext: context,
       currentNamespace: nextNamespace,
@@ -67,9 +71,9 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
       await invoke("switch_namespace", { namespace });
       set({ currentNamespace: namespace });
     } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : String(error), 
-        errorContext: null 
+      set({
+        error: normalizeTauriError(error),
+        errorContext: null,
       });
     }
   },
@@ -128,19 +132,7 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
         return;
       }
       // Normalize error message - Tauri errors can be objects
-      let errorMessage: string;
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (typeof error === "string") {
-        errorMessage = error;
-      } else if (error && typeof error === "object") {
-        const err = error as Record<string, unknown>;
-        errorMessage = typeof err.message === "string" 
-          ? err.message 
-          : JSON.stringify(error);
-      } else {
-        errorMessage = String(error);
-      }
+      const errorMessage = normalizeTauriError(error);
       set({
         error: errorMessage,
         errorContext: targetContext,

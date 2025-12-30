@@ -1,14 +1,15 @@
 /**
  * Utility functions for handling license-related errors
- * 
+ *
  * Provides unified logic for detecting and handling license errors
  * across the application.
  */
 
-import type { ToastActionElement } from "@/components/ui/toast";
-
 /**
  * Check if an error is license-related
+ *
+ * @param error - Error object or string to check
+ * @returns true if the error is related to licensing, false otherwise
  */
 export function isLicenseError(error: unknown): boolean {
   const errorStr = String(error).toLowerCase();
@@ -18,21 +19,3 @@ export function isLicenseError(error: unknown): boolean {
     errorStr.includes("requires a valid license")
   );
 }
-
-/**
- * Create a toast configuration for license errors
- * Returns an object that can be used with toast(), with optional action
- */
-export function createLicenseErrorToast(
-  error: unknown,
-  action?: ToastActionElement
-) {
-  const errorMessage = String(error);
-  return {
-    title: "Premium Feature",
-    description: errorMessage,
-    variant: "destructive" as const,
-    ...(action && { action }),
-  };
-}
-

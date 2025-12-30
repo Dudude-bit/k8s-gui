@@ -1,13 +1,13 @@
 //! Helm integration plugin
-//! 
+//!
 //! Provides Helm release management capabilities.
 
 use crate::error::{Error, PluginError, Result};
-use crate::plugins::{PluginContext, PluginInfo, PluginResult, PluginType};
 use crate::plugins::traits::{
-    ContextMenuExtension, ContextMenuItem, PluginCommand, ResourceRenderer,
-    RenderedResource, ResourceField, ResourceSection, ResourceAction, FieldValueType,
+    ContextMenuExtension, ContextMenuItem, FieldValueType, PluginCommand, RenderedResource,
+    ResourceAction, ResourceField, ResourceRenderer, ResourceSection,
 };
+use crate::plugins::{PluginContext, PluginInfo, PluginResult, PluginType};
 use crate::resources::GenericResource;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -44,7 +44,7 @@ pub struct HelmPlugin {
 
 impl HelmPlugin {
     /// Create a new Helm plugin
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             helm_path: "helm".to_string(),
@@ -52,7 +52,7 @@ impl HelmPlugin {
     }
 
     /// Create with custom helm path
-    #[must_use] 
+    #[must_use]
     pub fn with_helm_path(path: &str) -> Self {
         Self {
             helm_path: path.to_string(),
@@ -71,7 +71,7 @@ impl HelmPlugin {
 
         // Set context and namespace
         cmd.arg("--kube-context").arg(&context.kube_context);
-        
+
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
 
@@ -94,9 +94,13 @@ impl HelmPlugin {
     }
 
     /// List helm releases
-    pub async fn list_releases(&self, namespace: Option<&str>, context: &PluginContext) -> Result<Vec<HelmRelease>> {
+    pub async fn list_releases(
+        &self,
+        namespace: Option<&str>,
+        context: &PluginContext,
+    ) -> Result<Vec<HelmRelease>> {
         let mut args = vec!["list", "--output", "json"];
-        
+
         if let Some(ns) = namespace {
             args.push("--namespace");
             args.push(ns);
@@ -110,39 +114,62 @@ impl HelmPlugin {
             return Err(Error::Plugin(PluginError::ExecutionFailed(result.stderr)));
         }
 
-        let releases: Vec<HelmRelease> = serde_json::from_str(&result.stdout)
-            .map_err(|e| Error::Plugin(PluginError::ExecutionFailed(
-                format!("Failed to parse helm output: {e}")
-            )))?;
+        let releases: Vec<HelmRelease> = serde_json::from_str(&result.stdout).map_err(|e| {
+            Error::Plugin(PluginError::ExecutionFailed(format!(
+                "Failed to parse helm output: {e}"
+            )))
+        })?;
 
         Ok(releases)
     }
 
     /// Get release history
-    pub async fn get_history(&self, name: &str, namespace: &str, context: &PluginContext) -> Result<Vec<HelmRevision>> {
-        let result = self.exec_helm(
-            &["history", name, "--namespace", namespace, "--output", "json"],
-            context,
-        ).await?;
+    pub async fn get_history(
+        &self,
+        name: &str,
+        namespace: &str,
+        context: &PluginContext,
+    ) -> Result<Vec<HelmRevision>> {
+        let result = self
+            .exec_helm(
+                &[
+                    "history",
+                    name,
+                    "--namespace",
+                    namespace,
+                    "--output",
+                    "json",
+                ],
+                context,
+            )
+            .await?;
 
         if !result.is_success() {
             return Err(Error::Plugin(PluginError::ExecutionFailed(result.stderr)));
         }
 
-        let history: Vec<HelmRevision> = serde_json::from_str(&result.stdout)
-            .map_err(|e| Error::Plugin(PluginError::ExecutionFailed(
-                format!("Failed to parse helm history: {e}")
-            )))?;
+        let history: Vec<HelmRevision> = serde_json::from_str(&result.stdout).map_err(|e| {
+            Error::Plugin(PluginError::ExecutionFailed(format!(
+                "Failed to parse helm history: {e}"
+            )))
+        })?;
 
         Ok(history)
     }
 
     /// Get release values
-    pub async fn get_values(&self, name: &str, namespace: &str, context: &PluginContext) -> Result<String> {
-        let result = self.exec_helm(
-            &["get", "values", name, "--namespace", namespace, "--all"],
-            context,
-        ).await?;
+    pub async fn get_values(
+        &self,
+        name: &str,
+        namespace: &str,
+        context: &PluginContext,
+    ) -> Result<String> {
+        let result = self
+            .exec_helm(
+                &["get", "values", name, "--namespace", namespace, "--all"],
+                context,
+            )
+            .await?;
 
         if !result.is_success() {
             return Err(Error::Plugin(PluginError::ExecutionFailed(result.stderr)));
@@ -160,7 +187,14 @@ impl HelmPlugin {
         values: Option<&str>,
         context: &PluginContext,
     ) -> Result<PluginResult> {
-        let mut args = vec!["upgrade", name, chart, "--namespace", namespace, "--install"];
+        let mut args = vec![
+            "upgrade",
+            name,
+            chart,
+            "--namespace",
+            namespace,
+            "--install",
+        ];
 
         if let Some(values_file) = values {
             args.push("--values");
@@ -181,23 +215,34 @@ impl HelmPlugin {
         self.exec_helm(
             &["rollback", name, revision, "--namespace", namespace],
             context,
-        ).await
+        )
+        .await
     }
 
     /// Uninstall release
-    pub async fn uninstall(&self, name: &str, namespace: &str, context: &PluginContext) -> Result<PluginResult> {
-        self.exec_helm(
-            &["uninstall", name, "--namespace", namespace],
-            context,
-        ).await
+    pub async fn uninstall(
+        &self,
+        name: &str,
+        namespace: &str,
+        context: &PluginContext,
+    ) -> Result<PluginResult> {
+        self.exec_helm(&["uninstall", name, "--namespace", namespace], context)
+            .await
     }
 
     /// Get release manifest
-    pub async fn get_manifest(&self, name: &str, namespace: &str, context: &PluginContext) -> Result<String> {
-        let result = self.exec_helm(
-            &["get", "manifest", name, "--namespace", namespace],
-            context,
-        ).await?;
+    pub async fn get_manifest(
+        &self,
+        name: &str,
+        namespace: &str,
+        context: &PluginContext,
+    ) -> Result<String> {
+        let result = self
+            .exec_helm(
+                &["get", "manifest", name, "--namespace", namespace],
+                context,
+            )
+            .await?;
 
         if !result.is_success() {
             return Err(Error::Plugin(PluginError::ExecutionFailed(result.stderr)));
@@ -207,11 +252,15 @@ impl HelmPlugin {
     }
 
     /// Get release notes
-    pub async fn get_notes(&self, name: &str, namespace: &str, context: &PluginContext) -> Result<String> {
-        let result = self.exec_helm(
-            &["get", "notes", name, "--namespace", namespace],
-            context,
-        ).await?;
+    pub async fn get_notes(
+        &self,
+        name: &str,
+        namespace: &str,
+        context: &PluginContext,
+    ) -> Result<String> {
+        let result = self
+            .exec_helm(&["get", "notes", name, "--namespace", namespace], context)
+            .await?;
 
         if !result.is_success() {
             return Err(Error::Plugin(PluginError::ExecutionFailed(result.stderr)));
@@ -260,7 +309,14 @@ impl PluginCommand for HelmPlugin {
         let command = &args[0];
         let remaining_args: Vec<&str> = args[1..].iter().map(std::string::String::as_str).collect();
 
-        self.exec_helm(&[command.as_str()].into_iter().chain(remaining_args).collect::<Vec<_>>(), context).await
+        self.exec_helm(
+            &[command.as_str()]
+                .into_iter()
+                .chain(remaining_args)
+                .collect::<Vec<_>>(),
+            context,
+        )
+        .await
     }
 }
 
@@ -304,8 +360,7 @@ impl ContextMenuExtension for HelmPlugin {
         Ok(vec![
             ContextMenuItem::new("helm-values", &format!("View Helm Values ({release_name})"))
                 .with_icon("settings"),
-            ContextMenuItem::new("helm-history", "View Helm History")
-                .with_icon("history"),
+            ContextMenuItem::new("helm-history", "View Helm History").with_icon("history"),
             ContextMenuItem::new("helm-rollback", "Rollback Helm Release")
                 .with_icon("undo")
                 .dangerous(),
@@ -325,17 +380,17 @@ impl ContextMenuExtension for HelmPlugin {
             .metadata
             .labels
             .get("app.kubernetes.io/instance")
-            .ok_or_else(|| Error::Plugin(PluginError::ExecutionFailed(
-                "Resource is not managed by Helm".to_string()
-            )))?;
+            .ok_or_else(|| {
+                Error::Plugin(PluginError::ExecutionFailed(
+                    "Resource is not managed by Helm".to_string(),
+                ))
+            })?;
 
-        let namespace = resource
-            .metadata
-            .namespace
-            .as_ref()
-            .ok_or_else(|| Error::Plugin(PluginError::ExecutionFailed(
-                "Resource has no namespace".to_string()
-            )))?;
+        let namespace = resource.metadata.namespace.as_ref().ok_or_else(|| {
+            Error::Plugin(PluginError::ExecutionFailed(
+                "Resource has no namespace".to_string(),
+            ))
+        })?;
 
         match action_id {
             "helm-values" => {
@@ -351,12 +406,10 @@ impl ContextMenuExtension for HelmPlugin {
                 // Rollback to previous revision
                 self.rollback(release_name, "0", namespace, context).await
             }
-            "helm-uninstall" => {
-                self.uninstall(release_name, namespace, context).await
-            }
-            _ => Err(Error::Plugin(PluginError::ExecutionFailed(
-                format!("Unknown action: {action_id}")
-            ))),
+            "helm-uninstall" => self.uninstall(release_name, namespace, context).await,
+            _ => Err(Error::Plugin(PluginError::ExecutionFailed(format!(
+                "Unknown action: {action_id}"
+            )))),
         }
     }
 }
@@ -371,9 +424,7 @@ impl ResourceRenderer for HelmReleaseRenderer {
     }
 
     fn supported_resources(&self) -> Vec<(String, String)> {
-        vec![
-            ("helm.sh".to_string(), "Release".to_string()),
-        ]
+        vec![("helm.sh".to_string(), "Release".to_string())]
     }
 
     fn can_render(&self, api_version: &str, kind: &str) -> bool {
@@ -382,13 +433,15 @@ impl ResourceRenderer for HelmReleaseRenderer {
 
     async fn render(&self, resource: &GenericResource) -> Result<RenderedResource> {
         let spec = &resource.spec;
-        
-        let chart_name = spec.get("chart")
+
+        let chart_name = spec
+            .get("chart")
             .and_then(|c| c.get("name"))
             .and_then(|n| n.as_str())
             .unwrap_or("unknown");
 
-        let chart_version = spec.get("chart")
+        let chart_version = spec
+            .get("chart")
             .and_then(|c| c.get("version"))
             .and_then(|v| v.as_str())
             .unwrap_or("unknown");
@@ -412,24 +465,22 @@ impl ResourceRenderer for HelmReleaseRenderer {
                     value_type: FieldValueType::Code,
                 },
             ],
-            sections: vec![
-                ResourceSection {
-                    title: "Chart Information".to_string(),
-                    fields: vec![
-                        ResourceField {
-                            label: "Chart Name".to_string(),
-                            value: chart_name.to_string(),
-                            value_type: FieldValueType::Text,
-                        },
-                        ResourceField {
-                            label: "Version".to_string(),
-                            value: chart_version.to_string(),
-                            value_type: FieldValueType::Badge,
-                        },
-                    ],
-                    collapsed: false,
-                },
-            ],
+            sections: vec![ResourceSection {
+                title: "Chart Information".to_string(),
+                fields: vec![
+                    ResourceField {
+                        label: "Chart Name".to_string(),
+                        value: chart_name.to_string(),
+                        value_type: FieldValueType::Text,
+                    },
+                    ResourceField {
+                        label: "Version".to_string(),
+                        value: chart_version.to_string(),
+                        value_type: FieldValueType::Badge,
+                    },
+                ],
+                collapsed: false,
+            }],
             actions: vec![
                 ResourceAction {
                     id: "upgrade".to_string(),
@@ -478,7 +529,7 @@ impl ResourceRenderer for HelmReleaseRenderer {
 }
 
 /// Get plugin info for Helm
-#[must_use] 
+#[must_use]
 pub fn helm_plugin_info() -> PluginInfo {
     PluginInfo {
         name: "helm".to_string(),
@@ -500,11 +551,12 @@ pub fn helm_plugin_info() -> PluginInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::plugins::traits::PluginCommand;
 
     #[test]
     fn test_helm_plugin_creation() {
         let plugin = HelmPlugin::new();
-        assert_eq!(plugin.name(), "helm");
+        assert_eq!(PluginCommand::name(&plugin), "helm");
     }
 
     #[test]

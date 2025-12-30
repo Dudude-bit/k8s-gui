@@ -1,13 +1,14 @@
 //! Service-specific commands
 
+use k8s_openapi::api::core::v1::{Endpoints, Pod, Service};
+use serde::{Deserialize, Serialize};
+use tauri::State;
+
 use crate::commands::filters::ServiceFilters;
 use crate::commands::helpers::CommandContext;
 use crate::error::Result;
 use crate::resources::{PodInfo, ServiceInfo};
 use crate::state::AppState;
-use k8s_openapi::api::core::v1::{Endpoints, Pod, Service};
-use serde::{Deserialize, Serialize};
-use tauri::State;
 
 /// List services with optional filters
 #[tauri::command]
@@ -16,14 +17,15 @@ pub async fn list_services(
     state: State<'_, AppState>,
 ) -> Result<Vec<ServiceInfo>> {
     let filters = filters.unwrap_or_default();
-    
+
     let list = crate::commands::helpers::list_resources::<Service>(
         filters.namespace,
         state,
         filters.label_selector.as_deref(),
         filters.field_selector.as_deref(),
         filters.limit,
-    ).await?;
+    )
+    .await?;
 
     let mut services: Vec<ServiceInfo> = list.items.iter().map(ServiceInfo::from).collect();
 
@@ -53,7 +55,7 @@ pub async fn get_service_yaml(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String> {
-    super::helpers::get_resource_yaml::<Service>(name, namespace, state).await
+    crate::commands::helpers::get_resource_yaml::<Service>(name, namespace, state).await
 }
 
 /// Delete a service
@@ -63,7 +65,7 @@ pub async fn delete_service(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<()> {
-    super::helpers::delete_resource::<Service>(name, namespace, state, None).await
+    crate::commands::helpers::delete_resource::<Service>(name, namespace, state, None).await
 }
 
 /// Service endpoint
@@ -94,7 +96,7 @@ pub async fn get_service_endpoints(
     let ctx = CommandContext::new(&state, namespace)?;
 
     let api: kube::Api<Endpoints> = ctx.namespaced_api();
-    
+
     let endpoints = match api.get(&name).await {
         Ok(ep) => ep,
         Err(_) => return Ok(vec![]), // No endpoints found
@@ -154,11 +156,7 @@ pub async fn get_service_pods(
     let params = kube::api::ListParams::default().labels(&label_selector);
     let pods = pod_api.list(&params).await?;
 
-    let pod_infos: Vec<PodInfo> = pods
-        .items
-        .iter()
-        .map(PodInfo::from)
-        .collect();
+    let pod_infos: Vec<PodInfo> = pods.items.iter().map(PodInfo::from).collect();
 
     Ok(pod_infos)
 }

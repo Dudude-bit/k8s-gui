@@ -9,10 +9,14 @@ interface LicenseErrorBannerProps {
   onActivate?: () => void;
 }
 
-export function LicenseErrorBanner({ message, onActivate }: LicenseErrorBannerProps) {
+export function LicenseErrorBanner({
+  message,
+  onActivate,
+}: LicenseErrorBannerProps) {
   const [showActivateDialog, setShowActivateDialog] = useState(false);
 
-  const defaultMessage = "This feature requires a premium license. Please activate your license to continue.";
+  const defaultMessage =
+    "This feature requires a premium license. Please activate your license to continue.";
 
   return (
     <>
@@ -42,4 +46,3 @@ export function LicenseErrorBanner({ message, onActivate }: LicenseErrorBannerPr
     </>
   );
 }
-

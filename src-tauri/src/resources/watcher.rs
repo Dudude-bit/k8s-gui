@@ -4,7 +4,8 @@ use crate::error::Result;
 use crate::state::AppEvent;
 use futures::StreamExt;
 use kube::{
-    api::{Api, WatchEvent, WatchParams}, Resource, ResourceExt,
+    api::{Api, WatchEvent, WatchParams},
+    Resource, ResourceExt,
 };
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -26,12 +27,9 @@ where
     <K as Resource>::DynamicType: Default,
 {
     /// Create a new resource watcher
-    #[must_use] 
+    #[must_use]
     pub fn new(api: Api<K>, event_tx: broadcast::Sender<AppEvent>) -> Self {
-        Self {
-            api,
-            event_tx,
-        }
+        Self { api, event_tx }
     }
 
     /// Start watching resources
@@ -86,7 +84,7 @@ where
             WatchEvent::Added(resource) => {
                 let _name = resource.name_any();
                 let _namespace = resource.namespace().unwrap_or_default();
-                
+
                 AppEvent::WatchEvent {
                     watch_id: watch_id.to_string(),
                     event_type: "ADDED".to_string(),
@@ -96,7 +94,7 @@ where
             WatchEvent::Modified(resource) => {
                 let _name = resource.name_any();
                 let _namespace = resource.namespace().unwrap_or_default();
-                
+
                 AppEvent::WatchEvent {
                     watch_id: watch_id.to_string(),
                     event_type: "MODIFIED".to_string(),
@@ -106,7 +104,7 @@ where
             WatchEvent::Deleted(resource) => {
                 let _name = resource.name_any();
                 let _namespace = resource.namespace().unwrap_or_default();
-                
+
                 AppEvent::WatchEvent {
                     watch_id: watch_id.to_string(),
                     event_type: "DELETED".to_string(),
@@ -116,16 +114,13 @@ where
             WatchEvent::Bookmark(_) => {
                 return Ok(());
             }
-            WatchEvent::Error(e) => {
-                AppEvent::Error {
-                    code: format!("WATCH_{}", e.code),
-                    message: e.message,
-                }
-            }
+            WatchEvent::Error(e) => AppEvent::Error {
+                code: format!("WATCH_{}", e.code),
+                message: e.message,
+            },
         };
 
         let _ = self.event_tx.send(app_event);
         Ok(())
     }
 }
-

@@ -12,13 +12,13 @@ pub struct KubeconfigAuth {
 
 impl KubeconfigAuth {
     /// Create a new kubeconfig auth provider using default path
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self { path: None }
     }
 
     /// Create with a specific kubeconfig path
-    #[must_use] 
+    #[must_use]
     pub fn with_path(path: std::path::PathBuf) -> Self {
         Self { path: Some(path) }
     }
@@ -29,19 +29,19 @@ impl AuthProvider for KubeconfigAuth {
     async fn authenticate(&self) -> Result<AuthResult> {
         // kubeconfig authentication is handled by kube-rs directly
         // This provider simply validates the kubeconfig is accessible
-        
+
         let kubeconfig = if let Some(path) = &self.path {
             kube::config::Kubeconfig::read_from(path)
         } else {
             kube::config::Kubeconfig::read()
         };
-        
+
         kubeconfig.map_err(|e| {
             Error::Auth(AuthError::Kubeconfig(format!(
                 "Failed to read kubeconfig: {e}"
             )))
         })?;
-        
+
         // Return a placeholder token - actual auth is handled by kube-rs
         Ok(AuthResult {
             token: "kubeconfig".to_string(),

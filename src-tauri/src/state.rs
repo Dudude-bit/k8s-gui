@@ -1,5 +1,5 @@
 //! Application state management
-//! 
+//!
 //! This module manages the global application state including active connections,
 //! cached data, and plugin registry.
 
@@ -39,10 +39,7 @@ pub enum AppEvent {
         namespace: String,
     },
     /// Connection status changed
-    ConnectionStatusChanged {
-        context: String,
-        connected: bool,
-    },
+    ConnectionStatusChanged { context: String, connected: bool },
     /// Log message received
     LogMessage {
         stream_id: String,
@@ -52,10 +49,7 @@ pub enum AppEvent {
         timestamp: Option<String>,
     },
     /// Terminal output received
-    TerminalOutput {
-        session_id: String,
-        data: String,
-    },
+    TerminalOutput { session_id: String, data: String },
     /// Terminal session closed
     TerminalClosed {
         session_id: String,
@@ -93,10 +87,7 @@ pub enum AppEvent {
         message: Option<String>,
     },
     /// Error occurred
-    Error {
-        code: String,
-        message: String,
-    },
+    Error { code: String, message: String },
     /// Watch event
     WatchEvent {
         watch_id: String,
@@ -168,31 +159,31 @@ pub struct LogStream {
 pub struct AppState {
     /// Application configuration
     pub config: Arc<RwLock<AppConfig>>,
-    
+
     /// Kubernetes client manager
     pub client_manager: Arc<K8sClientManager>,
-    
+
     /// Authentication manager
     pub auth_manager: Arc<AuthManager>,
-    
+
     /// Plugin manager
     pub plugin_manager: Arc<PluginManager>,
-    
+
     /// Resource cache
     pub cache: Arc<ResourceCache>,
-    
+
     /// Active sessions by context
     pub sessions: DashMap<String, Session>,
-    
+
     /// Current active context
     pub current_context: Arc<RwLock<Option<String>>>,
-    
+
     /// Current namespace per context
     pub namespaces: DashMap<String, String>,
-    
+
     /// Active terminal sessions
     pub terminal_sessions: DashMap<String, TerminalSession>,
-    
+
     /// Terminal input channels
     pub terminal_inputs: DashMap<String, tokio::sync::mpsc::Sender<String>>,
 
@@ -201,13 +192,13 @@ pub struct AppState {
 
     /// Port-forward cancel controls
     pub port_forward_controls: Arc<DashMap<String, tokio::sync::oneshot::Sender<()>>>,
-    
+
     /// Active watch subscriptions
     pub watch_subscriptions: DashMap<String, WatchSubscription>,
-    
+
     /// Active log streams
     pub log_streams: DashMap<String, LogStream>,
-    
+
     /// Event broadcaster
     pub event_tx: broadcast::Sender<AppEvent>,
 
@@ -223,12 +214,12 @@ impl AppState {
     pub fn new() -> Result<Self> {
         let config = AppConfig::load()?;
         let (event_tx, _) = broadcast::channel(1000);
-        
+
         let client_manager = Arc::new(K8sClientManager::new());
         let auth_manager = Arc::new(AuthManager::new());
         let plugin_manager = Arc::new(PluginManager::new()?);
         let cache = Arc::new(ResourceCache::new(config.cache.ttl_seconds));
-        
+
         Ok(Self {
             config: Arc::new(RwLock::new(config)),
             client_manager,
@@ -328,12 +319,14 @@ impl AppState {
     /// Get current namespace for a context
     pub fn get_namespace(&self, context: &str) -> String {
         self.namespaces
-            .get(context).map_or_else(|| "default".to_string(), |n| n.clone())
+            .get(context)
+            .map_or_else(|| "default".to_string(), |n| n.clone())
     }
 
     /// Set namespace for a context
     pub fn set_namespace(&self, context: &str, namespace: &str) {
-        self.namespaces.insert(context.to_string(), namespace.to_string());
+        self.namespaces
+            .insert(context.to_string(), namespace.to_string());
     }
 
     /// Create a new session
@@ -370,7 +363,11 @@ impl AppState {
 
     /// Cancel all active watches
     pub async fn cancel_all_watches(&self) {
-        let keys: Vec<_> = self.watch_subscriptions.iter().map(|r| r.key().clone()).collect();
+        let keys: Vec<_> = self
+            .watch_subscriptions
+            .iter()
+            .map(|r| r.key().clone())
+            .collect();
         for key in keys {
             if let Some((_, sub)) = self.watch_subscriptions.remove(&key) {
                 let _ = sub.cancel_tx.send(());
@@ -423,11 +420,11 @@ mod tests {
     #[test]
     fn test_session_management() {
         let state = AppState::new().unwrap();
-        
+
         let session = state.create_session("test-context");
         assert_eq!(session.context, "test-context");
         assert!(state.sessions.contains_key("test-context"));
-        
+
         state.remove_session("test-context");
         assert!(!state.sessions.contains_key("test-context"));
     }
@@ -435,9 +432,9 @@ mod tests {
     #[test]
     fn test_namespace_management() {
         let state = AppState::new().unwrap();
-        
+
         assert_eq!(state.get_namespace("test"), "default");
-        
+
         state.set_namespace("test", "kube-system");
         assert_eq!(state.get_namespace("test"), "kube-system");
     }
@@ -446,12 +443,12 @@ mod tests {
     fn test_event_subscription() {
         let state = AppState::new().unwrap();
         let mut rx = state.subscribe();
-        
+
         state.emit(AppEvent::ConnectionStatusChanged {
             context: "test".to_string(),
             connected: true,
         });
-        
+
         // Event should be received
         let event = rx.try_recv();
         assert!(event.is_ok());

@@ -1,6 +1,10 @@
 // Hook for fetching node metrics with real-time updates
 
-import { useQuery, keepPreviousData, UseQueryOptions } from "@tanstack/react-query";
+import {
+  useQuery,
+  keepPreviousData,
+  UseQueryOptions,
+} from "@tanstack/react-query";
 import * as commands from "@/generated/commands";
 import { normalizeTauriError } from "@/lib/error-utils";
 import type { NodeMetrics } from "@/generated/types";
@@ -24,4 +28,3 @@ export function useNodeMetrics(
     ...options,
   });
 }
-

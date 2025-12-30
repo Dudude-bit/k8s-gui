@@ -28,7 +28,7 @@ export function ResourceNode({ data, selected }: NodeProps<ResourceNodeData>) {
     <div
       className={cn(
         "min-w-[170px] rounded-lg border border-border bg-card px-3 py-2 text-xs shadow-sm",
-        selected && "ring-2 ring-primary",
+        selected && "ring-2 ring-primary"
       )}
     >
       {showTargetHandle && (

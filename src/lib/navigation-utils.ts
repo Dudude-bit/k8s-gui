@@ -2,6 +2,9 @@ import type { NavigateFunction } from "react-router-dom";
 
 /**
  * Normalize a path for comparison (remove trailing slashes, query params)
+ *
+ * @param path - Path string to normalize
+ * @returns Normalized path without trailing slashes or query parameters
  */
 export function normalizePath(path: string): string {
   try {
@@ -14,10 +17,14 @@ export function normalizePath(path: string): string {
 
 /**
  * Get a safe redirect path that is not the login page
+ *
+ * @param redirectParam - Redirect parameter from URL or null
+ * @param currentPath - Current pathname
+ * @returns Safe redirect path, defaults to "/" if redirect is invalid or same as current
  */
 export function getSafeRedirectPath(
   redirectParam: string | null,
-  currentPath: string,
+  currentPath: string
 ): string {
   if (!redirectParam) {
     return "/";
@@ -27,7 +34,10 @@ export function getSafeRedirectPath(
   const normalizedCurrent = normalizePath(currentPath);
 
   // Avoid redirecting to login or same path
-  if (normalizedRedirect === normalizedCurrent || normalizedRedirect === "/login") {
+  if (
+    normalizedRedirect === normalizedCurrent ||
+    normalizedRedirect === "/login"
+  ) {
     return "/";
   }
 
@@ -36,11 +46,15 @@ export function getSafeRedirectPath(
 
 /**
  * Navigate with fallback to history back or home
+ *
+ * @param navigate - React Router navigate function
+ * @param targetPath - Target path to navigate to
+ * @param currentPath - Current pathname
  */
 export function navigateWithFallback(
   navigate: NavigateFunction,
   targetPath: string,
-  currentPath: string,
+  currentPath: string
 ): void {
   const normalizedTarget = normalizePath(targetPath);
   const normalizedCurrent = normalizePath(currentPath);
@@ -61,6 +75,8 @@ export function navigateWithFallback(
 
 /**
  * Navigate back in history or fallback to home
+ *
+ * @param navigate - React Router navigate function
  */
 export function navigateBack(navigate: NavigateFunction): void {
   if (window.history.length > 1) {
@@ -69,7 +85,3 @@ export function navigateBack(navigate: NavigateFunction): void {
     navigate("/", { replace: true });
   }
 }
-
-
-
-

@@ -27,7 +27,10 @@ impl User {
         }
     }
 
-    pub async fn find_by_email(pool: &sqlx::PgPool, email: &str) -> Result<Option<Self>, sqlx::Error> {
+    pub async fn find_by_email(
+        pool: &sqlx::PgPool,
+        email: &str,
+    ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, User>(
             "SELECT id, email, password_hash, email_verified, failed_login_attempts, locked_until, created_at, updated_at 
              FROM users WHERE email = $1"
@@ -76,7 +79,7 @@ impl User {
                      ELSE locked_until
                  END,
                  updated_at = CURRENT_TIMESTAMP
-             WHERE id = $1"
+             WHERE id = $1",
         )
         .bind(user_id)
         .execute(pool)
@@ -93,7 +96,7 @@ impl User {
              SET failed_login_attempts = 0, 
                  locked_until = NULL,
                  updated_at = CURRENT_TIMESTAMP
-             WHERE id = $1"
+             WHERE id = $1",
         )
         .bind(user_id)
         .execute(pool)
@@ -119,7 +122,7 @@ impl UserProfile {
     ) -> Result<Option<Self>, sqlx::Error> {
         sqlx::query_as::<_, UserProfile>(
             "SELECT user_id, first_name, last_name, company, created_at, updated_at 
-             FROM user_profiles WHERE user_id = $1"
+             FROM user_profiles WHERE user_id = $1",
         )
         .bind(user_id)
         .fetch_optional(pool)
@@ -136,7 +139,7 @@ impl UserProfile {
         sqlx::query_as::<_, UserProfile>(
             "INSERT INTO user_profiles (user_id, first_name, last_name, company) 
              VALUES ($1, $2, $3, $4) 
-             RETURNING user_id, first_name, last_name, company, created_at, updated_at"
+             RETURNING user_id, first_name, last_name, company, created_at, updated_at",
         )
         .bind(user_id)
         .bind(&first_name)
@@ -160,7 +163,7 @@ impl UserProfile {
                  company = COALESCE($3, company),
                  updated_at = CURRENT_TIMESTAMP
              WHERE user_id = $4
-             RETURNING user_id, first_name, last_name, company, created_at, updated_at"
+             RETURNING user_id, first_name, last_name, company, created_at, updated_at",
         )
         .bind(&first_name)
         .bind(&last_name)
@@ -170,4 +173,3 @@ impl UserProfile {
         .await
     }
 }
-

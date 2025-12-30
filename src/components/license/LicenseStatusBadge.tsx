@@ -20,9 +20,14 @@ export function LicenseStatusBadge() {
   const getBadgeVariant = () => {
     if (hasValidLicense) {
       // Issue #16 Fix: Check if expiring soon (within 7 days)
-      if (licenseStatus.subscriptionType === "monthly" && licenseStatus.expiresAt) {
+      if (
+        licenseStatus.subscriptionType === "monthly" &&
+        licenseStatus.expiresAt
+      ) {
         const expiresAt = new Date(licenseStatus.expiresAt);
-        const daysUntilExpiry = Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+        const daysUntilExpiry = Math.ceil(
+          (expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+        );
 
         if (daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
           return "secondary"; // Warning variant for expiring soon
@@ -39,15 +44,20 @@ export function LicenseStatusBadge() {
   const getBadgeContent = () => {
     if (hasValidLicense) {
       // Issue #16 Fix: Show expiration warning for monthly licenses expiring soon
-      if (licenseStatus.subscriptionType === "monthly" && licenseStatus.expiresAt) {
+      if (
+        licenseStatus.subscriptionType === "monthly" &&
+        licenseStatus.expiresAt
+      ) {
         const expiresAt = new Date(licenseStatus.expiresAt);
-        const daysUntilExpiry = Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+        const daysUntilExpiry = Math.ceil(
+          (expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+        );
 
         if (daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
           return (
             <>
               <Clock className="h-3 w-3 mr-1" />
-              Expires in {daysUntilExpiry} day{daysUntilExpiry !== 1 ? 's' : ''}
+              Expires in {daysUntilExpiry} day{daysUntilExpiry !== 1 ? "s" : ""}
             </>
           );
         }
@@ -104,4 +114,3 @@ export function LicenseStatusBadge() {
     </>
   );
 }
-

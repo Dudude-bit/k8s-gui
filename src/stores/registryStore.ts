@@ -81,11 +81,11 @@ const loadRegistryConfigs = (): RegistryConfig[] => {
             (entry) =>
               entry &&
               typeof entry.id === "string" &&
-              typeof entry.label === "string",
+              typeof entry.label === "string"
           )
           .map((entry) => {
             const provider = normalizeRegistryProvider(
-              (entry.provider ?? entry.type ?? "registry-v2") as string,
+              (entry.provider ?? entry.type ?? "registry-v2") as string
             );
             return {
               id: entry.id as string,
@@ -154,7 +154,7 @@ export const useRegistryStore = create<RegistryState>((set, get) => ({
 
   updateRegistry: (id, updates) => {
     const registries = get().registries.map((registry) =>
-      registry.id === id ? { ...registry, ...updates } : registry,
+      registry.id === id ? { ...registry, ...updates } : registry
     );
     saveRegistryConfigs(registries);
     set({ registries });
@@ -165,7 +165,7 @@ export const useRegistryStore = create<RegistryState>((set, get) => ({
       return;
     }
     const registries = get().registries.filter(
-      (registry) => registry.id !== id,
+      (registry) => registry.id !== id
     );
     const selectedRegistryId =
       get().selectedRegistryId === id

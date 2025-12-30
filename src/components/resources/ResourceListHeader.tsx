@@ -39,7 +39,3 @@ export function ResourceListHeader({
     </div>
   );
 }
-
-
-
-

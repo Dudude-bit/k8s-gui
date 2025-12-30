@@ -1,6 +1,6 @@
 /**
  * ResourceDetailLayout - Unified layout for resource detail pages
- * 
+ *
  * Provides common structure for detail pages including:
  * - Loading state with skeleton
  * - Error state with navigation
@@ -28,7 +28,10 @@ interface DetailSkeletonProps {
   showHeader?: boolean;
 }
 
-export function DetailSkeleton({ rows = 4, showHeader = true }: DetailSkeletonProps) {
+export function DetailSkeleton({
+  rows = 4,
+  showHeader = true,
+}: DetailSkeletonProps) {
   return (
     <div className="space-y-4">
       {showHeader && <Skeleton className="h-8 w-64" />}
@@ -69,7 +72,7 @@ export function DetailError({
   additionalMessage,
 }: DetailErrorProps) {
   const isNotFound = isResourceNotFoundError(error);
-  
+
   return (
     <div className="flex flex-col items-center justify-center h-64 gap-4">
       <AlertCircle className="h-12 w-12 text-destructive" />
@@ -99,7 +102,9 @@ export function DetailError({
         </Button>
         {isNotFound && onFindReplacement && (
           <Button onClick={onFindReplacement} disabled={isSearching}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${isSearching ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${isSearching ? "animate-spin" : ""}`}
+            />
             {isSearching ? "Searching..." : "Find Replacement"}
           </Button>
         )}
@@ -119,7 +124,9 @@ interface InfoRowProps {
 
 export function InfoRow({ label, value, className }: InfoRowProps) {
   return (
-    <div className={`flex justify-between items-center py-1 ${className ?? ''}`}>
+    <div
+      className={`flex justify-between items-center py-1 ${className ?? ""}`}
+    >
       <span className="text-sm text-muted-foreground">{label}</span>
       <span className="text-sm font-medium">{value}</span>
     </div>
@@ -137,7 +144,13 @@ interface InfoCardProps {
   contentClassName?: string;
 }
 
-export function InfoCard({ title, icon, children, className, contentClassName }: InfoCardProps) {
+export function InfoCard({
+  title,
+  icon,
+  children,
+  className,
+  contentClassName,
+}: InfoCardProps) {
   return (
     <Card className={className}>
       <CardHeader className="pb-2">
@@ -146,9 +159,7 @@ export function InfoCard({ title, icon, children, className, contentClassName }:
           {title}
         </CardTitle>
       </CardHeader>
-      <CardContent className={contentClassName}>
-        {children}
-      </CardContent>
+      <CardContent className={contentClassName}>{children}</CardContent>
     </Card>
   );
 }
@@ -169,7 +180,10 @@ interface ConditionsDisplayProps {
   title?: string;
 }
 
-export function ConditionsDisplay({ conditions, title = "Conditions" }: ConditionsDisplayProps) {
+export function ConditionsDisplay({
+  conditions,
+  title = "Conditions",
+}: ConditionsDisplayProps) {
   if (!conditions || conditions.length === 0) {
     return null;
   }
@@ -192,8 +206,8 @@ export function ConditionsDisplay({ conditions, title = "Conditions" }: Conditio
                     condition.status === "True"
                       ? "default"
                       : condition.status === "False"
-                      ? "destructive"
-                      : "secondary"
+                        ? "destructive"
+                        : "secondary"
                   }
                 >
                   {condition.status}
@@ -236,7 +250,7 @@ interface ResourceDetailLayoutProps {
   error: Error | string | null;
   /** Resource kind for display */
   resourceKind: string;
-  
+
   /** Header title */
   title: string;
   /** Namespace */
@@ -249,7 +263,7 @@ interface ResourceDetailLayoutProps {
   actions?: React.ReactNode;
   /** Header icon */
   icon?: React.ReactNode;
-  
+
   /** Go back callback */
   onBack: () => void;
   /** Refresh callback */
@@ -258,21 +272,21 @@ interface ResourceDetailLayoutProps {
   onFindReplacement?: () => void;
   /** Is searching for replacement */
   isSearchingReplacement?: boolean;
-  
+
   /** Tab definitions */
   tabs: DetailTab[];
   /** Active tab */
   activeTab: string;
   /** Set active tab */
   onTabChange: (tab: string) => void;
-  
+
   /** Labels for LabelsDisplay */
   labels?: Record<string, string>;
   /** Annotations for display */
   annotations?: Record<string, string>;
   /** Conditions for ConditionsDisplay */
   conditions?: Condition[];
-  
+
   /** Additional content below tabs */
   children?: React.ReactNode;
 }
@@ -368,9 +382,11 @@ export function ResourceDetailLayout({
       )}
 
       {/* Annotations section */}
-      {activeTab === "overview" && annotations && Object.keys(annotations).length > 0 && (
-        <LabelsDisplay labels={annotations} title="Annotations" />
-      )}
+      {activeTab === "overview" &&
+        annotations &&
+        Object.keys(annotations).length > 0 && (
+          <LabelsDisplay labels={annotations} title="Annotations" />
+        )}
 
       {/* Conditions section */}
       {activeTab === "overview" && conditions && conditions.length > 0 && (
@@ -384,4 +400,3 @@ export function ResourceDetailLayout({
 }
 
 export default ResourceDetailLayout;
-

@@ -50,7 +50,7 @@ interface InfrastructureBuilderState extends StoredBuilderState {
   addResource: (
     kind: ResourceKind,
     position: XYPosition,
-    namespace: string,
+    namespace: string
   ) => Node<ResourceNodeData>;
   updateNode: (nodeId: string, updates: Partial<ResourceNodeData>) => void;
   removeNode: (nodeId: string) => void;
@@ -107,7 +107,7 @@ const persistState = (state: InfrastructureBuilderState) => {
   try {
     window.localStorage.setItem(
       storageKey(state.context),
-      JSON.stringify(payload),
+      JSON.stringify(payload)
     );
   } catch (error) {
     console.warn("Failed to persist infrastructure builder state:", error);
@@ -124,7 +124,7 @@ const layoutPosition = (index: number) => ({
 
 const createResourceName = (
   kind: ResourceKind,
-  nodes: Node<ResourceNodeData>[],
+  nodes: Node<ResourceNodeData>[]
 ) => {
   const base = kind.toLowerCase();
   const existing = new Set(nodes.map((node) => node.data.name));
@@ -223,7 +223,7 @@ export const useInfrastructureBuilderStore = create<InfrastructureBuilderState>(
       set((state) => {
         const edges = addFlowEdge(
           { ...connection, type: "smoothstep" },
-          state.edges,
+          state.edges
         );
         const next = { ...state, edges };
         persistState(next);
@@ -256,7 +256,7 @@ export const useInfrastructureBuilderStore = create<InfrastructureBuilderState>(
                 ...node,
                 data: { ...node.data, ...updates } as ResourceNodeData,
               }
-            : node,
+            : node
         );
         const next = { ...state, nodes };
         persistState(next);
@@ -268,7 +268,7 @@ export const useInfrastructureBuilderStore = create<InfrastructureBuilderState>(
       set((state) => {
         const nodes = state.nodes.filter((node) => node.id !== nodeId);
         const edges = state.edges.filter(
-          (edge) => edge.source !== nodeId && edge.target !== nodeId,
+          (edge) => edge.source !== nodeId && edge.target !== nodeId
         );
         const next = { ...state, nodes, edges, selectedNodeId: null };
         persistState(next);
@@ -303,7 +303,7 @@ export const useInfrastructureBuilderStore = create<InfrastructureBuilderState>(
       }
 
       const positionByKey = new Map(
-        currentNodes.map((node) => [resourceKey(node.data), node.position]),
+        currentNodes.map((node) => [resourceKey(node.data), node.position])
       );
 
       const nodes: Node<ResourceNodeData>[] = parsed.resources.map(
@@ -316,7 +316,7 @@ export const useInfrastructureBuilderStore = create<InfrastructureBuilderState>(
             position,
             data: resource,
           };
-        },
+        }
       );
 
       const edges = buildEdgesFromResources(nodes);
@@ -340,7 +340,7 @@ export const useInfrastructureBuilderStore = create<InfrastructureBuilderState>(
       const { nodes, extraManifests } = get();
       const yamlText = buildManifestYaml(
         nodes.map((node) => node.data),
-        extraManifests,
+        extraManifests
       );
       set((state) => {
         const next = { ...state, yamlText };
@@ -349,5 +349,5 @@ export const useInfrastructureBuilderStore = create<InfrastructureBuilderState>(
       });
       return yamlText;
     },
-  }),
+  })
 );

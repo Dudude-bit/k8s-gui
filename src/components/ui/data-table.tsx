@@ -62,7 +62,7 @@ export function DataTable<TData, TValue>({
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    [],
+    []
   );
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [searchValue, setSearchValue] = React.useState("");
@@ -73,9 +73,11 @@ export function DataTable<TData, TValue>({
   const deferredSearch = React.useDeferredValue(searchValue);
 
   // Determine if we should use virtual scroll based on data size
-  const shouldVirtualScroll = enableVirtualScroll ?? (data.length > LARGE_DATASET_THRESHOLD);
+  const shouldVirtualScroll =
+    enableVirtualScroll ?? data.length > LARGE_DATASET_THRESHOLD;
   const isShowingAllRows = pagination.pageSize >= data.length;
-  const showLargeDatasetWarning = isShowingAllRows && data.length > LARGE_DATASET_THRESHOLD;
+  const showLargeDatasetWarning =
+    isShowingAllRows && data.length > LARGE_DATASET_THRESHOLD;
 
   const table = useReactTable({
     data,
@@ -127,7 +129,9 @@ export function DataTable<TData, TValue>({
   };
 
   // Get current page size display value
-  const currentPageSizeValue = isShowingAllRows ? "all" : String(pagination.pageSize);
+  const currentPageSizeValue = isShowingAllRows
+    ? "all"
+    : String(pagination.pageSize);
 
   if (isLoading) {
     return (
@@ -180,21 +184,31 @@ export function DataTable<TData, TValue>({
       <div
         className={cn(
           "rounded-md border transition-opacity duration-200",
-          isFetching && "opacity-60",
+          isFetching && "opacity-60"
         )}
         aria-busy={isFetching}
       >
         {/* Use scrollable container for large datasets when showing all rows */}
         <div
           className={cn(
-            shouldVirtualScroll && isShowingAllRows && "overflow-auto scrollbar-thin"
+            shouldVirtualScroll &&
+              isShowingAllRows &&
+              "overflow-auto scrollbar-thin"
           )}
-          style={shouldVirtualScroll && isShowingAllRows ? { maxHeight: virtualScrollHeight } : undefined}
+          style={
+            shouldVirtualScroll && isShowingAllRows
+              ? { maxHeight: virtualScrollHeight }
+              : undefined
+          }
         >
           <Table>
-            <TableHeader className={cn(
-              shouldVirtualScroll && isShowingAllRows && "sticky top-0 bg-background z-10"
-            )}>
+            <TableHeader
+              className={cn(
+                shouldVirtualScroll &&
+                  isShowingAllRows &&
+                  "sticky top-0 bg-background z-10"
+              )}
+            >
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => {
@@ -204,7 +218,7 @@ export function DataTable<TData, TValue>({
                           ? null
                           : flexRender(
                               header.column.columnDef.header,
-                              header.getContext(),
+                              header.getContext()
                             )}
                       </TableHead>
                     );
@@ -223,7 +237,7 @@ export function DataTable<TData, TValue>({
                       <TableCell key={cell.id}>
                         {flexRender(
                           cell.column.columnDef.cell,
-                          cell.getContext(),
+                          cell.getContext()
                         )}
                       </TableCell>
                     ))}

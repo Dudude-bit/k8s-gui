@@ -1,13 +1,14 @@
 import { ReactNode, useState } from "react";
 import { ColumnDef } from "@tanstack/react-table";
-import { DataTable } from "@/components/ui/data-table";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
-import { useResource } from "@/hooks/useResource";
-import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
-import { useClusterStore } from "@/stores/clusterStore";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { DataTable } from "@/components/ui/data-table";
 import { useToast } from "@/components/ui/use-toast";
+import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
+import { useResource } from "@/hooks/useResource";
+import { useClusterStore } from "@/stores/clusterStore";
 
 export interface ResourceDeleteConfig<T> {
   /** Function to delete a resource */
@@ -18,7 +19,9 @@ export interface ResourceDeleteConfig<T> {
   resourceType: string;
 }
 
-export interface ResourceListProps<T extends { name: string; namespace: string }> {
+export interface ResourceListProps<
+  T extends { name: string; namespace: string },
+> {
   /** Display title for the resource list */
   title: string;
   /** Query key for React Query */
@@ -26,7 +29,9 @@ export interface ResourceListProps<T extends { name: string; namespace: string }
   /** Function to fetch resources */
   queryFn: () => Promise<T[]>;
   /** Table column definitions - can use setDeleteTarget from useResourceListDelete hook */
-  columns: ColumnDef<T>[] | ((setDeleteTarget: (item: T) => void) => ColumnDef<T>[]);
+  columns:
+    | ColumnDef<T>[]
+    | ((setDeleteTarget: (item: T) => void) => ColumnDef<T>[]);
   /** Label for empty state (e.g., "pods", "services") */
   emptyStateLabel: string;
   /** Delete configuration */
@@ -87,7 +92,7 @@ export function ResourceList<T extends { name: string; namespace: string }>({
     onError: (error, item) => {
       toast({
         title: "Error",
-        description: `Failed to delete ${deleteConfig?.resourceType?.toLowerCase() ?? 'resource'} ${item.name}: ${error}`,
+        description: `Failed to delete ${deleteConfig?.resourceType?.toLowerCase() ?? "resource"} ${item.name}: ${error}`,
         variant: "destructive",
       });
       setDeleteTarget(null);
@@ -95,9 +100,10 @@ export function ResourceList<T extends { name: string; namespace: string }>({
   });
 
   // Resolve columns - can be a function that receives setDeleteTarget
-  const resolvedColumns = typeof columns === "function" 
-    ? columns(setDeleteTarget as (item: T) => void)
-    : columns;
+  const resolvedColumns =
+    typeof columns === "function"
+      ? columns(setDeleteTarget as (item: T) => void)
+      : columns;
 
   if (!isConnected) {
     return <ConnectClusterEmptyState resourceLabel={emptyStateLabel} />;

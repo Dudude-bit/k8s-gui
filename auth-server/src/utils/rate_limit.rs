@@ -46,11 +46,14 @@ impl RateLimiter {
     /// Returns Ok(remaining) if allowed, Err(retry_after_secs) if rate limited.
     pub fn check(&self, key: &str) -> Result<u32, u64> {
         let now = Instant::now();
-        
-        let mut entry = self.entries.entry(key.to_string()).or_insert_with(|| RateLimitEntry {
-            count: 0,
-            window_start: now,
-        });
+
+        let mut entry = self
+            .entries
+            .entry(key.to_string())
+            .or_insert_with(|| RateLimitEntry {
+                count: 0,
+                window_start: now,
+            });
 
         // Check if window has expired
         if now.duration_since(entry.window_start) >= self.config.window {
@@ -76,9 +79,8 @@ impl RateLimiter {
     /// Should be called periodically
     pub fn cleanup(&self) {
         let now = Instant::now();
-        self.entries.retain(|_, entry| {
-            now.duration_since(entry.window_start) < self.config.window * 2
-        });
+        self.entries
+            .retain(|_, entry| now.duration_since(entry.window_start) < self.config.window * 2);
     }
 }
 
@@ -157,4 +159,3 @@ mod tests {
         assert!(limiter.check("key2").is_ok()); // Different key, should be allowed
     }
 }
-

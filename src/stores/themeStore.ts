@@ -16,6 +16,6 @@ export const useThemeStore = create<ThemeState>()(
     }),
     {
       name: "k8s-gui-theme",
-    },
-  ),
+    }
+  )
 );

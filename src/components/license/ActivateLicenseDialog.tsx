@@ -13,6 +13,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
 import { validateLicenseKey } from "@/lib/validation";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 interface ActivateLicenseDialogProps {
   open: boolean;
@@ -38,8 +39,8 @@ export function ActivateLicenseDialog({
   };
 
   const handleActivate = async () => {
-    // Client-side validation first
-    const validation = validateLicenseKey(licenseKey);
+    // Backend validation
+    const validation = await validateLicenseKey(licenseKey);
     if (!validation.isValid) {
       setValidationError(validation.error ?? "Invalid license key");
       toast({
@@ -63,7 +64,7 @@ export function ActivateLicenseDialog({
     } catch (error) {
       toast({
         title: "Activation Failed",
-        description: error instanceof Error ? error.message : String(error),
+        description: normalizeTauriError(error),
         variant: "destructive",
       });
     } finally {
@@ -99,7 +100,8 @@ export function ActivateLicenseDialog({
               <p className="text-sm text-destructive">{validationError}</p>
             )}
             <p className="text-xs text-muted-foreground">
-              License key should be in UUID format (e.g., 550e8400-e29b-41d4-a716-446655440000)
+              License key should be in UUID format (e.g.,
+              550e8400-e29b-41d4-a716-446655440000)
             </p>
           </div>
           <div className="flex justify-end gap-2">
@@ -111,7 +113,9 @@ export function ActivateLicenseDialog({
               Cancel
             </Button>
             <Button onClick={handleActivate} disabled={isActivating}>
-              {isActivating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isActivating && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
               Activate
             </Button>
           </div>

@@ -18,14 +18,15 @@ pub async fn list_deployments(
     state: State<'_, AppState>,
 ) -> Result<Vec<DeploymentInfo>> {
     let filters = filters.unwrap_or_default();
-    
+
     let list = crate::commands::helpers::list_resources::<Deployment>(
         filters.namespace,
         state,
         filters.label_selector.as_deref(),
         filters.field_selector.as_deref(),
         filters.limit,
-    ).await?;
+    )
+    .await?;
 
     Ok(list.items.iter().map(DeploymentInfo::from).collect())
 }
@@ -38,7 +39,8 @@ pub async fn get_deployment(
     state: State<'_, AppState>,
 ) -> Result<DeploymentInfo> {
     crate::validation::validate_resource_name(&name)?;
-    let deployment: Deployment = crate::commands::helpers::get_resource(name, namespace, state).await?;
+    let deployment: Deployment =
+        crate::commands::helpers::get_resource(name, namespace, state).await?;
     Ok(DeploymentInfo::from(&deployment))
 }
 
@@ -49,7 +51,7 @@ pub async fn get_deployment_yaml(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String> {
-    super::helpers::get_resource_yaml::<Deployment>(name, namespace, state).await
+    crate::commands::helpers::get_resource_yaml::<Deployment>(name, namespace, state).await
 }
 
 /// Delete a deployment
@@ -60,12 +62,13 @@ pub async fn delete_deployment(
     state: State<'_, AppState>,
 ) -> Result<()> {
     crate::validation::validate_resource_name(&name)?;
-    
+
     let ctx = CommandContext::new(&state, namespace)?;
     crate::validation::validate_namespace(&ctx.namespace)?;
 
     let api: kube::Api<Deployment> = ctx.namespaced_api();
-    api.delete(&name, &kube::api::DeleteParams::default()).await?;
+    api.delete(&name, &kube::api::DeleteParams::default())
+        .await?;
 
     Ok(())
 }
@@ -88,7 +91,8 @@ pub async fn scale_deployment(
         }
     });
 
-    api.patch(&name, &PatchParams::default(), &Patch::Merge(&patch)).await?;
+    api.patch(&name, &PatchParams::default(), &Patch::Merge(&patch))
+        .await?;
 
     Ok(())
 }
@@ -118,7 +122,8 @@ pub async fn restart_deployment(
         }
     });
 
-    api.patch(&name, &PatchParams::default(), &Patch::Strategic(&patch)).await?;
+    api.patch(&name, &PatchParams::default(), &Patch::Strategic(&patch))
+        .await?;
 
     Ok(())
 }
@@ -140,12 +145,13 @@ pub async fn update_deployment_image(
     let deployment = api.get(&name).await?;
 
     // Find and update the container image
-    let mut spec = deployment.spec.ok_or_else(|| {
-        crate::error::Error::InvalidInput("Deployment has no spec".to_string())
-    })?;
-    let mut template_spec = spec.template.spec.ok_or_else(|| {
-        crate::error::Error::InvalidInput("Template has no spec".to_string())
-    })?;
+    let mut spec = deployment
+        .spec
+        .ok_or_else(|| crate::error::Error::InvalidInput("Deployment has no spec".to_string()))?;
+    let mut template_spec = spec
+        .template
+        .spec
+        .ok_or_else(|| crate::error::Error::InvalidInput("Template has no spec".to_string()))?;
 
     let container = template_spec
         .containers
@@ -162,7 +168,8 @@ pub async fn update_deployment_image(
         "spec": spec
     });
 
-    api.patch(&name, &PatchParams::default(), &Patch::Merge(&patch)).await?;
+    api.patch(&name, &PatchParams::default(), &Patch::Merge(&patch))
+        .await?;
 
     Ok(())
 }
@@ -183,7 +190,9 @@ pub async fn get_deployment_pods(
     let selector = deployment
         .spec
         .and_then(|s| s.selector.match_labels)
-        .ok_or_else(|| crate::error::Error::InvalidInput("Deployment has no selector".to_string()))?;
+        .ok_or_else(|| {
+            crate::error::Error::InvalidInput("Deployment has no selector".to_string())
+        })?;
 
     // Build label selector string
     let label_selector: String = selector
@@ -197,11 +206,7 @@ pub async fn get_deployment_pods(
     let params = kube::api::ListParams::default().labels(&label_selector);
     let pods = pod_api.list(&params).await?;
 
-    let pod_infos: Vec<PodInfo> = pods
-        .items
-        .iter()
-        .map(PodInfo::from)
-        .collect();
+    let pod_infos: Vec<PodInfo> = pods.items.iter().map(PodInfo::from).collect();
 
     Ok(pod_infos)
 }
@@ -239,9 +244,9 @@ pub async fn get_rollout_status(
     let api: kube::Api<Deployment> = ctx.namespaced_api();
     let deployment = api.get(&name).await?;
 
-    let status = deployment.status.ok_or_else(|| {
-        crate::error::Error::InvalidInput("Deployment has no status".to_string())
-    })?;
+    let status = deployment
+        .status
+        .ok_or_else(|| crate::error::Error::InvalidInput("Deployment has no status".to_string()))?;
 
     let conditions: Vec<DeploymentCondition> = status
         .conditions

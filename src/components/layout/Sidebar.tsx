@@ -82,7 +82,7 @@ export function Sidebar() {
         return item.children?.some(
           (child) =>
             location.pathname === child.path ||
-            location.pathname.startsWith(`${child.path}/`),
+            location.pathname.startsWith(`${child.path}/`)
         );
       })
       .map((item) => item.label);
@@ -102,7 +102,7 @@ export function Sidebar() {
     setExpandedItems((prev) =>
       prev.includes(label)
         ? prev.filter((item) => item !== label)
-        : [...prev, label],
+        : [...prev, label]
     );
   };
 
@@ -125,7 +125,7 @@ export function Sidebar() {
                 <button
                   onClick={() => toggleExpanded(item.label)}
                   className={cn(
-                    "flex w-full items-center gap-3 px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+                    "flex w-full items-center gap-3 px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   )}
                 >
                   <item.icon className="h-4 w-4" />
@@ -133,7 +133,7 @@ export function Sidebar() {
                   <ChevronDown
                     className={cn(
                       "h-4 w-4 transition-transform",
-                      expandedItems.includes(item.label) && "rotate-180",
+                      expandedItems.includes(item.label) && "rotate-180"
                     )}
                   />
                 </button>
@@ -146,7 +146,7 @@ export function Sidebar() {
                         className={({ isActive }) =>
                           cn(
                             "block py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground",
-                            isActive && "font-medium text-primary",
+                            isActive && "font-medium text-primary"
                           )
                         }
                       >
@@ -162,7 +162,7 @@ export function Sidebar() {
                 className={({ isActive }) =>
                   cn(
                     "flex items-center gap-3 px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
-                    isActive && "bg-accent text-foreground",
+                    isActive && "bg-accent text-foreground"
                   )
                 }
               >

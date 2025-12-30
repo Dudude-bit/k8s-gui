@@ -1,9 +1,9 @@
 //! Payment model
 
+use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use bigdecimal::BigDecimal;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
@@ -50,16 +50,11 @@ impl Payment {
     }
 
     /// Count total payments for a user (for pagination)
-    pub async fn count_by_user_id(
-        pool: &sqlx::PgPool,
-        user_id: Uuid,
-    ) -> Result<i64, sqlx::Error> {
-        sqlx::query_scalar::<_, i64>(
-            "SELECT COUNT(*) FROM payments WHERE user_id = $1"
-        )
-        .bind(user_id)
-        .fetch_one(pool)
-        .await
+    pub async fn count_by_user_id(pool: &sqlx::PgPool, user_id: Uuid) -> Result<i64, sqlx::Error> {
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM payments WHERE user_id = $1")
+            .bind(user_id)
+            .fetch_one(pool)
+            .await
     }
 
     pub async fn create(
@@ -102,4 +97,3 @@ impl Payment {
         .await
     }
 }
-

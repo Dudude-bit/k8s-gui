@@ -1,6 +1,12 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
+/**
+ * Merge class names with Tailwind CSS conflict resolution
+ *
+ * @param inputs - Class values to merge
+ * @returns Merged class string with conflicts resolved
+ */
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -12,22 +18,14 @@ export {
   formatCPU,
   parseQuantity as parseKubernetesQuantity,
   formatKubernetesBytes,
-} from './k8s-quantity';
+} from "./k8s-quantity";
 
-export function formatDuration(seconds: number): string {
-  const days = Math.floor(seconds / 86400);
-  const hours = Math.floor((seconds % 86400) / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-
-  if (days > 0) {
-    return `${days}d ${hours}h`;
-  } else if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  } else {
-    return `${minutes}m`;
-  }
-}
-
+/**
+ * Format age from a timestamp string
+ *
+ * @param createdAt - ISO timestamp string or null
+ * @returns Formatted age string (e.g., "5d", "2h", "30m", "10s") or "Unknown"
+ */
 export function formatAge(createdAt: string | null): string {
   if (!createdAt) return "Unknown";
 
@@ -44,4 +42,3 @@ export function formatAge(createdAt: string | null): string {
   if (diffMins > 0) return `${diffMins}m`;
   return `${diffSecs}s`;
 }
-

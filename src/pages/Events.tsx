@@ -126,7 +126,7 @@ export function Events() {
       <Card
         className={cn(
           "transition-opacity duration-200",
-          isFetching && "opacity-70",
+          isFetching && "opacity-70"
         )}
       >
         <CardHeader>
@@ -167,7 +167,7 @@ function EventItem({ event }: { event: EventInfo }) {
     <div
       className={cn(
         "rounded-lg border p-3",
-        isWarning ? "border-yellow-500/50 bg-yellow-500/5" : "border-border",
+        isWarning ? "border-yellow-500/50 bg-yellow-500/5" : "border-border"
       )}
     >
       <div className="flex items-start justify-between">

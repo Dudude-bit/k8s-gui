@@ -52,11 +52,15 @@ export function ServiceList() {
         header: "External IPs",
         cell: ({ row }) => {
           const ips = row.original.externalIps;
-          if (!ips || ips.length === 0) return <span className="text-muted-foreground">-</span>;
+          if (!ips || ips.length === 0)
+            return <span className="text-muted-foreground">-</span>;
           return (
             <div className="flex flex-col gap-1">
               {ips.map((ip, i) => (
-                <div key={i} className="flex items-center gap-1 font-mono text-xs">
+                <div
+                  key={i}
+                  className="flex items-center gap-1 font-mono text-xs"
+                >
                   <ExternalLink className="h-3 w-3" />
                   {ip}
                 </div>

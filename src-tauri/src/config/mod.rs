@@ -1,12 +1,17 @@
 //! Application configuration
+//!
+//! This module provides configuration management for the K8s GUI application.
+//! Configuration is loaded from TOML files with sensible defaults.
 
 use crate::error::{Error, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// Application configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+///
+/// Contains all application settings including theme, Kubernetes connection,
+/// cache, plugins, and logging configuration.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AppConfig {
     /// UI theme
     pub theme: ThemeConfig,
@@ -37,9 +42,15 @@ pub struct ThemeConfig {
     pub compact: bool,
 }
 
-fn default_dark_mode() -> bool { true }
-fn default_accent_color() -> String { "#3b82f6".to_string() }
-fn default_font_size() -> u8 { 14 }
+fn default_dark_mode() -> bool {
+    true
+}
+fn default_accent_color() -> String {
+    "#3b82f6".to_string()
+}
+fn default_font_size() -> u8 {
+    14
+}
 
 impl Default for ThemeConfig {
     fn default() -> Self {
@@ -71,10 +82,18 @@ pub struct KubernetesConfig {
     pub refresh_interval: u64,
 }
 
-fn default_namespace() -> String { "default".to_string() }
-fn default_timeout() -> u64 { 30 }
-fn default_true() -> bool { true }
-fn default_refresh_interval() -> u64 { 30 }
+fn default_namespace() -> String {
+    "default".to_string()
+}
+fn default_timeout() -> u64 {
+    30
+}
+fn default_true() -> bool {
+    true
+}
+fn default_refresh_interval() -> u64 {
+    30
+}
 
 impl Default for KubernetesConfig {
     fn default() -> Self {
@@ -102,8 +121,12 @@ pub struct CacheConfig {
     pub max_entries: usize,
 }
 
-fn default_cache_ttl() -> u64 { 60 }
-fn default_max_entries() -> usize { 1000 }
+fn default_cache_ttl() -> u64 {
+    60
+}
+fn default_max_entries() -> usize {
+    1000
+}
 
 impl Default for CacheConfig {
     fn default() -> Self {
@@ -132,7 +155,9 @@ pub struct PluginsConfig {
     pub disabled: Vec<String>,
 }
 
-fn default_plugin_timeout() -> u64 { 60 }
+fn default_plugin_timeout() -> u64 {
+    60
+}
 
 impl Default for PluginsConfig {
     fn default() -> Self {
@@ -159,8 +184,12 @@ pub struct LoggingConfig {
     pub max_size_mb: u64,
 }
 
-fn default_log_level() -> String { "info".to_string() }
-fn default_log_size() -> u64 { 10 }
+fn default_log_level() -> String {
+    "info".to_string()
+}
+fn default_log_size() -> u64 {
+    10
+}
 
 impl Default for LoggingConfig {
     fn default() -> Self {
@@ -172,19 +201,32 @@ impl Default for LoggingConfig {
     }
 }
 
-
 impl AppConfig {
     /// Load configuration from file
+    ///
+    /// Attempts to load configuration from the default config file location.
+    /// If the file doesn't exist, returns the default configuration.
+    ///
+    /// # Returns
+    ///
+    /// Returns the loaded configuration or default configuration if file doesn't exist.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::Config` if:
+    /// - Config directory cannot be determined
+    /// - Config file cannot be read
+    /// - Config file contains invalid TOML
     pub fn load() -> Result<Self> {
         let config_path = Self::config_path()?;
-        
+
         if config_path.exists() {
             let content = std::fs::read_to_string(&config_path)
                 .map_err(|e| Error::Config(format!("Failed to read config: {e}")))?;
-            
+
             let config: Self = toml::from_str(&content)
                 .map_err(|e| Error::Config(format!("Failed to parse config: {e}")))?;
-            
+
             Ok(config)
         } else {
             // Return default config
@@ -193,10 +235,20 @@ impl AppConfig {
     }
 
     /// Get the configuration file path
+    ///
+    /// Returns the default path where the configuration file should be located.
+    ///
+    /// # Returns
+    ///
+    /// Returns the path to the configuration file.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::Config` if the config directory cannot be determined.
     pub fn config_path() -> Result<PathBuf> {
         let config_dir = dirs::config_dir()
             .ok_or_else(|| Error::Config("Could not determine config directory".to_string()))?;
-        
+
         Ok(config_dir.join("k8s-gui").join("config.toml"))
     }
 }
@@ -217,7 +269,7 @@ mod tests {
         let config = AppConfig::default();
         let toml_str = toml::to_string(&config).unwrap();
         let parsed: AppConfig = toml::from_str(&toml_str).unwrap();
-        
+
         assert_eq!(config.theme.dark_mode, parsed.theme.dark_mode);
     }
 }

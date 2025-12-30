@@ -44,6 +44,6 @@ pub async fn switch_namespace(namespace: String, state: State<'_, AppState>) -> 
 
     state.set_namespace(&context, &namespace);
     tracing::info!("Switched to namespace: {}", namespace);
-    
+
     Ok(())
 }

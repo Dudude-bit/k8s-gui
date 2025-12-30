@@ -6,7 +6,9 @@ use crate::utils::is_valid_k8s_name;
 /// Validate a Kubernetes resource name (DNS-1123 subdomain)
 pub fn validate_resource_name(name: &str) -> Result<()> {
     if name.is_empty() {
-        return Err(Error::InvalidInput("Resource name cannot be empty".to_string()));
+        return Err(Error::InvalidInput(
+            "Resource name cannot be empty".to_string(),
+        ));
     }
 
     if name.len() > 253 {
@@ -27,7 +29,9 @@ pub fn validate_resource_name(name: &str) -> Result<()> {
 /// Validate a Kubernetes namespace name (DNS-1123 label)
 pub fn validate_namespace(name: &str) -> Result<()> {
     if name.is_empty() {
-        return Err(Error::InvalidInput("Namespace name cannot be empty".to_string()));
+        return Err(Error::InvalidInput(
+            "Namespace name cannot be empty".to_string(),
+        ));
     }
 
     if name.len() > 63 {
@@ -58,6 +62,4 @@ mod tests {
         assert!(validate_resource_name("-invalid").is_err()); // Starts with dash
         assert!(validate_resource_name("invalid-").is_err()); // Ends with dash
     }
-
 }
-

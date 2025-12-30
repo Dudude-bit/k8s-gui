@@ -104,48 +104,74 @@ pub async fn get_cluster_stats(
     let pods = pods_result.map_err(|e| format!("Failed to list pods: {e}"))?;
     let pod_stats = PodStats {
         total: pods.items.len(),
-        running: pods.items.iter().filter(|p| {
-            p.status.as_ref()
-                .and_then(|s| s.phase.as_ref())
-                .is_some_and(|phase| phase == "Running")
-        }).count(),
-        pending: pods.items.iter().filter(|p| {
-            p.status.as_ref()
-                .and_then(|s| s.phase.as_ref())
-                .is_some_and(|phase| phase == "Pending")
-        }).count(),
-        failed: pods.items.iter().filter(|p| {
-            p.status.as_ref()
-                .and_then(|s| s.phase.as_ref())
-                .is_some_and(|phase| phase == "Failed")
-        }).count(),
-        succeeded: pods.items.iter().filter(|p| {
-            p.status.as_ref()
-                .and_then(|s| s.phase.as_ref())
-                .is_some_and(|phase| phase == "Succeeded")
-        }).count(),
+        running: pods
+            .items
+            .iter()
+            .filter(|p| {
+                p.status
+                    .as_ref()
+                    .and_then(|s| s.phase.as_ref())
+                    .is_some_and(|phase| phase == "Running")
+            })
+            .count(),
+        pending: pods
+            .items
+            .iter()
+            .filter(|p| {
+                p.status
+                    .as_ref()
+                    .and_then(|s| s.phase.as_ref())
+                    .is_some_and(|phase| phase == "Pending")
+            })
+            .count(),
+        failed: pods
+            .items
+            .iter()
+            .filter(|p| {
+                p.status
+                    .as_ref()
+                    .and_then(|s| s.phase.as_ref())
+                    .is_some_and(|phase| phase == "Failed")
+            })
+            .count(),
+        succeeded: pods
+            .items
+            .iter()
+            .filter(|p| {
+                p.status
+                    .as_ref()
+                    .and_then(|s| s.phase.as_ref())
+                    .is_some_and(|phase| phase == "Succeeded")
+            })
+            .count(),
     };
 
     // Process deployments
     let deployments = deployments_result.map_err(|e| format!("Failed to list deployments: {e}"))?;
     let deployment_stats = DeploymentStats {
         total: deployments.items.len(),
-        available: deployments.items.iter().filter(|d| {
-            d.status.as_ref()
-                .is_some_and(|s| {
+        available: deployments
+            .items
+            .iter()
+            .filter(|d| {
+                d.status.as_ref().is_some_and(|s| {
                     let ready = s.ready_replicas.unwrap_or(0);
                     let desired = s.replicas.unwrap_or(0);
                     ready > 0 && ready == desired
                 })
-        }).count(),
-        unavailable: deployments.items.iter().filter(|d| {
-            d.status.as_ref()
-                .is_none_or(|s| {
+            })
+            .count(),
+        unavailable: deployments
+            .items
+            .iter()
+            .filter(|d| {
+                d.status.as_ref().is_none_or(|s| {
                     let ready = s.ready_replicas.unwrap_or(0);
                     let desired = s.replicas.unwrap_or(0);
                     ready < desired
                 })
-        }).count(),
+            })
+            .count(),
     };
 
     // Process services
@@ -158,13 +184,20 @@ pub async fn get_cluster_stats(
     let nodes = nodes_result.map_err(|e| format!("Failed to list nodes: {e}"))?;
     let node_stats = NodeStats {
         total: nodes.items.len(),
-        ready: nodes.items.iter().filter(|n| {
-            n.status.as_ref()
-                .and_then(|s| s.conditions.as_ref())
-                .is_some_and(|conditions| {
-                    conditions.iter().any(|c| c.type_ == "Ready" && c.status == "True")
-                })
-        }).count(),
+        ready: nodes
+            .items
+            .iter()
+            .filter(|n| {
+                n.status
+                    .as_ref()
+                    .and_then(|s| s.conditions.as_ref())
+                    .is_some_and(|conditions| {
+                        conditions
+                            .iter()
+                            .any(|c| c.type_ == "Ready" && c.status == "True")
+                    })
+            })
+            .count(),
     };
 
     Ok(ClusterStats {

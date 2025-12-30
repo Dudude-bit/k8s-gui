@@ -27,7 +27,7 @@ pub struct KubectlPlugin {
 
 impl KubectlPluginManager {
     /// Create a new kubectl plugin manager
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             plugins: HashMap::new(),
@@ -51,12 +51,10 @@ impl KubectlPluginManager {
                 for entry in entries.flatten() {
                     let file_name = entry.file_name();
                     let name = file_name.to_string_lossy();
-                    
+
                     if name.starts_with("kubectl-") {
-                        let plugin_name = name
-                            .trim_start_matches("kubectl-")
-                            .replace('-', "_"); // kubectl uses - as separator, convert to _
-                        
+                        let plugin_name = name.trim_start_matches("kubectl-").replace('-', "_"); // kubectl uses - as separator, convert to _
+
                         let path = entry.path();
                         let executable = is_executable(&path);
 
@@ -66,7 +64,7 @@ impl KubectlPluginManager {
                                 path: path.clone(),
                                 executable,
                             };
-                            
+
                             // Don't override if already found (first in PATH wins)
                             if !self.plugins.contains_key(&plugin_name) {
                                 self.plugins.insert(plugin_name.clone(), plugin.clone());
@@ -83,13 +81,13 @@ impl KubectlPluginManager {
     }
 
     /// List all discovered plugins
-    #[must_use] 
+    #[must_use]
     pub fn list(&self) -> Vec<&KubectlPlugin> {
         self.plugins.values().collect()
     }
 
     /// Get a plugin by name
-    #[must_use] 
+    #[must_use]
     pub fn get(&self, name: &str) -> Option<&KubectlPlugin> {
         self.plugins.get(name)
     }
@@ -101,9 +99,10 @@ impl KubectlPluginManager {
         args: &[String],
         context: &PluginContext,
     ) -> Result<PluginResult> {
-        let plugin = self.plugins.get(name).ok_or_else(|| {
-            Error::Plugin(PluginError::NotFound(name.to_string()))
-        })?;
+        let plugin = self
+            .plugins
+            .get(name)
+            .ok_or_else(|| Error::Plugin(PluginError::NotFound(name.to_string())))?;
 
         plugin.execute(args, context).await
     }
@@ -119,17 +118,21 @@ impl KubectlPlugin {
     /// Execute the plugin
     pub async fn execute(&self, args: &[String], context: &PluginContext) -> Result<PluginResult> {
         if !self.executable {
-            return Err(Error::Plugin(PluginError::ExecutionFailed(
-                format!("Plugin {} is not executable", self.name)
-            )));
+            return Err(Error::Plugin(PluginError::ExecutionFailed(format!(
+                "Plugin {} is not executable",
+                self.name
+            ))));
         }
 
         let mut cmd = Command::new(&self.path);
         cmd.args(args);
 
         // Set environment
-        cmd.env("KUBECONFIG", context.kubeconfig_path.as_deref().unwrap_or(""));
-        
+        cmd.env(
+            "KUBECONFIG",
+            context.kubeconfig_path.as_deref().unwrap_or(""),
+        );
+
         for (key, value) in &context.env {
             cmd.env(key, value);
         }
@@ -161,7 +164,7 @@ impl KubectlPlugin {
     }
 
     /// Get plugin info
-    #[must_use] 
+    #[must_use]
     pub fn info(&self) -> PluginInfo {
         PluginInfo {
             name: self.name.clone(),
@@ -180,7 +183,7 @@ impl KubectlPlugin {
 #[cfg(unix)]
 fn is_executable(path: &Path) -> bool {
     use std::os::unix::fs::PermissionsExt;
-    
+
     if let Ok(metadata) = std::fs::metadata(path) {
         let permissions = metadata.permissions();
         permissions.mode() & 0o111 != 0

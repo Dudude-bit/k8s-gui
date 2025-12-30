@@ -1,0 +1,12 @@
+[package]
+name = "k8s-gui-common"
+version = "0.1.0"
+edition = "2021"
+authors = ["K8s GUI Team"]
+description = "Common utilities shared between k8s-gui projects"
+license = "MIT"
+
+[dependencies]
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+

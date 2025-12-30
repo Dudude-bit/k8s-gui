@@ -29,15 +29,15 @@ pub fn spawn_background_tasks(pool: Arc<PgPool>, rate_limiters: Arc<RateLimiters
 /// Periodically clean up expired tokens
 async fn token_cleanup_task(pool: Arc<PgPool>) {
     let mut interval = interval(Duration::from_secs(CLEANUP_INTERVAL_SECS));
-    
+
     // Skip the first tick (immediate)
     interval.tick().await;
-    
+
     loop {
         interval.tick().await;
-        
+
         tracing::info!("Running token cleanup task...");
-        
+
         match RefreshToken::cleanup_expired(&pool).await {
             Ok(count) => {
                 if count > 0 {
@@ -54,13 +54,13 @@ async fn token_cleanup_task(pool: Arc<PgPool>) {
 /// Periodically clean up expired rate limit entries
 async fn rate_limit_cleanup_task(rate_limiters: Arc<RateLimiters>) {
     let mut interval = interval(Duration::from_secs(RATE_LIMIT_CLEANUP_INTERVAL_SECS));
-    
+
     // Skip the first tick (immediate)
     interval.tick().await;
-    
+
     loop {
         interval.tick().await;
-        
+
         rate_limiters.cleanup_all();
         tracing::debug!("Rate limiter cleanup completed");
     }

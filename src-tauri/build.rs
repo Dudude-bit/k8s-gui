@@ -1,6 +1,6 @@
 fn main() {
     tauri_build::build();
-    
+
     // Compile gRPC proto files (shared from auth-server)
     tonic_build::configure()
         .build_server(false)

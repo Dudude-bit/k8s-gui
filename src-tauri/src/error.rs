@@ -1,5 +1,5 @@
 //! Error handling for K8s GUI application
-//! 
+//!
 //! This module provides a comprehensive error type that covers all possible
 //! error scenarios in the application, with proper conversion from library errors.
 
@@ -152,6 +152,10 @@ impl Serialize for Error {
 
 impl Error {
     /// Get error code for frontend handling
+    ///
+    /// # Returns
+    ///
+    /// A static string representing the error code.
     pub fn error_code(&self) -> &'static str {
         match self {
             Error::KubeApi(_) => "KUBE_API_ERROR",
@@ -176,12 +180,21 @@ impl Error {
     }
 
     /// Get additional details for debugging
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some(String)` with detailed error information if available,
+    /// or `None` if no additional details are available.
     pub fn details(&self) -> Option<String> {
         match self {
             Error::KubeApi(e) => Some(format!("{e:?}")),
-            Error::NotFound { kind, name, namespace } => {
-                Some(format!("Kind: {kind}, Name: {name}, Namespace: {namespace}"))
-            }
+            Error::NotFound {
+                kind,
+                name,
+                namespace,
+            } => Some(format!(
+                "Kind: {kind}, Name: {name}, Namespace: {namespace}"
+            )),
             Error::Auth(e) => Some(format!("{e:?}")),
             Error::Plugin(e) => Some(format!("{e:?}")),
             _ => None,
@@ -189,6 +202,11 @@ impl Error {
     }
 
     /// Check if error is retryable
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if the operation that caused this error can be safely retried,
+    /// `false` otherwise.
     pub fn is_retryable(&self) -> bool {
         matches!(
             self,
@@ -197,7 +215,21 @@ impl Error {
     }
 
     /// Create a not found error
-    pub fn not_found(kind: impl Into<String>, name: impl Into<String>, namespace: impl Into<String>) -> Self {
+    ///
+    /// # Arguments
+    ///
+    /// * `kind` - Kubernetes resource kind
+    /// * `name` - Resource name
+    /// * `namespace` - Resource namespace
+    ///
+    /// # Returns
+    ///
+    /// A new `Error::NotFound` variant.
+    pub fn not_found(
+        kind: impl Into<String>,
+        name: impl Into<String>,
+        namespace: impl Into<String>,
+    ) -> Self {
         Error::NotFound {
             kind: kind.into(),
             name: name.into(),
@@ -284,7 +316,10 @@ mod tests {
     #[test]
     fn test_error_codes() {
         assert_eq!(Error::Config("test".into()).error_code(), "CONFIG_ERROR");
-        assert_eq!(Error::Connection("test".into()).error_code(), "CONNECTION_ERROR");
+        assert_eq!(
+            Error::Connection("test".into()).error_code(),
+            "CONNECTION_ERROR"
+        );
     }
 
     #[test]
@@ -293,7 +328,7 @@ mod tests {
         assert!(Error::Timeout("test".into()).is_retryable());
         assert!(!Error::Config("test".into()).is_retryable());
     }
-    
+
     #[test]
     fn test_error_to_string_conversion() {
         let err = Error::Config("test error".into());

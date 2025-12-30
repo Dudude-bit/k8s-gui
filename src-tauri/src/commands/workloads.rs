@@ -32,14 +32,15 @@ pub async fn list_statefulsets(
     state: State<'_, AppState>,
 ) -> Result<Vec<StatefulSetInfo>> {
     let filters = filters.unwrap_or_default();
-    
+
     let list = crate::commands::helpers::list_resources::<StatefulSet>(
         filters.namespace,
         state,
         filters.label_selector.as_deref(),
         filters.field_selector.as_deref(),
         filters.limit,
-    ).await?;
+    )
+    .await?;
 
     Ok(list
         .items
@@ -81,14 +82,15 @@ pub async fn list_daemonsets(
     state: State<'_, AppState>,
 ) -> Result<Vec<DaemonSetInfo>> {
     let filters = filters.unwrap_or_default();
-    
+
     let list = crate::commands::helpers::list_resources::<DaemonSet>(
         filters.namespace,
         state,
         filters.label_selector.as_deref(),
         filters.field_selector.as_deref(),
         filters.limit,
-    ).await?;
+    )
+    .await?;
 
     Ok(list
         .items
@@ -129,14 +131,15 @@ pub async fn list_jobs(
     state: State<'_, AppState>,
 ) -> Result<Vec<JobInfo>> {
     let filters = filters.unwrap_or_default();
-    
+
     let list = crate::commands::helpers::list_resources::<Job>(
         filters.namespace,
         state,
         filters.label_selector.as_deref(),
         filters.field_selector.as_deref(),
         filters.limit,
-    ).await?;
+    )
+    .await?;
 
     Ok(list
         .items
@@ -146,16 +149,16 @@ pub async fn list_jobs(
             let spec = job.spec.unwrap_or_default();
             let status = job.status.unwrap_or_default();
 
-            let job_status =
-                if status.succeeded.unwrap_or(0) > 0 && status.active.unwrap_or(0) == 0 {
-                    "Complete"
-                } else if status.failed.unwrap_or(0) > 0 {
-                    "Failed"
-                } else if status.active.unwrap_or(0) > 0 {
-                    "Running"
-                } else {
-                    "Pending"
-                };
+            let job_status = if status.succeeded.unwrap_or(0) > 0 && status.active.unwrap_or(0) == 0
+            {
+                "Complete"
+            } else if status.failed.unwrap_or(0) > 0 {
+                "Failed"
+            } else if status.active.unwrap_or(0) > 0 {
+                "Running"
+            } else {
+                "Pending"
+            };
 
             JobInfo {
                 name: meta.name.unwrap_or_default(),
@@ -190,14 +193,15 @@ pub async fn list_cronjobs(
     state: State<'_, AppState>,
 ) -> Result<Vec<CronJobInfo>> {
     let filters = filters.unwrap_or_default();
-    
+
     let list = crate::commands::helpers::list_resources::<CronJob>(
         filters.namespace,
         state,
         filters.label_selector.as_deref(),
         filters.field_selector.as_deref(),
         filters.limit,
-    ).await?;
+    )
+    .await?;
 
     Ok(list
         .items

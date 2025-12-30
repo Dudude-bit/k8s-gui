@@ -1,5 +1,5 @@
 //! K8s GUI - A minimalist Kubernetes GUI client
-//! 
+//!
 //! This application provides a modern, Lens-inspired interface for managing
 //! Kubernetes clusters with support for multiple authentication methods
 //! and an extensible plugin system.
@@ -8,20 +8,20 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod auth;
+pub mod cache;
 pub mod client;
 pub mod commands;
 pub mod config;
 pub mod error;
+pub mod logs;
+pub mod metrics;
 pub mod plugins;
+pub mod proto;
 pub mod resources;
 pub mod state;
 pub mod terminal;
-pub mod logs;
-pub mod cache;
 pub mod utils;
 pub mod validation;
-pub mod metrics;
-pub mod proto;
 
 pub use error::{Error, Result};
 pub use state::AppState;

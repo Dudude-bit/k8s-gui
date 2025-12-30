@@ -1,7 +1,13 @@
 import { ReactNode } from "react";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { LicenseErrorBanner } from "./LicenseErrorBanner";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Lock } from "lucide-react";
 
 interface PremiumFeatureGuardProps {
@@ -44,4 +50,3 @@ export function PremiumFeatureGuard({
     </Card>
   );
 }
-

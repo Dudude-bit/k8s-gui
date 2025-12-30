@@ -5,12 +5,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Server,
-  Cpu,
-  HardDrive,
-  MemoryStick,
-} from "lucide-react";
+import { Server, Cpu, HardDrive, MemoryStick } from "lucide-react";
 import { formatKubernetesBytes } from "@/lib/utils";
 import { useNodeMetrics } from "@/hooks/useNodeMetrics";
 import { MetricCard } from "@/components/ui/metric-card";
@@ -96,16 +91,12 @@ export function NodeDetail() {
   }
 
   const getInternalIP = () => {
-    const internal = node.status.addresses.find(
-      (a) => a.type === "InternalIP",
-    );
+    const internal = node.status.addresses.find((a) => a.type === "InternalIP");
     return internal?.address || "-";
   };
 
   const getExternalIP = () => {
-    const external = node.status.addresses.find(
-      (a) => a.type === "ExternalIP",
-    );
+    const external = node.status.addresses.find((a) => a.type === "ExternalIP");
     return external?.address || "-";
   };
 
@@ -139,7 +130,11 @@ export function NodeDetail() {
           type="cpu"
           icon={<Cpu className="h-4 w-4" />}
           showProgressBar={true}
-          description={node.allocatable.cpu ? `Allocatable: ${node.allocatable.cpu}` : undefined}
+          description={
+            node.allocatable.cpu
+              ? `Allocatable: ${node.allocatable.cpu}`
+              : undefined
+          }
         />
 
         <MetricCard
@@ -149,7 +144,11 @@ export function NodeDetail() {
           type="memory"
           icon={<MemoryStick className="h-4 w-4" />}
           showProgressBar={true}
-          description={node.allocatable.memory ? `Allocatable: ${formatKubernetesBytes(node.allocatable.memory)}` : undefined}
+          description={
+            node.allocatable.memory
+              ? `Allocatable: ${formatKubernetesBytes(node.allocatable.memory)}`
+              : undefined
+          }
         />
 
         <Card>

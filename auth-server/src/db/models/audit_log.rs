@@ -29,7 +29,7 @@ impl AuditLog {
         sqlx::query_as::<_, AuditLog>(
             "INSERT INTO audit_logs (user_id, event_type, ip_address, user_agent, details) 
              VALUES ($1, $2, $3::INET, $4, $5) 
-             RETURNING id, user_id, event_type, ip_address, user_agent, details, created_at"
+             RETURNING id, user_id, event_type, ip_address, user_agent, details, created_at",
         )
         .bind(&user_id)
         .bind(event_type)
@@ -85,4 +85,3 @@ impl AuditLog {
         Ok(())
     }
 }
-

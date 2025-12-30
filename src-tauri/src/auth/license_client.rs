@@ -2,21 +2,25 @@
 
 use crate::error::{Error, Result};
 use crate::proto::auth::auth_service_client::AuthServiceClient;
-use crate::proto::license::license_service_client::LicenseServiceClient;
-use crate::proto::user::user_service_client::UserServiceClient;
-use crate::proto::payment::payment_service_client::PaymentServiceClient;
 use crate::proto::auth::{
-    LoginRequest, RegisterRequest, RefreshRequest,
-    AuthResponse as GrpcAuthResponse,
+    AuthResponse as GrpcAuthResponse, LoginRequest, RefreshRequest, RegisterRequest,
 };
-use crate::proto::license::{GetStatusRequest, ActivateRequest, LicenseStatusResponse};
-use crate::proto::user::{GetProfileRequest, UpdateProfileRequest as GrpcUpdateProfileRequest, ProfileResponse};
-use crate::proto::payment::{GetHistoryRequest, PaymentHistoryResponse as GrpcPaymentHistoryResponse, PaymentInfo as GrpcPaymentInfo};
+use crate::proto::license::license_service_client::LicenseServiceClient;
+use crate::proto::license::{ActivateRequest, GetStatusRequest, LicenseStatusResponse};
+use crate::proto::payment::payment_service_client::PaymentServiceClient;
+use crate::proto::payment::{
+    GetHistoryRequest, PaymentHistoryResponse as GrpcPaymentHistoryResponse,
+    PaymentInfo as GrpcPaymentInfo,
+};
+use crate::proto::user::user_service_client::UserServiceClient;
+use crate::proto::user::{
+    GetProfileRequest, ProfileResponse, UpdateProfileRequest as GrpcUpdateProfileRequest,
+};
+use keyring::Entry;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tonic::transport::Channel;
 use tonic::metadata::MetadataValue;
-use keyring::Entry;
+use tonic::transport::Channel;
 
 type CachedLicenseStatus = Arc<RwLock<Option<(LicenseStatus, chrono::DateTime<chrono::Utc>)>>>;
 
@@ -153,7 +157,7 @@ pub struct LicenseClient {
 }
 
 impl LicenseClient {
-    #[must_use] 
+    #[must_use]
     pub fn new(endpoint: String) -> Self {
         let (access_token, refresh_token) = Self::load_tokens_from_keyring();
 
@@ -169,15 +173,15 @@ impl LicenseClient {
         let access_token = Entry::new(SERVICE_NAME, ACCESS_TOKEN_KEY)
             .and_then(|e| e.get_password())
             .ok();
-            
+
         let refresh_token = Entry::new(SERVICE_NAME, REFRESH_TOKEN_KEY)
             .and_then(|e| e.get_password())
             .ok();
-            
+
         if access_token.is_some() {
             tracing::info!("Restored access token from keyring");
         }
-        
+
         (access_token, refresh_token)
     }
 
@@ -187,7 +191,7 @@ impl LicenseClient {
                 tracing::error!("Failed to save access token: {}", e);
             }
         }
-        
+
         if let Ok(entry) = Entry::new(SERVICE_NAME, REFRESH_TOKEN_KEY) {
             if let Err(e) = entry.set_password(refresh_token) {
                 tracing::error!("Failed to save refresh token: {}", e);
@@ -237,7 +241,9 @@ impl LicenseClient {
             password: password.to_string(),
         });
 
-        let response = client.login(request).await
+        let response = client
+            .login(request)
+            .await
             .map_err(|e| Error::Internal(format!("Login failed: {e}")))?;
 
         let tokens: AuthTokens = response.into_inner().into();
@@ -270,7 +276,9 @@ impl LicenseClient {
             password: password.to_string(),
         });
 
-        let response = client.register(request).await
+        let response = client
+            .register(request)
+            .await
             .map_err(|e| Error::Internal(format!("Registration failed: {e}")))?;
 
         let tokens: AuthTokens = response.into_inner().into();
@@ -312,7 +320,9 @@ impl LicenseClient {
             refresh_token: refresh_token.to_string(),
         });
 
-        let response = client.refresh(request).await
+        let response = client
+            .refresh(request)
+            .await
             .map_err(|e| Error::Internal(format!("Token refresh failed: {e}")))?;
 
         let tokens: AuthTokens = response.into_inner().into();
@@ -344,7 +354,11 @@ impl LicenseClient {
 
         self.ensure_token_valid().await?;
 
-        let access_token = self.access_token.read().await.clone()
+        let access_token = self
+            .access_token
+            .read()
+            .await
+            .clone()
             .ok_or_else(|| Error::Internal("Not authenticated".to_string()))?;
 
         let channel = self.connect().await?;
@@ -352,7 +366,9 @@ impl LicenseClient {
 
         let request = Self::authenticated_request(GetStatusRequest {}, &access_token)?;
 
-        let response = client.get_status(request).await
+        let response = client
+            .get_status(request)
+            .await
             .map_err(|e| Error::Internal(format!("Failed to get license status: {e}")))?;
 
         let status: LicenseStatus = response.into_inner().into();
@@ -366,18 +382,26 @@ impl LicenseClient {
         self.ensure_token_valid().await?;
         *self.cached_status.write().await = None;
 
-        let access_token = self.access_token.read().await.clone()
+        let access_token = self
+            .access_token
+            .read()
+            .await
+            .clone()
             .ok_or_else(|| Error::Internal("Not authenticated".to_string()))?;
 
         let channel = self.connect().await?;
         let mut client = LicenseServiceClient::new(channel);
 
         let request = Self::authenticated_request(
-            ActivateRequest { license_key: license_key.to_string() },
-            &access_token
+            ActivateRequest {
+                license_key: license_key.to_string(),
+            },
+            &access_token,
         )?;
 
-        let response = client.activate(request).await
+        let response = client
+            .activate(request)
+            .await
             .map_err(|e| Error::Internal(format!("Failed to activate license: {e}")))?;
 
         let status: LicenseStatus = response.into_inner().into();
@@ -397,13 +421,11 @@ impl LicenseClient {
         match self.check_license_valid().await {
             Ok(true) => Ok(()),
             Ok(false) => Err(Error::Internal(
-                "Premium feature requires a valid license.".to_string()
+                "Premium feature requires a valid license.".to_string(),
             )),
             Err(e) => {
                 tracing::error!("License check failed: {}", e);
-                Err(Error::Internal(format!(
-                    "License validation failed: {e}"
-                )))
+                Err(Error::Internal(format!("License validation failed: {e}")))
             }
         }
     }
@@ -424,7 +446,11 @@ impl LicenseClient {
     pub async fn get_user_profile(&self) -> Result<UserProfile> {
         self.ensure_token_valid().await?;
 
-        let access_token = self.access_token.read().await.clone()
+        let access_token = self
+            .access_token
+            .read()
+            .await
+            .clone()
             .ok_or_else(|| Error::Internal("Not authenticated".to_string()))?;
 
         let channel = self.connect().await?;
@@ -432,7 +458,9 @@ impl LicenseClient {
 
         let request = Self::authenticated_request(GetProfileRequest {}, &access_token)?;
 
-        let response = client.get_profile(request).await
+        let response = client
+            .get_profile(request)
+            .await
             .map_err(|e| Error::Internal(format!("Failed to get user profile: {e}")))?;
 
         Ok(response.into_inner().into())
@@ -441,7 +469,11 @@ impl LicenseClient {
     pub async fn update_user_profile(&self, updates: UpdateProfileRequest) -> Result<UserProfile> {
         self.ensure_token_valid().await?;
 
-        let access_token = self.access_token.read().await.clone()
+        let access_token = self
+            .access_token
+            .read()
+            .await
+            .clone()
             .ok_or_else(|| Error::Internal("Not authenticated".to_string()))?;
 
         let channel = self.connect().await?;
@@ -453,10 +485,12 @@ impl LicenseClient {
                 last_name: updates.last_name,
                 company: updates.company,
             },
-            &access_token
+            &access_token,
         )?;
 
-        let response = client.update_profile(request).await
+        let response = client
+            .update_profile(request)
+            .await
             .map_err(|e| Error::Internal(format!("Failed to update user profile: {e}")))?;
 
         Ok(response.into_inner().into())
@@ -465,7 +499,11 @@ impl LicenseClient {
     pub async fn get_payment_history(&self) -> Result<PaymentHistoryResponse> {
         self.ensure_token_valid().await?;
 
-        let access_token = self.access_token.read().await.clone()
+        let access_token = self
+            .access_token
+            .read()
+            .await
+            .clone()
             .ok_or_else(|| Error::Internal("Not authenticated".to_string()))?;
 
         let channel = self.connect().await?;
@@ -476,10 +514,12 @@ impl LicenseClient {
                 limit: Some(100),
                 offset: Some(0),
             },
-            &access_token
+            &access_token,
         )?;
 
-        let response = client.get_history(request).await
+        let response = client
+            .get_history(request)
+            .await
             .map_err(|e| Error::Internal(format!("Failed to get payment history: {e}")))?;
 
         Ok(response.into_inner().into())

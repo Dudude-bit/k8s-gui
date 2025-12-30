@@ -1,33 +1,68 @@
-import { Routes, Route, useLocation } from "react-router-dom";
-import { useCallback, useEffect, lazy, Suspense } from "react";
-import { Layout } from "@/components/layout/Layout";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { lazy, Suspense, useCallback, useEffect } from "react";
+import { Route, Routes, useLocation } from "react-router-dom";
 
-// Lazy load all pages for code splitting
-const ClusterOverview = lazy(() => import("@/pages/ClusterOverview").then(m => ({ default: m.ClusterOverview })));
-const Workloads = lazy(() => import("@/pages/Workloads").then(m => ({ default: m.Workloads })));
-const Network = lazy(() => import("@/pages/Network").then(m => ({ default: m.Network })));
-const Storage = lazy(() => import("@/pages/Storage").then(m => ({ default: m.Storage })));
-const Configuration = lazy(() => import("@/pages/Configuration").then(m => ({ default: m.Configuration })));
-const Nodes = lazy(() => import("@/pages/Nodes").then(m => ({ default: m.Nodes })));
-const Events = lazy(() => import("@/pages/Events").then(m => ({ default: m.Events })));
-const Helm = lazy(() => import("@/pages/Helm").then(m => ({ default: m.Helm })));
-const Settings = lazy(() => import("@/pages/Settings").then(m => ({ default: m.Settings })));
-const Profile = lazy(() => import("@/pages/Profile").then(m => ({ default: m.Profile })));
-const PodDetail = lazy(() => import("@/pages/PodDetail").then(m => ({ default: m.PodDetail })));
-const DeploymentDetail = lazy(() => import("@/pages/DeploymentDetail").then(m => ({ default: m.DeploymentDetail })));
-const ServiceDetail = lazy(() => import("@/pages/ServiceDetail").then(m => ({ default: m.ServiceDetail })));
-const NodeDetail = lazy(() => import("@/pages/NodeDetail").then(m => ({ default: m.NodeDetail })));
-const Login = lazy(() => import("@/pages/Login").then(m => ({ default: m.Login })));
-import { useThemeStore } from "@/stores/themeStore";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/use-toast";
-import { useGlobalErrorToasts } from "@/hooks/useGlobalErrorToasts";
-import { useClusterErrorToasts } from "@/hooks/useClusterErrorToasts";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { Layout } from "@/components/layout/Layout";
 import { useAuthFlowEvents } from "@/hooks/useAuthFlowEvents";
+import { useClusterErrorToasts } from "@/hooks/useClusterErrorToasts";
+import { useGlobalErrorToasts } from "@/hooks/useGlobalErrorToasts";
 import { usePortForwardEvents } from "@/hooks/usePortForwardEvents";
 import { usePortForwardStore } from "@/stores/portForwardStore";
+import { useThemeStore } from "@/stores/themeStore";
+
+// Lazy load all pages for code splitting
+const ClusterOverview = lazy(() =>
+  import("@/pages/ClusterOverview").then((m) => ({
+    default: m.ClusterOverview,
+  }))
+);
+const Workloads = lazy(() =>
+  import("@/pages/Workloads").then((m) => ({ default: m.Workloads }))
+);
+const Network = lazy(() =>
+  import("@/pages/Network").then((m) => ({ default: m.Network }))
+);
+const Storage = lazy(() =>
+  import("@/pages/Storage").then((m) => ({ default: m.Storage }))
+);
+const Configuration = lazy(() =>
+  import("@/pages/Configuration").then((m) => ({ default: m.Configuration }))
+);
+const Nodes = lazy(() =>
+  import("@/pages/Nodes").then((m) => ({ default: m.Nodes }))
+);
+const Events = lazy(() =>
+  import("@/pages/Events").then((m) => ({ default: m.Events }))
+);
+const Helm = lazy(() =>
+  import("@/pages/Helm").then((m) => ({ default: m.Helm }))
+);
+const Settings = lazy(() =>
+  import("@/pages/Settings").then((m) => ({ default: m.Settings }))
+);
+const Profile = lazy(() =>
+  import("@/pages/Profile").then((m) => ({ default: m.Profile }))
+);
+const PodDetail = lazy(() =>
+  import("@/pages/PodDetail").then((m) => ({ default: m.PodDetail }))
+);
+const DeploymentDetail = lazy(() =>
+  import("@/pages/DeploymentDetail").then((m) => ({
+    default: m.DeploymentDetail,
+  }))
+);
+const ServiceDetail = lazy(() =>
+  import("@/pages/ServiceDetail").then((m) => ({ default: m.ServiceDetail }))
+);
+const NodeDetail = lazy(() =>
+  import("@/pages/NodeDetail").then((m) => ({ default: m.NodeDetail }))
+);
+const Login = lazy(() =>
+  import("@/pages/Login").then((m) => ({ default: m.Login }))
+);
 import { useLicense } from "@/hooks/useLicense";
 
 export default function App() {
@@ -70,7 +105,7 @@ export default function App() {
         variant: "destructive",
       });
     },
-    [toast],
+    [toast]
   );
 
   const PageSkeleton = () => (
@@ -109,7 +144,10 @@ export default function App() {
               path="deployment/:namespace/:name"
               element={<DeploymentDetail />}
             />
-            <Route path="service/:namespace/:name" element={<ServiceDetail />} />
+            <Route
+              path="service/:namespace/:name"
+              element={<ServiceDetail />}
+            />
           </Route>
         </Routes>
       </Suspense>

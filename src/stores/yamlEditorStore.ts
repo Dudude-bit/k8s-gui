@@ -134,7 +134,11 @@ export const useYamlEditorStore = create<YamlEditorState>()(
       },
 
       setEditedContent: (content) => {
-        set({ editedContent: content, validationResult: null, applyResult: null });
+        set({
+          editedContent: content,
+          validationResult: null,
+          applyResult: null,
+        });
       },
 
       setShowDiff: (show) => {
@@ -170,7 +174,10 @@ export const useYamlEditorStore = create<YamlEditorState>()(
         };
 
         // Add to front, limit size
-        const updatedHistory = [newEntry, ...currentHistory].slice(0, MAX_HISTORY_ENTRIES);
+        const updatedHistory = [newEntry, ...currentHistory].slice(
+          0,
+          MAX_HISTORY_ENTRIES
+        );
 
         set({
           history: {
@@ -240,4 +247,3 @@ export const useYamlEditorStore = create<YamlEditorState>()(
     }
   )
 );
-

@@ -5,8 +5,15 @@ const DEDUPE_MS = 3000;
 
 /**
  * Hook for emitting deduplicated toast notifications
- * 
- * Prevents showing the same error message multiple times within a short time window.
+ *
+ * Prevents showing the same error message multiple times within a short time window (3 seconds).
+ *
+ * @returns An object with `emitToast` function for showing deduplicated toast notifications
+ * @example
+ * ```tsx
+ * const { emitToast } = useDeduplicatedToast();
+ * emitToast("Error", "Something went wrong");
+ * ```
  */
 export function useDeduplicatedToast() {
   const { toast } = useToast();
@@ -31,4 +38,3 @@ export function useDeduplicatedToast() {
 
   return { emitToast };
 }
-

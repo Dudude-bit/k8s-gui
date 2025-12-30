@@ -1,6 +1,10 @@
 // Hook for fetching cluster metrics with real-time updates
 
-import { useQuery, keepPreviousData, UseQueryOptions } from "@tanstack/react-query";
+import {
+  useQuery,
+  keepPreviousData,
+  UseQueryOptions,
+} from "@tanstack/react-query";
 import * as commands from "@/generated/commands";
 import { ClusterMetrics } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
@@ -26,7 +30,3 @@ export function useClusterMetrics(
     ...options,
   });
 }
-
-
-
-

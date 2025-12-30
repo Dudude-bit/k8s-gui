@@ -1,13 +1,14 @@
 //! Pod-specific commands
 
+use k8s_openapi::api::core::v1::Pod;
+use serde::{Deserialize, Serialize};
+use tauri::State;
+
 use crate::commands::filters::PodFilters;
 use crate::commands::helpers::CommandContext;
 use crate::error::Result;
 use crate::resources::PodInfo;
 use crate::state::AppState;
-use k8s_openapi::api::core::v1::Pod;
-use serde::{Deserialize, Serialize};
-use tauri::State;
 
 /// List pods with optional filters
 #[tauri::command]
@@ -16,14 +17,15 @@ pub async fn list_pods(
     state: State<'_, AppState>,
 ) -> Result<Vec<PodInfo>> {
     let filters = filters.unwrap_or_default();
-    
+
     let list = crate::commands::helpers::list_resources::<Pod>(
         filters.namespace,
         state,
         filters.label_selector.as_deref(),
         filters.field_selector.as_deref(),
         filters.limit,
-    ).await?;
+    )
+    .await?;
 
     let mut pods: Vec<PodInfo> = list.items.iter().map(PodInfo::from).collect();
 
@@ -54,7 +56,7 @@ pub async fn get_pod_yaml(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String> {
-    super::helpers::get_resource_yaml::<Pod>(name, namespace, state).await
+    crate::commands::helpers::get_resource_yaml::<Pod>(name, namespace, state).await
 }
 
 /// Delete a pod
@@ -66,7 +68,7 @@ pub async fn delete_pod(
     state: State<'_, AppState>,
 ) -> Result<()> {
     crate::validation::validate_resource_name(&name)?;
-    
+
     let ctx = CommandContext::new(&state, namespace)?;
     crate::validation::validate_namespace(&ctx.namespace)?;
 
@@ -134,7 +136,12 @@ pub async fn get_container_statuses(
                         "Running"
                     } else if c.state.as_ref().and_then(|s| s.waiting.as_ref()).is_some() {
                         "Waiting"
-                    } else if c.state.as_ref().and_then(|s| s.terminated.as_ref()).is_some() {
+                    } else if c
+                        .state
+                        .as_ref()
+                        .and_then(|s| s.terminated.as_ref())
+                        .is_some()
+                    {
                         "Terminated"
                     } else {
                         "Unknown"

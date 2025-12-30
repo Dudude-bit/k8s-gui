@@ -58,7 +58,3 @@ export function useLoginRedirect(): UseLoginRedirectResult {
     handleGoBack,
   };
 }
-
-
-
-

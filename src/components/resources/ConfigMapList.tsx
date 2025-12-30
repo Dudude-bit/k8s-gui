@@ -20,19 +20,24 @@ import {
   createDataKeysColumn,
 } from "./columns";
 
-
 export function ConfigMapList() {
   const { currentNamespace } = useClusterStore();
   const copyToClipboard = useCopyToClipboard();
 
-  const handleCopyData = useCallback(async (name: string, namespace: string) => {
-    try {
-      const data = await commands.getConfigmapData(name, namespace);
-      copyToClipboard(JSON.stringify(data, null, 2), "ConfigMap data copied to clipboard.");
-    } catch (error) {
-      // Error is handled by copyToClipboard's toast
-    }
-  }, [copyToClipboard]);
+  const handleCopyData = useCallback(
+    async (name: string, namespace: string) => {
+      try {
+        const data = await commands.getConfigmapData(name, namespace);
+        copyToClipboard(
+          JSON.stringify(data, null, 2),
+          "ConfigMap data copied to clipboard."
+        );
+      } catch (error) {
+        // Error is handled by copyToClipboard's toast
+      }
+    },
+    [copyToClipboard]
+  );
 
   const columns = useMemo<ColumnDef<ConfigMapInfo>[]>(
     () => [
@@ -67,7 +72,10 @@ export function ConfigMapList() {
                 title="ConfigMap YAML"
                 description={`${row.original.namespace}/${row.original.name}`}
                 fetchYaml={() =>
-                  commands.getConfigmapYaml(row.original.name, row.original.namespace)
+                  commands.getConfigmapYaml(
+                    row.original.name,
+                    row.original.namespace
+                  )
                 }
               />
               <YamlEditorMenuAction
@@ -78,7 +86,10 @@ export function ConfigMapList() {
                   namespace: row.original.namespace,
                 }}
                 fetchYaml={() =>
-                  commands.getConfigmapYaml(row.original.name, row.original.namespace)
+                  commands.getConfigmapYaml(
+                    row.original.name,
+                    row.original.namespace
+                  )
                 }
               />
               <DropdownMenuItem

@@ -6,7 +6,7 @@
 )]
 
 use k8s_gui_lib::{commands, state::AppState};
-use tauri::{Manager, Emitter};
+use tauri::{Emitter, Manager};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 fn main() {
@@ -23,9 +23,13 @@ fn main() {
 
     tracing::info!("Starting K8s GUI application");
 
+    /// Default auth server URL
+    const DEFAULT_AUTH_SERVER_URL: &str = "http://localhost:8080";
+
     // Default auth server URL (can be overridden by env var if needed, but for now hardcoded default)
     // In production, this should likely be a compile-time constant or config
-    let auth_server_url = std::env::var("VITE_AUTH_SERVER_URL").unwrap_or_else(|_| "http://localhost:8080".to_string());
+    let auth_server_url = std::env::var("VITE_AUTH_SERVER_URL")
+        .unwrap_or_else(|_| DEFAULT_AUTH_SERVER_URL.to_string());
     let license_client = k8s_gui_lib::auth::license_client::LicenseClient::new(auth_server_url);
 
     tauri::Builder::default()
@@ -37,14 +41,14 @@ fn main() {
         .setup(|app| {
             // Initialize application state
             let state = AppState::new()?;
-            
+
             // Subscribe to events and forward to frontend
             let mut event_rx = state.subscribe();
             let app_handle = app.handle().clone();
-            
+
             tauri::async_runtime::spawn(async move {
                 use k8s_gui_lib::state::AppEvent;
-                
+
                 while let Ok(event) = event_rx.recv().await {
                     let event_name = match &event {
                         AppEvent::LogMessage { .. } => "log-line",
@@ -61,7 +65,7 @@ fn main() {
                         AppEvent::Error { .. } => "app-error",
                         AppEvent::WatchEvent { .. } => "watch-event",
                     };
-                    
+
                     // Transform event payload for frontend
                     let payload = match &event {
                         AppEvent::LogMessage { stream_id, pod, container, message, timestamp } => {
@@ -123,15 +127,15 @@ fn main() {
                         },
                         _ => serde_json::to_value(&event).unwrap_or_default(),
                     };
-                    
+
                     if let Err(e) = app_handle.emit(event_name, payload) {
                         tracing::error!("Failed to emit event {}: {}", event_name, e);
                     }
                 }
             });
-            
+
             app.manage(state);
-            
+
             tracing::info!("Application state initialized");
             Ok(())
         })
@@ -143,16 +147,16 @@ fn main() {
             commands::cluster::connect_cluster,
             commands::cluster::disconnect_cluster,
             commands::cluster::get_cluster_info,
-            
+
             // Namespace management
             commands::namespace::list_namespaces,
             commands::namespace::get_current_namespace,
             commands::namespace::switch_namespace,
-            
+
             // Generic resource management
             commands::resources::list_resources,
 
-            
+
             // Pod commands
             commands::pods::list_pods,
             commands::pods::get_pod,
@@ -161,7 +165,7 @@ fn main() {
             commands::pods::get_pod_containers,
             commands::pods::get_container_statuses,
             commands::pods::restart_pod,
-            
+
             // Deployment commands
             commands::deployments::list_deployments,
             commands::deployments::get_deployment,
@@ -172,7 +176,7 @@ fn main() {
             commands::deployments::update_deployment_image,
             commands::deployments::get_deployment_pods,
             commands::deployments::get_rollout_status,
-            
+
             // Service commands
             commands::services::list_services,
             commands::services::get_service,
@@ -185,7 +189,7 @@ fn main() {
             commands::port_forward::port_forward_pod,
             commands::port_forward::stop_port_forward,
             commands::port_forward::list_port_forwards,
-            
+
             // ConfigMap commands
             commands::config_resources::list_configmaps,
             commands::config_resources::get_configmap,
@@ -194,7 +198,7 @@ fn main() {
             commands::config_resources::create_configmap,
             commands::config_resources::update_configmap,
             commands::config_resources::delete_configmap,
-            
+
             // Secret commands
             commands::config_resources::list_secrets,
             commands::config_resources::get_secret,
@@ -203,7 +207,7 @@ fn main() {
             commands::config_resources::create_secret,
             commands::config_resources::update_secret,
             commands::config_resources::delete_secret,
-            
+
             // Node commands
             commands::nodes::list_nodes,
             commands::nodes::get_node,
@@ -214,23 +218,23 @@ fn main() {
             commands::nodes::cordon_node,
             commands::nodes::uncordon_node,
             commands::nodes::drain_node,
-            
+
             // Event commands
             commands::events::list_events,
-            
+
             // Log commands
             commands::logs::get_pod_logs,
             commands::logs::stop_log_stream,
-            
+
             // Terminal/Exec commands
             commands::terminal::terminal_input,
             commands::terminal::terminal_resize,
             commands::terminal::close_terminal,
             commands::terminal::open_shell,
-            
+
             // Plugin commands
             commands::plugins::list_helm_releases,
-            
+
             // Settings commands
             commands::settings::clear_cache,
 
@@ -238,10 +242,10 @@ fn main() {
             commands::registry::set_registry_credentials,
             commands::registry::delete_registry_credentials,
             commands::registry::get_registry_auth_status,
-            
+
             // Authentication commands
             commands::auth::cancel_auth_session,
-            
+
             // License and user authentication commands
             commands::license::login_user,
             commands::license::logout_user,
@@ -252,25 +256,25 @@ fn main() {
             commands::license::get_user_profile,
             commands::license::update_user_profile,
             commands::license::get_payment_history,
-            
+
             // Storage commands
             commands::storage::list_persistent_volumes,
             commands::storage::list_persistent_volume_claims,
             commands::storage::list_storage_classes,
-            
+
             // Network commands
             commands::network::list_ingresses,
             commands::network::list_endpoints,
-            
+
             // Stats commands
             commands::stats::get_cluster_stats,
-            
+
             // Metrics API
             commands::metrics::get_pods_metrics,
             commands::metrics::get_nodes_metrics,
             commands::metrics::get_pod_metrics_command,
             commands::metrics::get_cluster_metrics,
-            
+
             // Workloads commands
             commands::workloads::list_statefulsets,
             commands::workloads::list_daemonsets,

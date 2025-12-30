@@ -1,6 +1,6 @@
 /**
  * Unified Resource Hooks
- * 
+ *
  * Consolidates common patterns for resource data fetching, mutations, and deletions.
  * Replaces useResourceQuery, useResourceListQuery, useResourceMutation, useResourceListDelete
  * with a unified API.
@@ -17,20 +17,23 @@ import {
 } from "@tanstack/react-query";
 import { useClusterStore } from "@/stores/clusterStore";
 import { useToast } from "@/components/ui/use-toast";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 // ============================================================================
 // Query Hooks
 // ============================================================================
 
-export interface UseResourceOptions<TData = unknown, TError = Error>
-  extends Partial<UseQueryOptions<TData, TError>> {
+export interface UseResourceOptions<
+  TData = unknown,
+  TError = Error,
+> extends Partial<UseQueryOptions<TData, TError>> {
   /** Override the isConnected check */
   ignoreConnection?: boolean;
 }
 
 /**
  * Base hook for resource queries with standardized defaults
- * 
+ *
  * @example
  * const { data, isLoading } = useResource(
  *   ['pod', namespace, name],
@@ -48,7 +51,8 @@ export function useResource<TData = unknown, TError = Error>(
   return useQuery({
     queryKey,
     queryFn,
-    enabled: (ignoreConnection || isConnected) && (queryOptions?.enabled !== false),
+    enabled:
+      (ignoreConnection || isConnected) && queryOptions?.enabled !== false,
     placeholderData: keepPreviousData,
     staleTime: 5000,
     refetchOnWindowFocus: false,
@@ -58,7 +62,7 @@ export function useResource<TData = unknown, TError = Error>(
 
 /**
  * Hook for resource list queries with longer stale time
- * 
+ *
  * @example
  * const { data: pods } = useResourceList(
  *   ['pods', namespace],
@@ -84,7 +88,9 @@ export interface MutationToastConfig<TData, TVariables> {
   /** Success toast title */
   successTitle: string;
   /** Success toast description (can be function) */
-  successDescription?: string | ((data: TData, variables: TVariables) => string);
+  successDescription?:
+    | string
+    | ((data: TData, variables: TVariables) => string);
   /** Error message prefix */
   errorPrefix: string;
 }
@@ -102,7 +108,7 @@ export interface UseResourceMutationOptions<TData, TVariables, TError = Error> {
 
 /**
  * Hook for resource mutations with standardized toast notifications and query invalidation
- * 
+ *
  * @example
  * const deletePod = useResourceMutation(
  *   (name: string) => invoke('delete_pod', { name, namespace }),
@@ -116,7 +122,11 @@ export interface UseResourceMutationOptions<TData, TVariables, TError = Error> {
  *   }
  * );
  */
-export function useResourceMutation<TData = unknown, TVariables = void, TError = Error>(
+export function useResourceMutation<
+  TData = unknown,
+  TVariables = void,
+  TError = Error,
+>(
   mutationFn: (variables: TVariables) => Promise<TData>,
   options: UseResourceMutationOptions<TData, TVariables, TError>
 ) {
@@ -132,26 +142,27 @@ export function useResourceMutation<TData = unknown, TVariables = void, TError =
           queryClient.invalidateQueries({ queryKey: key });
         });
       }
-      
+
       // Show success toast
-      const description = typeof options.toast.successDescription === 'function'
-        ? options.toast.successDescription(data, variables)
-        : options.toast.successDescription;
-      
+      const description =
+        typeof options.toast.successDescription === "function"
+          ? options.toast.successDescription(data, variables)
+          : options.toast.successDescription;
+
       toast({
         title: options.toast.successTitle,
         description,
       });
-      
+
       // Call additional callback
       options.onSuccess?.(data, variables);
     },
     onError: (error, variables) => {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = normalizeTauriError(error);
       toast({
-        title: 'Error',
+        title: "Error",
         description: `${options.toast.errorPrefix}: ${errorMessage}`,
-        variant: 'destructive',
+        variant: "destructive",
       });
       options.onError?.(error, variables);
     },
@@ -180,7 +191,7 @@ export interface UseResourceDeleteConfig<T extends ResourceWithIdentity> {
 
 /**
  * Hook for resource deletion with confirmation dialog state management
- * 
+ *
  * @example
  * const { deleteTarget, setDeleteTarget, confirmDelete, isDeleting } = useResourceDelete({
  *   mutationFn: (pod) => invoke('delete_pod', { name: pod.name, namespace: pod.namespace }),
@@ -204,18 +215,20 @@ export function useResourceDelete<T extends ResourceWithIdentity>(
       config.invalidateQueryKeys.forEach((key) => {
         queryClient.invalidateQueries({ queryKey: key });
       });
-      
+
       toast({
         title: `${config.resourceType} deleted`,
-        description: config.successMessage ?? `${config.resourceType} ${item.name} has been deleted.`,
+        description:
+          config.successMessage ??
+          `${config.resourceType} ${item.name} has been deleted.`,
       });
       setDeleteTarget(null);
     },
     onError: (error, item) => {
       toast({
-        title: 'Error',
+        title: "Error",
         description: `Failed to delete ${config.resourceType.toLowerCase()} ${item.name}: ${error}`,
-        variant: 'destructive',
+        variant: "destructive",
       });
       setDeleteTarget(null);
     },
@@ -245,7 +258,11 @@ export function useResourceDelete<T extends ResourceWithIdentity>(
 // Combined CRUD Hook
 // ============================================================================
 
-export interface UseResourceCrudConfig<T extends ResourceWithIdentity, TCreate = Partial<T>, TUpdate = Partial<T>> {
+export interface UseResourceCrudConfig<
+  T extends ResourceWithIdentity,
+  TCreate = Partial<T>,
+  TUpdate = Partial<T>,
+> {
   /** Resource type name */
   resourceType: string;
   /** Query key prefix */
@@ -264,7 +281,7 @@ export interface UseResourceCrudConfig<T extends ResourceWithIdentity, TCreate =
 
 /**
  * Comprehensive CRUD hook for resources
- * 
+ *
  * @example
  * const crud = useResourceCrud({
  *   resourceType: 'ConfigMap',
@@ -276,9 +293,11 @@ export interface UseResourceCrudConfig<T extends ResourceWithIdentity, TCreate =
  *   deleteFn: (name, namespace) => invoke('delete_configmap', { name, namespace }),
  * });
  */
-export function useResourceCrud<T extends ResourceWithIdentity, TCreate = Partial<T>, TUpdate = Partial<T>>(
-  config: UseResourceCrudConfig<T, TCreate, TUpdate>
-) {
+export function useResourceCrud<
+  T extends ResourceWithIdentity,
+  TCreate = Partial<T>,
+  TUpdate = Partial<T>,
+>(config: UseResourceCrudConfig<T, TCreate, TUpdate>) {
   // List query
   const listQuery = useResourceList<T[]>(
     [config.queryKeyPrefix],
@@ -290,7 +309,8 @@ export function useResourceCrud<T extends ResourceWithIdentity, TCreate = Partia
     ? useResourceMutation(config.createFn, {
         toast: {
           successTitle: `${config.resourceType} created`,
-          successDescription: (data) => `${config.resourceType} ${data.name} has been created.`,
+          successDescription: (data) =>
+            `${config.resourceType} ${data.name} has been created.`,
           errorPrefix: `Failed to create ${config.resourceType.toLowerCase()}`,
         },
         invalidateQueryKeys: [[config.queryKeyPrefix]],
@@ -300,8 +320,15 @@ export function useResourceCrud<T extends ResourceWithIdentity, TCreate = Partia
   // Update mutation
   const updateMutation = config.updateFn
     ? useResourceMutation(
-        ({ name, namespace, data }: { name: string; namespace: string; data: TUpdate }) =>
-          config.updateFn!(name, namespace, data),
+        ({
+          name,
+          namespace,
+          data,
+        }: {
+          name: string;
+          namespace: string;
+          data: TUpdate;
+        }) => config.updateFn!(name, namespace, data),
         {
           toast: {
             successTitle: `${config.resourceType} updated`,
@@ -346,4 +373,3 @@ export function useResourceCrud<T extends ResourceWithIdentity, TCreate = Partia
     isDeleting: deleteState?.isDeleting ?? false,
   };
 }
-

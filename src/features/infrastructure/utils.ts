@@ -1,5 +1,6 @@
 import yaml from "js-yaml";
 import { Edge, Node } from "reactflow";
+import { normalizeTauriError } from "@/lib/error-utils";
 import {
   ResourceKind,
   ResourceNodeData,
@@ -49,7 +50,7 @@ const toStringRecord = (value: unknown): Record<string, string> => {
       }
       return acc;
     },
-    {},
+    {}
   );
 };
 
@@ -71,7 +72,7 @@ const filterEmptyRecord = (value: Record<string, string>) =>
 
 const matchesSelector = (
   labels: Record<string, string>,
-  selectors: Record<string, string>,
+  selectors: Record<string, string>
 ) => Object.entries(selectors).every(([key, value]) => labels[key] === value);
 
 const splitKeyValue = (value: string): [string, string] | null => {
@@ -145,7 +146,7 @@ export const formatKeyValueLines = (data: Record<string, string>) =>
 export const createDefaultResourceData = (
   kind: ResourceKind,
   name: string,
-  namespace: string,
+  namespace: string
 ): ResourceNodeData => {
   const ns = namespace || DEFAULT_NAMESPACE;
   switch (kind) {
@@ -269,10 +270,7 @@ export const parseManifestYaml = (text: string): ManifestParseResult => {
           const ports = Array.isArray(primary.ports)
             ? primary.ports
                 .map((port) =>
-                  toNumber(
-                    isRecord(port) ? port.containerPort : undefined,
-                    NaN,
-                  ),
+                  toNumber(isRecord(port) ? port.containerPort : undefined, NaN)
                 )
                 .filter((port) => Number.isFinite(port))
             : [];
@@ -310,10 +308,7 @@ export const parseManifestYaml = (text: string): ManifestParseResult => {
           const ports = Array.isArray(primary.ports)
             ? primary.ports
                 .map((port) =>
-                  toNumber(
-                    isRecord(port) ? port.containerPort : undefined,
-                    NaN,
-                  ),
+                  toNumber(isRecord(port) ? port.containerPort : undefined, NaN)
                 )
                 .filter((port) => Number.isFinite(port))
             : [];
@@ -345,7 +340,7 @@ export const parseManifestYaml = (text: string): ManifestParseResult => {
           const ports = Array.isArray(spec.ports)
             ? spec.ports
                 .map((port) =>
-                  toNumber(isRecord(port) ? port.port : undefined, NaN),
+                  toNumber(isRecord(port) ? port.port : undefined, NaN)
                 )
                 .filter((port) => Number.isFinite(port))
             : [];
@@ -431,7 +426,7 @@ export const parseManifestYaml = (text: string): ManifestParseResult => {
       }
     });
   } catch (error) {
-    errors.push(error instanceof Error ? error.message : String(error));
+    errors.push(normalizeTauriError(error));
   }
 
   return { resources, extraManifests, errors };
@@ -439,7 +434,7 @@ export const parseManifestYaml = (text: string): ManifestParseResult => {
 
 const withMetadata = (
   base: Record<string, unknown>,
-  data: ResourceNodeData,
+  data: ResourceNodeData
 ) => {
   const metadata = isRecord(base.metadata) ? { ...base.metadata } : {};
   metadata.name = data.name;
@@ -590,7 +585,7 @@ const buildSecretManifest = (data: SecretResourceData) => {
 
 export const buildManifestYaml = (
   resources: ResourceNodeData[],
-  extraManifests: unknown[],
+  extraManifests: unknown[]
 ) => {
   const manifests = resources.map((resource) => {
     switch (resource.kind) {
@@ -625,7 +620,7 @@ export const buildManifestYaml = (
           noRefs: true,
           sortKeys: false,
         })
-        .trim(),
+        .trim()
     )
     .filter(Boolean)
     .join("\n---\n");
@@ -646,7 +641,7 @@ export const buildEdgesFromResources = (nodes: Node<ResourceNodeData>[]) => {
       (candidate) =>
         candidate.data.kind === "Service" &&
         candidate.data.name === serviceName &&
-        candidate.data.namespace === node.data.namespace,
+        candidate.data.namespace === node.data.namespace
     );
     if (target) {
       edges.push({

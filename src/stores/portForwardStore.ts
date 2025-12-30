@@ -45,7 +45,7 @@ interface PortForwardState {
   hydrated: boolean;
   hydrate: () => void;
   addConfig: (
-    config: Omit<PortForwardConfig, "id" | "createdAt">,
+    config: Omit<PortForwardConfig, "id" | "createdAt">
   ) => PortForwardConfig;
   updateConfig: (id: string, updates: Partial<PortForwardConfig>) => void;
   removeConfig: (id: string) => void;
@@ -53,7 +53,7 @@ interface PortForwardState {
   startConfig: (configId: string) => Promise<PortForwardSession>;
   stopSession: (sessionId: string) => Promise<void>;
   startAllForContext: (
-    context: string,
+    context: string
   ) => Promise<{ started: number; skipped: number; failed: number }>;
   setStatus: (status: PortForwardStatus) => void;
 }
@@ -129,7 +129,7 @@ export const usePortForwardStore = create<PortForwardState>((set, get) => ({
 
   updateConfig: (id, updates) => {
     const configs = get().configs.map((config) =>
-      config.id === id ? { ...config, ...updates } : config,
+      config.id === id ? { ...config, ...updates } : config
     );
     saveConfigsToStorage(configs);
     set({ configs });
@@ -142,7 +142,8 @@ export const usePortForwardStore = create<PortForwardState>((set, get) => ({
   },
 
   refreshSessions: async () => {
-    const sessions = await invokeTyped<PortForwardSessionPayload[]>("list_port_forwards");
+    const sessions =
+      await invokeTyped<PortForwardSessionPayload[]>("list_port_forwards");
     set({ sessions: sessions.map(mapSession) });
   },
 
@@ -152,15 +153,18 @@ export const usePortForwardStore = create<PortForwardState>((set, get) => ({
       throw new Error("Port-forward config not found");
     }
 
-    const session = await invokeTyped<PortForwardSessionPayload>("port_forward_pod", {
-      pod: config.pod,
-      namespace: config.namespace,
-      config: {
-        local_port: config.localPort,
-        remote_port: config.remotePort,
-        auto_reconnect: config.autoReconnect,
-      },
-    });
+    const session = await invokeTyped<PortForwardSessionPayload>(
+      "port_forward_pod",
+      {
+        pod: config.pod,
+        namespace: config.namespace,
+        config: {
+          local_port: config.localPort,
+          remote_port: config.remotePort,
+          auto_reconnect: config.autoReconnect,
+        },
+      }
+    );
 
     const mapped = mapSession(session);
     set((state) => ({
@@ -181,8 +185,8 @@ export const usePortForwardStore = create<PortForwardState>((set, get) => ({
     const activeKey = new Set(
       sessions.map(
         (session) =>
-          `${session.context}:${session.pod}:${session.namespace}:${session.localPort}:${session.remotePort}`,
-      ),
+          `${session.context}:${session.pod}:${session.namespace}:${session.localPort}:${session.remotePort}`
+      )
     );
 
     let started = 0;

@@ -22,20 +22,22 @@ export interface UseResourceWithMetricsOptions {
 /**
  * Generic hook for fetching resources with aggregated pod metrics.
  * Uses the centralized usePodsWithMetrics hook to avoid duplicate pod queries.
- * 
+ *
  * @param resourceQueryKey - Query key for the resource (e.g., ["statefulsets", namespace])
  * @param resourceQueryFn - Function to fetch resources
  * @param podMatchFn - Function to determine if a pod belongs to a resource
  * @param options - Additional query options
  */
-export function useResourceWithMetrics<T extends { name: string; namespace: string }>(
+export function useResourceWithMetrics<
+  T extends { name: string; namespace: string },
+>(
   resourceQueryKey: string[],
   resourceQueryFn: () => Promise<T[]>,
   podMatchFn: (resource: T, pod: PodInfo) => boolean,
   options?: UseResourceWithMetricsOptions
 ) {
   const { isConnected } = useClusterStore();
-  const enabled = isConnected && (options?.enabled !== false);
+  const enabled = isConnected && options?.enabled !== false;
 
   // Fetch main resource data
   const {
@@ -61,7 +63,9 @@ export function useResourceWithMetrics<T extends { name: string; namespace: stri
   const resourcesWithMetrics = useMemo(() => {
     return resources.map((resource) => {
       // Find pods belonging to this resource using the provided match function
-      const matchedPods = podsWithMetrics.filter((pod) => podMatchFn(resource, pod));
+      const matchedPods = podsWithMetrics.filter((pod) =>
+        podMatchFn(resource, pod)
+      );
 
       // Aggregate metrics from matched pods
       const aggregated = aggregatePodMetrics(matchedPods);
@@ -89,21 +93,25 @@ export function useResourceWithMetrics<T extends { name: string; namespace: stri
 /**
  * Match pods for StatefulSets (pod name pattern: {statefulset-name}-{ordinal})
  */
-export function matchStatefulSetPods<T extends { name: string; namespace: string }>(
-  resource: T,
-  pod: PodInfo
-): boolean {
-  return pod.namespace === resource.namespace && pod.name.startsWith(resource.name + "-");
+export function matchStatefulSetPods<
+  T extends { name: string; namespace: string },
+>(resource: T, pod: PodInfo): boolean {
+  return (
+    pod.namespace === resource.namespace &&
+    pod.name.startsWith(resource.name + "-")
+  );
 }
 
 /**
  * Match pods for DaemonSets (pod name pattern: {daemonset-name}-{hash})
  */
-export function matchDaemonSetPods<T extends { name: string; namespace: string }>(
-  resource: T,
-  pod: PodInfo
-): boolean {
-  return pod.namespace === resource.namespace && pod.name.startsWith(resource.name + "-");
+export function matchDaemonSetPods<
+  T extends { name: string; namespace: string },
+>(resource: T, pod: PodInfo): boolean {
+  return (
+    pod.namespace === resource.namespace &&
+    pod.name.startsWith(resource.name + "-")
+  );
 }
 
 /**
@@ -113,16 +121,22 @@ export function matchJobPods<T extends { name: string; namespace: string }>(
   resource: T,
   pod: PodInfo
 ): boolean {
-  return pod.namespace === resource.namespace && pod.name.startsWith(resource.name + "-");
+  return (
+    pod.namespace === resource.namespace &&
+    pod.name.startsWith(resource.name + "-")
+  );
 }
 
 /**
  * Match pods for Deployments (via labels or name prefix)
  */
-export function matchDeploymentPods<T extends { name: string; namespace: string; labels?: Record<string, string> }>(
-  resource: T,
-  pod: PodInfo
-): boolean {
+export function matchDeploymentPods<
+  T extends {
+    name: string;
+    namespace: string;
+    labels?: Record<string, string>;
+  },
+>(resource: T, pod: PodInfo): boolean {
   const podLabels = pod.labels || {};
   const deploymentLabels = resource.labels || {};
 

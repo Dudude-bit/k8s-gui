@@ -161,7 +161,7 @@ export function InfrastructureBuilder() {
 
   const selectedNode = useMemo(
     () => nodes.find((node) => node.id === selectedNodeId) ?? null,
-    [nodes, selectedNodeId],
+    [nodes, selectedNodeId]
   );
 
   const nodeTypes = useMemo(() => ({ resource: ResourceNode }), []);
@@ -200,7 +200,7 @@ export function InfrastructureBuilder() {
         y: point.y - bounds.top,
       });
     },
-    [reactFlowInstance],
+    [reactFlowInstance]
   );
 
   const handlePointerMove = useCallback((event: PointerEvent) => {
@@ -250,7 +250,7 @@ export function InfrastructureBuilder() {
       }
       dragStateRef.current = null;
     },
-    [addResource, currentNamespace, handlePointerMove, toFlowPosition],
+    [addResource, currentNamespace, handlePointerMove, toFlowPosition]
   );
 
   const handlePalettePointerDown = useCallback(
@@ -287,7 +287,7 @@ export function InfrastructureBuilder() {
       window.addEventListener("pointermove", handlePointerMove);
       window.addEventListener("pointerup", handlePointerUp);
     },
-    [handlePointerMove, handlePointerUp],
+    [handlePointerMove, handlePointerUp]
   );
 
   const handleAddResource = useCallback(
@@ -308,7 +308,7 @@ export function InfrastructureBuilder() {
       addCounterRef.current += 1;
       addResource(kind, position, currentNamespace || "default");
     },
-    [addResource, currentNamespace, toFlowPosition],
+    [addResource, currentNamespace, toFlowPosition]
   );
 
   const handlePaletteClick = useCallback(
@@ -319,7 +319,7 @@ export function InfrastructureBuilder() {
       }
       handleAddResource(kind);
     },
-    [handleAddResource],
+    [handleAddResource]
   );
 
   const handleSelectionChange = useCallback(
@@ -333,7 +333,7 @@ export function InfrastructureBuilder() {
         setSelectedNodeId(null);
       }
     },
-    [setSelectedNodeId],
+    [setSelectedNodeId]
   );
 
   const handleDeleteSelection = useCallback(() => {
@@ -347,7 +347,7 @@ export function InfrastructureBuilder() {
       (edge) =>
         !edgeIds.has(edge.id) &&
         !nodeIds.has(edge.source) &&
-        !nodeIds.has(edge.target),
+        !nodeIds.has(edge.target)
     );
     setNodes(nextNodes);
     setEdges(nextEdges);
@@ -492,7 +492,7 @@ export function InfrastructureBuilder() {
         }
       }
     },
-    [nodes, onConnect, toast, updateNode],
+    [nodes, onConnect, toast, updateNode]
   );
 
   const handleModeChange = useCallback(
@@ -516,7 +516,7 @@ export function InfrastructureBuilder() {
         setMode("visual");
       }
     },
-    [syncFromYaml, syncToYaml, toast],
+    [syncFromYaml, syncToYaml, toast]
   );
 
   const buildApplyPayload = useCallback(
@@ -529,10 +529,10 @@ export function InfrastructureBuilder() {
         : nodes.filter((node) => node.data.origin !== "cluster");
       return buildManifestYaml(
         scoped.map((node) => node.data),
-        extraManifests,
+        extraManifests
       );
     },
-    [extraManifests, mode, nodes, yamlText],
+    [extraManifests, mode, nodes, yamlText]
   );
 
   const handleValidate = useCallback(async () => {
@@ -555,7 +555,10 @@ export function InfrastructureBuilder() {
     }
     setIsValidating(true);
     try {
-      const result = await commands.validateManifest(content, currentNamespace || null);
+      const result = await commands.validateManifest(
+        content,
+        currentNamespace || null
+      );
       const message = result.stderr || result.stdout || "Validation completed.";
       setLastResult({
         title: result.success ? "Validation passed" : "Validation failed",
@@ -606,7 +609,10 @@ export function InfrastructureBuilder() {
     }
     setIsApplying(true);
     try {
-      const result = await commands.applyManifest(content, currentNamespace || null);
+      const result = await commands.applyManifest(
+        content,
+        currentNamespace || null
+      );
       const message = result.stderr || result.stdout || "Apply completed.";
       setLastResult({
         title: result.success ? "Apply succeeded" : "Apply failed",
@@ -652,12 +658,45 @@ export function InfrastructureBuilder() {
     try {
       const [pods, deployments, services, ingresses, configmaps, secrets] =
         await Promise.all([
-          commands.listPods({ namespace: namespaceFilter, labelSelector: null, fieldSelector: null, limit: null, statusFilter: null }),
-          commands.listDeployments({ namespace: namespaceFilter, labelSelector: null, fieldSelector: null, limit: null }),
-          commands.listServices({ namespace: namespaceFilter, labelSelector: null, fieldSelector: null, limit: null, serviceType: null }),
-          commands.listIngresses({ namespace: namespaceFilter, labelSelector: null, fieldSelector: null, limit: null }),
-          commands.listConfigmaps({ namespace: namespaceFilter, labelSelector: null, fieldSelector: null, limit: null }),
-          commands.listSecrets({ namespace: namespaceFilter, labelSelector: null, fieldSelector: null, limit: null, secretType: null }),
+          commands.listPods({
+            namespace: namespaceFilter,
+            labelSelector: null,
+            fieldSelector: null,
+            limit: null,
+            statusFilter: null,
+          }),
+          commands.listDeployments({
+            namespace: namespaceFilter,
+            labelSelector: null,
+            fieldSelector: null,
+            limit: null,
+          }),
+          commands.listServices({
+            namespace: namespaceFilter,
+            labelSelector: null,
+            fieldSelector: null,
+            limit: null,
+            serviceType: null,
+          }),
+          commands.listIngresses({
+            namespace: namespaceFilter,
+            labelSelector: null,
+            fieldSelector: null,
+            limit: null,
+          }),
+          commands.listConfigmaps({
+            namespace: namespaceFilter,
+            labelSelector: null,
+            fieldSelector: null,
+            limit: null,
+          }),
+          commands.listSecrets({
+            namespace: namespaceFilter,
+            labelSelector: null,
+            fieldSelector: null,
+            limit: null,
+            secretType: null,
+          }),
         ]);
 
       const resources: ResourceNodeData[] = [];
@@ -687,7 +726,7 @@ export function InfrastructureBuilder() {
           ports: container?.ports || [],
           status:
             deployment.replicas?.available >=
-              (deployment.replicas?.desired ?? 1)
+            (deployment.replicas?.desired ?? 1)
               ? "Available"
               : "Progressing",
         });
@@ -727,10 +766,7 @@ export function InfrastructureBuilder() {
           path: path?.path || "/",
           pathType:
             path?.pathType && path.pathType.trim()
-              ? (path.pathType as
-                | "Prefix"
-                | "Exact"
-                | "ImplementationSpecific")
+              ? (path.pathType as "Prefix" | "Exact" | "ImplementationSpecific")
               : "Prefix",
           serviceName: path?.backendService || "",
           servicePort: port,
@@ -742,7 +778,7 @@ export function InfrastructureBuilder() {
             acc[key] = "";
             return acc;
           },
-          {},
+          {}
         );
         resources.push({
           kind: "ConfigMap",
@@ -759,7 +795,7 @@ export function InfrastructureBuilder() {
             acc[key] = "";
             return acc;
           },
-          {},
+          {}
         );
         resources.push({
           kind: "Secret",
@@ -778,7 +814,7 @@ export function InfrastructureBuilder() {
           type: "resource",
           position: layoutPosition(index),
           data: resource,
-        }),
+        })
       );
       const newEdges = buildEdgesFromResources(nodes);
       replaceResources(nodes, newEdges);
@@ -816,7 +852,7 @@ export function InfrastructureBuilder() {
         const deployment = addResource(
           "Deployment",
           makePosition(0),
-          namespace,
+          namespace
         );
         updateNode(deployment.id, {
           name: `${appLabel}-deploy`,
@@ -865,7 +901,7 @@ export function InfrastructureBuilder() {
         const deployment = addResource(
           "Deployment",
           makePosition(1),
-          namespace,
+          namespace
         );
         updateNode(deployment.id, {
           name: `${appLabel}-deploy`,
@@ -887,7 +923,7 @@ export function InfrastructureBuilder() {
         });
       }
     },
-    [addResource, currentNamespace, onConnect, reactFlowInstance, updateNode],
+    [addResource, currentNamespace, onConnect, reactFlowInstance, updateNode]
   );
 
   const handleOpenYaml = useCallback(() => {
@@ -1071,10 +1107,11 @@ export function InfrastructureBuilder() {
               </div>
               {lastResult && (
                 <div
-                  className={`rounded-lg border border-border p-3 text-xs ${lastResult.success
-                    ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
-                    : "bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-200"
-                    }`}
+                  className={`rounded-lg border border-border p-3 text-xs ${
+                    lastResult.success
+                      ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
+                      : "bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-200"
+                  }`}
                 >
                   <div className="font-semibold">{lastResult.title}</div>
                   <pre className="mt-2 whitespace-pre-wrap">
@@ -1106,10 +1143,11 @@ export function InfrastructureBuilder() {
               </div>
               {lastResult && (
                 <div
-                  className={`rounded-lg border border-border p-3 text-xs ${lastResult.success
-                    ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
-                    : "bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-200"
-                    }`}
+                  className={`rounded-lg border border-border p-3 text-xs ${
+                    lastResult.success
+                      ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
+                      : "bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-200"
+                  }`}
                 >
                   <div className="font-semibold">{lastResult.title}</div>
                   <pre className="mt-2 whitespace-pre-wrap">

@@ -1,6 +1,6 @@
 /**
  * Unified hook for resource detail pages
- * 
+ *
  * Provides common functionality for all detail pages including:
  * - Resource data fetching with loading/error states
  * - YAML fetching for YAML tab
@@ -11,7 +11,12 @@
 
 import { useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
@@ -138,26 +143,28 @@ export function useResourceDetail<T>(
   // Delete mutation
   const deleteMutation = deleteResource
     ? useMutation({
-      mutationFn: async () => {
-        if (!name) return;
-        await deleteResource(name, namespace || null);
-      },
-      onSuccess: () => {
-        toast({
-          title: `${resourceKind} deleted`,
-          description: `${resourceKind} ${name} has been deleted.`,
-        });
-        queryClient.invalidateQueries({ queryKey: [resourceKind.toLowerCase()] });
-        onDeleted?.() ?? goBack();
-      },
-      onError: (err) => {
-        toast({
-          title: "Error",
-          description: `Failed to delete ${resourceKind.toLowerCase()}: ${err}`,
-          variant: "destructive",
-        });
-      },
-    })
+        mutationFn: async () => {
+          if (!name) return;
+          await deleteResource(name, namespace || null);
+        },
+        onSuccess: () => {
+          toast({
+            title: `${resourceKind} deleted`,
+            description: `${resourceKind} ${name} has been deleted.`,
+          });
+          queryClient.invalidateQueries({
+            queryKey: [resourceKind.toLowerCase()],
+          });
+          onDeleted?.() ?? goBack();
+        },
+        onError: (err) => {
+          toast({
+            title: "Error",
+            description: `Failed to delete ${resourceKind.toLowerCase()}: ${err}`,
+            variant: "destructive",
+          });
+        },
+      })
     : null;
 
   return {
@@ -213,4 +220,3 @@ export function isResourceNotFoundError(error: Error | null | string): boolean {
   const errorStr = String(error);
   return errorStr.includes("not found") || errorStr.includes("NotFound");
 }
-

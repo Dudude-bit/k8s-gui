@@ -1,7 +1,11 @@
-use chrono::{DateTime, Utc};
-use sqlx::{PgPool, FromRow};
-use uuid::Uuid;
+//! Refresh token model
+//!
+//! Handles storage and management of refresh tokens for user authentication.
+
 use crate::error::Result;
+use chrono::{DateTime, Utc};
+use sqlx::{FromRow, PgPool};
+use uuid::Uuid;
 
 /// Refresh token model - fields are read by sqlx FromRow derive
 #[allow(dead_code)]
@@ -14,10 +18,15 @@ pub struct RefreshToken {
 }
 
 impl RefreshToken {
-    pub async fn create(pool: &PgPool, user_id: Uuid, token_hash: String, expires_at: DateTime<Utc>) -> Result<()> {
+    pub async fn create(
+        pool: &PgPool,
+        user_id: Uuid,
+        token_hash: String,
+        expires_at: DateTime<Utc>,
+    ) -> Result<()> {
         sqlx::query(
             "INSERT INTO refresh_tokens (user_id, token_hash, expires_at) 
-             VALUES ($1, $2, $3)"
+             VALUES ($1, $2, $3)",
         )
         .bind(user_id)
         .bind(token_hash)
@@ -42,7 +51,7 @@ impl RefreshToken {
         let result = sqlx::query_scalar::<_, Uuid>(
             "DELETE FROM refresh_tokens 
              WHERE token_hash = $1 AND expires_at > CURRENT_TIMESTAMP
-             RETURNING user_id"
+             RETURNING user_id",
         )
         .bind(token_hash)
         .fetch_optional(pool)

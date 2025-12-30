@@ -36,12 +36,17 @@ serde_json = "1.0"
 # Validation
 validator = { version = "0.18", features = ["derive"] }
 
+# Error handling
+thiserror = "2.0"
+
 # Utilities
 uuid = { version = "1.11", features = ["v4", "serde"] }
 dotenv = "0.15"
-log = "0.4"
 tracing = "0.1"
-tracing-subscriber = "0.3"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Common utilities
+k8s-gui-common = { path = "../k8s-gui-common" }
 
 # Rate limiting
 dashmap = "6.1"

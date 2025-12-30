@@ -1,6 +1,6 @@
 /**
  * Column factory for resource tables
- * 
+ *
  * Provides reusable column definitions to reduce duplication across resource lists.
  */
 
@@ -73,20 +73,22 @@ export function createNameColumn<T extends BaseResource>(
 /**
  * Creates a name column without link (just displays the name)
  */
-export function createSimpleNameColumn<T extends { name: string }>(): ColumnDef<T> {
+export function createSimpleNameColumn<
+  T extends { name: string },
+>(): ColumnDef<T> {
   return {
     accessorKey: "name",
     header: "Name",
-    cell: ({ row }) => (
-      <span className="font-medium">{row.original.name}</span>
-    ),
+    cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
   };
 }
 
 /**
  * Creates a namespace column
  */
-export function createNamespaceColumn<T extends { namespace: string }>(): ColumnDef<T> {
+export function createNamespaceColumn<
+  T extends { namespace: string },
+>(): ColumnDef<T> {
   return {
     accessorKey: "namespace",
     header: "Namespace",
@@ -109,22 +111,16 @@ export function createAgeColumn<T extends WithCreatedAt>(): ColumnDef<T> {
 /**
  * Creates a CPU usage column with MetricBadge component
  */
-export function createCpuColumn<T extends WithCpuUsage & Partial<WithCpuLimits>>(
-  options?: { showProgressBar?: boolean }
-): ColumnDef<T> {
+export function createCpuColumn<
+  T extends WithCpuUsage & Partial<WithCpuLimits>,
+>(options?: { showProgressBar?: boolean }): ColumnDef<T> {
   return {
     id: "cpu",
     header: "CPU",
     cell: ({ row }) => {
       const used = row.original.cpuUsage;
       const total = row.original.cpuLimits ?? row.original.cpuRequests ?? null;
-      return (
-        <MetricBadge
-          used={used}
-          total={total}
-          type="cpu"
-        />
-      );
+      return <MetricBadge used={used} total={total} type="cpu" />;
     },
   };
 }
@@ -132,40 +128,35 @@ export function createCpuColumn<T extends WithCpuUsage & Partial<WithCpuLimits>>
 /**
  * Creates a Memory usage column with MetricBadge component
  */
-export function createMemoryColumn<T extends WithMemoryUsage & Partial<WithMemoryLimits>>(
-  options?: { showProgressBar?: boolean }
-): ColumnDef<T> {
+export function createMemoryColumn<
+  T extends WithMemoryUsage & Partial<WithMemoryLimits>,
+>(options?: { showProgressBar?: boolean }): ColumnDef<T> {
   return {
     id: "memory",
     header: "Memory",
     cell: ({ row }) => {
       const used = row.original.memoryUsage;
-      const total = row.original.memoryLimits ?? row.original.memoryRequests ?? null;
-      return (
-        <MetricBadge
-          used={used}
-          total={total}
-          type="memory"
-        />
-      );
+      const total =
+        row.original.memoryLimits ?? row.original.memoryRequests ?? null;
+      return <MetricBadge used={used} total={total} type="memory" />;
     },
   };
 }
 
-
 /**
  * Creates a status badge column
  */
-export function createStatusColumn<T extends { status: { phase: string } | string }>(
-  _options?: { accessor?: string }
-): ColumnDef<T> {
+export function createStatusColumn<
+  T extends { status: { phase: string } | string },
+>(_options?: { accessor?: string }): ColumnDef<T> {
   return {
     id: "status",
     header: "Status",
     cell: ({ row }) => {
-      const status = typeof row.original.status === "string"
-        ? row.original.status
-        : row.original.status.phase;
+      const status =
+        typeof row.original.status === "string"
+          ? row.original.status
+          : row.original.status.phase;
       return <StatusBadge status={status} />;
     },
   };
@@ -174,7 +165,9 @@ export function createStatusColumn<T extends { status: { phase: string } | strin
 /**
  * Creates a replicas column (ready/desired)
  */
-export function createReplicasColumn<T extends { replicas: { ready: number; desired: number } }>(): ColumnDef<T> {
+export function createReplicasColumn<
+  T extends { replicas: { ready: number; desired: number } },
+>(): ColumnDef<T> {
   return {
     id: "replicas",
     header: "Replicas",
@@ -193,9 +186,9 @@ export function createReplicasColumn<T extends { replicas: { ready: number; desi
 /**
  * Creates a labels column showing badges
  */
-export function createLabelsColumn<T extends WithLabels>(
-  options?: { maxDisplay?: number }
-): ColumnDef<T> {
+export function createLabelsColumn<T extends WithLabels>(options?: {
+  maxDisplay?: number;
+}): ColumnDef<T> {
   const maxDisplay = options?.maxDisplay ?? 3;
   return {
     id: "labels",
@@ -223,9 +216,9 @@ export function createLabelsColumn<T extends WithLabels>(
 /**
  * Creates a data keys column for ConfigMaps/Secrets
  */
-export function createDataKeysColumn<T extends { dataKeys?: string[] }>(
-  options?: { maxDisplay?: number }
-): ColumnDef<T> {
+export function createDataKeysColumn<
+  T extends { dataKeys?: string[] },
+>(options?: { maxDisplay?: number }): ColumnDef<T> {
   const maxDisplay = options?.maxDisplay ?? 3;
   return {
     id: "dataKeys",
@@ -253,15 +246,13 @@ export function createDataKeysColumn<T extends { dataKeys?: string[] }>(
 /**
  * Creates a type badge column
  */
-export function createTypeBadgeColumn<T extends { type?: string }>(
-  options?: { header?: string }
-): ColumnDef<T> {
+export function createTypeBadgeColumn<T extends { type?: string }>(options?: {
+  header?: string;
+}): ColumnDef<T> {
   return {
     id: "type",
     header: options?.header ?? "Type",
-    cell: ({ row }) => (
-      <Badge variant="outline">{row.original.type}</Badge>
-    ),
+    cell: ({ row }) => <Badge variant="outline">{row.original.type}</Badge>,
   };
 }
 
@@ -281,15 +272,18 @@ export interface ActionMenuItem<T> {
  * Creates an actions column with dropdown menu
  */
 export function createActionsColumn<T extends BaseResource>(
-  actions: ActionMenuItem<T>[] | ((setDeleteTarget: (item: T) => void) => ActionMenuItem<T>[]),
+  actions:
+    | ActionMenuItem<T>[]
+    | ((setDeleteTarget: (item: T) => void) => ActionMenuItem<T>[]),
   setDeleteTarget?: (item: T) => void
 ): ColumnDef<T> {
   return {
     id: "actions",
     cell: ({ row }) => {
-      const resolvedActions = typeof actions === "function"
-        ? actions(setDeleteTarget ?? (() => { }))
-        : actions;
+      const resolvedActions =
+        typeof actions === "function"
+          ? actions(setDeleteTarget ?? (() => {}))
+          : actions;
 
       return (
         <ActionMenu>
@@ -312,7 +306,11 @@ export function createActionsColumn<T extends BaseResource>(
             return (
               <DropdownMenuItem
                 key={index}
-                className={action.variant === "destructive" ? "text-destructive" : undefined}
+                className={
+                  action.variant === "destructive"
+                    ? "text-destructive"
+                    : undefined
+                }
                 onClick={() => action.onClick?.(row.original)}
               >
                 {action.icon}
@@ -365,9 +363,7 @@ export function buildResourceColumns<T extends BaseResource & WithCreatedAt>(
   },
   setDeleteTarget?: (item: T) => void
 ): ColumnDef<T>[] {
-  const columns: ColumnDef<T>[] = [
-    createNameColumn<T>(config.linkPrefix),
-  ];
+  const columns: ColumnDef<T>[] = [createNameColumn<T>(config.linkPrefix)];
 
   if (config.includeNamespace !== false) {
     columns.push(createNamespaceColumn<T>());
@@ -388,11 +384,8 @@ export function buildResourceColumns<T extends BaseResource & WithCreatedAt>(
   columns.push(createAgeColumn<T>());
 
   if (config.actions && setDeleteTarget) {
-    columns.push(
-      createActionsColumn<T>(config.actions, setDeleteTarget)
-    );
+    columns.push(createActionsColumn<T>(config.actions, setDeleteTarget));
   }
 
   return columns;
 }
-

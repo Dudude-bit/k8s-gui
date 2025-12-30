@@ -146,9 +146,7 @@ impl License {
         .fetch_optional(pool)
         .await?;
 
-        let license = license.ok_or_else(|| {
-            sqlx::Error::RowNotFound
-        })?;
+        let license = license.ok_or_else(|| sqlx::Error::RowNotFound)?;
 
         // Verify ownership
         if license.user_id != user_id {
@@ -166,7 +164,8 @@ impl License {
         }
 
         // Issue #13 Fix: Use safer interval construction with chrono
-        let base_date = license.expires_at
+        let base_date = license
+            .expires_at
             .filter(|exp| *exp > Utc::now())
             .unwrap_or_else(Utc::now);
 
@@ -177,7 +176,7 @@ impl License {
         sqlx::query(
             "UPDATE licenses 
              SET expires_at = $1, updated_at = CURRENT_TIMESTAMP
-             WHERE id = $2 AND subscription_type = 'monthly' AND is_active = TRUE"
+             WHERE id = $2 AND subscription_type = 'monthly' AND is_active = TRUE",
         )
         .bind(new_expires_at)
         .bind(license_id)
@@ -206,9 +205,7 @@ impl License {
         .fetch_optional(&mut *tx)
         .await?;
 
-        let license = license.ok_or_else(|| {
-            sqlx::Error::RowNotFound
-        })?;
+        let license = license.ok_or_else(|| sqlx::Error::RowNotFound)?;
 
         // Issue #5 Fix: Always set expires_at to NULL for infinite licenses
         let final_expires_at = match license.subscription_type {
@@ -239,4 +236,3 @@ impl License {
         Ok(activated_license)
     }
 }
-

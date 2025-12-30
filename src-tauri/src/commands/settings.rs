@@ -73,10 +73,7 @@ pub struct AppInfo {
 
 /// Clear the resource cache
 #[tauri::command]
-pub async fn clear_cache(
-    state: State<'_, AppState>,
-) -> Result<(), String> {
+pub async fn clear_cache(state: State<'_, AppState>) -> Result<(), String> {
     state.cache.clear();
     Ok(())
 }
-

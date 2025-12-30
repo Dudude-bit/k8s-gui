@@ -6,7 +6,7 @@ interface ResourcePaletteProps {
   onTemplate: (templateId: string) => void;
   onPointerDown: (
     event: React.PointerEvent<HTMLDivElement>,
-    kind: ResourceKind,
+    kind: ResourceKind
   ) => void;
 }
 

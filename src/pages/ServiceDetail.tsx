@@ -5,7 +5,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { ResourceDetailHeader } from "@/components/resources/ResourceDetailHeader";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
-import { DetailSkeleton, DetailError, InfoCard } from "@/components/resources/ResourceDetailLayout";
+import {
+  DetailSkeleton,
+  DetailError,
+  InfoCard,
+} from "@/components/resources/ResourceDetailLayout";
 import { useResourceDetail } from "@/hooks";
 import { Network, Globe, Server } from "lucide-react";
 import * as commands from "@/generated/commands";
@@ -57,13 +61,7 @@ export function ServiceDetail() {
   }
 
   if (error || !service) {
-    return (
-      <DetailError
-        error={error}
-        resourceKind="Service"
-        onBack={goBack}
-      />
-    );
+    return <DetailError error={error} resourceKind="Service" onBack={goBack} />;
   }
 
   const ports = service.ports ?? [];
@@ -75,12 +73,12 @@ export function ServiceDetail() {
   // 'type' is a reserved keyword in some contexts but fine as property
   // Generated type uses 'type' (camelCase) usually, but 'type_' might be used in Rust if it's a keyword.
   // Checking previous files, 'type_' was common in manually defined types.
-  // In generated types, it's often 'type' unless it conflicts. 
+  // In generated types, it's often 'type' unless it conflicts.
   // Let's assume 'type' based on NodeInfo changes, but might be 'type_' if binding generation preserved it.
-  // Wait, I saw 'type' in container state. 
+  // Wait, I saw 'type' in container state.
   // For Service, let's check generated types if 'type' or 'type_' is used.
   // Actually I cannot verify without reading types.ts. I will assume 'type' first, if error, I fix.
-  // Re-reading my previous viewing of types.ts or grep... 
+  // Re-reading my previous viewing of types.ts or grep...
   // I will check types.ts for ServiceInfo definition to be sure.
 
   return (
@@ -89,9 +87,7 @@ export function ServiceDetail() {
       <ResourceDetailHeader
         title={service.name}
         namespace={service.namespace}
-        badges={
-          <StatusBadge status={service.type} />
-        }
+        badges={<StatusBadge status={service.type} />}
         icon={<Network className="h-8 w-8 text-muted-foreground" />}
         onBack={goBack}
         onRefresh={() => refetch()}
@@ -100,19 +96,28 @@ export function ServiceDetail() {
 
       {/* Info Cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <InfoCard title="Cluster IP" icon={<Server className="h-4 w-4 text-muted-foreground" />}>
+        <InfoCard
+          title="Cluster IP"
+          icon={<Server className="h-4 w-4 text-muted-foreground" />}
+        >
           <div className="text-xl font-bold font-mono">
             {service.clusterIp || "None"}
           </div>
         </InfoCard>
 
-        <InfoCard title="External IPs" icon={<Globe className="h-4 w-4 text-muted-foreground" />}>
+        <InfoCard
+          title="External IPs"
+          icon={<Globe className="h-4 w-4 text-muted-foreground" />}
+        >
           <div className="text-xl font-bold font-mono">
             {externalIps.length > 0 ? externalIps.join(", ") : "None"}
           </div>
         </InfoCard>
 
-        <InfoCard title="Ports" icon={<Network className="h-4 w-4 text-muted-foreground" />}>
+        <InfoCard
+          title="Ports"
+          icon={<Network className="h-4 w-4 text-muted-foreground" />}
+        >
           <div className="text-xl font-bold">{ports.length}</div>
         </InfoCard>
       </div>

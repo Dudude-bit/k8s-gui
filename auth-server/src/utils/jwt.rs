@@ -7,9 +7,9 @@ use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    pub sub: Uuid, // user id
-    pub exp: i64, // expiration time
-    pub iat: i64, // issued at
+    pub sub: Uuid,   // user id
+    pub exp: i64,    // expiration time
+    pub iat: i64,    // issued at
     pub typ: String, // token type: "access" or "refresh"
 }
 
@@ -42,17 +42,26 @@ impl JwtService {
         }
     }
 
-    pub fn generate_access_token(&self, user_id: Uuid) -> Result<String, jsonwebtoken::errors::Error> {
+    pub fn generate_access_token(
+        &self,
+        user_id: Uuid,
+    ) -> Result<String, jsonwebtoken::errors::Error> {
         let claims = Claims::new(user_id, "access".to_string(), self.access_token_expiry);
         encode(&Header::default(), &claims, &self.encoding_key)
     }
 
-    pub fn generate_refresh_token(&self, user_id: Uuid) -> Result<String, jsonwebtoken::errors::Error> {
+    pub fn generate_refresh_token(
+        &self,
+        user_id: Uuid,
+    ) -> Result<String, jsonwebtoken::errors::Error> {
         let claims = Claims::new(user_id, "refresh".to_string(), self.refresh_token_expiry);
         encode(&Header::default(), &claims, &self.encoding_key)
     }
 
-    pub(crate) fn validate_token(&self, token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
+    pub(crate) fn validate_token(
+        &self,
+        token: &str,
+    ) -> Result<Claims, jsonwebtoken::errors::Error> {
         let mut validation = Validation::default();
         validation.validate_exp = true;
         validation.leeway = 60; // 1 minute leeway
@@ -64,7 +73,9 @@ impl JwtService {
     pub fn validate_access_token(&self, token: &str) -> Result<Uuid, jsonwebtoken::errors::Error> {
         let claims = self.validate_token(token)?;
         if claims.typ != "access" {
-            return Err(jsonwebtoken::errors::Error::from(jsonwebtoken::errors::ErrorKind::InvalidToken));
+            return Err(jsonwebtoken::errors::Error::from(
+                jsonwebtoken::errors::ErrorKind::InvalidToken,
+            ));
         }
         Ok(claims.sub)
     }
@@ -72,7 +83,9 @@ impl JwtService {
     pub fn validate_refresh_token(&self, token: &str) -> Result<Uuid, jsonwebtoken::errors::Error> {
         let claims = self.validate_token(token)?;
         if claims.typ != "refresh" {
-            return Err(jsonwebtoken::errors::Error::from(jsonwebtoken::errors::ErrorKind::InvalidToken));
+            return Err(jsonwebtoken::errors::Error::from(
+                jsonwebtoken::errors::ErrorKind::InvalidToken,
+            ));
         }
         Ok(claims.sub)
     }
@@ -80,7 +93,7 @@ impl JwtService {
 
 /// Hash a refresh token for storage
 pub fn hash_refresh_token(token: &str) -> String {
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(token.as_bytes());
     format!("{:x}", hasher.finalize())
@@ -104,4 +117,3 @@ mod tests {
         assert_eq!(user_id, validated_user_id);
     }
 }
-

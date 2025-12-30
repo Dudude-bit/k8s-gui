@@ -2,36 +2,14 @@
 
 pub mod quantities;
 
-pub use quantities::{parse_cpu, parse_memory, format_cpu, format_memory};
+pub use quantities::{format_cpu, format_memory, parse_cpu, parse_memory};
 
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
 use regex::Regex;
 
-/// Format duration in human-readable format (e.g., "5m", "2h", "3d")
-#[must_use] 
-pub fn format_duration(seconds: i64) -> String {
-    if seconds < 60 {
-        format!("{seconds}s")
-    } else if seconds < 3600 {
-        format!("{}m", seconds / 60)
-    } else if seconds < 86400 {
-        format!("{}h", seconds / 3600)
-    } else {
-        format!("{}d", seconds / 86400)
-    }
-}
-
-/// Format age from creation timestamp
-#[must_use] 
-pub fn format_age(created_at: &DateTime<Utc>) -> String {
-    let now = Utc::now();
-    let duration = now.signed_duration_since(*created_at);
-    format_duration(duration.num_seconds())
-}
-
 /// Format age from Kubernetes Time.
-#[must_use] 
+#[must_use]
 pub fn format_k8s_age(created_at: Option<&Time>) -> String {
     match created_at {
         Some(time) => {
@@ -39,14 +17,25 @@ pub fn format_k8s_age(created_at: Option<&Time>) -> String {
             let created_time = chrono::DateTime::parse_from_rfc3339(&time.0.to_rfc3339())
                 .map(|t| t.with_timezone(&Utc))
                 .unwrap_or(now);
-            format_age(&created_time)
+            let duration = now.signed_duration_since(created_time);
+            let seconds = duration.num_seconds();
+
+            if seconds < 60 {
+                format!("{seconds}s")
+            } else if seconds < 3600 {
+                format!("{}m", seconds / 60)
+            } else if seconds < 86400 {
+                format!("{}h", seconds / 3600)
+            } else {
+                format!("{}d", seconds / 86400)
+            }
         }
         None => "Unknown".to_string(),
     }
 }
 
 /// Normalize namespace input, returning None for "all namespaces".
-#[must_use] 
+#[must_use]
 pub fn normalize_namespace(namespace: Option<String>, fallback: String) -> Option<String> {
     if let Some(ns) = namespace {
         if ns.trim().is_empty() {
@@ -66,18 +55,20 @@ pub fn normalize_namespace(namespace: Option<String>, fallback: String) -> Optio
 /// # Errors
 ///
 /// Returns an error if both namespace and fallback are empty or represent "all namespaces".
-pub fn require_namespace(namespace: Option<String>, fallback: String) -> crate::error::Result<String> {
-    normalize_namespace(namespace, fallback)
-        .ok_or_else(|| crate::error::Error::InvalidInput(
-            "Namespace is required for this operation when all namespaces is selected.".to_string()
-        ))
+pub fn require_namespace(
+    namespace: Option<String>,
+    fallback: String,
+) -> crate::error::Result<String> {
+    normalize_namespace(namespace, fallback).ok_or_else(|| {
+        crate::error::Error::InvalidInput(
+            "Namespace is required for this operation when all namespaces is selected.".to_string(),
+        )
+    })
 }
-
 
 // Compile regex patterns once at startup
 static K8S_NAME_REGEX: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-    Regex::new(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
-        .expect("Failed to compile Kubernetes name regex")
+    Regex::new(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$").expect("Failed to compile Kubernetes name regex")
 });
 
 /// Check if a string is a valid Kubernetes name
@@ -89,18 +80,9 @@ pub fn is_valid_k8s_name(name: &str) -> bool {
     K8S_NAME_REGEX.is_match(name)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_format_duration() {
-        assert_eq!(format_duration(30), "30s");
-        assert_eq!(format_duration(90), "1m");
-        assert_eq!(format_duration(3700), "1h");
-        assert_eq!(format_duration(90000), "1d");
-    }
 
     #[test]
     fn test_is_valid_k8s_name() {

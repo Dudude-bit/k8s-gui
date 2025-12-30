@@ -1,11 +1,19 @@
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { useAuthStore } from "@/stores/authStore";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
+import { validateEmail, validatePassword } from "@/lib/validation";
 
 interface LoginFormProps {
   onSuccess?: () => void;
@@ -22,42 +30,66 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
   const { login } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const validateEmail = (value: string): boolean => {
-    if (!value) {
-      setEmailError("Email is required");
-      return false;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(value)) {
-      setEmailError("Please enter a valid email address");
-      return false;
-    }
-    setEmailError("");
-    return true;
-  };
+  // Debounce timers
+  const emailDebounceRef = useRef<NodeJS.Timeout>();
+  const passwordDebounceRef = useRef<NodeJS.Timeout>();
 
-  const validatePassword = (value: string): boolean => {
+  const validateEmailField = useCallback(async (value: string) => {
+    if (emailDebounceRef.current) {
+      clearTimeout(emailDebounceRef.current);
+    }
+
     if (!value) {
-      setPasswordError("Password is required");
-      return false;
+      setEmailError("");
+      return;
     }
-    if (value.length < 8) {
-      setPasswordError("Password must be at least 8 characters");
-      return false;
+
+    emailDebounceRef.current = setTimeout(async () => {
+      const result = await validateEmail(value);
+      if (!result.isValid) {
+        setEmailError(result.error || "Invalid email");
+      } else {
+        setEmailError("");
+      }
+    }, 300);
+  }, []);
+
+  const validatePasswordField = useCallback(async (value: string) => {
+    if (passwordDebounceRef.current) {
+      clearTimeout(passwordDebounceRef.current);
     }
-    setPasswordError("");
-    return true;
-  };
+
+    if (!value) {
+      setPasswordError("");
+      return;
+    }
+
+    passwordDebounceRef.current = setTimeout(async () => {
+      const result = await validatePassword(value);
+      if (!result.isValid) {
+        setPasswordError(result.error || "Invalid password");
+      } else {
+        setPasswordError("");
+      }
+    }, 300);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
 
-    // Validate form
-    const isEmailValid = validateEmail(email);
-    const isPasswordValid = validatePassword(password);
+    // Validate form using backend validation
+    const emailResult = await validateEmail(email);
+    const passwordResult = await validatePassword(password);
 
-    if (!isEmailValid || !isPasswordValid) {
+    if (!emailResult.isValid) {
+      setEmailError(emailResult.error || "Invalid email");
+    }
+    if (!passwordResult.isValid) {
+      setPasswordError(passwordResult.error || "Invalid password");
+    }
+
+    if (!emailResult.isValid || !passwordResult.isValid) {
       return;
     }
 
@@ -67,7 +99,9 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
       onSuccess?.();
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : "Login failed. Please try again.";
+        error instanceof Error
+          ? error.message
+          : "Login failed. Please try again.";
       setFormError(errorMessage);
       onError?.(errorMessage);
     } finally {
@@ -79,7 +113,9 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
     <Card className="w-full max-w-md">
       <CardHeader>
         <CardTitle>Sign In</CardTitle>
-        <CardDescription>Enter your email and password to access your account</CardDescription>
+        <CardDescription>
+          Enter your email and password to access your account
+        </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
@@ -99,11 +135,15 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
-                if (emailError) {
-                  validateEmail(e.target.value);
+                setEmailError(""); // Clear error on change
+                validateEmailField(e.target.value);
+              }}
+              onBlur={async () => {
+                const result = await validateEmail(email);
+                if (!result.isValid) {
+                  setEmailError(result.error || "Invalid email");
                 }
               }}
-              onBlur={() => validateEmail(email)}
               disabled={isSubmitting}
               aria-invalid={!!emailError}
               aria-describedby={emailError ? "email-error" : undefined}
@@ -124,11 +164,15 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);
-                if (passwordError) {
-                  validatePassword(e.target.value);
+                setPasswordError(""); // Clear error on change
+                validatePasswordField(e.target.value);
+              }}
+              onBlur={async () => {
+                const result = await validatePassword(password);
+                if (!result.isValid) {
+                  setPasswordError(result.error || "Invalid password");
                 }
               }}
-              onBlur={() => validatePassword(password)}
               disabled={isSubmitting}
               aria-invalid={!!passwordError}
               aria-describedby={passwordError ? "password-error" : undefined}
@@ -156,4 +200,3 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
     </Card>
   );
 }
-

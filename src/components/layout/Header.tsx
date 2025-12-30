@@ -70,10 +70,25 @@ export function Header() {
 
   // Auto-connect when currentContext is set but not connected
   useEffect(() => {
-    if (currentContext && !isConnected && !isLoading && !isAuthenticating && !error && !pendingContext) {
+    if (
+      currentContext &&
+      !isConnected &&
+      !isLoading &&
+      !isAuthenticating &&
+      !error &&
+      !pendingContext
+    ) {
       connect(currentContext);
     }
-  }, [currentContext, isConnected, isLoading, isAuthenticating, error, pendingContext, connect]);
+  }, [
+    currentContext,
+    isConnected,
+    isLoading,
+    isAuthenticating,
+    error,
+    pendingContext,
+    connect,
+  ]);
 
   // Fetch namespaces when connected
   const { data: namespaces = [], refetch: refetchNamespaces } = useQuery({
@@ -134,7 +149,7 @@ export function Header() {
                   <div
                     className={cn(
                       "h-2.5 w-2.5 rounded-full",
-                      isConnected ? "bg-green-500" : "bg-gray-400",
+                      isConnected ? "bg-green-500" : "bg-gray-400"
                     )}
                   />
                 )}
@@ -143,7 +158,8 @@ export function Header() {
             <TooltipContent side="bottom" className="max-w-xs">
               {isLoading ? (
                 <span>
-                  Connecting to {pendingContext || currentContext || "cluster"}...
+                  Connecting to {pendingContext || currentContext || "cluster"}
+                  ...
                 </span>
               ) : error ? (
                 <div className="space-y-1">
@@ -168,7 +184,9 @@ export function Header() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <RefreshButton
-                  onRefresh={() => connect(errorContext || currentContext || undefined)}
+                  onRefresh={() =>
+                    connect(errorContext || currentContext || undefined)
+                  }
                   variant="ghost"
                   size="icon"
                 />

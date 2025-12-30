@@ -20,7 +20,3 @@ export function useResourceYaml(
     enabled: activeTab === "yaml" && !!namespace && !!name,
   });
 }
-
-
-
-

@@ -153,11 +153,15 @@ pub async fn get_deployment_events(
 
 /// Get events for a node
 #[tauri::command]
-pub async fn get_node_events(node_name: String, state: State<'_, AppState>) -> Result<Vec<EventInfo>> {
+pub async fn get_node_events(
+    node_name: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<EventInfo>> {
     let ctx = CommandContext::new(&state, Some("default".to_string()))?;
 
-    let params = ListParams::default()
-        .fields(&format!("involvedObject.name={node_name},involvedObject.kind=Node"));
+    let params = ListParams::default().fields(&format!(
+        "involvedObject.name={node_name},involvedObject.kind=Node"
+    ));
 
     let api: kube::Api<Event> = ctx.namespaced_api();
     let list = api.list(&params).await?;

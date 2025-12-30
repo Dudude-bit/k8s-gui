@@ -1,19 +1,19 @@
 //! Plugin system for K8s GUI
-//! 
+//!
 //! Supports three types of plugins:
 //! - kubectl-compatible commands (executables with kubectl-* prefix)
 //! - Context menu extensions for resources
 //! - Custom resource renderers for CRDs
 
-mod traits;
+mod helm;
 mod kubectl;
 mod manager;
-mod helm;
+mod traits;
 
-pub use traits::*;
+pub use helm::*;
 pub use kubectl::*;
 pub use manager::PluginManager;
-pub use helm::*;
+pub use traits::*;
 
 use serde::{Deserialize, Serialize};
 
@@ -67,7 +67,7 @@ pub struct PluginResult {
 
 impl PluginResult {
     /// Create a successful result
-    #[must_use] 
+    #[must_use]
     pub fn success(stdout: String) -> Self {
         Self {
             exit_code: Some(0),
@@ -78,7 +78,7 @@ impl PluginResult {
     }
 
     /// Create an error result
-    #[must_use] 
+    #[must_use]
     pub fn error(stderr: String) -> Self {
         Self {
             exit_code: Some(1),
@@ -89,14 +89,14 @@ impl PluginResult {
     }
 
     /// Add structured data
-    #[must_use] 
+    #[must_use]
     pub fn with_data(mut self, data: serde_json::Value) -> Self {
         self.data = Some(data);
         self
     }
 
     /// Check if successful
-    #[must_use] 
+    #[must_use]
     pub fn is_success(&self) -> bool {
         self.exit_code == Some(0)
     }

@@ -98,14 +98,15 @@ pub async fn list_ingresses(
     state: State<'_, AppState>,
 ) -> Result<Vec<IngressInfo>> {
     let filters = filters.unwrap_or_default();
-    
+
     let list = crate::commands::helpers::list_resources::<Ingress>(
         filters.namespace,
         state,
         filters.label_selector.as_deref(),
         filters.field_selector.as_deref(),
         filters.limit,
-    ).await?;
+    )
+    .await?;
 
     Ok(list
         .into_iter()
@@ -128,10 +129,11 @@ pub async fn list_ingresses(
                                     http.paths
                                         .iter()
                                         .map(|path| {
-                                            let backend_service = path
-                                                .backend
-                                                .service
-                                                .as_ref().map_or_else(|| "unknown".to_string(), |s| s.name.clone());
+                                            let backend_service =
+                                                path.backend.service.as_ref().map_or_else(
+                                                    || "unknown".to_string(),
+                                                    |s| s.name.clone(),
+                                                );
 
                                             let backend_port = path
                                                 .backend
@@ -140,7 +142,10 @@ pub async fn list_ingresses(
                                                 .and_then(|s| s.port.as_ref())
                                                 .map(|p| {
                                                     p.name.clone().unwrap_or_else(|| {
-                                                        p.number.map_or_else(|| "?".to_string(), |n| n.to_string())
+                                                        p.number.map_or_else(
+                                                            || "?".to_string(),
+                                                            |n| n.to_string(),
+                                                        )
                                                     })
                                                 })
                                                 .unwrap_or_else(|| "?".to_string());
@@ -206,14 +211,15 @@ pub async fn list_endpoints(
     state: State<'_, AppState>,
 ) -> Result<Vec<EndpointsInfo>> {
     let filters = filters.unwrap_or_default();
-    
+
     let list = crate::commands::helpers::list_resources::<Endpoints>(
         filters.namespace,
         state,
         filters.label_selector.as_deref(),
         filters.field_selector.as_deref(),
         filters.limit,
-    ).await?;
+    )
+    .await?;
 
     Ok(list
         .into_iter()

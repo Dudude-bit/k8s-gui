@@ -1,39 +1,96 @@
 //! Configuration management
+//!
+//! This module provides configuration loading from environment variables
+//! with sensible defaults for development.
 
+use crate::error::{Error, Result};
 use std::env;
 
+/// Default JWT access token expiry time in seconds (1 hour)
+const DEFAULT_JWT_EXPIRY: u64 = 3600;
+
+/// Default refresh token expiry time in seconds (30 days)
+const DEFAULT_REFRESH_TOKEN_EXPIRY: u64 = 2592000;
+
+/// Default server host address
+const DEFAULT_HOST: &str = "127.0.0.1";
+
+/// Default server port
+const DEFAULT_PORT: u16 = 50051;
+
+/// Application configuration
 #[derive(Debug, Clone)]
 pub struct Config {
+    /// PostgreSQL database connection URL
     pub database_url: String,
+    /// Secret key for JWT token signing
     pub jwt_secret: String,
+    /// JWT access token expiry time in seconds (default: 3600)
     pub jwt_expiry: u64,
+    /// Refresh token expiry time in seconds (default: 2592000 = 30 days)
     pub refresh_token_expiry: u64,
+    /// Server host address (default: 127.0.0.1)
     pub host: String,
+    /// Server port (default: 50051)
     pub port: u16,
-    /// Secret for verifying webhook signatures
+    /// Secret for verifying webhook signatures (optional)
     pub webhook_secret: Option<String>,
 }
 
 impl Config {
-    pub fn from_env() -> Result<Self, String> {
+    /// Load configuration from environment variables
+    ///
+    /// This is the main entry point for loading configuration.
+    /// It reads configuration from environment variables with sensible defaults
+    /// for optional values. Required variables must be set or the function will return an error.
+    ///
+    /// # Required Environment Variables
+    ///
+    /// - `DATABASE_URL`: PostgreSQL database connection URL
+    /// - `JWT_SECRET`: Secret key for JWT token signing
+    ///
+    /// # Optional Environment Variables (with defaults)
+    ///
+    /// - `JWT_EXPIRY`: JWT access token expiry in seconds (default: 3600)
+    /// - `REFRESH_TOKEN_EXPIRY`: Refresh token expiry in seconds (default: 2592000)
+    /// - `HOST`: Server host address (default: 127.0.0.1)
+    /// - `PORT`: Server port (default: 50051)
+    /// - `WEBHOOK_SECRET`: Secret for verifying webhook signatures (optional)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if required environment variables are not set.
+    pub fn load() -> Result<Self> {
+        Self::from_env()
+    }
+
+    /// Load configuration from environment variables
+    ///
+    /// This method reads configuration from environment variables with sensible defaults
+    /// for optional values. Required variables must be set or the function will return an error.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if required environment variables are not set.
+    pub fn from_env() -> Result<Self> {
         Ok(Config {
             database_url: env::var("DATABASE_URL")
-                .map_err(|_| "DATABASE_URL not set")?,
+                .map_err(|_| Error::Internal("DATABASE_URL not set".to_string()))?,
             jwt_secret: env::var("JWT_SECRET")
-                .map_err(|_| "JWT_SECRET not set")?,
+                .map_err(|_| Error::Internal("JWT_SECRET not set".to_string()))?,
             jwt_expiry: env::var("JWT_EXPIRY")
-                .unwrap_or_else(|_| "3600".to_string())
+                .unwrap_or_else(|_| DEFAULT_JWT_EXPIRY.to_string())
                 .parse()
-                .unwrap_or(3600),
+                .unwrap_or(DEFAULT_JWT_EXPIRY),
             refresh_token_expiry: env::var("REFRESH_TOKEN_EXPIRY")
-                .unwrap_or_else(|_| "2592000".to_string())
+                .unwrap_or_else(|_| DEFAULT_REFRESH_TOKEN_EXPIRY.to_string())
                 .parse()
-                .unwrap_or(2592000),
-            host: env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string()),
+                .unwrap_or(DEFAULT_REFRESH_TOKEN_EXPIRY),
+            host: env::var("HOST").unwrap_or_else(|_| DEFAULT_HOST.to_string()),
             port: env::var("PORT")
-                .unwrap_or_else(|_| "50051".to_string())
+                .unwrap_or_else(|_| DEFAULT_PORT.to_string())
                 .parse()
-                .unwrap_or(50051),
+                .unwrap_or(DEFAULT_PORT),
             webhook_secret: env::var("WEBHOOK_SECRET").ok(),
         })
     }

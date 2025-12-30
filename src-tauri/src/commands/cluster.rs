@@ -1,11 +1,12 @@
 //! Cluster management commands
 
+use tauri::State;
+use tokio::time::{timeout, Duration};
+
 use crate::auth::prepare_kubeconfig_for_context;
 use crate::client::{ClusterInfo, ContextInfo};
 use crate::error::Result;
 use crate::state::AppState;
-use tauri::State;
-use tokio::time::{timeout, Duration};
 
 /// List all available Kubernetes contexts
 #[tauri::command]
@@ -27,11 +28,12 @@ pub async fn list_contexts(state: State<'_, AppState>) -> Result<Vec<ContextInfo
 /// Get the current active context
 #[tauri::command]
 pub async fn get_current_context(state: State<'_, AppState>) -> Result<Option<String>> {
-    state.client_manager
+    state
+        .client_manager
         .load_kubeconfig()
         .await
         .map_err(|e| crate::error::Error::Config(e.to_string()))?;
-    
+
     state
         .client_manager
         .get_current_context()
@@ -106,7 +108,9 @@ pub async fn connect_cluster(context: String, state: State<'_, AppState>) -> Res
         .map_err(|e| crate::error::Error::Config(e.to_string()))?;
     let prepared = prepare_kubeconfig_for_context(&state, kubeconfig, &context)
         .await
-        .map_err(|e| crate::error::Error::Auth(crate::error::AuthError::Kubeconfig(e.to_string())))?;
+        .map_err(|e| {
+            crate::error::Error::Auth(crate::error::AuthError::Kubeconfig(e.to_string()))
+        })?;
     state
         .client_manager
         .connect_with_kubeconfig(&context, prepared)
@@ -114,7 +118,12 @@ pub async fn connect_cluster(context: String, state: State<'_, AppState>) -> Res
         .map_err(|e| crate::error::Error::Connection(e.to_string()))?;
 
     // Test connection and get cluster info (timeout to avoid hanging auth flows)
-    let info = match timeout(Duration::from_secs(120), state.client_manager.test_connection(&context)).await {
+    let info = match timeout(
+        Duration::from_secs(120),
+        state.client_manager.test_connection(&context),
+    )
+    .await
+    {
         Ok(Ok(info)) => info,
         Ok(Err(e)) => {
             state.client_manager.disconnect(&context);
@@ -125,7 +134,7 @@ pub async fn connect_cluster(context: String, state: State<'_, AppState>) -> Res
             state.client_manager.disconnect(&context);
             state.remove_session(&context);
             return Err(crate::error::Error::Timeout(
-                "Connection timed out. Please retry the authentication flow.".to_string()
+                "Connection timed out. Please retry the authentication flow.".to_string(),
             ));
         }
     };
@@ -134,7 +143,7 @@ pub async fn connect_cluster(context: String, state: State<'_, AppState>) -> Res
         state.client_manager.disconnect(&context);
         state.remove_session(&context);
         return Err(crate::error::Error::Connection(
-            "Connection superseded by a newer attempt.".to_string()
+            "Connection superseded by a newer attempt.".to_string(),
         ));
     }
 

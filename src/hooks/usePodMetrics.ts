@@ -1,6 +1,10 @@
 // Hook for fetching pod metrics with real-time updates
 
-import { useQuery, keepPreviousData, UseQueryOptions } from "@tanstack/react-query";
+import {
+  useQuery,
+  keepPreviousData,
+  UseQueryOptions,
+} from "@tanstack/react-query";
 import * as commands from "@/generated/commands";
 import { PodMetrics } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
@@ -27,4 +31,3 @@ export function usePodMetrics(
     ...options,
   });
 }
-

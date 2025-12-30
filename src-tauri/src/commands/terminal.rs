@@ -41,7 +41,10 @@ pub async fn terminal_input(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     if let Some(input_tx) = state.terminal_inputs.get(&session_id) {
-        input_tx.send(data).await.map_err(|e| format!("Failed to send input: {e}"))?;
+        input_tx
+            .send(data)
+            .await
+            .map_err(|e| format!("Failed to send input: {e}"))?;
     } else {
         tracing::warn!("No input channel found for session {}", session_id);
     }
@@ -59,22 +62,24 @@ pub async fn terminal_resize(
     // Note: Terminal resize requires PTY (pseudo-terminal) support.
     // Currently, terminal sessions use exec attach which doesn't support resize.
     // When PTY support is added, this will send SIGWINCH signal or use resize API.
-    tracing::debug!("Terminal resize requested for session {}: {}x{} (PTY resize not yet implemented)", session_id, cols, rows);
+    tracing::debug!(
+        "Terminal resize requested for session {}: {}x{} (PTY resize not yet implemented)",
+        session_id,
+        cols,
+        rows
+    );
     Ok(())
 }
 
 /// Close terminal session
 #[tauri::command]
-pub async fn close_terminal(
-    session_id: String,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
+pub async fn close_terminal(session_id: String, state: State<'_, AppState>) -> Result<(), String> {
     // Remove input channel (this will cause the stdin writer task to exit)
     state.terminal_inputs.remove(&session_id);
-    
+
     // Remove session info
     state.terminal_sessions.remove(&session_id);
-    
+
     tracing::info!("Terminal session {} closed", session_id);
     Ok(())
 }
@@ -88,43 +93,48 @@ pub async fn open_shell(
     shell: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
+    use crate::state::AppEvent;
     use kube::api::AttachParams;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    use crate::state::AppEvent;
-    
-    let context = state.get_current_context()
+
+    let context = state
+        .get_current_context()
         .ok_or_else(|| "No cluster connected".to_string())?;
-    
-    let client = state.client_manager.get_client(&context)
+
+    let client = state
+        .client_manager
+        .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
-    
-    let api: kube::Api<k8s_openapi::api::core::v1::Pod> = 
+
+    let api: kube::Api<k8s_openapi::api::core::v1::Pod> =
         kube::Api::namespaced((*client).clone(), &namespace);
-    
+
     // Get first container if not specified
     let container_name = if let Some(c) = container {
         c
     } else {
         let pod_obj = api.get(&pod).await.map_err(|e| e.to_string())?;
-        pod_obj.spec
+        pod_obj
+            .spec
             .and_then(|s| s.containers.first().map(|c| c.name.clone()))
             .unwrap_or_else(String::new)
     };
-    
+
     let shell_cmd = shell.unwrap_or_else(|| "/bin/sh".to_string());
     let session_id = format!("shell-{}-{}-{}", namespace, pod, uuid::Uuid::new_v4());
-    
+
     let params = AttachParams::default()
         .container(&container_name)
         .stdin(true)
         .stdout(true)
         .stderr(false)
         .tty(true);
-    
-    let mut attached = api.exec(&pod, vec![&shell_cmd], &params)
+
+    let mut attached = api
+        .exec(&pod, vec![&shell_cmd], &params)
         .await
         .map_err(|e| format!("Failed to exec into pod: {e}"))?;
-    
+
     let event_tx = state.event_tx.clone();
     let session_id_clone = session_id.clone();
 
@@ -132,9 +142,9 @@ pub async fn open_shell(
     if let Some(mut stdout) = attached.stdout() {
         let event_tx = event_tx.clone();
         let session_id = session_id_clone.clone();
-        
+
         tokio::spawn(async move {
-            let mut buf = vec![0u8; 4096];
+            let mut buf = vec![0u8; crate::terminal::TERMINAL_BUFFER_SIZE];
             loop {
                 match stdout.read(&mut buf).await {
                     Ok(0) => break,
@@ -153,15 +163,15 @@ pub async fn open_shell(
             }
         });
     }
-    
+
     // Store stdin for later input
     let stdin = attached.stdin();
     if let Some(stdin_writer) = stdin {
         let (input_tx, mut input_rx) = tokio::sync::mpsc::channel::<String>(100);
-        
+
         // Store the input channel
         state.terminal_inputs.insert(session_id.clone(), input_tx);
-        
+
         // Spawn task to handle stdin
         tokio::spawn(async move {
             let mut stdin_writer = stdin_writer;
@@ -174,7 +184,7 @@ pub async fn open_shell(
             }
         });
     }
-    
+
     // Store session info
     let terminal_session = crate::state::TerminalSession {
         id: session_id.clone(),
@@ -183,7 +193,9 @@ pub async fn open_shell(
         namespace: namespace.clone(),
         created_at: chrono::Utc::now(),
     };
-    state.terminal_sessions.insert(session_id.clone(), terminal_session);
+    state
+        .terminal_sessions
+        .insert(session_id.clone(), terminal_session);
 
     // Watch for session close
     let terminal_inputs = state.terminal_inputs.clone();
@@ -192,9 +204,7 @@ pub async fn open_shell(
     let session_id_for_close = session_id.clone();
     if let Some(status_future) = attached.take_status() {
         tokio::spawn(async move {
-            let status_text = status_future
-                .await
-                .and_then(|status| status.status);
+            let status_text = status_future.await.and_then(|status| status.status);
 
             terminal_inputs.remove(&session_id_for_close);
             terminal_sessions.remove(&session_id_for_close);
@@ -205,7 +215,6 @@ pub async fn open_shell(
             });
         });
     }
-    
+
     Ok(session_id)
 }
-

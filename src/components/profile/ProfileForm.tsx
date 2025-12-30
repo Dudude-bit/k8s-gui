@@ -2,13 +2,21 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 export function ProfileForm() {
-  const { userProfile, updateProfile, isLoading, loadProfile } = useUserProfile();
+  const { userProfile, updateProfile, isLoading, loadProfile } =
+    useUserProfile();
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     firstName: userProfile?.firstName || "",
@@ -45,7 +53,7 @@ export function ProfileForm() {
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : String(error),
+        description: normalizeTauriError(error),
         variant: "destructive",
       });
     }
@@ -55,9 +63,7 @@ export function ProfileForm() {
     <Card>
       <CardHeader>
         <CardTitle>Profile Information</CardTitle>
-        <CardDescription>
-          Update your personal information
-        </CardDescription>
+        <CardDescription>Update your personal information</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -119,4 +125,3 @@ export function ProfileForm() {
     </Card>
   );
 }
-

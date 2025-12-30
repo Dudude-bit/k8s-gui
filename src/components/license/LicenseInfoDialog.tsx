@@ -28,7 +28,9 @@ const formatDate = (dateString: string | null | undefined): string => {
 };
 
 // Issue #18 Fix: Consistent subscription type display
-const getSubscriptionTypeDisplay = (type: string | null | undefined): string => {
+const getSubscriptionTypeDisplay = (
+  type: string | null | undefined
+): string => {
   switch (type) {
     case "monthly":
       return "Monthly";
@@ -65,7 +67,8 @@ export function LicenseInfoDialog({
             </DialogHeader>
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                You are currently using the free version. Upgrade to premium to unlock all features.
+                You are currently using the free version. Upgrade to premium to
+                unlock all features.
               </p>
               <div className="flex gap-2">
                 <Button onClick={() => setShowPurchase(true)}>
@@ -131,7 +134,9 @@ export function LicenseInfoDialog({
                       <Calendar className="h-4 w-4" />
                     )}
                     <span className="text-sm">
-                      {getSubscriptionTypeDisplay(licenseStatus.subscriptionType)}
+                      {getSubscriptionTypeDisplay(
+                        licenseStatus.subscriptionType
+                      )}
                     </span>
                   </div>
                 </div>
@@ -159,7 +164,10 @@ export function LicenseInfoDialog({
             {!hasValidLicense && (
               <div className="pt-4 border-t">
                 <div className="flex gap-2">
-                  <Button onClick={() => setShowPurchase(true)} className="flex-1">
+                  <Button
+                    onClick={() => setShowPurchase(true)}
+                    className="flex-1"
+                  >
                     Purchase License
                   </Button>
                   <Button
@@ -187,4 +195,3 @@ export function LicenseInfoDialog({
     </>
   );
 }
-

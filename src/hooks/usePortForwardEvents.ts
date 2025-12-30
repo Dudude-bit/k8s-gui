@@ -21,7 +21,7 @@ export function usePortForwardEvents() {
   const setStatus = usePortForwardStore((state) => state.setStatus);
   const refreshSessions = usePortForwardStore((state) => state.refreshSessions);
   const lastToastRef = useRef<Record<string, { status: string; time: number }>>(
-    {},
+    {}
   );
 
   useEffect(() => {

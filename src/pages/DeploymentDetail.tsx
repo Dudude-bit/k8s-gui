@@ -2,7 +2,12 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import * as commands from "@/generated/commands";
 import { useState, useEffect, useMemo } from "react";
-import { useResourceMutation, useResourceYaml, useCopyToClipboard, usePodMetrics } from "@/hooks";
+import {
+  useResourceMutation,
+  useResourceYaml,
+  useCopyToClipboard,
+  usePodMetrics,
+} from "@/hooks";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,7 +45,13 @@ import { ResourceDetailHeader } from "@/components/resources/ResourceDetailHeade
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { MetricPair } from "@/components/ui/metric-card";
-import { aggregatePodMetrics, parseCPU as parseKubernetesCPU, parseMemory as parseKubernetesMemory, formatCPU, formatMemory } from "@/lib/k8s-quantity";
+import {
+  aggregatePodMetrics,
+  parseCPU as parseKubernetesCPU,
+  parseMemory as parseKubernetesMemory,
+  formatCPU,
+  formatMemory,
+} from "@/lib/k8s-quantity";
 import { normalizeTauriError } from "@/lib/error-utils";
 
 export function DeploymentDetail() {
@@ -73,14 +84,22 @@ export function DeploymentDetail() {
     enabled: !!namespace && !!name,
   });
 
-  const { data: deploymentYaml } = useResourceYaml("Deployment", name, namespace, activeTab);
+  const { data: deploymentYaml } = useResourceYaml(
+    "Deployment",
+    name,
+    namespace,
+    activeTab
+  );
 
   const { data: pods = [] } = useQuery({
     queryKey: ["deployment-pods", namespace, name],
     queryFn: async () => {
       try {
         if (!name) return [];
-        const result = await commands.getDeploymentPods(name, namespace || null);
+        const result = await commands.getDeploymentPods(
+          name,
+          namespace || null
+        );
         return result;
       } catch (err) {
         throw new Error(normalizeTauriError(err));
@@ -146,17 +165,25 @@ export function DeploymentDetail() {
         totalMemoryLimits += parseKubernetesMemory(c.resources.limits.memory);
       }
       if (c.resources?.requests?.memory) {
-        totalMemoryRequests += parseKubernetesMemory(c.resources.requests.memory);
+        totalMemoryRequests += parseKubernetesMemory(
+          c.resources.requests.memory
+        );
       }
     });
 
     return {
-      cpu: totalCpuLimits > 0
-        ? formatCPU(totalCpuLimits * replicas)
-        : (totalCpuRequests > 0 ? formatCPU(totalCpuRequests * replicas) : null),
-      memory: totalMemoryLimits > 0
-        ? formatMemory(totalMemoryLimits * replicas)
-        : (totalMemoryRequests > 0 ? formatMemory(totalMemoryRequests * replicas) : null),
+      cpu:
+        totalCpuLimits > 0
+          ? formatCPU(totalCpuLimits * replicas)
+          : totalCpuRequests > 0
+            ? formatCPU(totalCpuRequests * replicas)
+            : null,
+      memory:
+        totalMemoryLimits > 0
+          ? formatMemory(totalMemoryLimits * replicas)
+          : totalMemoryRequests > 0
+            ? formatMemory(totalMemoryRequests * replicas)
+            : null,
     };
   }, [deployment]);
 
@@ -186,7 +213,8 @@ export function DeploymentDetail() {
         successDescription: `Deployment ${name} scaled to ${newReplicas} replicas.`,
         errorPrefix: "Failed to scale deployment",
       },
-      invalidateQueryKeys: namespace && name ? [["deployment", namespace, name]] : [],
+      invalidateQueryKeys:
+        namespace && name ? [["deployment", namespace, name]] : [],
       onSuccess: () => {
         setScaleDialogOpen(false);
       },
@@ -204,14 +232,20 @@ export function DeploymentDetail() {
         successDescription: `Deployment ${name} is being restarted.`,
         errorPrefix: "Failed to restart deployment",
       },
-      invalidateQueryKeys: name && namespace ? [["deployment", namespace, name]] : [],
+      invalidateQueryKeys:
+        name && namespace ? [["deployment", namespace, name]] : [],
     }
   );
 
   const updateImageMutation = useResourceMutation(
     async () => {
       if (!name || !namespace) return;
-      await commands.updateDeploymentImage(name, selectedContainer, newImage, namespace);
+      await commands.updateDeploymentImage(
+        name,
+        selectedContainer,
+        newImage,
+        namespace
+      );
     },
     {
       toast: {
@@ -219,7 +253,8 @@ export function DeploymentDetail() {
         successDescription: `Container ${selectedContainer} image updated to ${newImage}.`,
         errorPrefix: "Failed to update image",
       },
-      invalidateQueryKeys: name && namespace ? [["deployment", namespace, name]] : [],
+      invalidateQueryKeys:
+        name && namespace ? [["deployment", namespace, name]] : [],
       onSuccess: () => {
         setImageDialogOpen(false);
       },
@@ -303,10 +338,10 @@ export function DeploymentDetail() {
       return null;
     }
     const progressing = rolloutStatus.conditions.find(
-      (c) => c.conditionType === "Progressing",
+      (c) => c.conditionType === "Progressing"
     );
     const available = rolloutStatus.conditions.find(
-      (c) => c.conditionType === "Available",
+      (c) => c.conditionType === "Available"
     );
     if (isRolloutInProgress) {
       // Assuming 'metrics' and 'setTotalResources' are defined elsewhere in the component scope
@@ -345,7 +380,8 @@ export function DeploymentDetail() {
                   : "warning"
               }
             >
-              {deployment.replicas.ready}/{deployment.replicas.desired} pods ready
+              {deployment.replicas.ready}/{deployment.replicas.desired} pods
+              ready
             </Badge>
             {isRolloutInProgress && (
               <Badge variant="secondary" className="animate-pulse">
@@ -457,7 +493,8 @@ export function DeploymentDetail() {
                 orientation="vertical"
               />
               <p className="text-xs text-muted-foreground mt-2">
-                Aggregated across {podsWithMetrics.length} pod{podsWithMetrics.length !== 1 ? 's' : ''}
+                Aggregated across {podsWithMetrics.length} pod
+                {podsWithMetrics.length !== 1 ? "s" : ""}
               </p>
             </CardContent>
           </Card>
@@ -491,26 +528,28 @@ export function DeploymentDetail() {
                       <span>{container.ports.join(", ")}</span>
                     </div>
                   )}
-                  {container.resources.requests && Object.keys(container.resources.requests).length > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Requests</span>
-                      <span>
-                        {Object.entries(container.resources.requests)
-                          .map(([k, v]) => `${k}: ${v}`)
-                          .join(", ")}
-                      </span>
-                    </div>
-                  )}
-                  {container.resources.limits && Object.keys(container.resources.limits).length > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Limits</span>
-                      <span>
-                        {Object.entries(container.resources.limits)
-                          .map(([k, v]) => `${k}: ${v}`)
-                          .join(", ")}
-                      </span>
-                    </div>
-                  )}
+                  {container.resources.requests &&
+                    Object.keys(container.resources.requests).length > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Requests</span>
+                        <span>
+                          {Object.entries(container.resources.requests)
+                            .map(([k, v]) => `${k}: ${v}`)
+                            .join(", ")}
+                        </span>
+                      </div>
+                    )}
+                  {container.resources.limits &&
+                    Object.keys(container.resources.limits).length > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Limits</span>
+                        <span>
+                          {Object.entries(container.resources.limits)
+                            .map(([k, v]) => `${k}: ${v}`)
+                            .join(", ")}
+                        </span>
+                      </div>
+                    )}
                 </CardContent>
               </Card>
             ))}
@@ -589,12 +628,13 @@ export function DeploymentDetail() {
                         <SelectItem key={pod.name} value={pod.name}>
                           <div className="flex items-center gap-2">
                             <span
-                              className={`h-2 w-2 rounded-full ${status === "Running"
-                                ? "bg-green-500"
-                                : status === "Pending"
-                                  ? "bg-yellow-500"
-                                  : "bg-red-500"
-                                }`}
+                              className={`h-2 w-2 rounded-full ${
+                                status === "Running"
+                                  ? "bg-green-500"
+                                  : status === "Pending"
+                                    ? "bg-yellow-500"
+                                    : "bg-red-500"
+                              }`}
                             />
                             {pod.name}
                           </div>

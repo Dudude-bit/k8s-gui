@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import * as commands from "@/generated/commands";
 import type { LicenseStatus, UserProfile } from "@/generated/types";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 // Re-export types for convenience
 export type { LicenseStatus, UserProfile };
@@ -28,7 +29,7 @@ interface AuthState {
     email: string,
     password: string,
     firstName?: string,
-    lastName?: string,
+    lastName?: string
   ) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
@@ -75,15 +76,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       set({ loading: false });
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = normalizeTauriError(error);
       set({
         loading: false,
         error: errorMessage,
         isAuthenticated: false,
         licenseError: errorMessage,
       });
-      throw error;
+      throw new Error(errorMessage);
     }
   },
 
@@ -91,13 +91,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     email: string,
     password: string,
     firstName?: string,
-    lastName?: string,
+    lastName?: string
   ) => {
     set({ loading: true, error: null });
 
     try {
       // Call Tauri command - backend now handles token storage in keychain
-      await commands.registerUser(email, password, firstName ?? null, lastName ?? null);
+      await commands.registerUser(
+        email,
+        password,
+        firstName ?? null,
+        lastName ?? null
+      );
 
       set({ isAuthenticated: true });
 
@@ -114,15 +119,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       set({ loading: false });
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = normalizeTauriError(error);
       set({
         loading: false,
         error: errorMessage,
         isAuthenticated: false,
         licenseError: errorMessage,
       });
-      throw error;
+      throw new Error(errorMessage);
     }
   },
 
@@ -164,17 +168,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: true,
         user: userProfile,
         userProfile,
-        loading: false
+        loading: false,
       });
 
       // Also check license
       get().checkLicenseStatus();
-
     } catch (error) {
       // Not authenticated or token expired
       set({
         isAuthenticated: false,
-        loading: false
+        loading: false,
       });
     }
   },
@@ -199,7 +202,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.error("Failed to check license status:", error);
       set({
         isCheckingLicense: false,
-        licenseError: error instanceof Error ? error.message : String(error),
+        licenseError: normalizeTauriError(error),
       });
     }
   },
@@ -212,9 +215,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         licenseError: null,
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = normalizeTauriError(error);
       set({ licenseError: errorMessage });
-      throw error;
+      throw new Error(errorMessage);
     }
   },
 

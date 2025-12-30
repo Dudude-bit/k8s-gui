@@ -1,12 +1,12 @@
 //! Metrics API commands
-//! 
+//!
 //! Tauri commands for fetching resource usage metrics from Kubernetes Metrics API
 
 use crate::auth::license_client::LicenseClient;
 use crate::error::Result;
 use crate::metrics::{
-    get_node_metrics, get_pod_metrics, get_single_pod_metrics, 
-    ClusterMetrics, NodeMetrics, PodMetrics,
+    get_node_metrics, get_pod_metrics, get_single_pod_metrics, ClusterMetrics, NodeMetrics,
+    PodMetrics,
 };
 use crate::state::AppState;
 use tauri::State;
@@ -46,8 +46,6 @@ pub async fn get_pod_metrics_command(
 
 /// Get aggregated cluster metrics
 #[tauri::command]
-pub async fn get_cluster_metrics(
-    state: State<'_, AppState>,
-) -> Result<ClusterMetrics> {
+pub async fn get_cluster_metrics(state: State<'_, AppState>) -> Result<ClusterMetrics> {
     crate::metrics::get_cluster_metrics(&state).await
 }

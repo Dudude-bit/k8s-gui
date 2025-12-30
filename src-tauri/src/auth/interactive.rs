@@ -63,7 +63,7 @@ pub async fn prepare_kubeconfig_for_context(
     context_name: &str,
 ) -> Result<Kubeconfig> {
     let (user_name, cluster_name) = resolve_context(&kubeconfig, context_name)?;
-    
+
     // First, get the exec config and check if we need cluster info
     let (exec_config, needs_cluster_info) = {
         let auth_info = find_auth_info_mut(&mut kubeconfig, &user_name)?;
@@ -73,14 +73,14 @@ pub async fn prepare_kubeconfig_for_context(
             (None, false)
         }
     };
-    
+
     // Now resolve cluster info if needed (kubeconfig is no longer mutably borrowed)
     let exec_cluster = if needs_cluster_info {
         resolve_exec_cluster(&kubeconfig, &cluster_name)?
     } else {
         None
     };
-    
+
     // Get auth_info again for modification
     let auth_info = find_auth_info_mut(&mut kubeconfig, &user_name)?;
 
@@ -177,7 +177,8 @@ async fn run_exec_auth(
         }
     };
 
-    let mut cmd = match build_exec_command(exec, &browser_script, &url_file, &bin_dir, exec_cluster) {
+    let mut cmd = match build_exec_command(exec, &browser_script, &url_file, &bin_dir, exec_cluster)
+    {
         Ok(cmd) => cmd,
         Err(err) => {
             cleanup_auth_artifacts(&browser_script, &url_file, &bin_dir);
@@ -187,7 +188,9 @@ async fn run_exec_auth(
     };
     cmd.kill_on_drop(true);
     let mut child = cmd.spawn().map_err(|e| {
-        Error::Auth(AuthError::Kubeconfig(format!("Exec auth failed to start: {e}")))
+        Error::Auth(AuthError::Kubeconfig(format!(
+            "Exec auth failed to start: {e}"
+        )))
     })?;
 
     let mut stdout = child.stdout.take();
@@ -279,10 +282,15 @@ async fn run_exec_auth(
         return Err(Error::Auth(AuthError::Kubeconfig(message)));
     }
 
-    let creds: ExecCredential = serde_json::from_slice(&output.stdout)
-        .map_err(|e| Error::Auth(AuthError::Kubeconfig(format!("Invalid exec credentials: {e}"))))?;
+    let creds: ExecCredential = serde_json::from_slice(&output.stdout).map_err(|e| {
+        Error::Auth(AuthError::Kubeconfig(format!(
+            "Invalid exec credentials: {e}"
+        )))
+    })?;
     let status = creds.status.ok_or_else(|| {
-        Error::Auth(AuthError::Kubeconfig("Exec credentials missing status".to_string()))
+        Error::Auth(AuthError::Kubeconfig(
+            "Exec credentials missing status".to_string(),
+        ))
     })?;
     if status.token.is_none()
         && (status.client_certificate_data.is_none() || status.client_key_data.is_none())
@@ -316,10 +324,12 @@ async fn run_oidc_auth(
     let config = &provider.config;
     let issuer_url = config
         .get("idp-issuer-url")
-        .ok_or_else(|| Error::Auth(AuthError::Oidc("Missing issuer URL".to_string())))?.clone();
+        .ok_or_else(|| Error::Auth(AuthError::Oidc("Missing issuer URL".to_string())))?
+        .clone();
     let client_id = config
         .get("client-id")
-        .ok_or_else(|| Error::Auth(AuthError::Oidc("Missing client ID".to_string())))?.clone();
+        .ok_or_else(|| Error::Auth(AuthError::Oidc("Missing client ID".to_string())))?
+        .clone();
     let client_secret = config.get("client-secret").cloned();
     let scopes = parse_scopes(config);
 
@@ -386,7 +396,9 @@ async fn run_oidc_auth(
             success: false,
             message: Some("OIDC state mismatch.".to_string()),
         });
-        return Err(Error::Auth(AuthError::Oidc("OIDC state mismatch".to_string())));
+        return Err(Error::Auth(AuthError::Oidc(
+            "OIDC state mismatch".to_string(),
+        )));
     }
 
     let auth_result = auth
@@ -454,13 +466,16 @@ fn build_exec_command(
         }),
         status: None,
     };
-    let exec_info = serde_json::to_string(&exec_info)
-        .map_err(|e| Error::Auth(AuthError::Kubeconfig(format!("Exec info serialize failed: {e}"))))?;
+    let exec_info = serde_json::to_string(&exec_info).map_err(|e| {
+        Error::Auth(AuthError::Kubeconfig(format!(
+            "Exec info serialize failed: {e}"
+        )))
+    })?;
 
     cmd.env("KUBERNETES_EXEC_INFO", exec_info);
     cmd.env("K8S_GUI_AUTH_URL_FILE", url_file);
     cmd.env("BROWSER", browser_script);
-    
+
     // Prepend our bin directory to PATH to intercept 'open' and 'xdg-open' commands
     let current_path = std::env::var("PATH").unwrap_or_default();
     let new_path = format!("{}:{}", bin_dir.display(), current_path);
@@ -500,7 +515,7 @@ fn create_browser_script(session_id: &str) -> Result<(PathBuf, PathBuf, PathBuf)
     url_file.push("auth-url.txt");
 
     let mut script_path = dir.clone();
-    
+
     // Create bin directory for PATH override
     let mut bin_dir = dir.clone();
     bin_dir.push("bin");
@@ -524,7 +539,7 @@ fi
 exit 0
 "#;
         std::fs::write(&script_path, script)?;
-        
+
         // Create fake 'open' command for macOS (gcloud uses 'open' directly)
         #[cfg(target_os = "macos")]
         {
@@ -547,7 +562,7 @@ exec /usr/bin/open "$@"
 "#;
             std::fs::write(&open_script, open_script_content)?;
         }
-        
+
         // Create fake 'xdg-open' for Linux
         #[cfg(target_os = "linux")]
         {
@@ -570,18 +585,19 @@ exec /usr/bin/xdg-open "$@"
 "#;
             std::fs::write(&xdg_script, xdg_script_content)?;
         }
-        
+
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
             let mut perms = std::fs::metadata(&script_path)?.permissions();
             perms.set_mode(0o700);
             std::fs::set_permissions(&script_path, perms)?;
-            
+
             // Make all scripts in bin directory executable
             if let Ok(entries) = std::fs::read_dir(&bin_dir) {
                 for entry in entries.flatten() {
-                    if let Ok(mut perms) = std::fs::metadata(entry.path()).map(|m| m.permissions()) {
+                    if let Ok(mut perms) = std::fs::metadata(entry.path()).map(|m| m.permissions())
+                    {
                         perms.set_mode(0o700);
                         let _ = std::fs::set_permissions(entry.path(), perms);
                     }
@@ -610,9 +626,12 @@ struct OidcCallback {
     state: String,
 }
 
+/// Buffer size for OIDC callback reading
+const OIDC_CALLBACK_BUFFER_SIZE: usize = 4096;
+
 async fn wait_for_oidc_callback(listener: TcpListener) -> Result<OidcCallback> {
     let (mut socket, _) = listener.accept().await?;
-    let mut buf = [0u8; 4096];
+    let mut buf = [0u8; OIDC_CALLBACK_BUFFER_SIZE];
     let n = socket.read(&mut buf).await?;
     if n == 0 {
         return Err(Error::Auth(AuthError::Oidc(

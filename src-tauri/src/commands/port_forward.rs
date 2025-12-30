@@ -61,7 +61,8 @@ async fn forward_connection(
                 }
 
                 if let Some(mut remote_stream) = portforwarder.take_stream(remote_port) {
-                    let _ = tokio::io::copy_bidirectional(&mut local_stream, &mut remote_stream).await;
+                    let _ =
+                        tokio::io::copy_bidirectional(&mut local_stream, &mut remote_stream).await;
                 } else {
                     let _ = event_tx.send(AppEvent::PortForwardStatus {
                         id: session_id.clone(),
@@ -119,7 +120,9 @@ pub async fn port_forward_pod(
     state: State<'_, AppState>,
     license: State<'_, crate::auth::license_client::LicenseClient>,
 ) -> Result<PortForwardSessionInfo, String> {
-    license.require_premium_license().await
+    license
+        .require_premium_license()
+        .await
         .map_err(|e| e.to_string())?;
     if config.local_port == 0 || config.remote_port == 0 {
         return Err("Ports must be greater than 0".to_string());
@@ -134,8 +137,8 @@ pub async fn port_forward_pod(
         .get_client(&context)
         .ok_or_else(|| "Client not found".to_string())?;
 
-    let namespace = require_namespace(namespace, state.get_namespace(&context))
-        .map_err(|e| e.to_string())?;
+    let namespace =
+        require_namespace(namespace, state.get_namespace(&context)).map_err(|e| e.to_string())?;
 
     let listener = TcpListener::bind(("127.0.0.1", config.local_port))
         .await
@@ -183,7 +186,9 @@ pub async fn port_forward_pod(
             local_port,
             remote_port,
             status: "listening".to_string(),
-            message: Some(format!("127.0.0.1:{local_port} -> {pod_for_task}:{remote_port}")),
+            message: Some(format!(
+                "127.0.0.1:{local_port} -> {pod_for_task}:{remote_port}"
+            )),
             attempt: None,
         });
 

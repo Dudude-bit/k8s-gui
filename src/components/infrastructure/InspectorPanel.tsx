@@ -27,7 +27,10 @@ import { DEFAULT_REGISTRIES, useRegistryStore } from "@/stores/registryStore";
 import { useQuery } from "@tanstack/react-query";
 import { Trash2, Plus, HelpCircle } from "lucide-react";
 import * as commands from "@/generated/commands";
-import type { RegistryImageResult, RegistrySearchRequest } from "@/generated/types";
+import type {
+  RegistryImageResult,
+  RegistrySearchRequest,
+} from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
 
 const SERVICE_TYPE_OPTIONS = ["ClusterIP", "NodePort", "LoadBalancer"] as const;
@@ -74,10 +77,10 @@ const ImageSearchInput = ({
   const [focused, setFocused] = useState(false);
   const registries = useRegistryStore((state) => state.registries);
   const selectedRegistryId = useRegistryStore(
-    (state) => state.selectedRegistryId,
+    (state) => state.selectedRegistryId
   );
   const setSelectedRegistryId = useRegistryStore(
-    (state) => state.setSelectedRegistryId,
+    (state) => state.setSelectedRegistryId
   );
   const blurTimeoutRef = useRef<number | null>(null);
 
@@ -87,7 +90,7 @@ const ImageSearchInput = ({
   const selectedRegistry = useMemo(() => {
     return (
       availableRegistries.find(
-        (registry) => registry.id === selectedRegistryId,
+        (registry) => registry.id === selectedRegistryId
       ) ?? availableRegistries[0]
     );
   }, [availableRegistries, selectedRegistryId]);
@@ -95,11 +98,11 @@ const ImageSearchInput = ({
   useEffect(() => {
     if (
       !availableRegistries.some(
-        (registry) => registry.id === selectedRegistryId,
+        (registry) => registry.id === selectedRegistryId
       )
     ) {
       setSelectedRegistryId(
-        availableRegistries[0]?.id ?? DEFAULT_REGISTRIES[0].id,
+        availableRegistries[0]?.id ?? DEFAULT_REGISTRIES[0].id
       );
     }
   }, [availableRegistries, selectedRegistryId, setSelectedRegistryId]);
@@ -319,7 +322,7 @@ export function InspectorPanel({
         candidate.id !== node.id &&
         candidate.data.kind === node.data.kind &&
         (candidate.data.namespace.trim() || "default") === namespace &&
-        candidate.data.name.trim() === name,
+        candidate.data.name.trim() === name
     );
   }, [allNodes, node]);
 
@@ -329,13 +332,13 @@ export function InspectorPanel({
     }
     setLabelRows(recordToRows(node.data.labels));
     setSelectorRows(
-      node.data.kind === "Service" ? recordToRows(node.data.selectors) : [],
+      node.data.kind === "Service" ? recordToRows(node.data.selectors) : []
     );
     setConfigMapRows(
-      node.data.kind === "ConfigMap" ? recordToRows(node.data.data) : [],
+      node.data.kind === "ConfigMap" ? recordToRows(node.data.data) : []
     );
     setSecretRows(
-      node.data.kind === "Secret" ? recordToRows(node.data.data) : [],
+      node.data.kind === "Secret" ? recordToRows(node.data.data) : []
     );
     if (
       node.data.kind === "Service" ||
@@ -359,7 +362,7 @@ export function InspectorPanel({
   const isPresetSecretType = SECRET_TYPE_OPTIONS.includes(
     node.data.kind === "Secret"
       ? (node.data.secretType as (typeof SECRET_TYPE_OPTIONS)[number])
-      : "Opaque",
+      : "Opaque"
   );
   const secretTypeValue =
     node.data.kind === "Secret" && isPresetSecretType
@@ -483,7 +486,7 @@ export function InspectorPanel({
                     const next = labelRows.map((item, idx) =>
                       idx === index
                         ? { ...item, key: event.target.value }
-                        : item,
+                        : item
                     );
                     setLabelRows(next);
                     onUpdate(node.id, { labels: rowsToRecord(next) });
@@ -496,7 +499,7 @@ export function InspectorPanel({
                     const next = labelRows.map((item, idx) =>
                       idx === index
                         ? { ...item, value: event.target.value }
-                        : item,
+                        : item
                     );
                     setLabelRows(next);
                     onUpdate(node.id, { labels: rowsToRecord(next) });
@@ -687,7 +690,7 @@ export function InspectorPanel({
                       const next = selectorRows.map((item, idx) =>
                         idx === index
                           ? { ...item, key: event.target.value }
-                          : item,
+                          : item
                       );
                       setSelectorRows(next);
                       onUpdate(node.id, { selectors: rowsToRecord(next) });
@@ -700,7 +703,7 @@ export function InspectorPanel({
                       const next = selectorRows.map((item, idx) =>
                         idx === index
                           ? { ...item, value: event.target.value }
-                          : item,
+                          : item
                       );
                       setSelectorRows(next);
                       onUpdate(node.id, { selectors: rowsToRecord(next) });
@@ -712,7 +715,7 @@ export function InspectorPanel({
                     size="icon"
                     onClick={() => {
                       const next = selectorRows.filter(
-                        (_, idx) => idx !== index,
+                        (_, idx) => idx !== index
                       );
                       setSelectorRows(next);
                       onUpdate(node.id, { selectors: rowsToRecord(next) });
@@ -841,7 +844,7 @@ export function InspectorPanel({
                     const next = configMapRows.map((item, idx) =>
                       idx === index
                         ? { ...item, key: event.target.value }
-                        : item,
+                        : item
                     );
                     setConfigMapRows(next);
                     onUpdate(node.id, { data: rowsToRecord(next) });
@@ -854,7 +857,7 @@ export function InspectorPanel({
                     const next = configMapRows.map((item, idx) =>
                       idx === index
                         ? { ...item, value: event.target.value }
-                        : item,
+                        : item
                     );
                     setConfigMapRows(next);
                     onUpdate(node.id, { data: rowsToRecord(next) });
@@ -866,7 +869,7 @@ export function InspectorPanel({
                   size="icon"
                   onClick={() => {
                     const next = configMapRows.filter(
-                      (_, idx) => idx !== index,
+                      (_, idx) => idx !== index
                     );
                     setConfigMapRows(next);
                     onUpdate(node.id, { data: rowsToRecord(next) });
@@ -945,7 +948,7 @@ export function InspectorPanel({
                       const next = secretRows.map((item, idx) =>
                         idx === index
                           ? { ...item, key: event.target.value }
-                          : item,
+                          : item
                       );
                       setSecretRows(next);
                       onUpdate(node.id, { data: rowsToRecord(next) });
@@ -958,7 +961,7 @@ export function InspectorPanel({
                       const next = secretRows.map((item, idx) =>
                         idx === index
                           ? { ...item, value: event.target.value }
-                          : item,
+                          : item
                       );
                       setSecretRows(next);
                       onUpdate(node.id, { data: rowsToRecord(next) });

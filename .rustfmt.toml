@@ -1,0 +1,25 @@
+# Rustfmt configuration for K8s GUI project
+# This ensures consistent code formatting across all Rust projects
+
+# Basic formatting options
+edition = "2021"
+max_width = 100
+tab_spaces = 4
+newline_style = "Unix"
+
+# Import formatting
+imports_granularity = "Crate"
+group_imports = "StdExternalCrate"
+reorder_imports = true
+
+# Function formatting
+fn_args_layout = "Tall"
+brace_style = "SameLineWhere"
+empty_item_single_line = false
+
+# Other options
+use_small_heuristics = "Default"
+format_code_in_doc_comments = true
+format_strings = true
+format_macro_matchers = true
+

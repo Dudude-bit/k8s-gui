@@ -1,13 +1,12 @@
 //! Database models
 
-pub mod user;
+pub mod audit_log;
 pub mod license;
 pub mod payment;
-pub mod audit_log;
 pub mod token;
+pub mod user;
 
-pub use user::{User, UserProfile};
+pub use audit_log::AuditLog;
 pub use license::License;
 pub use payment::Payment;
-pub use audit_log::AuditLog;
-
+pub use user::{User, UserProfile};

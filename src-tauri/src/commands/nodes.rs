@@ -27,13 +27,14 @@ pub async fn list_nodes(
     state: State<'_, AppState>,
 ) -> Result<Vec<NodeInfo>> {
     let filters = filters.unwrap_or_default();
-    
+
     let list = crate::commands::helpers::list_cluster_resources::<Node>(
         state,
         filters.label_selector.as_deref(),
         filters.field_selector.as_deref(),
         filters.limit,
-    ).await?;
+    )
+    .await?;
 
     let mut nodes: Vec<NodeInfo> = list.items.iter().map(NodeInfo::from).collect();
 
@@ -63,7 +64,7 @@ pub async fn get_node_yaml(name: String, state: State<'_, AppState>) -> Result<S
 
     let yaml = serde_yaml::to_string(&node)
         .map_err(|e| crate::error::Error::Serialization(e.to_string()))?;
-    super::helpers::clean_yaml_for_editor(&yaml)
+    crate::commands::helpers::clean_yaml_for_editor(&yaml)
 }
 
 /// Node resource usage
@@ -227,7 +228,10 @@ pub async fn drain_node(
 
     for pod in pods.items {
         let pod_name = pod.metadata.name.unwrap_or_default();
-        let namespace = pod.metadata.namespace.unwrap_or_else(|| "default".to_string());
+        let namespace = pod
+            .metadata
+            .namespace
+            .unwrap_or_else(|| "default".to_string());
 
         // Skip DaemonSet pods if configured
         if ignore_daemonsets {

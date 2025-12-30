@@ -29,4 +29,3 @@ pub async fn cancel_auth_session(
     }
     Ok(())
 }
-

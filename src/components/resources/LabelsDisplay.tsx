@@ -24,11 +24,7 @@ export function LabelsDisplay({
       className={className}
       itemsContainerClassName="flex flex-wrap gap-2"
       renderItem={([key, value]) => (
-        <Badge
-          key={key}
-          variant="outline"
-          className="font-mono text-xs"
-        >
+        <Badge key={key} variant="outline" className="font-mono text-xs">
           {key}={value}
         </Badge>
       )}

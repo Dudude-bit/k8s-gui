@@ -32,16 +32,16 @@ export function RegistrySettings() {
   const { toast } = useToast();
   const registries = useRegistryStore((state) => state.registries);
   const selectedRegistryId = useRegistryStore(
-    (state) => state.selectedRegistryId,
+    (state) => state.selectedRegistryId
   );
   const setSelectedRegistryId = useRegistryStore(
-    (state) => state.setSelectedRegistryId,
+    (state) => state.setSelectedRegistryId
   );
   const addRegistry = useRegistryStore((state) => state.addRegistry);
   const updateRegistry = useRegistryStore((state) => state.updateRegistry);
   const removeRegistry = useRegistryStore((state) => state.removeRegistry);
   const ensureRegistryUrl = useRegistryStore(
-    (state) => state.ensureRegistryUrl,
+    (state) => state.ensureRegistryUrl
   );
 
   const [showRegistryEditor, setShowRegistryEditor] = useState(false);
@@ -72,13 +72,14 @@ export function RegistrySettings() {
 
   const registryAuth = useMemo(
     () => authByRegistry[selectedRegistryId] ?? { authType: "none" },
-    [authByRegistry, selectedRegistryId],
+    [authByRegistry, selectedRegistryId]
   );
 
   useEffect(() => {
     let cancelled = false;
     setAuthStatusMessage("");
-    commands.getRegistryAuthStatus(selectedRegistryId)
+    commands
+      .getRegistryAuthStatus(selectedRegistryId)
       .then((status) => {
         if (cancelled) {
           return;
@@ -87,10 +88,10 @@ export function RegistrySettings() {
           ...prev,
           [selectedRegistryId]: status
             ? {
-              authType: status.authType as RegistryAuth["authType"],
-              username: status.username ?? undefined,
-              hasCredentials: status.hasCredentials,
-            }
+                authType: status.authType as RegistryAuth["authType"],
+                username: status.username ?? undefined,
+                hasCredentials: status.hasCredentials,
+              }
             : null,
         }));
         if (status?.hasCredentials) {
@@ -259,7 +260,7 @@ export function RegistrySettings() {
             .getState()
             .registries.find(
               (registry) =>
-                normalizeHost(registry.baseUrl ?? registry.host) === host,
+                normalizeHost(registry.baseUrl ?? registry.host) === host
             );
           if (current) {
             registryId = current.id;
@@ -284,7 +285,8 @@ export function RegistrySettings() {
             setSavedAuthByRegistry((prev) => ({
               ...prev,
               [registryId]: {
-                authType: (entry.auth?.authType as RegistryAuth["authType"]) ?? "none",
+                authType:
+                  (entry.auth?.authType as RegistryAuth["authType"]) ?? "none",
                 username: entry.auth?.username || undefined,
                 hasCredentials: true,
               },
@@ -292,7 +294,8 @@ export function RegistrySettings() {
             setAuthByRegistry((prev) => ({
               ...prev,
               [registryId]: {
-                authType: (entry.auth?.authType as RegistryAuth["authType"]) ?? "none",
+                authType:
+                  (entry.auth?.authType as RegistryAuth["authType"]) ?? "none",
                 username: entry.auth?.username || undefined,
               },
             }));
@@ -407,17 +410,17 @@ export function RegistrySettings() {
             </div>
             {(newRegistryProvider === "registry-v2" ||
               newRegistryProvider === "harbor") && (
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">
-                    Registry URL
-                  </Label>
-                  <Input
-                    placeholder="registry.example.com"
-                    value={newRegistryUrl}
-                    onChange={(event) => setNewRegistryUrl(event.target.value)}
-                  />
-                </div>
-              )}
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">
+                  Registry URL
+                </Label>
+                <Input
+                  placeholder="registry.example.com"
+                  value={newRegistryUrl}
+                  onChange={(event) => setNewRegistryUrl(event.target.value)}
+                />
+              </div>
+            )}
             {newRegistryProvider === "harbor" && (
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">
@@ -520,21 +523,21 @@ export function RegistrySettings() {
             </div>
             {(selectedRegistry.provider === "registry-v2" ||
               selectedRegistry.provider === "harbor") && (
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">
-                    Registry URL
-                  </Label>
-                  <Input
-                    placeholder="registry.example.com"
-                    value={selectedRegistry.baseUrl ?? ""}
-                    onChange={(event) =>
-                      updateRegistry(selectedRegistry.id, {
-                        baseUrl: event.target.value,
-                      })
-                    }
-                  />
-                </div>
-              )}
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">
+                  Registry URL
+                </Label>
+                <Input
+                  placeholder="registry.example.com"
+                  value={selectedRegistry.baseUrl ?? ""}
+                  onChange={(event) =>
+                    updateRegistry(selectedRegistry.id, {
+                      baseUrl: event.target.value,
+                    })
+                  }
+                />
+              </div>
+            )}
             {selectedRegistry.provider === "harbor" && (
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">

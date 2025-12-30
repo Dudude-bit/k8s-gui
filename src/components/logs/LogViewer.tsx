@@ -41,7 +41,7 @@ export function LogViewer({
 }: LogViewerProps) {
   const { toast } = useToast();
   const [selectedContainer, setSelectedContainer] = useState(
-    initialContainer || containers[0],
+    initialContainer || containers[0]
   );
   const [logs, setLogs] = useState<LogLine[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -58,13 +58,15 @@ export function LogViewer({
   // Filter logs based on search
   const filteredLogs = searchQuery
     ? logs.filter((log) =>
-      log.message.toLowerCase().includes(searchQuery.toLowerCase()),
-    )
+        log.message.toLowerCase().includes(searchQuery.toLowerCase())
+      )
     : logs;
 
   // Get the actual scroll viewport element
   const getViewport = useCallback(() => {
-    return scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null;
+    return scrollAreaRef.current?.querySelector(
+      "[data-radix-scroll-area-viewport]"
+    ) as HTMLElement | null;
   }, []);
 
   // Auto-scroll to bottom when new logs arrive
@@ -76,7 +78,7 @@ export function LogViewer({
         requestAnimationFrame(() => {
           viewport.scrollTo({
             top: viewport.scrollHeight,
-            behavior: 'smooth',
+            behavior: "smooth",
           });
         });
       }
@@ -103,8 +105,8 @@ export function LogViewer({
       }
     };
 
-    viewport.addEventListener('scroll', handleScroll);
-    return () => viewport.removeEventListener('scroll', handleScroll);
+    viewport.addEventListener("scroll", handleScroll);
+    return () => viewport.removeEventListener("scroll", handleScroll);
   }, [autoScroll, getViewport]);
 
   // Scroll to bottom function for manual trigger
@@ -113,7 +115,7 @@ export function LogViewer({
     if (viewport) {
       viewport.scrollTo({
         top: viewport.scrollHeight,
-        behavior: 'smooth',
+        behavior: "smooth",
       });
       setAutoScroll(true);
     }
@@ -238,7 +240,14 @@ export function LogViewer({
 
   const downloadLogs = async () => {
     try {
-      const logs = await commands.getPodLogs(podName, namespace, selectedContainer, 10000, null, false);
+      const logs = await commands.getPodLogs(
+        podName,
+        namespace,
+        selectedContainer,
+        10000,
+        null,
+        false
+      );
 
       const content = logs
         .map((log) => `${log.timestamp || ""} ${log.message}`)
@@ -337,7 +346,9 @@ export function LogViewer({
             onClick={scrollToBottom}
             title={autoScroll ? "Auto-scroll enabled" : "Scroll to bottom"}
           >
-            <ArrowDown className={`h-4 w-4 ${!isAtBottom ? "animate-bounce" : ""}`} />
+            <ArrowDown
+              className={`h-4 w-4 ${!isAtBottom ? "animate-bounce" : ""}`}
+            />
           </Button>
           <Button
             variant="ghost"
@@ -469,7 +480,7 @@ function HighlightedText({ text, query }: { text: string; query: string }) {
           </mark>
         ) : (
           part
-        ),
+        )
       )}
     </>
   );

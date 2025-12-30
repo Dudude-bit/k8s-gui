@@ -1,13 +1,11 @@
 //! Generic Kubernetes resource client
-//! 
+//!
 //! Provides CRUD operations and watch functionality for any Kubernetes resource.
 
 use crate::error::{Error, Result};
 use futures::{Stream, TryStreamExt};
 use k8s_openapi::api::apps::v1::Deployment;
-use k8s_openapi::api::core::v1::{
-    ConfigMap, Event, Namespace, Node, Pod, Secret, Service,
-};
+use k8s_openapi::api::core::v1::{ConfigMap, Event, Namespace, Node, Pod, Secret, Service};
 use kube::{
     api::{Api, DeleteParams, ListParams, Patch, PatchParams, PostParams, WatchEvent},
     Client, Resource,
@@ -25,19 +23,19 @@ pub struct ResourceClient {
 
 impl ResourceClient {
     /// Create a new resource client
-    #[must_use] 
+    #[must_use]
     pub fn new(client: Arc<Client>) -> Self {
         Self { client }
     }
 
     /// Get the underlying kube client
-    #[must_use] 
+    #[must_use]
     pub fn inner(&self) -> &Client {
         &self.client
     }
 
     /// Create an API handle for a namespaced resource
-    #[must_use] 
+    #[must_use]
     pub fn namespaced<K>(&self, namespace: &str) -> Api<K>
     where
         K: Resource<Scope = k8s_openapi::NamespaceResourceScope>,
@@ -47,7 +45,7 @@ impl ResourceClient {
     }
 
     /// Create an API handle for a cluster-scoped resource
-    #[must_use] 
+    #[must_use]
     pub fn cluster<K>(&self) -> Api<K>
     where
         K: Resource<Scope = k8s_openapi::ClusterResourceScope>,
@@ -57,7 +55,7 @@ impl ResourceClient {
     }
 
     /// Create an API handle for all namespaces
-    #[must_use] 
+    #[must_use]
     pub fn all_namespaces<K>(&self) -> Api<K>
     where
         K: Resource,
@@ -67,11 +65,7 @@ impl ResourceClient {
     }
 
     /// List resources with optional filtering
-    pub async fn list<K>(
-        &self,
-        api: &Api<K>,
-        params: Option<ListParams>,
-    ) -> Result<Vec<K>>
+    pub async fn list<K>(&self, api: &Api<K>, params: Option<ListParams>) -> Result<Vec<K>>
     where
         K: Clone + DeserializeOwned + Debug,
     {
@@ -114,7 +108,9 @@ impl ResourceClient {
         K: Clone + DeserializeOwned + Debug + Serialize + Resource,
     {
         let params = PostParams::default();
-        api.replace(name, &params, resource).await.map_err(Into::into)
+        api.replace(name, &params, resource)
+            .await
+            .map_err(Into::into)
     }
 
     /// Patch a resource
@@ -147,11 +143,8 @@ impl ResourceClient {
         K: Clone + DeserializeOwned + Debug + Send + 'static,
     {
         let params = params.unwrap_or_default();
-        let stream = api
-            .watch(&params, "0")
-            .await?
-            .map_err(Error::KubeApi);
-        
+        let stream = api.watch(&params, "0").await?.map_err(Error::KubeApi);
+
         Ok(Box::pin(stream))
     }
 
@@ -176,7 +169,11 @@ impl ResourceClient {
     }
 
     /// List deployments in a namespace
-    pub async fn list_deployments(&self, namespace: &str, params: Option<ListParams>) -> Result<Vec<Deployment>> {
+    pub async fn list_deployments(
+        &self,
+        namespace: &str,
+        params: Option<ListParams>,
+    ) -> Result<Vec<Deployment>> {
         let api: Api<Deployment> = self.namespaced(namespace);
         self.list(&api, params).await
     }
@@ -188,7 +185,12 @@ impl ResourceClient {
     }
 
     /// Scale a deployment
-    pub async fn scale_deployment(&self, namespace: &str, name: &str, replicas: i32) -> Result<Deployment> {
+    pub async fn scale_deployment(
+        &self,
+        namespace: &str,
+        name: &str,
+        replicas: i32,
+    ) -> Result<Deployment> {
         let api: Api<Deployment> = self.namespaced(namespace);
         let patch = serde_json::json!({
             "spec": {
@@ -199,7 +201,11 @@ impl ResourceClient {
     }
 
     /// List services in a namespace
-    pub async fn list_services(&self, namespace: &str, params: Option<ListParams>) -> Result<Vec<Service>> {
+    pub async fn list_services(
+        &self,
+        namespace: &str,
+        params: Option<ListParams>,
+    ) -> Result<Vec<Service>> {
         let api: Api<Service> = self.namespaced(namespace);
         self.list(&api, params).await
     }
@@ -223,19 +229,31 @@ impl ResourceClient {
     }
 
     /// List configmaps in a namespace
-    pub async fn list_configmaps(&self, namespace: &str, params: Option<ListParams>) -> Result<Vec<ConfigMap>> {
+    pub async fn list_configmaps(
+        &self,
+        namespace: &str,
+        params: Option<ListParams>,
+    ) -> Result<Vec<ConfigMap>> {
         let api: Api<ConfigMap> = self.namespaced(namespace);
         self.list(&api, params).await
     }
 
     /// List secrets in a namespace
-    pub async fn list_secrets(&self, namespace: &str, params: Option<ListParams>) -> Result<Vec<Secret>> {
+    pub async fn list_secrets(
+        &self,
+        namespace: &str,
+        params: Option<ListParams>,
+    ) -> Result<Vec<Secret>> {
         let api: Api<Secret> = self.namespaced(namespace);
         self.list(&api, params).await
     }
 
     /// List events in a namespace
-    pub async fn list_events(&self, namespace: &str, params: Option<ListParams>) -> Result<Vec<Event>> {
+    pub async fn list_events(
+        &self,
+        namespace: &str,
+        params: Option<ListParams>,
+    ) -> Result<Vec<Event>> {
         let api: Api<Event> = self.namespaced(namespace);
         self.list(&api, params).await
     }
@@ -246,10 +264,8 @@ fn is_not_found(err: &kube::Error) -> bool {
     matches!(err, kube::Error::Api(resp) if resp.code == 404)
 }
 
-
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn test_resource_meta_creation() {

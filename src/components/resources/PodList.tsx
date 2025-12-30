@@ -8,7 +8,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useMemo } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
-import { usePodsWithMetrics, type PodWithMetrics } from "@/hooks/usePodsWithMetrics";
+import {
+  usePodsWithMetrics,
+  type PodWithMetrics,
+} from "@/hooks/usePodsWithMetrics";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { MetricBadge } from "@/components/ui/metric-card";
 import {
@@ -43,9 +46,7 @@ export function PodList() {
       {
         id: "status",
         header: "Status",
-        cell: ({ row }) => (
-          <StatusBadge status={row.original.status.phase} />
-        ),
+        cell: ({ row }) => <StatusBadge status={row.original.status.phase} />,
       },
       {
         id: "cpu",
@@ -78,7 +79,9 @@ export function PodList() {
         id: "restarts",
         header: "Restarts",
         cell: ({ row }) => (
-          <span className={row.original.restartCount > 5 ? "text-yellow-500" : ""}>
+          <span
+            className={row.original.restartCount > 5 ? "text-yellow-500" : ""}
+          >
             {row.original.restartCount}
           </span>
         ),
@@ -103,7 +106,11 @@ export function PodList() {
       title="Pods"
       // We use the same query key structure but include podsWithMetrics length/content hash to force update
       // when the hook updates.
-      queryKey={["pods-list-view", currentNamespace, JSON.stringify(podsWithMetrics.map(p => p.name))]}
+      queryKey={[
+        "pods-list-view",
+        currentNamespace,
+        JSON.stringify(podsWithMetrics.map((p) => p.name)),
+      ]}
       queryFn={queryFn}
       columns={(setDeleteTarget) => [
         ...columns,
@@ -112,7 +119,9 @@ export function PodList() {
           cell: ({ row }) => (
             <ActionMenu>
               <DropdownMenuItem asChild>
-                <Link to={`/pod/${row.original.namespace}/${row.original.name}`}>
+                <Link
+                  to={`/pod/${row.original.namespace}/${row.original.name}`}
+                >
                   <Eye className="mr-2 h-4 w-4" />
                   View Details
                 </Link>

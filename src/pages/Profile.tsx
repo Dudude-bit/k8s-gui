@@ -24,7 +24,8 @@ export function Profile() {
     } catch (error) {
       toast({
         title: "Logout failed",
-        description: error instanceof Error ? error.message : "Failed to logout",
+        description:
+          error instanceof Error ? error.message : "Failed to logout",
         variant: "destructive",
       });
     }
@@ -76,4 +77,3 @@ export function Profile() {
     </div>
   );
 }
-

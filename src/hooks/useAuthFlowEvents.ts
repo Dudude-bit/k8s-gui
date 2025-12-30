@@ -105,7 +105,7 @@ export function useAuthFlowEvents() {
         "auth-url-requested",
         async (event) => {
           if (!mounted) return;
-          
+
           console.log("Received auth-url-requested event:", event.payload);
           const payload = event.payload;
           const sessionId = payload.session_id;
@@ -228,7 +228,7 @@ export function useAuthFlowEvents() {
         "auth-flow-completed",
         async (event) => {
           if (!mounted) return;
-          
+
           const payload = event.payload;
           await closeWindow(payload.session_id);
 
@@ -254,7 +254,7 @@ export function useAuthFlowEvents() {
         "auth-flow-cancelled",
         async (event) => {
           if (!mounted) return;
-          
+
           const payload = event.payload;
           await closeWindow(payload.session_id);
           toastRef.current({

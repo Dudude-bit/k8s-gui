@@ -71,16 +71,17 @@ use crate::commands::filters::ResourceFilters;
 #[tauri::command]
 pub async fn list_persistent_volumes(
     filters: Option<ResourceFilters>,
-    state: State<'_, AppState>
+    state: State<'_, AppState>,
 ) -> Result<Vec<PersistentVolumeInfo>> {
     let filters = filters.unwrap_or_default();
-    
+
     let list = crate::commands::helpers::list_cluster_resources::<PersistentVolume>(
         state,
         filters.label_selector.as_deref(),
         filters.field_selector.as_deref(),
         filters.limit,
-    ).await?;
+    )
+    .await?;
 
     Ok(list
         .into_iter()
@@ -90,7 +91,8 @@ pub async fn list_persistent_volumes(
 
             let capacity = spec
                 .and_then(|s| s.capacity.as_ref())
-                .and_then(|c| c.get("storage")).map_or_else(|| "Unknown".to_string(), |q| q.0.clone());
+                .and_then(|c| c.get("storage"))
+                .map_or_else(|| "Unknown".to_string(), |q| q.0.clone());
 
             let access_modes = spec
                 .and_then(|s| s.access_modes.as_ref())
@@ -133,14 +135,15 @@ pub async fn list_persistent_volume_claims(
     state: State<'_, AppState>,
 ) -> Result<Vec<PersistentVolumeClaimInfo>> {
     let filters = filters.unwrap_or_default();
-    
+
     let list = crate::commands::helpers::list_resources::<PersistentVolumeClaim>(
         filters.namespace,
         state,
         filters.label_selector.as_deref(),
         filters.field_selector.as_deref(),
         filters.limit,
-    ).await?;
+    )
+    .await?;
 
     Ok(list
         .into_iter()
@@ -188,29 +191,26 @@ pub async fn list_persistent_volume_claims(
 #[tauri::command]
 pub async fn list_storage_classes(
     filters: Option<ResourceFilters>,
-    state: State<'_, AppState>
+    state: State<'_, AppState>,
 ) -> Result<Vec<StorageClassInfo>> {
     let filters = filters.unwrap_or_default();
-    
+
     let list = crate::commands::helpers::list_cluster_resources::<StorageClass>(
         state,
         filters.label_selector.as_deref(),
         filters.field_selector.as_deref(),
         filters.limit,
-    ).await?;
+    )
+    .await?;
 
     Ok(list
         .into_iter()
         .map(|sc| {
-            let is_default = sc
-                .metadata
-                .annotations
-                .as_ref()
-                .is_some_and(|ann| {
-                    ann.get("storageclass.kubernetes.io/is-default-class")
-                        .or_else(|| ann.get("storageclass.beta.kubernetes.io/is-default-class"))
-                        .is_some_and(|v| v == "true")
-                });
+            let is_default = sc.metadata.annotations.as_ref().is_some_and(|ann| {
+                ann.get("storageclass.kubernetes.io/is-default-class")
+                    .or_else(|| ann.get("storageclass.beta.kubernetes.io/is-default-class"))
+                    .is_some_and(|v| v == "true")
+            });
 
             StorageClassInfo {
                 name: sc.name_any(),

@@ -119,7 +119,11 @@ export function DeploymentList() {
   return (
     <ResourceList<DeploymentInfoWithMetrics>
       title="Deployments"
-      queryKey={["deployments", currentNamespace, JSON.stringify(podsWithMetrics.map(p => p.name))]}
+      queryKey={[
+        "deployments",
+        currentNamespace,
+        JSON.stringify(podsWithMetrics.map((p) => p.name)),
+      ]}
       queryFn={queryFn}
       columns={(setDeleteTarget) => [
         ...columns,
@@ -172,4 +176,3 @@ export function DeploymentList() {
     />
   );
 }
-

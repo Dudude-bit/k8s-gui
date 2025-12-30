@@ -24,5 +24,6 @@ export interface ResourceListItem {
 
 // Type-safe wrapper for Tauri invoke
 export type TauriCommand<T> = () => Promise<T>;
-export type TauriCommandWithArgs<T, A = Record<string, unknown>> = (args: A) => Promise<T>;
-
+export type TauriCommandWithArgs<T, A = Record<string, unknown>> = (
+  args: A
+) => Promise<T>;

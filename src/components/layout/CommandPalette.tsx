@@ -136,7 +136,7 @@ export function CommandPalette() {
         navigate(path);
       });
     },
-    [navigate],
+    [navigate]
   );
 
   useEffect(() => {
@@ -206,21 +206,33 @@ export function CommandPalette() {
                 // Pass null explicitly for "all namespaces", or the namespace string for a specific namespace
                 queryParams.namespace = namespace || null;
               }
-              
-              console.log(`[CommandPalette] Searching ${resource.kind} with query:`, queryParams);
-              
+
+              console.log(
+                `[CommandPalette] Searching ${resource.kind} with query:`,
+                queryParams
+              );
+
               // In Tauri v2, when a command takes a single struct parameter (besides State),
               // the parameter name must match. Since the Rust function signature is:
               // list_resources(query: ResourceQuery, state: State)
               // we need to pass { query: { kind, namespace, limit } }
-              const items = await invokeTyped<ResourceListItem[]>("list_resources", {
-                query: queryParams,
-              });
+              const items = await invokeTyped<ResourceListItem[]>(
+                "list_resources",
+                {
+                  query: queryParams,
+                }
+              );
 
-              console.log(`[CommandPalette] Received ${items?.length || 0} items for ${resource.kind}`, items?.slice(0, 2));
+              console.log(
+                `[CommandPalette] Received ${items?.length || 0} items for ${resource.kind}`,
+                items?.slice(0, 2)
+              );
 
               if (!items || !Array.isArray(items)) {
-                console.warn(`[CommandPalette] Invalid response for ${resource.kind}:`, items);
+                console.warn(
+                  `[CommandPalette] Invalid response for ${resource.kind}:`,
+                  items
+                );
                 return [] as ResourceResult[];
               }
 
@@ -250,14 +262,19 @@ export function CommandPalette() {
                   };
                 })
                 .filter(Boolean) as ResourceResult[];
-              
-              console.log(`[CommandPalette] Filtered to ${filtered.length} results for ${resource.kind}`);
+
+              console.log(
+                `[CommandPalette] Filtered to ${filtered.length} results for ${resource.kind}`
+              );
               return filtered;
             } catch (error) {
-              console.error(`[CommandPalette] Failed to search ${resource.kind}:`, error);
+              console.error(
+                `[CommandPalette] Failed to search ${resource.kind}:`,
+                error
+              );
               return [] as ResourceResult[];
             }
-          }),
+          })
         );
 
         if (!cancelled) {
@@ -286,19 +303,19 @@ export function CommandPalette() {
         acc[item.kind].push(item);
         return acc;
       },
-      {},
+      {}
     );
   }, [resourceResults]);
 
   const filteredNavigation = useMemo(() => {
     const items = quickActions.filter(
-      (action) => action.category === "Navigation",
+      (action) => action.category === "Navigation"
     );
     if (!hasQuery) {
       return items;
     }
     return items.filter((action) =>
-      action.label.toLowerCase().includes(searchValue),
+      action.label.toLowerCase().includes(searchValue)
     );
   }, [hasQuery, searchValue]);
 
@@ -307,7 +324,7 @@ export function CommandPalette() {
       return quickCommands;
     }
     return quickCommands.filter((action) =>
-      action.label.toLowerCase().includes(searchValue),
+      action.label.toLowerCase().includes(searchValue)
     );
   }, [hasQuery, searchValue]);
 

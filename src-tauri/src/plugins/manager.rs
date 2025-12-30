@@ -2,9 +2,9 @@
 
 use crate::error::{Error, PluginError, Result};
 use crate::plugins::{
-    traits::{ContextMenuExtension, PluginCommand, PluginContext, ResourceRenderer},
+    helm::{helm_plugin_info, HelmPlugin, HelmReleaseRenderer},
     kubectl::KubectlPluginManager,
-    helm::{HelmPlugin, HelmReleaseRenderer, helm_plugin_info},
+    traits::{ContextMenuExtension, PluginCommand, PluginContext, ResourceRenderer},
     PluginInfo, PluginResult,
 };
 use crate::resources::GenericResource;
@@ -15,16 +15,16 @@ use std::sync::Arc;
 pub struct PluginManager {
     /// kubectl plugin manager
     kubectl_manager: KubectlPluginManager,
-    
+
     /// Command plugins
     command_plugins: DashMap<String, Arc<dyn PluginCommand>>,
-    
+
     /// Context menu extensions
     context_menu_plugins: DashMap<String, Arc<dyn ContextMenuExtension>>,
-    
+
     /// Resource renderers
     resource_renderers: DashMap<String, Arc<dyn ResourceRenderer>>,
-    
+
     /// Plugin info cache
     plugin_info: DashMap<String, PluginInfo>,
 }
@@ -42,7 +42,7 @@ impl PluginManager {
 
         // Register built-in plugins
         manager.register_builtin_plugins()?;
-        
+
         // Discover kubectl plugins
         manager.discover_kubectl_plugins()?;
 
@@ -55,13 +55,14 @@ impl PluginManager {
         let helm_plugin = Arc::new(HelmPlugin::new());
         self.register_command_plugin(helm_plugin.clone())?;
         self.register_context_menu_plugin(helm_plugin)?;
-        
+
         // Register Helm release renderer
         let helm_renderer = Arc::new(HelmReleaseRenderer);
         self.register_resource_renderer(helm_renderer)?;
 
         // Store plugin info
-        self.plugin_info.insert("helm".to_string(), helm_plugin_info());
+        self.plugin_info
+            .insert("helm".to_string(), helm_plugin_info());
 
         Ok(())
     }
@@ -69,7 +70,7 @@ impl PluginManager {
     /// Discover and register kubectl plugins
     fn discover_kubectl_plugins(&mut self) -> Result<()> {
         let plugins = self.kubectl_manager.discover()?;
-        
+
         for plugin in plugins {
             self.plugin_info.insert(plugin.name.clone(), plugin.info());
         }
@@ -86,7 +87,10 @@ impl PluginManager {
     }
 
     /// Register a context menu plugin
-    pub fn register_context_menu_plugin(&self, plugin: Arc<dyn ContextMenuExtension>) -> Result<()> {
+    pub fn register_context_menu_plugin(
+        &self,
+        plugin: Arc<dyn ContextMenuExtension>,
+    ) -> Result<()> {
         let name = plugin.name().to_string();
         tracing::info!("Registering context menu plugin: {}", name);
         self.context_menu_plugins.insert(name, plugin);
@@ -102,13 +106,13 @@ impl PluginManager {
     }
 
     /// List all plugins
-    #[must_use] 
+    #[must_use]
     pub fn list_plugins(&self) -> Vec<PluginInfo> {
         self.plugin_info.iter().map(|r| r.value().clone()).collect()
     }
 
     /// Get plugin info by name
-    #[must_use] 
+    #[must_use]
     pub fn get_plugin_info(&self, name: &str) -> Option<PluginInfo> {
         self.plugin_info.get(name).map(|r| r.value().clone())
     }
@@ -149,11 +153,7 @@ impl PluginManager {
                     }
                     Ok(_) => {}
                     Err(e) => {
-                        tracing::warn!(
-                            "Plugin {} failed to get menu items: {}",
-                            plugin.name(),
-                            e
-                        );
+                        tracing::warn!("Plugin {} failed to get menu items: {}", plugin.name(), e);
                     }
                 }
             }
@@ -179,8 +179,12 @@ impl PluginManager {
     }
 
     /// Find a renderer for a resource
-    #[must_use] 
-    pub fn find_renderer(&self, api_version: &str, kind: &str) -> Option<Arc<dyn ResourceRenderer>> {
+    #[must_use]
+    pub fn find_renderer(
+        &self,
+        api_version: &str,
+        kind: &str,
+    ) -> Option<Arc<dyn ResourceRenderer>> {
         for renderer in &self.resource_renderers {
             if renderer.can_render(api_version, kind) {
                 return Some(renderer.clone());
@@ -204,11 +208,11 @@ impl PluginManager {
     /// Reload plugins
     pub fn reload(&mut self) -> Result<()> {
         tracing::info!("Reloading plugins...");
-        
+
         // Rediscover kubectl plugins
         self.kubectl_manager = KubectlPluginManager::new();
         self.discover_kubectl_plugins()?;
-        
+
         tracing::info!("Plugins reloaded");
         Ok(())
     }
@@ -234,15 +238,13 @@ impl PluginManager {
     }
 
     /// Check if a plugin is enabled
-    #[must_use] 
+    #[must_use]
     pub fn is_enabled(&self, name: &str) -> bool {
-        self.plugin_info
-            .get(name)
-            .is_some_and(|info| info.enabled)
+        self.plugin_info.get(name).is_some_and(|info| info.enabled)
     }
 
     /// Get plugin count
-    #[must_use] 
+    #[must_use]
     pub fn plugin_count(&self) -> PluginCount {
         let kubectl_count = self.kubectl_manager.list().len();
         let command_count = self.command_plugins.len();
@@ -277,7 +279,7 @@ mod tests {
     fn test_plugin_manager_creation() {
         let manager = PluginManager::new().unwrap();
         let count = manager.plugin_count();
-        
+
         // Should have at least the built-in helm plugin
         assert!(count.total > 0);
     }
@@ -285,14 +287,14 @@ mod tests {
     #[test]
     fn test_plugin_enable_disable() {
         let manager = PluginManager::new().unwrap();
-        
+
         // Helm should be enabled by default
         assert!(manager.is_enabled("helm"));
-        
+
         // Disable it
         manager.disable_plugin("helm").unwrap();
         assert!(!manager.is_enabled("helm"));
-        
+
         // Enable it again
         manager.enable_plugin("helm").unwrap();
         assert!(manager.is_enabled("helm"));
@@ -302,7 +304,7 @@ mod tests {
     fn test_list_plugins() {
         let manager = PluginManager::new().unwrap();
         let plugins = manager.list_plugins();
-        
+
         // Should have helm plugin
         assert!(plugins.iter().any(|p| p.name == "helm"));
     }

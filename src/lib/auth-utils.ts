@@ -4,8 +4,6 @@
  * Token signature verification is handled by the backend.
  */
 
-const TOKEN_REFRESH_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes before expiration
-
 export interface JWTPayload {
   exp?: number;
   iat?: number;
@@ -72,48 +70,3 @@ export function isTokenValid(token: string): boolean {
   }
   return !isTokenExpired(token);
 }
-
-/**
- * Check if token should be refreshed (expires within threshold)
- * @param token JWT token string
- * @returns true if token should be refreshed
- */
-export function shouldRefreshToken(token: string): boolean {
-  const expiration = getTokenExpiration(token);
-  if (!expiration) {
-    return false; // Invalid token, can't refresh
-  }
-  const timeUntilExpiration = expiration - Date.now();
-  return timeUntilExpiration > 0 && timeUntilExpiration <= TOKEN_REFRESH_THRESHOLD_MS;
-}
-
-/**
- * Get time until token expiration in milliseconds
- * @param token JWT token string
- * @returns Milliseconds until expiration, or null if invalid/expired
- */
-export function getTimeUntilExpiration(token: string): number | null {
-  const expiration = getTokenExpiration(token);
-  if (!expiration) {
-    return null;
-  }
-  const remaining = expiration - Date.now();
-  return remaining > 0 ? remaining : null;
-}
-
-/**
- * Validate token format (basic check)
- * @param token Token string
- * @returns true if token has valid JWT format
- */
-export function isValidTokenFormat(token: string): boolean {
-  if (!token || typeof token !== "string") {
-    return false;
-  }
-  const parts = token.split(".");
-  return parts.length === 3 && parts.every((part) => part.length > 0);
-}
-
-
-
-

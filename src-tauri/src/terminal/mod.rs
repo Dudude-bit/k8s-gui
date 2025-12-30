@@ -1,5 +1,5 @@
 //! Terminal module for exec/shell access
-//! 
+//!
 //! Provides interactive terminal sessions inside Kubernetes containers.
 
 use crate::error::{Error, Result};
@@ -13,6 +13,9 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::{broadcast, mpsc, oneshot, RwLock};
+
+/// Default buffer size for terminal I/O operations (4KB)
+pub const TERMINAL_BUFFER_SIZE: usize = 4096;
 
 /// Terminal session configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,12 +48,24 @@ pub struct TerminalConfig {
     pub height: u16,
 }
 
-fn default_tty() -> bool { true }
-fn default_stdin() -> bool { true }
-fn default_stdout() -> bool { true }
-fn default_stderr() -> bool { true }
-fn default_width() -> u16 { 80 }
-fn default_height() -> u16 { 24 }
+fn default_tty() -> bool {
+    true
+}
+fn default_stdin() -> bool {
+    true
+}
+fn default_stdout() -> bool {
+    true
+}
+fn default_stderr() -> bool {
+    true
+}
+fn default_width() -> u16 {
+    80
+}
+fn default_height() -> u16 {
+    24
+}
 
 impl Default for TerminalConfig {
     fn default() -> Self {
@@ -71,7 +86,7 @@ impl Default for TerminalConfig {
 
 impl TerminalConfig {
     /// Create a new terminal config with shell
-    #[must_use] 
+    #[must_use]
     pub fn shell(pod: &str, namespace: &str) -> Self {
         Self {
             pod: pod.to_string(),
@@ -82,7 +97,7 @@ impl TerminalConfig {
     }
 
     /// Create a new terminal config with bash
-    #[must_use] 
+    #[must_use]
     pub fn bash(pod: &str, namespace: &str) -> Self {
         Self {
             pod: pod.to_string(),
@@ -93,7 +108,7 @@ impl TerminalConfig {
     }
 
     /// Create exec config for a specific command
-    #[must_use] 
+    #[must_use]
     pub fn exec(pod: &str, namespace: &str, command: Vec<String>) -> Self {
         Self {
             pod: pod.to_string(),
@@ -105,14 +120,14 @@ impl TerminalConfig {
     }
 
     /// Set container
-    #[must_use] 
+    #[must_use]
     pub fn with_container(mut self, container: &str) -> Self {
         self.container = Some(container.to_string());
         self
     }
 
     /// Set terminal size
-    #[must_use] 
+    #[must_use]
     pub fn with_size(mut self, width: u16, height: u16) -> Self {
         self.width = width;
         self.height = height;
@@ -120,14 +135,14 @@ impl TerminalConfig {
     }
 
     /// Convert to kube `AttachParams`
-    #[must_use] 
+    #[must_use]
     pub fn to_attach_params(&self) -> AttachParams {
         let mut params = AttachParams::default();
-        
+
         if let Some(container) = &self.container {
             params = params.container(container);
         }
-        
+
         let mut params = params
             .stdin(self.stdin)
             .stdout(self.stdout)
@@ -212,7 +227,7 @@ pub struct TerminalManager {
 
 impl TerminalManager {
     /// Create a new terminal manager
-    #[must_use] 
+    #[must_use]
     pub fn new(client: Arc<Client>, event_tx: broadcast::Sender<AppEvent>) -> Self {
         Self { client, event_tx }
     }
@@ -248,7 +263,7 @@ impl TerminalManager {
     ) -> Result<()> {
         let api: Api<Pod> = Api::namespaced((*self.client).clone(), &config.namespace);
         let params = config.to_attach_params();
-        
+
         let mut attached = api
             .exec(&config.pod, &config.command, &params)
             .await
@@ -261,9 +276,9 @@ impl TerminalManager {
         if let Some(mut stdout) = attached.stdout() {
             let event_tx = event_tx.clone();
             let session_id = session_id_clone.clone();
-            
+
             tokio::spawn(async move {
-                let mut buf = vec![0u8; 4096];
+                let mut buf = vec![0u8; TERMINAL_BUFFER_SIZE];
                 loop {
                     match stdout.read(&mut buf).await {
                         Ok(0) => break,
@@ -287,9 +302,9 @@ impl TerminalManager {
         if let Some(mut stderr) = attached.stderr() {
             let event_tx = event_tx.clone();
             let session_id = session_id_clone.clone();
-            
+
             tokio::spawn(async move {
-                let mut buf = vec![0u8; 4096];
+                let mut buf = vec![0u8; TERMINAL_BUFFER_SIZE];
                 loop {
                     match stderr.read(&mut buf).await {
                         Ok(0) => break,
@@ -358,7 +373,7 @@ impl TerminalManager {
     /// Execute a command and return output (non-interactive)
     pub async fn exec(&self, config: &TerminalConfig) -> Result<ExecResult> {
         let api: Api<Pod> = Api::namespaced((*self.client).clone(), &config.namespace);
-        
+
         let params = AttachParams {
             stdin: false,
             stdout: true,
@@ -378,13 +393,17 @@ impl TerminalManager {
 
         // Read stdout
         if let Some(mut stdout) = attached.stdout() {
-            stdout.read_to_end(&mut stdout_data).await
+            stdout
+                .read_to_end(&mut stdout_data)
+                .await
                 .map_err(|e| Error::Terminal(format!("Failed to read stdout: {e}")))?;
         }
 
         // Read stderr
         if let Some(mut stderr) = attached.stderr() {
-            stderr.read_to_end(&mut stderr_data).await
+            stderr
+                .read_to_end(&mut stderr_data)
+                .await
                 .map_err(|e| Error::Terminal(format!("Failed to read stderr: {e}")))?;
         }
 
@@ -455,7 +474,11 @@ mod tests {
 
     #[test]
     fn test_terminal_config_exec() {
-        let config = TerminalConfig::exec("my-pod", "default", vec!["ls".to_string(), "-la".to_string()]);
+        let config = TerminalConfig::exec(
+            "my-pod",
+            "default",
+            vec!["ls".to_string(), "-la".to_string()],
+        );
         assert_eq!(config.command, vec!["ls", "-la"]);
         assert!(!config.tty);
     }

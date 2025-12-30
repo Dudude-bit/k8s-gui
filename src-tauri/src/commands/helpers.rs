@@ -2,10 +2,10 @@
 
 use crate::error::{Error, Result};
 use crate::state::AppState;
-use kube::{Client, Api};
-use kube::api::ListParams;
 use kube::api::DeleteParams;
+use kube::api::ListParams;
 use kube::Resource;
+use kube::{Api, Client};
 use tauri::State;
 
 /// Get Kubernetes client from app state
@@ -22,7 +22,7 @@ pub fn get_k8s_client(state: &State<'_, AppState>) -> Result<Client> {
 }
 
 /// Build `ListParams` from optional selectors and limit
-#[must_use] 
+#[must_use]
 pub fn build_list_params(
     label_selector: Option<&str>,
     field_selector: Option<&str>,
@@ -68,7 +68,7 @@ impl CommandContext {
         Ok(CommandContext { client, namespace })
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn namespaced_api<K>(&self) -> Api<K>
     where
         K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope>,
@@ -104,7 +104,7 @@ impl ListContext {
     /// Get API for a resource.
     /// When namespace is Some, this uses `Api::all()` which doesn't filter by namespace.
     /// For proper namespace filtering with namespaced resources, use `namespaced_api()` instead.
-    #[must_use] 
+    #[must_use]
     pub fn api<K>(&self) -> Api<K>
     where
         K: kube::Resource,
@@ -119,18 +119,20 @@ impl ListContext {
     /// Get namespaced API for a resource when namespace filtering is needed.
     /// Use this when you have a namespace and K is a namespaced resource.
     /// This properly filters resources to the specified namespace.
-    #[must_use] 
+    #[must_use]
     pub fn namespaced_api<K>(&self) -> Api<K>
     where
         K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope>,
         K::DynamicType: Default,
     {
-        let namespace = self.namespace.as_deref()
+        let namespace = self
+            .namespace
+            .as_deref()
             .expect("namespaced_api() requires namespace to be Some");
         Api::namespaced(self.client.clone(), namespace)
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn cluster_api<K: Resource>(&self) -> Api<K>
     where
         K::DynamicType: Default,
@@ -146,15 +148,18 @@ pub async fn get_resource_yaml<K>(
     state: State<'_, AppState>,
 ) -> Result<String>
 where
-    K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope> + serde::Serialize + serde::de::DeserializeOwned + Clone + std::fmt::Debug,
+    K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope>
+        + serde::Serialize
+        + serde::de::DeserializeOwned
+        + Clone
+        + std::fmt::Debug,
     K::DynamicType: Default,
 {
     let ctx = CommandContext::new(&state, namespace)?;
     let api: Api<K> = ctx.namespaced_api();
     let resource = api.get(&name).await?;
 
-    let yaml = serde_yaml::to_string(&resource)
-        .map_err(|e| Error::Serialization(e.to_string()))?;
+    let yaml = serde_yaml::to_string(&resource).map_err(|e| Error::Serialization(e.to_string()))?;
     clean_yaml_for_editor(&yaml)
 }
 
@@ -166,7 +171,10 @@ pub async fn delete_resource<K>(
     delete_params: Option<DeleteParams>,
 ) -> Result<()>
 where
-    K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope> + Clone + std::fmt::Debug + serde::de::DeserializeOwned,
+    K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope>
+        + Clone
+        + std::fmt::Debug
+        + serde::de::DeserializeOwned,
     K::DynamicType: Default,
 {
     let ctx = CommandContext::new(&state, namespace)?;
@@ -185,7 +193,7 @@ pub fn clean_yaml_for_editor(yaml: &str) -> Result<String> {
     // Remove top-level status field (server-managed)
     if let Some(mapping) = value.as_mapping_mut() {
         mapping.remove("status");
-        
+
         // Remove server-managed fields from metadata
         if let Some(metadata) = mapping.get_mut("metadata") {
             if let Some(meta_map) = metadata.as_mapping_mut() {
@@ -204,7 +212,7 @@ pub fn clean_yaml_for_editor(yaml: &str) -> Result<String> {
     // Serialize back to YAML
     let cleaned = serde_yaml::to_string(&value)
         .map_err(|e| Error::Serialization(format!("Failed to serialize YAML: {e}")))?;
-    
+
     Ok(cleaned)
 }
 
@@ -215,7 +223,10 @@ pub async fn get_resource<K>(
     state: State<'_, AppState>,
 ) -> Result<K>
 where
-    K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope> + Clone + std::fmt::Debug + serde::de::DeserializeOwned,
+    K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope>
+        + Clone
+        + std::fmt::Debug
+        + serde::de::DeserializeOwned,
     K::DynamicType: Default,
 {
     let ctx = CommandContext::new(&state, namespace)?;
@@ -232,7 +243,10 @@ pub async fn list_resources<K>(
     limit: Option<i64>,
 ) -> Result<kube::core::ObjectList<K>>
 where
-    K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope> + Clone + std::fmt::Debug + serde::de::DeserializeOwned,
+    K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope>
+        + Clone
+        + std::fmt::Debug
+        + serde::de::DeserializeOwned,
     K::DynamicType: Default,
 {
     let ctx = ListContext::new(&state, namespace)?;
@@ -257,7 +271,10 @@ pub async fn list_cluster_resources<K>(
     limit: Option<i64>,
 ) -> Result<kube::core::ObjectList<K>>
 where
-    K: kube::Resource<Scope = k8s_openapi::ClusterResourceScope> + Clone + std::fmt::Debug + serde::de::DeserializeOwned,
+    K: kube::Resource<Scope = k8s_openapi::ClusterResourceScope>
+        + Clone
+        + std::fmt::Debug
+        + serde::de::DeserializeOwned,
     K::DynamicType: Default,
 {
     let ctx = ListContext::new(&state, None)?;

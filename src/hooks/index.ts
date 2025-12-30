@@ -15,7 +15,7 @@ export {
   type ResourceWithIdentity,
   type UseResourceDeleteConfig,
   type UseResourceCrudConfig,
-} from './useResource';
+} from "./useResource";
 
 // Detail page hook
 export {
@@ -25,19 +25,19 @@ export {
   type UseResourceDetailResult,
   type DetailLoadingProps,
   type DetailErrorProps,
-} from './useResourceDetail';
+} from "./useResourceDetail";
 
 // Specialized hooks
-export { useResourceYaml } from './useResourceYaml';
-export { useCopyToClipboard } from './useCopyToClipboard';
-export { usePodsWithMetrics, type PodWithMetrics } from './usePodsWithMetrics';
-export { usePodMetrics } from './usePodMetrics';
-export { useResourceWithMetrics } from './useResourceWithMetrics';
+export { useResourceYaml } from "./useResourceYaml";
+export { useCopyToClipboard } from "./useCopyToClipboard";
+export { usePodsWithMetrics, type PodWithMetrics } from "./usePodsWithMetrics";
+export { usePodMetrics } from "./usePodMetrics";
+export { useResourceWithMetrics } from "./useResourceWithMetrics";
 
 // License and user hooks
-export { useLicense } from './useLicense';
-export { usePremiumFeature } from './usePremiumFeature';
-export { useUserProfile } from './useUserProfile';
+export { useLicense } from "./useLicense";
+export { usePremiumFeature } from "./usePremiumFeature";
+export { useUserProfile } from "./useUserProfile";
 
 // Navigation hooks
-export { useLoginRedirect } from './useLoginRedirect';
+export { useLoginRedirect } from "./useLoginRedirect";

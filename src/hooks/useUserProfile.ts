@@ -2,7 +2,15 @@ import { useState, useCallback } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import * as commands from "@/generated/commands";
 import type { UserProfile } from "@/generated/types";
+import { normalizeTauriError } from "@/lib/error-utils";
 
+/**
+ * Hook for managing user profile
+ *
+ * Provides functionality to load and update user profile information.
+ *
+ * @returns Object containing user profile, loading state, error state, and methods
+ */
 export function useUserProfile() {
   const { userProfile, isAuthenticated, setUserProfile } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
@@ -20,30 +28,34 @@ export function useUserProfile() {
       const profile = await commands.getUserProfile();
       setUserProfile(profile);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(normalizeTauriError(err));
     } finally {
       setIsLoading(false);
     }
   }, [isAuthenticated, setUserProfile]);
 
-  const updateProfile = useCallback(async (updates: Partial<UserProfile>) => {
-    setIsLoading(true);
-    setError(null);
+  const updateProfile = useCallback(
+    async (updates: Partial<UserProfile>) => {
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      const updated = await commands.updateUserProfile(
-        updates.firstName ?? null,
-        updates.lastName ?? null,
-        updates.company ?? null,
-      );
-      setUserProfile(updated);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [setUserProfile]);
+      try {
+        const updated = await commands.updateUserProfile(
+          updates.firstName ?? null,
+          updates.lastName ?? null,
+          updates.company ?? null
+        );
+        setUserProfile(updated);
+      } catch (err) {
+        const errorMessage = normalizeTauriError(err);
+        setError(errorMessage);
+        throw new Error(errorMessage);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [setUserProfile]
+  );
 
   return {
     userProfile,

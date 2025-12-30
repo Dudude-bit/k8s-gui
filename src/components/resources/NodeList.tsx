@@ -1,4 +1,9 @@
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import { useClusterStore } from "@/stores/clusterStore";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -141,130 +146,137 @@ export function NodeList() {
     },
   });
 
-  const columns: ColumnDef<NodeWithMetrics>[] = useMemo(() => [
-    {
-      accessorKey: "name",
-      header: "Name",
-      cell: ({ row }) => (
-        <Link
-          to={`/node/${row.original.name}`}
-          className="font-medium hover:underline flex items-center gap-2"
-        >
-          {row.original.name}
-        </Link>
-      ),
-    },
-    {
-      id: "status",
-      header: "Status",
-      cell: ({ row }) => {
-        const ready = row.original.status.ready;
-        return <StatusBadge status={ready ? "Ready" : "NotReady"} />;
+  const columns: ColumnDef<NodeWithMetrics>[] = useMemo(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Name",
+        cell: ({ row }) => (
+          <Link
+            to={`/node/${row.original.name}`}
+            className="font-medium hover:underline flex items-center gap-2"
+          >
+            {row.original.name}
+          </Link>
+        ),
       },
-    },
-    {
-      accessorKey: "roles",
-      header: "Roles",
-      cell: ({ row }) => (
-        <div className="flex flex-wrap gap-1">
-          {row.original.roles.map((role) => (
-            <Badge key={role} variant="outline" className="text-xs">
-              {role}
-            </Badge>
-          ))}
-        </div>
-      ),
-    },
-    {
-      accessorKey: "version",
-      header: "Version",
-    },
-    {
-      id: "internal_ip",
-      header: "Internal IP",
-      cell: ({ row }) => {
-        const address = row.original.status.addresses.find(
-          (a) => a.type === "InternalIP"
-        );
-        return address?.address || "-";
+      {
+        id: "status",
+        header: "Status",
+        cell: ({ row }) => {
+          const ready = row.original.status.ready;
+          return <StatusBadge status={ready ? "Ready" : "NotReady"} />;
+        },
       },
-    },
-    {
-      id: "cpu",
-      header: "CPU Usage",
-      cell: ({ row }) => {
-        const capacity = row.original.capacity ? row.original.capacity.cpu : null;
-        return (
-          <MetricBadge
-            used={row.original.cpuUsage}
-            total={capacity}
-            type="cpu"
-          />
-        );
+      {
+        accessorKey: "roles",
+        header: "Roles",
+        cell: ({ row }) => (
+          <div className="flex flex-wrap gap-1">
+            {row.original.roles.map((role) => (
+              <Badge key={role} variant="outline" className="text-xs">
+                {role}
+              </Badge>
+            ))}
+          </div>
+        ),
       },
-    },
-    {
-      id: "memory",
-      header: "Memory Usage",
-      cell: ({ row }) => {
-        const capacity = row.original.capacity ? row.original.capacity.memory : null;
-        return (
-          <MetricBadge
-            used={row.original.memoryUsage}
-            total={capacity}
-            type="memory"
-          />
-        );
+      {
+        accessorKey: "version",
+        header: "Version",
       },
-    },
-    {
-      id: "capacity_pods",
-      header: "Pod Cap",
-      cell: ({ row }) => row.original.capacity?.pods || "-",
-    },
-    {
-      id: "age",
-      header: "Age",
-      cell: ({ row }) => formatAge(row.original.createdAt),
-    },
-    {
-      id: "actions",
-      cell: ({ row }) => (
-        <ActionMenu>
-          <DropdownMenuItem asChild>
-            <Link to={`/node/${row.original.name}`}>
-              <Eye className="mr-2 h-4 w-4" />
-              View Details
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          {/* Note: Simplified check as 'isSchedulable' might not be directly exposed or named differently in generated types if it was a computed field. 
+      {
+        id: "internal_ip",
+        header: "Internal IP",
+        cell: ({ row }) => {
+          const address = row.original.status.addresses.find(
+            (a) => a.type === "InternalIP"
+          );
+          return address?.address || "-";
+        },
+      },
+      {
+        id: "cpu",
+        header: "CPU Usage",
+        cell: ({ row }) => {
+          const capacity = row.original.capacity
+            ? row.original.capacity.cpu
+            : null;
+          return (
+            <MetricBadge
+              used={row.original.cpuUsage}
+              total={capacity}
+              type="cpu"
+            />
+          );
+        },
+      },
+      {
+        id: "memory",
+        header: "Memory Usage",
+        cell: ({ row }) => {
+          const capacity = row.original.capacity
+            ? row.original.capacity.memory
+            : null;
+          return (
+            <MetricBadge
+              used={row.original.memoryUsage}
+              total={capacity}
+              type="memory"
+            />
+          );
+        },
+      },
+      {
+        id: "capacity_pods",
+        header: "Pod Cap",
+        cell: ({ row }) => row.original.capacity?.pods || "-",
+      },
+      {
+        id: "age",
+        header: "Age",
+        cell: ({ row }) => formatAge(row.original.createdAt),
+      },
+      {
+        id: "actions",
+        cell: ({ row }) => (
+          <ActionMenu>
+            <DropdownMenuItem asChild>
+              <Link to={`/node/${row.original.name}`}>
+                <Eye className="mr-2 h-4 w-4" />
+                View Details
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {/* Note: Simplified check as 'isSchedulable' might not be directly exposed or named differently in generated types if it was a computed field. 
               Usually untainted nodes are schedulable or check Ready condition. 
               The manual type had 'is_schedulable'. The generated one has 'taints'. 
           */}
-          <DropdownMenuItem
-            onClick={() => cordonMutation.mutate(row.original.name)}
-          >
-            <ShieldOff className="mr-2 h-4 w-4" />
-            Cordon
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => uncordonMutation.mutate(row.original.name)}
-          >
-            <Shield className="mr-2 h-4 w-4" />
-            Uncordon
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="text-destructive"
-            onClick={() => drainMutation.mutate(row.original.name)}
-          >
-            <AlertTriangle className="mr-2 h-4 w-4" />
-            Drain
-          </DropdownMenuItem>
-        </ActionMenu>
-      ),
-    },
-  ], [cordonMutation, uncordonMutation, drainMutation]);
+            <DropdownMenuItem
+              onClick={() => cordonMutation.mutate(row.original.name)}
+            >
+              <ShieldOff className="mr-2 h-4 w-4" />
+              Cordon
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => uncordonMutation.mutate(row.original.name)}
+            >
+              <Shield className="mr-2 h-4 w-4" />
+              Uncordon
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={() => drainMutation.mutate(row.original.name)}
+            >
+              <AlertTriangle className="mr-2 h-4 w-4" />
+              Drain
+            </DropdownMenuItem>
+          </ActionMenu>
+        ),
+      },
+    ],
+    [cordonMutation, uncordonMutation, drainMutation]
+  );
 
   if (!isConnected) {
     return <ConnectClusterEmptyState resourceLabel="nodes" />;

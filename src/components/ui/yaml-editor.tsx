@@ -206,7 +206,11 @@ function DiffViewer({
             }`}
           >
             <span className="inline-block w-6 text-muted-foreground mr-2">
-              {line.type === "added" ? "+" : line.type === "removed" ? "-" : " "}
+              {line.type === "added"
+                ? "+"
+                : line.type === "removed"
+                  ? "-"
+                  : " "}
             </span>
             <span className="whitespace-pre">{line.content}</span>
           </div>
@@ -703,4 +707,3 @@ export function YamlEditorDialog() {
     </>
   );
 }
-

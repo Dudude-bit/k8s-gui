@@ -1,5 +1,5 @@
 //! Kubernetes client management
-//! 
+//!
 //! This module provides a client manager that handles multiple Kubernetes
 //! cluster connections with support for different authentication methods.
 
@@ -24,20 +24,20 @@ pub use resource_client::ResourceClient;
 pub struct K8sClientManager {
     /// Active clients by context name
     clients: DashMap<String, Arc<Client>>,
-    
+
     /// Client configurations by context name
     configs: DashMap<String, Config>,
-    
+
     /// Loaded kubeconfig
     kubeconfig: RwLock<Option<Kubeconfig>>,
-    
+
     /// Default kubeconfig path
     kubeconfig_path: RwLock<Option<PathBuf>>,
 }
 
 impl K8sClientManager {
     /// Create a new client manager
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             clients: DashMap::new(),
@@ -54,7 +54,7 @@ impl K8sClientManager {
                 "Failed to read kubeconfig: {e}"
             )))
         })?;
-        
+
         *self.kubeconfig.write().await = Some(kubeconfig);
         Ok(())
     }
@@ -75,7 +75,7 @@ impl K8sClientManager {
                 "Failed to read kubeconfig from {path:?}: {e}"
             )))
         })?;
-        
+
         *self.kubeconfig_path.write().await = Some(path);
         *self.kubeconfig.write().await = Some(kubeconfig);
         Ok(())
@@ -84,12 +84,12 @@ impl K8sClientManager {
     /// Get list of available contexts
     pub async fn list_contexts(&self) -> Result<Vec<ContextInfo>> {
         let kubeconfig = self.kubeconfig.read().await;
-        let kubeconfig = kubeconfig.as_ref().ok_or_else(|| {
-            Error::Config("Kubeconfig not loaded".to_string())
-        })?;
+        let kubeconfig = kubeconfig
+            .as_ref()
+            .ok_or_else(|| Error::Config("Kubeconfig not loaded".to_string()))?;
 
         let current_context = kubeconfig.current_context.clone();
-        
+
         let contexts = kubeconfig
             .contexts
             .iter()
@@ -111,10 +111,10 @@ impl K8sClientManager {
     /// Get current context name
     pub async fn get_current_context(&self) -> Result<Option<String>> {
         let kubeconfig = self.kubeconfig.read().await;
-        let kubeconfig = kubeconfig.as_ref().ok_or_else(|| {
-            Error::Config("Kubeconfig not loaded".to_string())
-        })?;
-        
+        let kubeconfig = kubeconfig
+            .as_ref()
+            .ok_or_else(|| Error::Config("Kubeconfig not loaded".to_string()))?;
+
         Ok(kubeconfig.current_context.clone())
     }
 
@@ -128,11 +128,11 @@ impl K8sClientManager {
         let config = self.create_config(context).await?;
         let client = Client::try_from(config.clone())
             .map_err(|e| Error::Connection(format!("Failed to create client: {e}")))?;
-        
+
         let client = Arc::new(client);
         self.clients.insert(context.to_string(), client.clone());
         self.configs.insert(context.to_string(), config);
-        
+
         tracing::info!("Connected to cluster: {}", context);
         Ok(client)
     }
@@ -153,7 +153,11 @@ impl K8sClientManager {
 
         let config = Config::from_custom_kubeconfig(kubeconfig, &options)
             .await
-            .map_err(|e| Error::Config(format!("Failed to create config for context {context}: {e}")))?;
+            .map_err(|e| {
+                Error::Config(format!(
+                    "Failed to create config for context {context}: {e}"
+                ))
+            })?;
         let client = Client::try_from(config.clone())
             .map_err(|e| Error::Connection(format!("Failed to create client: {e}")))?;
         let client = Arc::new(client);
@@ -169,11 +173,11 @@ impl K8sClientManager {
         let config = self.create_config_with_auth(context, auth).await?;
         let client = Client::try_from(config.clone())
             .map_err(|e| Error::Connection(format!("Failed to create client: {e}")))?;
-        
+
         let client = Arc::new(client);
         self.clients.insert(context.to_string(), client.clone());
         self.configs.insert(context.to_string(), config);
-        
+
         tracing::info!("Connected to cluster with custom auth: {}", context);
         Ok(client)
     }
@@ -181,9 +185,9 @@ impl K8sClientManager {
     /// Create kube config for a context
     async fn create_config(&self, context: &str) -> Result<Config> {
         let kubeconfig = self.kubeconfig.read().await;
-        let kubeconfig = kubeconfig.as_ref().ok_or_else(|| {
-            Error::Config("Kubeconfig not loaded".to_string())
-        })?;
+        let kubeconfig = kubeconfig
+            .as_ref()
+            .ok_or_else(|| Error::Config("Kubeconfig not loaded".to_string()))?;
 
         let options = KubeConfigOptions {
             context: Some(context.to_string()),
@@ -192,13 +196,17 @@ impl K8sClientManager {
 
         Config::from_custom_kubeconfig(kubeconfig.clone(), &options)
             .await
-            .map_err(|e| Error::Config(format!("Failed to create config for context {context}: {e}")))
+            .map_err(|e| {
+                Error::Config(format!(
+                    "Failed to create config for context {context}: {e}"
+                ))
+            })
     }
 
     /// Create kube config with custom authentication
     async fn create_config_with_auth(&self, context: &str, auth: &AuthConfig) -> Result<Config> {
         let config = self.create_config(context).await?;
-        
+
         match &auth.method {
             AuthMethod::BearerToken { token: _ } => {
                 // Set bearer token authentication
@@ -206,21 +214,21 @@ impl K8sClientManager {
                 tracing::debug!("Using bearer token authentication for {}", context);
                 // Token is handled through kube-rs authentication mechanisms
             }
-            AuthMethod::Oidc { 
-                issuer_url: _, 
-                client_id: _, 
+            AuthMethod::Oidc {
+                issuer_url: _,
+                client_id: _,
                 client_secret: _,
                 refresh_token: _,
-                .. 
+                ..
             } => {
                 tracing::debug!("Using OIDC authentication for {}", context);
                 // OIDC is handled through kube-rs OIDC support
             }
-            AuthMethod::AwsEks { 
-                cluster_name: _, 
+            AuthMethod::AwsEks {
+                cluster_name: _,
                 region: _,
                 role_arn: _,
-                .. 
+                ..
             } => {
                 tracing::debug!("Using AWS EKS authentication for {}", context);
                 // AWS EKS authentication is handled separately
@@ -232,7 +240,7 @@ impl K8sClientManager {
                 // Default kubeconfig authentication, no modifications needed
             }
         }
-        
+
         Ok(config)
     }
 
@@ -250,7 +258,9 @@ impl K8sClientManager {
 
     /// Get configuration for a context
     pub fn get_config(&self, context: &str) -> Option<Arc<Config>> {
-        self.configs.get(context).map(|c| Arc::new(c.value().clone()))
+        self.configs
+            .get(context)
+            .map(|c| Arc::new(c.value().clone()))
     }
 
     /// Check if connected to a context
@@ -266,11 +276,13 @@ impl K8sClientManager {
     /// Test connection to a cluster
     pub async fn test_connection(&self, context: &str) -> Result<ClusterInfo> {
         let client = self.connect(context).await?;
-        
+
         // Try to get server version
-        let version = client.apiserver_version().await
+        let version = client
+            .apiserver_version()
+            .await
             .map_err(|e| Error::Connection(format!("Failed to get server version: {e}")))?;
-        
+
         Ok(ClusterInfo {
             context: context.to_string(),
             server_version: format!("{}.{}", version.major, version.minor),

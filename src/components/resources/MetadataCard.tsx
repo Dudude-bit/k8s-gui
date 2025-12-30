@@ -54,7 +54,3 @@ export function MetadataCard<T>({
     </Card>
   );
 }
-
-
-
-

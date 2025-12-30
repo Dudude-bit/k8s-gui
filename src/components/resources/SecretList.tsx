@@ -20,7 +20,6 @@ import {
   createDataKeysColumn,
 } from "./columns";
 
-
 const getSecretTypeColor = (type: string): string => {
   switch (type) {
     case "kubernetes.io/tls":
@@ -38,9 +37,15 @@ export function SecretList() {
   const { currentNamespace } = useClusterStore();
   const copyToClipboard = useCopyToClipboard();
 
-  const handleCopyKeys = useCallback(async (secret: SecretInfo) => {
-    copyToClipboard(secret.dataKeys.join("\n"), "Secret keys copied to clipboard.");
-  }, [copyToClipboard]);
+  const handleCopyKeys = useCallback(
+    async (secret: SecretInfo) => {
+      copyToClipboard(
+        secret.dataKeys.join("\n"),
+        "Secret keys copied to clipboard."
+      );
+    },
+    [copyToClipboard]
+  );
 
   const columns = useMemo<ColumnDef<SecretInfo>[]>(
     () => [

@@ -36,20 +36,20 @@
     --status-available: 142.1 76.2% 36.3%;
     --status-active: 142.1 76.2% 36.3%;
     --status-succeeded: 142.1 76.2% 36.3%;
-    
+
     --status-pending: 221.2 83.2% 53.3%;
     --status-waiting: 221.2 83.2% 53.3%;
     --status-progressing: 221.2 83.2% 53.3%;
-    
+
     --status-warning: 38 92% 50%;
     --status-degraded: 38 92% 50%;
-    
+
     --status-error: 0 84.2% 60.2%;
     --status-failed: 0 84.2% 60.2%;
     --status-crashloopbackoff: 0 84.2% 60.2%;
     --status-evicted: 0 84.2% 60.2%;
     --status-oomkilled: 0 84.2% 60.2%;
-    
+
     --status-terminated: 215 16.3% 46.9%;
     --status-completed: 215 16.3% 46.9%;
     --status-unknown: 215 16.3% 46.9%;

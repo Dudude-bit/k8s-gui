@@ -2,20 +2,7 @@ import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useDeduplicatedToast } from "./useDeduplicatedToast";
 import { isLicenseError } from "@/lib/license-error-utils";
-
-function normalizeErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  if (typeof error === "string") {
-    return error;
-  }
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return "Unknown error";
-  }
-}
+import { normalizeTauriError } from "@/lib/error-utils";
 
 export function useGlobalErrorToasts() {
   const { emitToast } = useDeduplicatedToast();
@@ -28,7 +15,7 @@ export function useGlobalErrorToasts() {
     };
 
     const onRejection = (event: PromiseRejectionEvent) => {
-      const description = normalizeErrorMessage(event.reason);
+      const description = normalizeTauriError(event.reason);
       // Check if it's a license-related error
       if (isLicenseError(description)) {
         emitToast("Premium Feature", description);

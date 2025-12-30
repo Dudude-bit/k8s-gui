@@ -3,6 +3,13 @@ import { useToast } from "@/components/ui/use-toast";
 
 /**
  * Hook for copying text to clipboard with toast notification
+ *
+ * @returns A callback function that copies text to clipboard and shows a toast notification
+ * @example
+ * ```tsx
+ * const copyToClipboard = useCopyToClipboard();
+ * copyToClipboard("Hello World", "Text copied!");
+ * ```
  */
 export function useCopyToClipboard() {
   const { toast } = useToast();
@@ -26,7 +33,3 @@ export function useCopyToClipboard() {
     [toast]
   );
 }
-
-
-
-

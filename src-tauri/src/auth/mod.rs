@@ -1,5 +1,5 @@
 //! Authentication module
-//! 
+//!
 //! Provides support for multiple Kubernetes authentication methods including:
 //! - Kubeconfig-based authentication
 //! - Bearer token authentication
@@ -8,20 +8,20 @@
 
 mod aws_eks;
 mod bearer;
-mod kubeconfig;
-mod oidc;
-mod interactive;
-mod manager;
 mod credentials;
+mod interactive;
+mod kubeconfig;
 pub mod license_client;
+mod manager;
+mod oidc;
 
 pub use aws_eks::AwsEksAuth;
 pub use bearer::BearerTokenAuth;
-pub use kubeconfig::KubeconfigAuth;
-pub use oidc::OidcAuth;
-pub use interactive::prepare_kubeconfig_for_context;
-pub use manager::AuthManager;
 pub use credentials::CredentialStore;
+pub use interactive::prepare_kubeconfig_for_context;
+pub use kubeconfig::KubeconfigAuth;
+pub use manager::AuthManager;
+pub use oidc::OidcAuth;
 
 use serde::{Deserialize, Serialize};
 
@@ -31,18 +31,16 @@ use serde::{Deserialize, Serialize};
 pub enum AuthMethod {
     /// Use kubeconfig file authentication
     Kubeconfig,
-    
+
     /// Bearer token authentication
-    BearerToken {
-        token: String,
-    },
-    
+    BearerToken { token: String },
+
     /// Client certificate authentication
     Certificate {
         client_certificate_data: String,
         client_key_data: String,
     },
-    
+
     /// OIDC authentication
     Oidc {
         issuer_url: String,
@@ -52,7 +50,7 @@ pub enum AuthMethod {
         id_token: Option<String>,
         scopes: Vec<String>,
     },
-    
+
     /// AWS EKS authentication
     AwsEks {
         cluster_name: String,
@@ -67,13 +65,13 @@ pub enum AuthMethod {
 pub struct AuthConfig {
     /// Authentication method
     pub method: AuthMethod,
-    
+
     /// Optional: Override server URL
     pub server_url: Option<String>,
-    
+
     /// Optional: CA certificate data (base64 encoded)
     pub ca_data: Option<String>,
-    
+
     /// Skip TLS verification
     #[serde(default)]
     pub insecure_skip_tls_verify: bool,
@@ -95,20 +93,20 @@ impl Default for AuthConfig {
 pub struct AuthResult {
     /// Access token or credential
     pub token: String,
-    
+
     /// Token expiry timestamp (if known)
     pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
-    
+
     /// Refresh token (for OIDC)
     pub refresh_token: Option<String>,
-    
+
     /// Token type (Bearer, etc.)
     pub token_type: String,
 }
 
 impl AuthResult {
     /// Check if the token is expired
-    #[must_use] 
+    #[must_use]
     pub fn is_expired(&self) -> bool {
         if let Some(expires_at) = self.expires_at {
             expires_at < chrono::Utc::now()
@@ -118,7 +116,7 @@ impl AuthResult {
     }
 
     /// Check if the token will expire soon (within 5 minutes)
-    #[must_use] 
+    #[must_use]
     pub fn expires_soon(&self) -> bool {
         if let Some(expires_at) = self.expires_at {
             expires_at < chrono::Utc::now() + chrono::Duration::minutes(5)
@@ -133,13 +131,13 @@ impl AuthResult {
 pub trait AuthProvider: Send + Sync {
     /// Get authentication token/credentials
     async fn authenticate(&self) -> crate::error::Result<AuthResult>;
-    
+
     /// Refresh authentication if supported
     async fn refresh(&self, auth: &AuthResult) -> crate::error::Result<AuthResult>;
-    
+
     /// Check if refresh is supported
     fn supports_refresh(&self) -> bool;
-    
+
     /// Get provider name
     fn name(&self) -> &'static str;
 }
@@ -158,9 +156,7 @@ pub enum AuthStatus {
         expires_at: Option<chrono::DateTime<chrono::Utc>>,
     },
     /// Authentication failed
-    Failed {
-        error: String,
-    },
+    Failed { error: String },
     /// Token expired
     Expired,
 }
@@ -177,7 +173,7 @@ mod tests {
             refresh_token: None,
             token_type: "Bearer".to_string(),
         };
-        
+
         assert!(result.is_expired());
     }
 
@@ -189,7 +185,7 @@ mod tests {
             refresh_token: None,
             token_type: "Bearer".to_string(),
         };
-        
+
         assert!(!result.is_expired());
     }
 

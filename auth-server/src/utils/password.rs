@@ -1,8 +1,7 @@
-//! Password hashing and validation utilities
+//! Password hashing and verification utilities
 
-use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
-use validator::ValidationError;
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 
 /// Hash a password using Argon2
 pub fn hash_password(password: &str) -> Result<String, argon2::password_hash::Error> {
@@ -23,29 +22,6 @@ pub fn verify_password(password: &str, hash: &str) -> Result<bool, argon2::passw
     }
 }
 
-/// Validate password strength
-pub fn validate_password_strength(password: &str) -> Result<(), ValidationError> {
-    if password.len() < 8 {
-        return Err(ValidationError::new("password_too_short"));
-    }
-    if password.len() > 128 {
-        return Err(ValidationError::new("password_too_long"));
-    }
-    if !password.chars().any(|c| c.is_ascii_lowercase()) {
-        return Err(ValidationError::new("password_no_lowercase"));
-    }
-    if !password.chars().any(|c| c.is_ascii_uppercase()) {
-        return Err(ValidationError::new("password_no_uppercase"));
-    }
-    if !password.chars().any(|c| c.is_ascii_digit()) {
-        return Err(ValidationError::new("password_no_digit"));
-    }
-    if !password.chars().any(|c| "!@#$%^&*()_+-=[]{}|;:,.<>?".contains(c)) {
-        return Err(ValidationError::new("password_no_special"));
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -57,15 +33,4 @@ mod tests {
         assert!(verify_password(password, &hash).unwrap());
         assert!(!verify_password("wrong_password", &hash).unwrap());
     }
-
-    #[test]
-    fn test_password_validation() {
-        assert!(validate_password_strength("TestPass123!").is_ok());
-        assert!(validate_password_strength("short").is_err());
-        assert!(validate_password_strength("nouppercase123!").is_err());
-        assert!(validate_password_strength("NOLOWERCASE123!").is_err());
-        assert!(validate_password_strength("NoDigits!").is_err());
-        assert!(validate_password_strength("NoSpecial123").is_err());
-    }
 }
-

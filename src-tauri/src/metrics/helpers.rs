@@ -4,15 +4,17 @@
 /// Supports formats: "500m", "0.5", "2", "2.5"
 pub fn parse_cpu_to_millicores(cpu_str: &str) -> Result<f64, String> {
     let cpu_str = cpu_str.trim();
-    
+
     if let Some(num_str) = cpu_str.strip_suffix('m') {
         // Millicores: "500m" -> 500.0
-        num_str.parse::<f64>()
+        num_str
+            .parse::<f64>()
             .map_err(|e| format!("Invalid CPU millicores format: {e}"))
             .map(|v| v / 1000.0) // Convert millicores to cores
     } else {
         // Cores: "2", "0.5", "2.5"
-        cpu_str.parse::<f64>()
+        cpu_str
+            .parse::<f64>()
             .map_err(|e| format!("Invalid CPU cores format: {e}"))
     }
 }
@@ -21,45 +23,53 @@ pub fn parse_cpu_to_millicores(cpu_str: &str) -> Result<f64, String> {
 /// Supports formats: "512Mi", "1Gi", "1024Ki", "1073741824"
 pub fn parse_memory_to_bytes(mem_str: &str) -> Result<u64, String> {
     let mem_str = mem_str.trim();
-    
+
     if let Some(num_str) = mem_str.strip_suffix("Ki") {
-        let kib = num_str.parse::<f64>()
+        let kib = num_str
+            .parse::<f64>()
             .map_err(|e| format!("Invalid memory format: {e}"))?;
         Ok((kib * 1024.0) as u64)
     } else if let Some(num_str) = mem_str.strip_suffix("Mi") {
-        let mib = num_str.parse::<f64>()
+        let mib = num_str
+            .parse::<f64>()
             .map_err(|e| format!("Invalid memory format: {e}"))?;
         Ok((mib * 1024.0 * 1024.0) as u64)
     } else if let Some(num_str) = mem_str.strip_suffix("Gi") {
-        let gib = num_str.parse::<f64>()
+        let gib = num_str
+            .parse::<f64>()
             .map_err(|e| format!("Invalid memory format: {e}"))?;
         Ok((gib * 1024.0 * 1024.0 * 1024.0) as u64)
     } else if let Some(num_str) = mem_str.strip_suffix("Ti") {
-        let tib = num_str.parse::<f64>()
+        let tib = num_str
+            .parse::<f64>()
             .map_err(|e| format!("Invalid memory format: {e}"))?;
         Ok((tib * 1024.0 * 1024.0 * 1024.0 * 1024.0) as u64)
     } else if let Some(num_str) = mem_str.strip_suffix('K') {
-        let kb = num_str.parse::<f64>()
+        let kb = num_str
+            .parse::<f64>()
             .map_err(|e| format!("Invalid memory format: {e}"))?;
         Ok((kb * 1000.0) as u64)
     } else if let Some(num_str) = mem_str.strip_suffix('M') {
-        let mb = num_str.parse::<f64>()
+        let mb = num_str
+            .parse::<f64>()
             .map_err(|e| format!("Invalid memory format: {e}"))?;
         Ok((mb * 1000.0 * 1000.0) as u64)
     } else if let Some(num_str) = mem_str.strip_suffix('G') {
-        let gb = num_str.parse::<f64>()
+        let gb = num_str
+            .parse::<f64>()
             .map_err(|e| format!("Invalid memory format: {e}"))?;
         Ok((gb * 1000.0 * 1000.0 * 1000.0) as u64)
     } else {
         // Assume bytes
-        mem_str.parse::<u64>()
+        mem_str
+            .parse::<u64>()
             .map_err(|e| format!("Invalid memory format: {e}"))
     }
 }
 
 /// Format CPU from millicores to string representation
 /// Returns format like "500m" for < 1 core, or "2" for >= 1 core
-#[must_use] 
+#[must_use]
 pub fn format_cpu_from_millicores(millicores: f64) -> String {
     if millicores < 1.0 {
         format!("{}m", (millicores * 1000.0) as u64)
@@ -72,7 +82,7 @@ pub fn format_cpu_from_millicores(millicores: f64) -> String {
 
 /// Calculate utilization percentage
 /// Returns percentage as f64 (0.0 to 100.0)
-#[must_use] 
+#[must_use]
 pub fn calculate_utilization_percentage(used: f64, total: f64) -> Option<f64> {
     if total > 0.0 {
         Some((used / total) * 100.0)
@@ -82,8 +92,10 @@ pub fn calculate_utilization_percentage(used: f64, total: f64) -> Option<f64> {
 }
 
 /// Aggregate pod metrics (sum CPU and memory)
-#[must_use] 
-pub fn aggregate_pod_metrics(metrics: &[crate::metrics::PodMetrics]) -> (Option<String>, Option<String>) {
+#[must_use]
+pub fn aggregate_pod_metrics(
+    metrics: &[crate::metrics::PodMetrics],
+) -> (Option<String>, Option<String>) {
     let mut total_cpu_millicores = 0.0;
     let mut total_memory_bytes = 0u64;
 
@@ -114,4 +126,3 @@ pub fn aggregate_pod_metrics(metrics: &[crate::metrics::PodMetrics]) -> (Option<
 
     (cpu_usage, memory_usage)
 }
-

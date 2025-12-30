@@ -3,8 +3,8 @@
 use chrono::{DateTime, Utc};
 use k8s_openapi::api::apps::v1::Deployment;
 use k8s_openapi::api::core::v1::{
-    ConfigMap, Container, Event, Namespace, Node, NodeCondition, Pod, PodCondition,
-    PodStatus, Secret, Service,
+    ConfigMap, Container, Event, Namespace, Node, NodeCondition, Pod, PodCondition, PodStatus,
+    Secret, Service,
 };
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use kube::ResourceExt;
@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 // Import unified quantities module
-use crate::utils::quantities::{parse_cpu, parse_memory, format_cpu};
+use crate::utils::quantities::{format_cpu, parse_cpu, parse_memory};
 
 /// Simplified pod information for frontend
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,20 +31,20 @@ pub struct PodInfo {
     pub created_at: Option<DateTime<Utc>>,
     pub restart_count: i32,
     // Resource usage metrics (from Metrics API)
-    pub cpu_usage: Option<String>,           // in millicores or cores (e.g., "500m", "2")
-    pub memory_usage: Option<String>,         // in bytes
+    pub cpu_usage: Option<String>, // in millicores or cores (e.g., "500m", "2")
+    pub memory_usage: Option<String>, // in bytes
     // Resource requests/limits (from spec)
-    pub cpu_requests: Option<String>,         // aggregated from all containers
-    pub cpu_limits: Option<String>,          // aggregated from all containers
-    pub memory_requests: Option<String>,     // aggregated from all containers
-    pub memory_limits: Option<String>,        // aggregated from all containers
+    pub cpu_requests: Option<String>, // aggregated from all containers
+    pub cpu_limits: Option<String>,   // aggregated from all containers
+    pub memory_requests: Option<String>, // aggregated from all containers
+    pub memory_limits: Option<String>, // aggregated from all containers
 }
 
 impl From<&Pod> for PodInfo {
     fn from(pod: &Pod) -> Self {
         let status = pod.status.as_ref();
         let spec = pod.spec.as_ref();
-        
+
         let containers = spec
             .map(|s| {
                 s.containers
@@ -53,19 +53,19 @@ impl From<&Pod> for PodInfo {
                     .collect()
             })
             .unwrap_or_default();
-        
+
         let restart_count = status
             .and_then(|s| s.container_statuses.as_ref())
             .map_or(0, |cs| cs.iter().map(|c| c.restart_count).sum());
-        
+
         // Aggregate resource requests and limits from all containers
-        let (cpu_requests, cpu_limits, memory_requests, memory_limits) = spec
-            .map_or((None, None, None, None), |s| {
+        let (cpu_requests, cpu_limits, memory_requests, memory_limits) =
+            spec.map_or((None, None, None, None), |s| {
                 let mut total_cpu_requests_millicores = 0.0f64;
                 let mut total_cpu_limits_millicores = 0.0f64;
                 let mut total_memory_requests_bytes = 0u64;
                 let mut total_memory_limits_bytes = 0u64;
-                
+
                 for container in &s.containers {
                     if let Some(resources) = &container.resources {
                         if let Some(requests) = &resources.requests {
@@ -86,7 +86,7 @@ impl From<&Pod> for PodInfo {
                         }
                     }
                 }
-                
+
                 // Format aggregated values
                 let cpu_requests = if total_cpu_requests_millicores > 0.0 {
                     Some(format_cpu_millicores(total_cpu_requests_millicores))
@@ -108,10 +108,10 @@ impl From<&Pod> for PodInfo {
                 } else {
                     None
                 };
-                
+
                 (cpu_requests, cpu_limits, memory_requests, memory_limits)
             });
-        
+
         Self {
             name: pod.name_any(),
             namespace: pod.namespace().unwrap_or_default(),
@@ -125,8 +125,8 @@ impl From<&Pod> for PodInfo {
             annotations: pod.annotations().clone(),
             created_at: pod.creation_timestamp().map(|t| t.0),
             restart_count,
-            cpu_usage: None,        // Will be populated from Metrics API
-            memory_usage: None,     // Will be populated from Metrics API
+            cpu_usage: None,    // Will be populated from Metrics API
+            memory_usage: None, // Will be populated from Metrics API
             cpu_requests,
             cpu_limits,
             memory_requests,
@@ -173,24 +173,24 @@ impl PodStatusInfo {
                 }
             }
         };
-        
-        let ready = status
-            .conditions
-            .as_ref()
-            .is_some_and(|conds| {
-                conds
-                    .iter()
-                    .any(|c| c.type_ == "Ready" && c.status == "True")
-            });
-        
+
+        let ready = status.conditions.as_ref().is_some_and(|conds| {
+            conds
+                .iter()
+                .any(|c| c.type_ == "Ready" && c.status == "True")
+        });
+
         let conditions = status
             .conditions
             .as_ref()
             .map(|conds| conds.iter().map(ConditionInfo::from).collect())
             .unwrap_or_default();
-        
+
         Self {
-            phase: status.phase.clone().unwrap_or_else(|| "Unknown".to_string()),
+            phase: status
+                .phase
+                .clone()
+                .unwrap_or_else(|| "Unknown".to_string()),
             ready,
             conditions,
             message: status.message.clone(),
@@ -251,7 +251,7 @@ impl ContainerInfo {
         let container_status = pod_status
             .and_then(|s| s.container_statuses.as_ref())
             .and_then(|cs| cs.iter().find(|c| c.name == container.name));
-        
+
         let (ready, state, restart_count) = if let Some(cs) = container_status {
             let state = if cs.state.as_ref().and_then(|s| s.running.as_ref()).is_some() {
                 ContainerState::Running
@@ -267,12 +267,12 @@ impl ContainerInfo {
             } else {
                 ContainerState::Unknown
             };
-            
+
             (cs.ready, state, cs.restart_count)
         } else {
             (false, ContainerState::Unknown, 0)
         };
-        
+
         let ports = container
             .ports
             .as_ref()
@@ -286,7 +286,7 @@ impl ContainerInfo {
                     .collect()
             })
             .unwrap_or_default();
-        
+
         Self {
             name: container.name.clone(),
             image: container.image.clone().unwrap_or_default(),
@@ -303,8 +303,13 @@ impl ContainerInfo {
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum ContainerState {
     Running,
-    Waiting { reason: Option<String> },
-    Terminated { exit_code: i32, reason: Option<String> },
+    Waiting {
+        reason: Option<String>,
+    },
+    Terminated {
+        exit_code: i32,
+        reason: Option<String>,
+    },
     Unknown,
 }
 
@@ -365,14 +370,14 @@ impl From<&Deployment> for DeploymentInfo {
     fn from(deployment: &Deployment) -> Self {
         let status = deployment.status.as_ref();
         let spec = deployment.spec.as_ref();
-        
+
         let replicas = ReplicaInfo {
             desired: spec.and_then(|s| s.replicas).unwrap_or(0),
             ready: status.and_then(|s| s.ready_replicas).unwrap_or(0),
             available: status.and_then(|s| s.available_replicas).unwrap_or(0),
             updated: status.and_then(|s| s.updated_replicas).unwrap_or(0),
         };
-        
+
         let conditions = status
             .and_then(|s| s.conditions.as_ref())
             .map(|conds| {
@@ -388,7 +393,7 @@ impl From<&Deployment> for DeploymentInfo {
                     .collect()
             })
             .unwrap_or_default();
-        
+
         let containers = spec
             .and_then(|s| s.template.spec.as_ref())
             .map(|s| {
@@ -425,7 +430,12 @@ impl From<&Container> for DeploymentContainerInfo {
             .unwrap_or_default();
 
         let resources = DeploymentContainerResources {
-            requests: map_quantities(container.resources.as_ref().and_then(|r| r.requests.as_ref())),
+            requests: map_quantities(
+                container
+                    .resources
+                    .as_ref()
+                    .and_then(|r| r.requests.as_ref()),
+            ),
             limits: map_quantities(container.resources.as_ref().and_then(|r| r.limits.as_ref())),
         };
 
@@ -481,7 +491,7 @@ pub struct ServicePortInfo {
 impl From<&Service> for ServiceInfo {
     fn from(service: &Service) -> Self {
         let spec = service.spec.as_ref();
-        
+
         let ports = spec
             .and_then(|s| s.ports.as_ref())
             .map(|ps| {
@@ -507,7 +517,7 @@ impl From<&Service> for ServiceInfo {
                     .collect()
             })
             .unwrap_or_default();
-        
+
         Self {
             name: service.name_any(),
             namespace: service.namespace().unwrap_or_default(),
@@ -549,8 +559,8 @@ pub struct NodeInfo {
     pub allocatable: ResourceQuantities,
     pub created_at: Option<DateTime<Utc>>,
     // Resource usage metrics (from Metrics API)
-    pub cpu_usage: Option<String>,       // in millicores or cores
-    pub memory_usage: Option<String>,     // in bytes
+    pub cpu_usage: Option<String>,    // in millicores or cores
+    pub memory_usage: Option<String>, // in bytes
 }
 
 /// Node status information
@@ -593,9 +603,9 @@ impl From<&Node> for NodeInfo {
     fn from(node: &Node) -> Self {
         let status = node.status.as_ref();
         let spec = node.spec.as_ref();
-        
+
         let node_info = status.and_then(|s| s.node_info.as_ref());
-        
+
         let ready = status
             .and_then(|s| s.conditions.as_ref())
             .is_some_and(|conds| {
@@ -603,12 +613,12 @@ impl From<&Node> for NodeInfo {
                     .iter()
                     .any(|c| c.type_ == "Ready" && c.status == "True")
             });
-        
+
         let conditions = status
             .and_then(|s| s.conditions.as_ref())
             .map(|conds| conds.iter().map(ConditionInfo::from).collect())
             .unwrap_or_default();
-        
+
         let addresses = status
             .and_then(|s| s.addresses.as_ref())
             .map(|addrs| {
@@ -621,7 +631,7 @@ impl From<&Node> for NodeInfo {
                     .collect()
             })
             .unwrap_or_default();
-        
+
         let roles: Vec<String> = node
             .labels()
             .iter()
@@ -633,7 +643,7 @@ impl From<&Node> for NodeInfo {
                 }
             })
             .collect();
-        
+
         let taints = spec
             .and_then(|s| s.taints.as_ref())
             .map(|ts| {
@@ -646,7 +656,7 @@ impl From<&Node> for NodeInfo {
                     .collect()
             })
             .unwrap_or_default();
-        
+
         let capacity = status
             .and_then(|s| s.capacity.as_ref())
             .map(|c| ResourceQuantities {
@@ -656,7 +666,7 @@ impl From<&Node> for NodeInfo {
                 ephemeral_storage: c.get("ephemeral-storage").map(|q| q.0.clone()),
             })
             .unwrap_or_default();
-        
+
         let allocatable = status
             .and_then(|s| s.allocatable.as_ref())
             .map(|a| ResourceQuantities {
@@ -666,7 +676,7 @@ impl From<&Node> for NodeInfo {
                 ephemeral_storage: a.get("ephemeral-storage").map(|q| q.0.clone()),
             })
             .unwrap_or_default();
-        
+
         Self {
             name: node.name_any(),
             uid: node.uid().unwrap_or_default(),
@@ -679,9 +689,7 @@ impl From<&Node> for NodeInfo {
             version: node_info
                 .map(|ni| ni.kubelet_version.clone())
                 .unwrap_or_default(),
-            os: node_info
-                .map(|ni| ni.os_image.clone())
-                .unwrap_or_default(),
+            os: node_info.map(|ni| ni.os_image.clone()).unwrap_or_default(),
             arch: node_info
                 .map(|ni| ni.architecture.clone())
                 .unwrap_or_default(),
@@ -693,8 +701,8 @@ impl From<&Node> for NodeInfo {
             capacity,
             allocatable,
             created_at: node.creation_timestamp().map(|t| t.0),
-            cpu_usage: None,        // Will be populated from Metrics API
-            memory_usage: None,     // Will be populated from Metrics API
+            cpu_usage: None,    // Will be populated from Metrics API
+            memory_usage: None, // Will be populated from Metrics API
         }
     }
 }

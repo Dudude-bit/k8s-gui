@@ -1,6 +1,6 @@
 /**
  * MetricCard - Unified component for displaying CPU/Memory metrics
- * 
+ *
  * Provides consistent styling for resource usage visualization across the application.
  * Uses design system tokens for colors and animations.
  */
@@ -51,7 +51,7 @@ export interface MetricCardProps {
 
 /**
  * MetricCard - Full card component for displaying a metric
- * 
+ *
  * @example
  * <MetricCard
  *   title="CPU Usage"
@@ -80,22 +80,33 @@ export function MetricCard({
 
   const usedNum = typeof used === "number" ? used : parse(used ?? "0");
   const totalNum = typeof total === "number" ? total : parse(total ?? "0");
-  
+
   const percentage = calculateUtilization(usedNum, totalNum);
   const colorVariant = getUtilizationColor(percentage);
 
   // Default icons based on type
-  const defaultIcon = type === "cpu" 
-    ? <Cpu className="h-4 w-4" />
-    : type === "memory"
-    ? <MemoryStick className="h-4 w-4" />
-    : type === "storage"
-    ? <HardDrive className="h-4 w-4" />
-    : <Activity className="h-4 w-4" />;
+  const defaultIcon =
+    type === "cpu" ? (
+      <Cpu className="h-4 w-4" />
+    ) : type === "memory" ? (
+      <MemoryStick className="h-4 w-4" />
+    ) : type === "storage" ? (
+      <HardDrive className="h-4 w-4" />
+    ) : (
+      <Activity className="h-4 w-4" />
+    );
 
   // Format display values
-  const usedDisplay = used ? (typeof used === "string" ? used : format(usedNum)) : "-";
-  const totalDisplay = total ? (typeof total === "string" ? total : format(totalNum)) : "-";
+  const usedDisplay = used
+    ? typeof used === "string"
+      ? used
+      : format(usedNum)
+    : "-";
+  const totalDisplay = total
+    ? typeof total === "string"
+      ? total
+      : format(totalNum)
+    : "-";
 
   return (
     <Card className={cn("overflow-hidden", className)}>
@@ -106,7 +117,11 @@ export function MetricCard({
             {title}
           </div>
           {showPercentage && percentage !== null && (
-            <Badge variant={colorVariant === "destructive" ? "destructive" : "secondary"}>
+            <Badge
+              variant={
+                colorVariant === "destructive" ? "destructive" : "secondary"
+              }
+            >
               {percentage.toFixed(1)}%
             </Badge>
           )}
@@ -115,7 +130,9 @@ export function MetricCard({
       <CardContent className="space-y-2">
         <div className="flex items-baseline justify-between">
           <span className="text-2xl font-bold">{usedDisplay}</span>
-          <span className="text-sm text-muted-foreground">/ {totalDisplay}</span>
+          <span className="text-sm text-muted-foreground">
+            / {totalDisplay}
+          </span>
         </div>
         {showProgressBar && percentage !== null && (
           <Progress
@@ -154,7 +171,7 @@ export interface MetricBadgeProps {
 
 /**
  * MetricBadge - Compact inline metric display
- * 
+ *
  * @example
  * <MetricBadge used="500m" total="2" type="cpu" />
  */
@@ -169,16 +186,30 @@ export function MetricBadge({
   const format = type === "cpu" ? formatCPU : formatMemory;
 
   const usedNum = typeof used === "number" ? used : parse(used ?? "0");
-  const totalNum = total ? (typeof total === "number" ? total : parse(total)) : null;
-  
+  const totalNum = total
+    ? typeof total === "number"
+      ? total
+      : parse(total)
+    : null;
+
   const percentage = totalNum ? calculateUtilization(usedNum, totalNum) : null;
   const colorVariant = getUtilizationColor(percentage);
 
-  const usedDisplay = used ? (typeof used === "string" ? used : format(usedNum)) : "-";
+  const usedDisplay = used
+    ? typeof used === "string"
+      ? used
+      : format(usedNum)
+    : "-";
 
   return (
     <Badge
-      variant={colorVariant === "destructive" ? "destructive" : colorVariant === "secondary" ? "secondary" : "outline"}
+      variant={
+        colorVariant === "destructive"
+          ? "destructive"
+          : colorVariant === "secondary"
+            ? "secondary"
+            : "outline"
+      }
       className={cn("font-mono text-xs", className)}
     >
       {usedDisplay}
@@ -214,7 +245,7 @@ export interface MetricRowProps {
 
 /**
  * MetricRow - Row display for key-value metrics with optional progress
- * 
+ *
  * @example
  * <MetricRow
  *   label="CPU"
@@ -240,13 +271,25 @@ export function MetricRow({
   const format = formatValue ?? (type === "cpu" ? formatCPU : formatMemory);
 
   const usedNum = typeof used === "number" ? used : parse(used ?? "0");
-  const totalNum = total ? (typeof total === "number" ? total : parse(total)) : null;
-  
+  const totalNum = total
+    ? typeof total === "number"
+      ? total
+      : parse(total)
+    : null;
+
   const percentage = totalNum ? calculateUtilization(usedNum, totalNum) : null;
   const colorVariant = getUtilizationColor(percentage);
 
-  const usedDisplay = used ? (typeof used === "string" ? used : format(usedNum)) : "-";
-  const totalDisplay = total ? (typeof total === "string" ? total : format(totalNum ?? 0)) : null;
+  const usedDisplay = used
+    ? typeof used === "string"
+      ? used
+      : format(usedNum)
+    : "-";
+  const totalDisplay = total
+    ? typeof total === "string"
+      ? total
+      : format(totalNum ?? 0)
+    : null;
 
   return (
     <div className={cn("space-y-1", className)}>
@@ -262,7 +305,9 @@ export function MetricRow({
           )}
           {percentage !== null && (
             <Badge
-              variant={colorVariant === "destructive" ? "destructive" : "outline"}
+              variant={
+                colorVariant === "destructive" ? "destructive" : "outline"
+              }
               className="text-xs"
             >
               {percentage.toFixed(0)}%
@@ -307,7 +352,7 @@ export interface MetricPairProps {
 
 /**
  * MetricPair - Display CPU and Memory metrics together
- * 
+ *
  * @example
  * <MetricPair
  *   cpuUsed="500m"
@@ -400,7 +445,9 @@ export function NodeResourceCard({
             </p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground mb-1">Memory Capacity</p>
+            <p className="text-xs text-muted-foreground mb-1">
+              Memory Capacity
+            </p>
             <p className="font-medium">{memoryCapacity ?? "-"}</p>
             <p className="text-xs text-muted-foreground">
               {memoryAllocatable && `Allocatable: ${memoryAllocatable}`}
@@ -413,4 +460,3 @@ export function NodeResourceCard({
 }
 
 export default MetricCard;
-

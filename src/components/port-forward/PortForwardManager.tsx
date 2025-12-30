@@ -97,12 +97,12 @@ export function PortForwardManager() {
   const stopSession = usePortForwardStore((state) => state.stopSession);
   const refreshSessions = usePortForwardStore((state) => state.refreshSessions);
   const startAllForContext = usePortForwardStore(
-    (state) => state.startAllForContext,
+    (state) => state.startAllForContext
   );
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<PortForwardConfig | null>(
-    null,
+    null
   );
   const [formState, setFormState] =
     useState<PortForwardFormState>(emptyFormState);
@@ -117,12 +117,12 @@ export function PortForwardManager() {
 
   const contextConfigs = useMemo(
     () => configs.filter((config) => config.context === currentContext),
-    [configs, currentContext],
+    [configs, currentContext]
   );
 
   const contextSessions = useMemo(
     () => sessions.filter((session) => session.context === currentContext),
-    [sessions, currentContext],
+    [sessions, currentContext]
   );
 
   const sessionsByKey = useMemo(() => {
@@ -135,10 +135,10 @@ export function PortForwardManager() {
 
   const unmanagedSessions = useMemo(() => {
     const configKeys = new Set(
-      contextConfigs.map((config) => sessionKey(config)),
+      contextConfigs.map((config) => sessionKey(config))
     );
     return contextSessions.filter(
-      (session) => !configKeys.has(sessionKey(session)),
+      (session) => !configKeys.has(sessionKey(session))
     );
   }, [contextConfigs, contextSessions]);
 
@@ -279,7 +279,7 @@ export function PortForwardManager() {
 
   const handleToggleAutoReconnect = (
     config: PortForwardConfig,
-    checked: boolean,
+    checked: boolean
   ) => {
     updateConfig(config.id, { autoReconnect: checked });
     const activeSession = sessionsByKey.get(sessionKey(config));
@@ -442,7 +442,7 @@ export function PortForwardManager() {
             <div className="space-y-2">
               {unmanagedSessions.map((session) => {
                 const statusInfo = portStatusBadge(
-                  statusBySession[session.id]?.status,
+                  statusBySession[session.id]?.status
                 );
                 return (
                   <div

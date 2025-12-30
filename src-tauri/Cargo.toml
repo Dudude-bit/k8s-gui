@@ -64,6 +64,9 @@ secrecy = "0.10"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
+# Common utilities
+k8s-gui-common = { path = "../k8s-gui-common" }
+
 # Error handling
 thiserror = "2.0"
 anyhow = "1.0"

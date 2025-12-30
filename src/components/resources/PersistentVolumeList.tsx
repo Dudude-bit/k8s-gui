@@ -70,9 +70,7 @@ const columns: ColumnDef<PersistentVolumeInfo>[] = [
   {
     accessorKey: "status",
     header: "Status",
-    cell: ({ row }) => (
-      <StatusBadge status={row.original.status} />
-    ),
+    cell: ({ row }) => <StatusBadge status={row.original.status} />,
   },
   {
     accessorKey: "claim",
