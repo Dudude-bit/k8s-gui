@@ -6,12 +6,9 @@
 use crate::error::{Error, Result};
 use crate::metrics::helpers::*;
 use crate::state::AppState;
-use kube::Client;
-use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
+use reqwest::header::AUTHORIZATION;
 use reqwest::Client as HttpClient;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tauri::State;
 
 pub mod helpers;
 
@@ -317,7 +314,6 @@ impl MetricsClient {
 
 /// Get pod metrics from Metrics API
 pub async fn get_pod_metrics(
-    _client: &Client,
     namespace: Option<&str>,
     state: &AppState,
 ) -> Result<Vec<PodMetrics>> {
@@ -326,18 +322,99 @@ pub async fn get_pod_metrics(
 }
 
 /// Get node metrics from Metrics API
-pub async fn get_node_metrics(_client: &Client, state: &AppState) -> Result<Vec<NodeMetrics>> {
+pub async fn get_node_metrics(state: &AppState) -> Result<Vec<NodeMetrics>> {
     let metrics_client = MetricsClient::from_state(state).await?;
     metrics_client.get_node_metrics().await
 }
 
 /// Get metrics for a specific pod
 pub async fn get_single_pod_metrics(
-    client: &Client,
     namespace: &str,
     pod_name: &str,
     state: &AppState,
 ) -> Result<Option<PodMetrics>> {
-    let metrics = get_pod_metrics(client, Some(namespace), state).await?;
+    let metrics = get_pod_metrics(Some(namespace), state).await?;
     Ok(metrics.into_iter().find(|m| m.name == pod_name && m.namespace == namespace))
+}
+
+/// Get aggregated cluster metrics (total CPU/memory usage and capacity)
+pub async fn get_cluster_metrics(state: &AppState) -> Result<ClusterMetrics> {
+    use k8s_openapi::api::core::v1::Node;
+    use kube::api::ListParams;
+    
+    let context = state.get_current_context()
+        .ok_or_else(|| Error::Connection("No cluster connected".to_string()))?;
+    
+    let client = state.client_manager.get_client(&context)
+        .ok_or_else(|| Error::Connection("Client not found".to_string()))?;
+    
+    // Get node metrics (usage)
+    let metrics_client = MetricsClient::from_state(state).await?;
+    let node_metrics = metrics_client.get_node_metrics().await?;
+    
+    // Get nodes to extract capacity
+    let node_api: kube::Api<Node> = kube::Api::all((*client).clone());
+    let nodes = node_api.list(&ListParams::default()).await?;
+    
+    // Aggregate CPU and memory usage from metrics
+    let mut total_cpu_cores = 0.0;
+    let mut total_memory_bytes = 0u64;
+    
+    for metric in &node_metrics {
+        if let Some(cpu_str) = &metric.cpu_usage {
+            if let Ok(cores) = parse_cpu_to_millicores(cpu_str) {
+                total_cpu_cores += cores;
+            }
+        }
+        if let Some(mem_str) = &metric.memory_usage {
+            if let Ok(bytes) = parse_memory_to_bytes(mem_str) {
+                total_memory_bytes += bytes;
+            }
+        }
+    }
+    
+    // Aggregate CPU and memory capacity from nodes
+    let mut total_cpu_capacity_cores = 0.0;
+    let mut total_memory_capacity_bytes = 0u64;
+    
+    for node in &nodes.items {
+        if let Some(status) = &node.status {
+            if let Some(capacity) = &status.capacity {
+                if let Some(cpu_qty) = capacity.get("cpu") {
+                    if let Ok(cores) = parse_cpu_to_millicores(&cpu_qty.0) {
+                        total_cpu_capacity_cores += cores;
+                    }
+                }
+                if let Some(mem_qty) = capacity.get("memory") {
+                    if let Ok(bytes) = parse_memory_to_bytes(&mem_qty.0) {
+                        total_memory_capacity_bytes += bytes;
+                    }
+                }
+            }
+        }
+    }
+    
+    // Format results
+    Ok(ClusterMetrics {
+        total_cpu_usage: if total_cpu_cores > 0.0 {
+            Some(format_cpu_from_millicores(total_cpu_cores))
+        } else {
+            None
+        },
+        total_memory_usage: if total_memory_bytes > 0 {
+            Some(format!("{}", total_memory_bytes))
+        } else {
+            None
+        },
+        total_cpu_capacity: if total_cpu_capacity_cores > 0.0 {
+            Some(format_cpu_from_millicores(total_cpu_capacity_cores))
+        } else {
+            None
+        },
+        total_memory_capacity: if total_memory_capacity_bytes > 0 {
+            Some(format!("{}", total_memory_capacity_bytes))
+        } else {
+            None
+        },
+    })
 }

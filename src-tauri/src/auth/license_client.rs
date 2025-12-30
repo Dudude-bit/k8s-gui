@@ -1,50 +1,164 @@
-//! License client for connecting to auth-server
-//! 
-//! Uses progenitor-generated client for type-safe API calls
+//! License client for connecting to auth-server via gRPC
 
-use crate::auth::generated_client::{self, types};
 use crate::error::{Error, Result};
-use std::sync::Arc;
-use tokio::sync::{RwLock, Mutex};
-
-// Re-export generated types for external use
-pub use types::{
-    AuthResponse as AuthTokens,
-    LicenseStatusResponse as LicenseStatus,
-    ProfileResponse as UserProfile,
-    UpdateProfileRequest,
-    PaymentHistoryResponse,
-    PaymentInfo,
+use crate::proto::auth::auth_service_client::AuthServiceClient;
+use crate::proto::license::license_service_client::LicenseServiceClient;
+use crate::proto::user::user_service_client::UserServiceClient;
+use crate::proto::payment::payment_service_client::PaymentServiceClient;
+use crate::proto::auth::{
+    LoginRequest, RegisterRequest, RefreshRequest,
+    AuthResponse as GrpcAuthResponse,
 };
-
+use crate::proto::license::{GetStatusRequest, ActivateRequest, LicenseStatusResponse};
+use crate::proto::user::{GetProfileRequest, UpdateProfileRequest as GrpcUpdateProfileRequest, ProfileResponse};
+use crate::proto::payment::{GetHistoryRequest, PaymentHistoryResponse as GrpcPaymentHistoryResponse, PaymentInfo as GrpcPaymentInfo};
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use tonic::transport::Channel;
+use tonic::metadata::MetadataValue;
 use keyring::Entry;
 
 const SERVICE_NAME: &str = "k8s-gui-auth";
 const ACCESS_TOKEN_KEY: &str = "access_token";
 const REFRESH_TOKEN_KEY: &str = "refresh_token";
 
+/// Auth response with tokens
+#[derive(Debug, Clone)]
+pub struct AuthTokens {
+    pub user_id: String,
+    pub access_token: String,
+    pub refresh_token: String,
+    pub expires_in: i64,
+}
+
+impl From<GrpcAuthResponse> for AuthTokens {
+    fn from(r: GrpcAuthResponse) -> Self {
+        Self {
+            user_id: r.user_id,
+            access_token: r.access_token,
+            refresh_token: r.refresh_token,
+            expires_in: r.expires_in,
+        }
+    }
+}
+
+/// License status
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LicenseStatus {
+    pub has_license: bool,
+    pub license_key: Option<String>,
+    pub subscription_type: Option<String>,
+    pub is_valid: bool,
+}
+
+impl From<LicenseStatusResponse> for LicenseStatus {
+    fn from(r: LicenseStatusResponse) -> Self {
+        Self {
+            has_license: r.has_license,
+            license_key: r.license_key,
+            subscription_type: r.subscription_type,
+            is_valid: r.is_valid,
+        }
+    }
+}
+
+/// User profile
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserProfile {
+    pub user_id: String,
+    pub email: String,
+    pub first_name: Option<String>,
+    pub last_name: Option<String>,
+    pub company: Option<String>,
+    pub email_verified: bool,
+}
+
+impl From<ProfileResponse> for UserProfile {
+    fn from(r: ProfileResponse) -> Self {
+        Self {
+            user_id: r.user_id,
+            email: r.email,
+            first_name: r.first_name,
+            last_name: r.last_name,
+            company: r.company,
+            email_verified: r.email_verified,
+        }
+    }
+}
+
+/// Update profile request
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateProfileRequest {
+    pub first_name: Option<String>,
+    pub last_name: Option<String>,
+    pub company: Option<String>,
+}
+
+/// Payment info
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaymentInfo {
+    pub id: String,
+    pub license_id: Option<String>,
+    pub amount: String,
+    pub currency: String,
+    pub status: String,
+    pub transaction_id: Option<String>,
+    pub payment_provider: Option<String>,
+    pub created_at: Option<i64>,
+}
+
+impl From<GrpcPaymentInfo> for PaymentInfo {
+    fn from(p: GrpcPaymentInfo) -> Self {
+        Self {
+            id: p.id,
+            license_id: p.license_id,
+            amount: p.amount,
+            currency: p.currency,
+            status: p.status,
+            transaction_id: p.transaction_id,
+            payment_provider: p.payment_provider,
+            created_at: p.created_at.map(|t| t.seconds),
+        }
+    }
+}
+
+/// Payment history response
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PaymentHistoryResponse {
+    pub payments: Vec<PaymentInfo>,
+    pub total: i64,
+}
+
+impl From<GrpcPaymentHistoryResponse> for PaymentHistoryResponse {
+    fn from(r: GrpcPaymentHistoryResponse) -> Self {
+        Self {
+            payments: r.payments.into_iter().map(PaymentInfo::from).collect(),
+            total: r.total,
+        }
+    }
+}
+
 pub struct LicenseClient {
-    base_url: String,
+    endpoint: String,
     access_token: Arc<RwLock<Option<String>>>,
     refresh_token: Arc<RwLock<Option<String>>>,
-    client: generated_client::Client,
     cached_status: Arc<RwLock<Option<(LicenseStatus, chrono::DateTime<chrono::Utc>)>>>,
-    status_request: Arc<Mutex<Option<tokio::task::JoinHandle<Result<LicenseStatus>>>>>,
 }
 
 impl LicenseClient {
-    pub fn new(base_url: String) -> Self {
-        let client = generated_client::Client::new(&base_url);
-        
+    pub fn new(endpoint: String) -> Self {
         let (access_token, refresh_token) = Self::load_tokens_from_keyring();
 
         Self {
-            base_url,
+            endpoint,
             access_token: Arc::new(RwLock::new(access_token)),
             refresh_token: Arc::new(RwLock::new(refresh_token)),
-            client,
             cached_status: Arc::new(RwLock::new(None)),
-            status_request: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -67,13 +181,13 @@ impl LicenseClient {
     fn save_tokens_to_keyring(access_token: &str, refresh_token: &str) {
         if let Ok(entry) = Entry::new(SERVICE_NAME, ACCESS_TOKEN_KEY) {
             if let Err(e) = entry.set_password(access_token) {
-                tracing::error!("Failed to save access token to keyring: {}", e);
+                tracing::error!("Failed to save access token: {}", e);
             }
         }
         
         if let Ok(entry) = Entry::new(SERVICE_NAME, REFRESH_TOKEN_KEY) {
             if let Err(e) = entry.set_password(refresh_token) {
-                tracing::error!("Failed to save refresh token to keyring: {}", e);
+                tracing::error!("Failed to save refresh token: {}", e);
             }
         }
     }
@@ -87,34 +201,67 @@ impl LicenseClient {
         }
     }
 
-    /// Creates an authenticated progenitor client with Bearer token
-    fn create_authenticated_client(&self, token: &str) -> generated_client::Client {
-        let mut headers = reqwest::header::HeaderMap::new();
-        headers.insert(
-            reqwest::header::AUTHORIZATION,
-            reqwest::header::HeaderValue::from_str(&format!("Bearer {}", token)).unwrap(),
-        );
-        let reqwest_client = reqwest::Client::builder()
-            .default_headers(headers)
-            .build()
-            .unwrap();
-        generated_client::Client::new_with_client(&self.base_url, reqwest_client)
+    async fn connect(&self) -> Result<Channel> {
+        Channel::from_shared(self.endpoint.clone())
+            .map_err(|e| Error::Config(format!("Invalid endpoint: {}", e)))?
+            .connect()
+            .await
+            .map_err(|e| Error::Connection(format!("Failed to connect to auth server: {}", e)))
+    }
+
+    /// Create an authenticated request with Bearer token in metadata
+    fn authenticated_request<T>(&self, inner: T, token: &str) -> Result<tonic::Request<T>> {
+        let mut request = tonic::Request::new(inner);
+        let bearer = format!("Bearer {}", token);
+        let value = MetadataValue::try_from(&bearer)
+            .map_err(|_| Error::Internal("Invalid token format".to_string()))?;
+        request.metadata_mut().insert("authorization", value);
+        Ok(request)
     }
 
     pub async fn login(&self, email: &str, password: &str) -> Result<AuthTokens> {
-        let body = types::LoginRequest {
+        let channel = self.connect().await?;
+        let mut client = AuthServiceClient::new(channel);
+
+        let request = tonic::Request::new(LoginRequest {
             email: email.to_string(),
             password: password.to_string(),
-        };
+        });
 
-        let response = self.client.login(&body).await
+        let response = client.login(request).await
             .map_err(|e| Error::Internal(format!("Login failed: {}", e)))?;
 
-        let tokens = response.into_inner();
+        let tokens: AuthTokens = response.into_inner().into();
 
         *self.access_token.write().await = Some(tokens.access_token.clone());
         *self.refresh_token.write().await = Some(tokens.refresh_token.clone());
+        Self::save_tokens_to_keyring(&tokens.access_token, &tokens.refresh_token);
 
+        Ok(tokens)
+    }
+
+    pub async fn register(
+        &self,
+        email: &str,
+        password: &str,
+        _first_name: Option<String>,
+        _last_name: Option<String>,
+    ) -> Result<AuthTokens> {
+        let channel = self.connect().await?;
+        let mut client = AuthServiceClient::new(channel);
+
+        let request = tonic::Request::new(RegisterRequest {
+            email: email.to_string(),
+            password: password.to_string(),
+        });
+
+        let response = client.register(request).await
+            .map_err(|e| Error::Internal(format!("Registration failed: {}", e)))?;
+
+        let tokens: AuthTokens = response.into_inner().into();
+
+        *self.access_token.write().await = Some(tokens.access_token.clone());
+        *self.refresh_token.write().await = Some(tokens.refresh_token.clone());
         Self::save_tokens_to_keyring(&tokens.access_token, &tokens.refresh_token);
 
         Ok(tokens)
@@ -124,34 +271,6 @@ impl LicenseClient {
         Self::save_tokens_to_keyring(&access_token, &refresh_token);
         *self.access_token.write().await = Some(access_token);
         *self.refresh_token.write().await = Some(refresh_token);
-    }
-
-    pub async fn register(
-        &self,
-        email: &str,
-        password: &str,
-        first_name: Option<String>,
-        last_name: Option<String>,
-    ) -> Result<AuthTokens> {
-        let body = types::RegisterRequest {
-            email: email.to_string(),
-            password: password.to_string(),
-            first_name,
-            last_name,
-            company: None,
-        };
-
-        let response = self.client.register(&body).await
-            .map_err(|e| Error::Internal(format!("Registration failed: {}", e)))?;
-
-        let tokens = response.into_inner();
-
-        *self.access_token.write().await = Some(tokens.access_token.clone());
-        *self.refresh_token.write().await = Some(tokens.refresh_token.clone());
-
-        Self::save_tokens_to_keyring(&tokens.access_token, &tokens.refresh_token);
-
-        Ok(tokens)
     }
 
     async fn ensure_token_valid(&self) -> Result<()> {
@@ -171,18 +290,20 @@ impl LicenseClient {
     }
 
     async fn refresh_access_token(&self, refresh_token: &str) -> Result<()> {
-        let body = types::RefreshRequest {
-            refresh_token: refresh_token.to_string(),
-        };
+        let channel = self.connect().await?;
+        let mut client = AuthServiceClient::new(channel);
 
-        let response = self.client.refresh(&body).await
+        let request = tonic::Request::new(RefreshRequest {
+            refresh_token: refresh_token.to_string(),
+        });
+
+        let response = client.refresh(request).await
             .map_err(|e| Error::Internal(format!("Token refresh failed: {}", e)))?;
 
-        let tokens = response.into_inner();
+        let tokens: AuthTokens = response.into_inner().into();
 
         *self.access_token.write().await = Some(tokens.access_token.clone());
         *self.refresh_token.write().await = Some(tokens.refresh_token.clone());
-
         Self::save_tokens_to_keyring(&tokens.access_token, &tokens.refresh_token);
 
         Ok(())
@@ -200,27 +321,20 @@ impl LicenseClient {
             drop(cache_guard);
         }
 
-        // Check if request already in flight
-        {
-            let mut request_guard = self.status_request.lock().await;
-            if let Some(handle) = request_guard.take() {
-                drop(request_guard);
-                return handle.await.map_err(|e| {
-                    Error::Internal(format!("License status request failed: {:?}", e))
-                })?;
-            }
-        }
-
         self.ensure_token_valid().await?;
 
         let access_token = self.access_token.read().await.clone()
             .ok_or_else(|| Error::Internal("Not authenticated".to_string()))?;
 
-        let auth_client = self.create_authenticated_client(&access_token);
-        let response = auth_client.get_status().await
+        let channel = self.connect().await?;
+        let mut client = LicenseServiceClient::new(channel);
+
+        let request = self.authenticated_request(GetStatusRequest {}, &access_token)?;
+
+        let response = client.get_status(request).await
             .map_err(|e| Error::Internal(format!("Failed to get license status: {}", e)))?;
 
-        let status = response.into_inner();
+        let status: LicenseStatus = response.into_inner().into();
 
         *self.cached_status.write().await = Some((status.clone(), chrono::Utc::now()));
 
@@ -229,21 +343,23 @@ impl LicenseClient {
 
     pub async fn activate_license(&self, license_key: &str) -> Result<LicenseStatus> {
         self.ensure_token_valid().await?;
-
         *self.cached_status.write().await = None;
 
         let access_token = self.access_token.read().await.clone()
             .ok_or_else(|| Error::Internal("Not authenticated".to_string()))?;
 
-        let body = types::ActivateLicenseRequest {
-            license_key: license_key.to_string(),
-        };
+        let channel = self.connect().await?;
+        let mut client = LicenseServiceClient::new(channel);
 
-        let auth_client = self.create_authenticated_client(&access_token);
-        let response = auth_client.activate(&body).await
+        let request = self.authenticated_request(
+            ActivateRequest { license_key: license_key.to_string() },
+            &access_token
+        )?;
+
+        let response = client.activate(request).await
             .map_err(|e| Error::Internal(format!("Failed to activate license: {}", e)))?;
 
-        let status = response.into_inner();
+        let status: LicenseStatus = response.into_inner().into();
 
         *self.cached_status.write().await = Some((status.clone(), chrono::Utc::now()));
 
@@ -255,18 +371,17 @@ impl LicenseClient {
         Ok(status.is_valid)
     }
 
-    /// Check that premium license is valid, return error if not.
-    /// Use this before executing premium features.
+    /// Require premium license for premium features
     pub async fn require_premium_license(&self) -> Result<()> {
         match self.check_license_valid().await {
             Ok(true) => Ok(()),
             Ok(false) => Err(Error::Internal(
-                "Premium feature requires a valid license. Please activate your license.".to_string()
+                "Premium feature requires a valid license.".to_string()
             )),
             Err(e) => {
-                tracing::error!("License check failed: {}. Blocking access to premium feature.", e);
+                tracing::error!("License check failed: {}", e);
                 Err(Error::Internal(format!(
-                    "License validation failed: {}. Premium features are unavailable until license status can be verified.",
+                    "License validation failed: {}",
                     e
                 )))
             }
@@ -292,11 +407,15 @@ impl LicenseClient {
         let access_token = self.access_token.read().await.clone()
             .ok_or_else(|| Error::Internal("Not authenticated".to_string()))?;
 
-        let auth_client = self.create_authenticated_client(&access_token);
-        let response = auth_client.get_profile().await
+        let channel = self.connect().await?;
+        let mut client = UserServiceClient::new(channel);
+
+        let request = self.authenticated_request(GetProfileRequest {}, &access_token)?;
+
+        let response = client.get_profile(request).await
             .map_err(|e| Error::Internal(format!("Failed to get user profile: {}", e)))?;
 
-        Ok(response.into_inner())
+        Ok(response.into_inner().into())
     }
 
     pub async fn update_user_profile(&self, updates: UpdateProfileRequest) -> Result<UserProfile> {
@@ -305,11 +424,22 @@ impl LicenseClient {
         let access_token = self.access_token.read().await.clone()
             .ok_or_else(|| Error::Internal("Not authenticated".to_string()))?;
 
-        let auth_client = self.create_authenticated_client(&access_token);
-        let response = auth_client.update_profile(&updates).await
+        let channel = self.connect().await?;
+        let mut client = UserServiceClient::new(channel);
+
+        let request = self.authenticated_request(
+            GrpcUpdateProfileRequest {
+                first_name: updates.first_name,
+                last_name: updates.last_name,
+                company: updates.company,
+            },
+            &access_token
+        )?;
+
+        let response = client.update_profile(request).await
             .map_err(|e| Error::Internal(format!("Failed to update user profile: {}", e)))?;
 
-        Ok(response.into_inner())
+        Ok(response.into_inner().into())
     }
 
     pub async fn get_payment_history(&self) -> Result<PaymentHistoryResponse> {
@@ -318,10 +448,20 @@ impl LicenseClient {
         let access_token = self.access_token.read().await.clone()
             .ok_or_else(|| Error::Internal("Not authenticated".to_string()))?;
 
-        let auth_client = self.create_authenticated_client(&access_token);
-        let response = auth_client.get_history(None, None).await
+        let channel = self.connect().await?;
+        let mut client = PaymentServiceClient::new(channel);
+
+        let request = self.authenticated_request(
+            GetHistoryRequest {
+                limit: Some(100),
+                offset: Some(0),
+            },
+            &access_token
+        )?;
+
+        let response = client.get_history(request).await
             .map_err(|e| Error::Internal(format!("Failed to get payment history: {}", e)))?;
 
-        Ok(response.into_inner())
+        Ok(response.into_inner().into())
     }
 }

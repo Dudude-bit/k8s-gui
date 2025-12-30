@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package payment;
+
+import "google/protobuf/timestamp.proto";
+
+service PaymentService {
+  rpc GetHistory(GetHistoryRequest) returns (PaymentHistoryResponse);
+  rpc ProcessWebhook(WebhookRequest) returns (WebhookResponse);
+}
+
+message GetHistoryRequest {
+  // access_token moved to metadata header "authorization"
+  optional int32 limit = 1;
+  optional int32 offset = 2;
+}
+
+message PaymentInfo {
+  string id = 1;
+  optional string license_id = 2;
+  string amount = 3;
+  string currency = 4;
+  string status = 5;
+  optional string transaction_id = 6;
+  optional string payment_provider = 7;
+  optional google.protobuf.Timestamp created_at = 8;
+}
+
+message PaymentHistoryResponse {
+  repeated PaymentInfo payments = 1;
+  int64 total = 2;
+}
+
+message WebhookRequest {
+  string transaction_id = 1;
+  optional string user_id = 2;
+  optional string license_id = 3;
+  string amount = 4;
+  string currency = 5;
+  string status = 6;
+  optional string payment_provider = 7;
+  optional string subscription_type = 8;
+  string signature = 9;
+}
+
+message WebhookResponse {
+  string status = 1;
+  string payment_id = 2;
+  optional string license_id = 3;
+  bool license_created = 4;
+}

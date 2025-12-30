@@ -30,6 +30,13 @@ export interface NodeMetrics {
   memoryUsage: string | null;
 }
 
+export interface ClusterMetrics {
+  totalCpuUsage: string | null;
+  totalMemoryUsage: string | null;
+  totalCpuCapacity: string | null;
+  totalMemoryCapacity: string | null;
+}
+
 export interface PodInfo {
   name: string;
   namespace: string;
@@ -394,13 +401,6 @@ export interface PortForwardConfig {
   remotePort: number;
 }
 
-export interface ClusterMetrics {
-  totalCpuUsage: string | null;
-  totalMemoryUsage: string | null;
-  totalCpuCapacity: string | null;
-  totalMemoryCapacity: string | null;
-}
-
 export interface SecretFilters {
   namespace: string | null;
   labelSelector: string | null;
@@ -641,14 +641,6 @@ export interface ContextInfo {
   isCurrent: boolean;
 }
 
-export interface LicenseStatus {
-  expiresAt: string | null;
-  hasLicense: boolean;
-  isValid: boolean;
-  licenseKey: string | null;
-  subscriptionType: string | null;
-}
-
 export interface UserProfile {
   company: string | null;
   email: string;
@@ -656,6 +648,14 @@ export interface UserProfile {
   firstName: string | null;
   lastName: string | null;
   userId: string;
+}
+
+export interface LicenseStatus {
+  expiresAt: string | null;
+  hasLicense: boolean;
+  isValid: boolean;
+  licenseKey: string | null;
+  subscriptionType: string | null;
 }
 
 export type ContainerState =

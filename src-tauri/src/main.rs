@@ -245,7 +245,6 @@ fn main() {
             commands::auth::cancel_auth_session,
             
             // License and user authentication commands
-            // License and user authentication commands
             commands::license::login_user,
             commands::license::logout_user,
             commands::license::register_user,

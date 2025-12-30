@@ -1,111 +1,64 @@
-//! Authentication and Licensing Server
+//! Authentication and Licensing Server (gRPC)
 //! 
-//! REST API server for user authentication, license management, and payment tracking
+//! gRPC server for user authentication, license management, and payment tracking
 
 mod config;
 mod db;
-mod handlers;
-mod middleware;
+mod grpc;
 mod utils;
 mod error;
 mod services;
-mod openapi;
+mod proto;
 mod tasks;
 
-use actix_web::{web, App, HttpServer};
-use utoipa::OpenApi;
-use utoipa_swagger_ui::SwaggerUi;
 use std::sync::Arc;
-use crate::openapi::ApiDoc;
+use tonic::transport::Server;
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
+use crate::proto::auth::auth_service_server::AuthServiceServer;
+use crate::proto::license::license_service_server::LicenseServiceServer;
+use crate::proto::payment::payment_service_server::PaymentServiceServer;
+use crate::proto::user::user_service_server::UserServiceServer;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv::dotenv().ok();
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+    
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .init();
 
     let config = config::Config::from_env().expect("Failed to load configuration");
+    let config = Arc::new(config);
+    
     let db_pool = db::create_pool(&config.database_url)
         .await
         .expect("Failed to create database pool");
 
-    log::info!("Starting authentication server on {}:{}", config.host, config.port);
+    let addr = format!("{}:{}", config.host, config.port).parse()?;
+    tracing::info!("Starting gRPC server on {}", addr);
 
-    let config_clone = config.clone();
-    let auth_service = services::auth::AuthService::new(db_pool.clone(), config.clone());
-    let auth_service_data = web::Data::new(auth_service);
-    
-    let user_service = services::user::UserService::new(db_pool.clone());
-    let user_service_data = web::Data::new(user_service);
+    // Create business services
+    let auth_service = Arc::new(services::auth::AuthService::new(db_pool.clone(), (*config).clone()));
+    let user_service = Arc::new(services::user::UserService::new(db_pool.clone()));
+    let license_service = Arc::new(services::license::LicenseService::new(db_pool.clone()));
+    let payment_service = Arc::new(services::payment::PaymentService::new(db_pool.clone()));
 
     // Spawn background tasks for cleanup
-    tasks::spawn_background_tasks(Arc::new(db_pool.clone()));
+    tasks::spawn_background_tasks(Arc::new(db_pool));
 
-    HttpServer::new(move || {
-        App::new()
-            .app_data(web::Data::new(config_clone.clone()))
-            .app_data(web::Data::new(db_pool.clone()))
-            .app_data(auth_service_data.clone())
-            .app_data(user_service_data.clone())
-            .wrap(middleware::cors::cors_middleware_with_origins(&config_clone))
-            .wrap(actix_web::middleware::DefaultHeaders::new()
-                .add(("X-Content-Type-Options", "nosniff"))
-                .add(("X-Frame-Options", "DENY"))
-                .add(("X-XSS-Protection", "1; mode=block"))
-            )
-            .service(
-                SwaggerUi::new("/swagger-ui/{_:.*}")
-                    .url("/api-docs/openapi.json", ApiDoc::openapi())
-            )
-            .service(
-                web::scope("/api/v1")
-                    .service(
-                        web::scope("/auth")
-                            .wrap(middleware::rate_limit::RateLimitMiddleware::new(5, 60)) // 5 requests per minute for auth endpoints
-                            .route("/register", web::post().to(handlers::auth::register))
-                            .route("/login", web::post().to(handlers::auth::login))
-                            .route("/refresh", web::post().to(handlers::auth::refresh))
-                            .route("/logout", web::post().to(handlers::auth::logout))
-                            .route("/forgot-password", web::post().to(handlers::auth::forgot_password))
-                            .route("/reset-password", web::post().to(handlers::auth::reset_password))
-                    )
-                    .service(
-                        web::scope("/user")
-                            .wrap(middleware::auth::AuthMiddleware)
-                            .route("/profile", web::get().to(handlers::user::get_profile))
-                            .route("/profile", web::put().to(handlers::user::update_profile))
-                    )
-                    .service(
-                        web::scope("/license")
-                            .service(
-                                web::resource("/status")
-                                    .wrap(middleware::auth::AuthMiddleware)
-                                    .route(web::get().to(handlers::license::get_status))
-                            )
-                            .service(
-                                web::resource("/activate")
-                                    .wrap(middleware::auth::AuthMiddleware)
-                                    .route(web::post().to(handlers::license::activate))
-                            )
-                            .service(
-                                web::resource("/validate")
-                                    .wrap(middleware::auth::AuthMiddleware)
-                                    .route(web::get().to(handlers::license::validate))
-                            )
-                    )
-                    .service(
-                        web::scope("/payments")
-                            .service(
-                                web::scope("")
-                                    .wrap(middleware::auth::AuthMiddleware)
-                                    .route("/history", web::get().to(handlers::payment::get_history))
-                            )
-                            // Webhook endpoint doesn't require user auth (uses signature verification)
-                            .route("/webhook", web::post().to(handlers::payment::handle_webhook))
-                    )
-            )
-    })
-    .bind((config.host.as_str(), config.port))?
-    .run()
-    .await
+    // Create gRPC services
+    let auth_grpc = grpc::AuthGrpcService::new(auth_service.clone());
+    let license_grpc = grpc::LicenseGrpcService::new(license_service, auth_service.clone());
+    let payment_grpc = grpc::PaymentGrpcService::new(payment_service, auth_service.clone(), config);
+    let user_grpc = grpc::UserGrpcService::new(user_service, auth_service);
+
+    Server::builder()
+        .add_service(AuthServiceServer::new(auth_grpc))
+        .add_service(LicenseServiceServer::new(license_grpc))
+        .add_service(PaymentServiceServer::new(payment_grpc))
+        .add_service(UserServiceServer::new(user_grpc))
+        .serve(addr)
+        .await?;
+
+    Ok(())
 }
-

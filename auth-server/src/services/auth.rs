@@ -7,13 +7,13 @@ use crate::utils::password::{hash_password, verify_password, validate_password_s
 use crate::utils::validation::validate_email;
 use validator::Validate;
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use uuid::Uuid;
 use chrono::{Duration, Utc};
 use base64::Engine;
 use rand::Rng;
 use sha2::{Sha256, Digest};
 
-#[derive(Debug, Deserialize, Validate, ToSchema)]
+#[derive(Debug, Deserialize, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct RegisterRequest {
     #[validate(email)]
@@ -25,42 +25,43 @@ pub struct RegisterRequest {
     pub company: Option<String>,
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoginRequest {
     pub email: String,
     pub password: String,
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RefreshRequest {
     pub refresh_token: String,
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ForgotPasswordRequest {
     pub email: String,
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResetPasswordRequest {
     pub token: String,
     pub new_password: String,
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthResponse {
+    pub user_id: Uuid,
     pub access_token: String,
     pub refresh_token: String,
     pub token_type: String,
     pub expires_in: i64,
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MessageResponse {
     pub message: String,
@@ -124,6 +125,7 @@ impl AuthService {
         RefreshToken::create(&self.pool, user.id, token_hash, expires_at).await?;
 
         Ok(AuthResponse {
+            user_id: user.id,
             access_token,
             refresh_token,
             token_type: "Bearer".to_string(),
@@ -131,14 +133,14 @@ impl AuthService {
         })
     }
 
-    pub async fn login(&self, req: LoginRequest, ip: Option<String>, user_agent: Option<String>) -> Result<AuthResponse> {
+    pub async fn login(&self, req: LoginRequest) -> Result<AuthResponse> {
         // Find user
         let user = User::find_by_email(&self.pool, &req.email).await?
             .ok_or_else(|| AppError::Authentication("Invalid email or password".to_string()))?;
 
         // Check if account is locked
         if user.is_locked() {
-            AuditLog::log_login_attempt(&self.pool, Some(user.id), &req.email, false, ip.as_deref(), user_agent.as_deref()).await.ok();
+            AuditLog::log_login_attempt(&self.pool, Some(user.id), &req.email, false, None, None).await.ok();
             return Err(AppError::Authentication("Account is locked. Please try again later.".to_string()));
         }
 
@@ -148,7 +150,7 @@ impl AuthService {
 
         if !password_valid {
             User::increment_failed_login_attempts(&self.pool, user.id).await.ok();
-            AuditLog::log_login_attempt(&self.pool, Some(user.id), &req.email, false, ip.as_deref(), user_agent.as_deref()).await.ok();
+            AuditLog::log_login_attempt(&self.pool, Some(user.id), &req.email, false, None, None).await.ok();
             return Err(AppError::Authentication("Invalid email or password".to_string()));
         }
 
@@ -173,9 +175,10 @@ impl AuthService {
         RefreshToken::create(&self.pool, user.id, token_hash, expires_at).await?;
 
         // Log successful login
-        AuditLog::log_login_attempt(&self.pool, Some(user.id), &req.email, true, ip.as_deref(), user_agent.as_deref()).await.ok();
+        AuditLog::log_login_attempt(&self.pool, Some(user.id), &req.email, true, None, None).await.ok();
 
         Ok(AuthResponse {
+            user_id: user.id,
             access_token,
             refresh_token,
             token_type: "Bearer".to_string(),
@@ -215,6 +218,7 @@ impl AuthService {
         RefreshToken::create(&self.pool, user_id, new_token_hash, expires_at).await?;
 
         Ok(AuthResponse {
+            user_id,
             access_token,
             refresh_token,
             token_type: "Bearer".to_string(),
@@ -234,14 +238,17 @@ impl AuthService {
     pub async fn forgot_password(&self, req: ForgotPasswordRequest) -> Result<MessageResponse> {
         // Don't reveal if user exists
         if let Some(user) = User::find_by_email(&self.pool, &req.email).await? {
-            // Generate reset token
-            let mut rng = rand::thread_rng();
-            let token_bytes: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
-            let token = base64::engine::general_purpose::STANDARD.encode(&token_bytes);
-            let token_hash = {
-                let mut hasher = Sha256::new();
-                hasher.update(token.as_bytes());
-                format!("{:x}", hasher.finalize())
+            // Generate reset token - scope rng to avoid Send issue
+            let (token, token_hash) = {
+                let mut rng = rand::thread_rng();
+                let token_bytes: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+                let token = base64::engine::general_purpose::STANDARD.encode(&token_bytes);
+                let token_hash = {
+                    let mut hasher = Sha256::new();
+                    hasher.update(token.as_bytes());
+                    format!("{:x}", hasher.finalize())
+                };
+                (token, token_hash)
             };
 
             // Store token in database (expires in 1 hour)
@@ -295,5 +302,29 @@ impl AuthService {
         Ok(MessageResponse {
             message: "Password reset successfully".to_string(),
         })
+    }
+
+    /// Validate access token and return user ID
+    pub fn validate_access_token(&self, token: &str) -> Result<Uuid> {
+        let jwt_service = JwtService::new(
+            &self.config.jwt_secret,
+            self.config.jwt_expiry as i64,
+            self.config.refresh_token_expiry as i64,
+        );
+        
+        jwt_service.validate_access_token(token)
+            .map_err(|e| AppError::Authentication(format!("Invalid token: {}", e)))
+    }
+
+    /// Extract user ID from gRPC request metadata
+    pub fn extract_user_id_from_request<T>(&self, request: &tonic::Request<T>) -> std::result::Result<Uuid, tonic::Status> {
+        let token = request.metadata()
+            .get("authorization")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| s.strip_prefix("Bearer "))
+            .ok_or_else(|| tonic::Status::unauthenticated("Missing or invalid authorization header"))?;
+        
+        self.validate_access_token(token)
+            .map_err(|e| tonic::Status::unauthenticated(format!("Invalid token: {}", e)))
     }
 }

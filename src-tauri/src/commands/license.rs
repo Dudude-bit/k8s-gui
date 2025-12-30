@@ -1,10 +1,11 @@
 //! License and authentication commands
 
 use crate::error::{Result, Error};
-use crate::auth::license_client::{LicenseClient, LicenseStatus, AuthTokens, UserProfile, UpdateProfileRequest, PaymentHistoryResponse};
+use crate::auth::license_client::{
+    LicenseClient, LicenseStatus, AuthTokens, 
+    UserProfile, UpdateProfileRequest, PaymentHistoryResponse
+};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio::sync::RwLock;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -39,7 +40,6 @@ pub async fn login_user(
     Ok(())
 }
 
-
 /// Logout user (clears tokens from keychain)
 #[tauri::command]
 pub async fn logout_user(
@@ -48,7 +48,6 @@ pub async fn logout_user(
     state.clear_auth();
     Ok(())
 }
-
 
 /// Register new user
 #[tauri::command]
@@ -127,4 +126,3 @@ pub async fn get_payment_history(
     state.get_payment_history().await
         .map_err(|e| Error::Internal(e.to_string()))
 }
-

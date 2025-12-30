@@ -2,10 +2,9 @@ use sqlx::PgPool;
 use crate::error::{AppError, Result};
 use crate::db::models::{User, UserProfile};
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileResponse {
     pub user_id: Uuid,
@@ -16,7 +15,7 @@ pub struct ProfileResponse {
     pub email_verified: bool,
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateProfileRequest {
     pub first_name: Option<String>,

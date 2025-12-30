@@ -1,8 +1,7 @@
 //! Error types
 
-use actix_web::{HttpResponse, ResponseError};
-use serde_json::json;
 use std::fmt;
+use tonic::Status;
 
 #[derive(Debug)]
 pub enum AppError {
@@ -13,6 +12,8 @@ pub enum AppError {
     NotFound(String),
     Internal(String),
 }
+
+pub type Result<T> = std::result::Result<T, AppError>;
 
 impl fmt::Display for AppError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -27,25 +28,7 @@ impl fmt::Display for AppError {
     }
 }
 
-impl ResponseError for AppError {
-    fn error_response(&self) -> HttpResponse {
-        let (status, message, code) = match self {
-            AppError::Database(_) => (500, "Database error", "DATABASE_ERROR"),
-            AppError::Validation(msg) => (400, msg.as_str(), "VALIDATION_ERROR"),
-            AppError::Authentication(msg) => (401, msg.as_str(), "AUTHENTICATION_ERROR"),
-            AppError::Authorization(msg) => (403, msg.as_str(), "AUTHORIZATION_ERROR"),
-            AppError::NotFound(msg) => (404, msg.as_str(), "NOT_FOUND"),
-            AppError::Internal(_) => (500, "Internal server error", "INTERNAL_ERROR"),
-        };
-
-        HttpResponse::build(actix_web::http::StatusCode::from_u16(status).unwrap())
-            .json(json!({
-                "error": message,
-                "code": status,
-                "error_code": code
-            }))
-    }
-}
+impl std::error::Error for AppError {}
 
 impl From<sqlx::Error> for AppError {
     fn from(err: sqlx::Error) -> Self {
@@ -65,5 +48,15 @@ impl From<validator::ValidationError> for AppError {
     }
 }
 
-pub type Result<T> = std::result::Result<T, AppError>;
-
+impl From<AppError> for Status {
+    fn from(err: AppError) -> Self {
+        match err {
+            AppError::Database(_) => Status::internal("Database error"),
+            AppError::Validation(msg) => Status::invalid_argument(msg),
+            AppError::Authentication(msg) => Status::unauthenticated(msg),
+            AppError::Authorization(msg) => Status::permission_denied(msg),
+            AppError::NotFound(msg) => Status::not_found(msg),
+            AppError::Internal(msg) => Status::internal(msg),
+        }
+    }
+}

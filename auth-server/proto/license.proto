@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package license;
+
+import "google/protobuf/timestamp.proto";
+
+service LicenseService {
+  rpc GetStatus(GetStatusRequest) returns (LicenseStatusResponse);
+  rpc Activate(ActivateRequest) returns (LicenseStatusResponse);
+  rpc Validate(ValidateRequest) returns (ValidateResponse);
+}
+
+message GetStatusRequest {
+  // access_token moved to metadata header "authorization"
+}
+
+message ActivateRequest {
+  string license_key = 1;
+}
+
+message ValidateRequest {
+  string license_key = 1;
+}
+
+message LicenseStatusResponse {
+  bool has_license = 1;
+  optional string license_key = 2;
+  optional string subscription_type = 3;
+  optional google.protobuf.Timestamp expires_at = 4;
+  bool is_valid = 5;
+}
+
+message ValidateResponse {
+  bool valid = 1;
+  string subscription_type = 2;
+  optional google.protobuf.Timestamp expires_at = 3;
+}
