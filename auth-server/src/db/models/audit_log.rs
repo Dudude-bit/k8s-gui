@@ -84,47 +84,5 @@ impl AuditLog {
         .await?;
         Ok(())
     }
-
-    pub async fn log_suspicious_activity(
-        pool: &sqlx::PgPool,
-        user_id: Option<Uuid>,
-        activity_type: &str,
-        details: Value,
-        ip_address: Option<&str>,
-        user_agent: Option<&str>,
-    ) -> Result<(), sqlx::Error> {
-        let mut log_details = details;
-        if let Some(obj) = log_details.as_object_mut() {
-            obj.insert("activity_type".to_string(), serde_json::Value::String(activity_type.to_string()));
-        }
-        Self::create(
-            pool,
-            user_id,
-            "suspicious_activity",
-            ip_address,
-            user_agent,
-            Some(log_details),
-        )
-        .await?;
-        Ok(())
-    }
-
-    pub async fn log_password_reset(
-        pool: &sqlx::PgPool,
-        user_id: Uuid,
-        ip_address: Option<&str>,
-        user_agent: Option<&str>,
-    ) -> Result<(), sqlx::Error> {
-        Self::create(
-            pool,
-            Some(user_id),
-            "password_reset",
-            ip_address,
-            user_agent,
-            None,
-        )
-        .await?;
-        Ok(())
-    }
 }
 

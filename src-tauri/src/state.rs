@@ -328,9 +328,7 @@ impl AppState {
     /// Get current namespace for a context
     pub fn get_namespace(&self, context: &str) -> String {
         self.namespaces
-            .get(context)
-            .map(|n| n.clone())
-            .unwrap_or_else(|| "default".to_string())
+            .get(context).map_or_else(|| "default".to_string(), |n| n.clone())
     }
 
     /// Set namespace for a context

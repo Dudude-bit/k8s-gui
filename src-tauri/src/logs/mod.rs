@@ -5,7 +5,6 @@
 use crate::error::{Error, Result};
 use crate::state::AppEvent;
 use chrono::{DateTime, Utc};
-use futures::StreamExt;
 use k8s_openapi::api::core::v1::Pod;
 use kube::{
     api::{Api, LogParams},
@@ -65,6 +64,7 @@ impl Default for LogConfig {
 
 impl LogConfig {
     /// Create a new log config
+    #[must_use] 
     pub fn new(pod: &str, namespace: &str) -> Self {
         Self {
             pod: pod.to_string(),
@@ -74,24 +74,28 @@ impl LogConfig {
     }
 
     /// Set container
+    #[must_use] 
     pub fn with_container(mut self, container: &str) -> Self {
         self.container = Some(container.to_string());
         self
     }
 
     /// Set tail lines
+    #[must_use] 
     pub fn with_tail(mut self, lines: i64) -> Self {
         self.tail_lines = Some(lines);
         self
     }
 
     /// Set follow
+    #[must_use] 
     pub fn with_follow(mut self, follow: bool) -> Self {
         self.follow = follow;
         self
     }
 
-    /// Convert to kube LogParams
+    /// Convert to kube `LogParams`
+    #[must_use] 
     pub fn to_log_params(&self) -> LogParams {
         let mut params = LogParams {
             follow: self.follow,
@@ -148,6 +152,7 @@ pub enum LogLevel {
 
 impl LogLevel {
     /// Parse log level from message
+    #[must_use] 
     pub fn parse(message: &str) -> Self {
         let lower = message.to_lowercase();
         if lower.contains("error") || lower.contains(" err ") {
@@ -174,6 +179,7 @@ pub struct LogStreamer {
 
 impl LogStreamer {
     /// Create a new log streamer
+    #[must_use] 
     pub fn new(client: Arc<Client>, event_tx: broadcast::Sender<AppEvent>) -> Self {
         Self { client, event_tx }
     }
@@ -188,11 +194,11 @@ impl LogStreamer {
         let logs = api
             .logs(&config.pod, &params)
             .await
-            .map_err(|e| Error::LogStream(format!("Failed to get logs: {}", e)))?;
+            .map_err(|e| Error::LogStream(format!("Failed to get logs: {e}")))?;
 
         let container = config.container.clone().unwrap_or_else(|| "main".to_string());
         
-        Ok(self.parse_logs(&logs, &config.pod, &container, &config.namespace))
+        Ok(Self::parse_logs(&logs, &config.pod, &container, &config.namespace))
     }
 
     /// Stream logs
@@ -212,7 +218,7 @@ impl LogStreamer {
         let stream = api
             .log_stream(&config.pod, &params)
             .await
-            .map_err(|e| Error::LogStream(format!("Failed to start log stream: {}", e)))?;
+            .map_err(|e| Error::LogStream(format!("Failed to start log stream: {e}")))?;
 
         // Convert to tokio's AsyncBufRead using compat layer
         use tokio_util::compat::FuturesAsyncReadCompatExt;
@@ -228,7 +234,7 @@ impl LogStreamer {
                 result = lines.next_line() => {
                     match result {
                         Ok(Some(line)) => {
-                            let log_line = self.parse_log_line(
+                            let log_line = Self::parse_log_line(
                                 &line,
                                 &pod,
                                 &container,
@@ -265,20 +271,18 @@ impl LogStreamer {
 
     /// Parse log output into log lines
     fn parse_logs(
-        &self,
         logs: &str,
         pod: &str,
         container: &str,
         namespace: &str,
     ) -> Vec<LogLine> {
         logs.lines()
-            .map(|line| self.parse_log_line(line, pod, container, namespace))
+            .map(|line| Self::parse_log_line(line, pod, container, namespace))
             .collect()
     }
 
     /// Parse a single log line
     fn parse_log_line(
-        &self,
         line: &str,
         pod: &str,
         container: &str,
@@ -338,6 +342,7 @@ pub struct LogFilter {
 
 impl LogFilter {
     /// Apply filter to log lines
+    #[must_use] 
     pub fn apply(&self, logs: &[LogLine]) -> Vec<LogLine> {
         logs.iter()
             .filter(|log| self.matches(log))
@@ -346,6 +351,7 @@ impl LogFilter {
     }
 
     /// Check if a log line matches the filter
+    #[must_use] 
     pub fn matches(&self, log: &LogLine) -> bool {
         // Filter by container
         if !self.containers.is_empty() && !self.containers.contains(&log.container) {

@@ -4,7 +4,7 @@
 //! from the Kubernetes Metrics API (/apis/metrics.k8s.io/v1beta1/)
 
 use crate::error::{Error, Result};
-use crate::metrics::helpers::*;
+use crate::metrics::helpers::{parse_cpu_to_millicores, parse_memory_to_bytes, format_cpu_from_millicores};
 use crate::state::AppState;
 use reqwest::header::AUTHORIZATION;
 use reqwest::Client as HttpClient;
@@ -121,7 +121,7 @@ pub struct MetricsClient {
 }
 
 impl MetricsClient {
-    /// Create a new MetricsClient from the current application state.
+    /// Create a new `MetricsClient` from the current application state.
     /// 
     /// Extracts the cluster configuration, TLS settings, and authentication
     /// credentials from the kubeconfig.
@@ -130,7 +130,7 @@ impl MetricsClient {
             .ok_or_else(|| Error::Connection("No cluster connected".to_string()))?;
         
         let kubeconfig = state.client_manager.kubeconfig_clone().await
-            .map_err(|e| Error::Config(format!("Failed to get kubeconfig: {}", e)))?;
+            .map_err(|e| Error::Config(format!("Failed to get kubeconfig: {e}")))?;
         
         // Find cluster name from context
         let cluster_name = kubeconfig.contexts.iter()
@@ -184,7 +184,7 @@ impl MetricsClient {
         let http_client = HttpClient::builder()
             .danger_accept_invalid_certs(insecure_skip_tls)
             .build()
-            .map_err(|e| Error::Connection(format!("Failed to create HTTP client: {}", e)))?;
+            .map_err(|e| Error::Connection(format!("Failed to create HTTP client: {e}")))?;
         
         Ok(Self {
             http_client,
@@ -205,7 +205,7 @@ impl MetricsClient {
         }
         
         let response = request.send().await
-            .map_err(|e| Error::Connection(format!("Failed to fetch metrics: {}", e)))?;
+            .map_err(|e| Error::Connection(format!("Failed to fetch metrics: {e}")))?;
         
         // Check if Metrics API is available
         if response.status() == 404 {
@@ -221,7 +221,7 @@ impl MetricsClient {
         }
         
         let result: T = response.json().await
-            .map_err(|e| Error::Serialization(format!("Failed to parse metrics response: {}", e)))?;
+            .map_err(|e| Error::Serialization(format!("Failed to parse metrics response: {e}")))?;
         
         Ok(Some(result))
     }
@@ -229,7 +229,7 @@ impl MetricsClient {
     /// Get pod metrics for a specific namespace or all namespaces.
     pub async fn get_pod_metrics(&self, namespace: Option<&str>) -> Result<Vec<PodMetrics>> {
         let path = match namespace {
-            Some(ns) => format!("/apis/metrics.k8s.io/v1beta1/namespaces/{}/pods", ns),
+            Some(ns) => format!("/apis/metrics.k8s.io/v1beta1/namespaces/{ns}/pods"),
             None => "/apis/metrics.k8s.io/v1beta1/pods".to_string(),
         };
         
@@ -261,7 +261,7 @@ impl MetricsClient {
                         None
                     },
                     memory_usage: if total_memory_bytes > 0 {
-                        Some(format!("{}", total_memory_bytes))
+                        Some(format!("{total_memory_bytes}"))
                     } else {
                         None
                     },
@@ -273,6 +273,10 @@ impl MetricsClient {
     }
     
     /// Get node metrics.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the Metrics API request fails or the response cannot be parsed.
     pub async fn get_node_metrics(&self) -> Result<Vec<NodeMetrics>> {
         let path = "/apis/metrics.k8s.io/v1beta1/nodes";
         
@@ -285,15 +289,11 @@ impl MetricsClient {
         let result = metrics_list.items.into_iter()
             .map(|item| {
                 let cpu_usage = item.usage.cpu.as_ref().map(|s| {
-                    parse_cpu_to_millicores(s)
-                        .map(format_cpu_from_millicores)
-                        .unwrap_or_else(|_| s.clone())
+                    parse_cpu_to_millicores(s).map_or_else(|_| s.clone(), format_cpu_from_millicores)
                 });
                 
                 let memory_usage = item.usage.memory.as_ref().map(|s| {
-                    parse_memory_to_bytes(s)
-                        .map(|bytes| format!("{}", bytes))
-                        .unwrap_or_else(|_| s.clone())
+                    parse_memory_to_bytes(s).map_or_else(|_| s.clone(), |bytes| format!("{bytes}"))
                 });
                 
                 NodeMetrics {
@@ -313,6 +313,10 @@ impl MetricsClient {
 // ============================================================================
 
 /// Get pod metrics from Metrics API
+///
+/// # Errors
+///
+/// Returns an error if the Metrics API request fails or the response cannot be parsed.
 pub async fn get_pod_metrics(
     namespace: Option<&str>,
     state: &AppState,
@@ -322,12 +326,20 @@ pub async fn get_pod_metrics(
 }
 
 /// Get node metrics from Metrics API
+///
+/// # Errors
+///
+/// Returns an error if the Metrics API request fails or the response cannot be parsed.
 pub async fn get_node_metrics(state: &AppState) -> Result<Vec<NodeMetrics>> {
     let metrics_client = MetricsClient::from_state(state).await?;
     metrics_client.get_node_metrics().await
 }
 
 /// Get metrics for a specific pod
+///
+/// # Errors
+///
+/// Returns an error if the Metrics API request fails or the response cannot be parsed.
 pub async fn get_single_pod_metrics(
     namespace: &str,
     pod_name: &str,
@@ -338,6 +350,11 @@ pub async fn get_single_pod_metrics(
 }
 
 /// Get aggregated cluster metrics (total CPU/memory usage and capacity)
+///
+/// # Errors
+///
+/// Returns an error if the Metrics API or Kubernetes API requests fail,
+/// or if the response cannot be parsed.
 pub async fn get_cluster_metrics(state: &AppState) -> Result<ClusterMetrics> {
     use k8s_openapi::api::core::v1::Node;
     use kube::api::ListParams;
@@ -402,7 +419,7 @@ pub async fn get_cluster_metrics(state: &AppState) -> Result<ClusterMetrics> {
             None
         },
         total_memory_usage: if total_memory_bytes > 0 {
-            Some(format!("{}", total_memory_bytes))
+            Some(format!("{total_memory_bytes}"))
         } else {
             None
         },
@@ -412,7 +429,7 @@ pub async fn get_cluster_metrics(state: &AppState) -> Result<ClusterMetrics> {
             None
         },
         total_memory_capacity: if total_memory_capacity_bytes > 0 {
-            Some(format!("{}", total_memory_capacity_bytes))
+            Some(format!("{total_memory_capacity_bytes}"))
         } else {
             None
         },

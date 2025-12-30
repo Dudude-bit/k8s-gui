@@ -12,11 +12,13 @@ pub struct KubeconfigAuth {
 
 impl KubeconfigAuth {
     /// Create a new kubeconfig auth provider using default path
+    #[must_use] 
     pub fn new() -> Self {
         Self { path: None }
     }
 
     /// Create with a specific kubeconfig path
+    #[must_use] 
     pub fn with_path(path: std::path::PathBuf) -> Self {
         Self { path: Some(path) }
     }
@@ -36,8 +38,7 @@ impl AuthProvider for KubeconfigAuth {
         
         kubeconfig.map_err(|e| {
             Error::Auth(AuthError::Kubeconfig(format!(
-                "Failed to read kubeconfig: {}",
-                e
+                "Failed to read kubeconfig: {e}"
             )))
         })?;
         

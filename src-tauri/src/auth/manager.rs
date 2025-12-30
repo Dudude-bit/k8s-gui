@@ -7,7 +7,6 @@ use super::{AwsEksAuth, BearerTokenAuth, KubeconfigAuth, OidcAuth};
 use crate::error::{AuthError, Error, Result};
 use dashmap::DashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 /// Manages authentication for multiple contexts
 pub struct AuthManager {
@@ -26,6 +25,7 @@ pub struct AuthManager {
 
 impl AuthManager {
     /// Create a new authentication manager
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             auth_results: DashMap::new(),
@@ -36,10 +36,15 @@ impl AuthManager {
     }
 
     /// Authenticate with the given configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the authentication provider cannot be created or
+    /// if authentication fails.
     pub async fn authenticate(&self, context: &str, config: &AuthConfig) -> Result<AuthResult> {
         self.status.insert(context.to_string(), AuthStatus::Authenticating);
         
-        let provider = self.create_provider(config)?;
+        let provider = Self::create_provider(config)?;
         
         match provider.authenticate().await {
             Ok(result) => {
@@ -48,7 +53,7 @@ impl AuthManager {
                 self.status.insert(
                     context.to_string(),
                     AuthStatus::Authenticated {
-                        method: self.method_name(&config.method),
+                        method: Self::method_name(&config.method),
                         expires_at: result.expires_at,
                     },
                 );
@@ -73,6 +78,11 @@ impl AuthManager {
     }
 
     /// Refresh authentication for a context
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no provider is found for the context, if refresh
+    /// is not supported, or if the refresh operation fails.
     pub async fn refresh(&self, context: &str) -> Result<AuthResult> {
         let provider = self
             .providers
@@ -105,19 +115,21 @@ impl AuthManager {
     }
 
     /// Get authentication result for a context
+    #[must_use] 
     pub fn get_auth(&self, context: &str) -> Option<AuthResult> {
         self.auth_results.get(context).map(|r| r.clone())
     }
 
     /// Get authentication status for a context
+    #[must_use] 
     pub fn get_status(&self, context: &str) -> AuthStatus {
         self.status
             .get(context)
-            .map(|s| s.clone())
-            .unwrap_or(AuthStatus::NotAuthenticated)
+            .map_or(AuthStatus::NotAuthenticated, |s| s.clone())
     }
 
     /// Check if authentication is valid
+    #[must_use] 
     pub fn is_authenticated(&self, context: &str) -> bool {
         if let Some(result) = self.auth_results.get(context) {
             !result.is_expired()
@@ -138,7 +150,7 @@ impl AuthManager {
     }
 
     /// Create an authentication provider from config
-    fn create_provider(&self, config: &AuthConfig) -> Result<Arc<dyn AuthProvider>> {
+    fn create_provider(config: &AuthConfig) -> Result<Arc<dyn AuthProvider>> {
         let provider: Arc<dyn AuthProvider> = match &config.method {
             AuthMethod::Kubeconfig => Arc::new(KubeconfigAuth::new()),
             
@@ -147,8 +159,8 @@ impl AuthManager {
             }
             
             AuthMethod::Certificate {
-                client_certificate_data,
-                client_key_data,
+                client_certificate_data: _,
+                client_key_data: _,
             } => {
                 // For certificate auth, we'll use kubeconfig provider with cert data
                 Arc::new(KubeconfigAuth::new())
@@ -158,7 +170,7 @@ impl AuthManager {
                 issuer_url,
                 client_id,
                 client_secret,
-                refresh_token,
+                refresh_token: _,
                 scopes,
                 ..
             } => Arc::new(OidcAuth::new(
@@ -169,12 +181,11 @@ impl AuthManager {
             )),
             
             AuthMethod::AwsEks {
-                cluster_name,
+                cluster_name: _,
                 region,
                 role_arn,
                 profile,
             } => Arc::new(AwsEksAuth::new(
-                cluster_name.clone(),
                 region.clone(),
                 role_arn.clone(),
                 profile.clone(),
@@ -185,7 +196,7 @@ impl AuthManager {
     }
 
     /// Get method name for display
-    fn method_name(&self, method: &AuthMethod) -> String {
+    fn method_name(method: &AuthMethod) -> String {
         match method {
             AuthMethod::Kubeconfig => "kubeconfig".to_string(),
             AuthMethod::BearerToken { .. } => "bearer_token".to_string(),
@@ -210,6 +221,7 @@ impl AuthManager {
     }
 
     /// List all authenticated contexts
+    #[must_use] 
     pub fn authenticated_contexts(&self) -> Vec<String> {
         self.auth_results
             .iter()

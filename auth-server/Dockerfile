@@ -1,9 +1,16 @@
 FROM rust:1.70 as builder
 
+# Install protobuf compiler for gRPC code generation
+RUN apt-get update && apt-get install -y protobuf-compiler && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Copy manifests
 COPY Cargo.toml Cargo.lock ./
+
+# Copy build script and proto files (needed for code generation)
+COPY build.rs ./
+COPY proto ./proto
 
 # Copy source code
 COPY src ./src
@@ -28,7 +35,7 @@ COPY --from=builder /app/target/release/auth-server /app/auth-server
 # Copy migrations
 COPY migrations ./migrations
 
-EXPOSE 8080
+EXPOSE 50051
 
 ENV RUST_LOG=info
 

@@ -2,7 +2,6 @@
 
 use crate::error::{Error, PluginError, Result};
 use crate::plugins::{PluginContext, PluginInfo, PluginResult, PluginType};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -28,6 +27,7 @@ pub struct KubectlPlugin {
 
 impl KubectlPluginManager {
     /// Create a new kubectl plugin manager
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             plugins: HashMap::new(),
@@ -83,11 +83,13 @@ impl KubectlPluginManager {
     }
 
     /// List all discovered plugins
+    #[must_use] 
     pub fn list(&self) -> Vec<&KubectlPlugin> {
         self.plugins.values().collect()
     }
 
     /// Get a plugin by name
+    #[must_use] 
     pub fn get(&self, name: &str) -> Option<&KubectlPlugin> {
         self.plugins.get(name)
     }
@@ -159,6 +161,7 @@ impl KubectlPlugin {
     }
 
     /// Get plugin info
+    #[must_use] 
     pub fn info(&self) -> PluginInfo {
         PluginInfo {
             name: self.name.clone(),
@@ -197,44 +200,6 @@ fn is_executable(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
-/// Example kubectl plugin implementation
-pub struct ExampleKubectlPlugin;
-
-#[async_trait::async_trait]
-impl super::traits::PluginCommand for ExampleKubectlPlugin {
-    fn name(&self) -> &str {
-        "example"
-    }
-
-    fn description(&self) -> &str {
-        "An example kubectl-compatible plugin"
-    }
-
-    fn usage(&self) -> &str {
-        "kubectl example [flags] [resource]"
-    }
-
-    async fn execute(&self, args: &[String], context: &PluginContext) -> Result<PluginResult> {
-        let output = format!(
-            "Example plugin executed\nContext: {}\nNamespace: {}\nArgs: {:?}",
-            context.kube_context, context.namespace, args
-        );
-        Ok(PluginResult::success(output))
-    }
-
-    fn flags(&self) -> Vec<super::traits::CommandFlag> {
-        vec![
-            super::traits::CommandFlag {
-                name: "output".to_string(),
-                short: Some('o'),
-                description: "Output format".to_string(),
-                required: false,
-                default_value: Some("text".to_string()),
-            },
-        ]
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -243,17 +208,5 @@ mod tests {
     fn test_kubectl_plugin_manager() {
         let manager = KubectlPluginManager::new();
         assert!(manager.list().is_empty());
-    }
-
-    #[tokio::test]
-    async fn test_example_plugin() {
-        use crate::plugins::traits::PluginCommand;
-        
-        let plugin = ExampleKubectlPlugin;
-        let context = PluginContext::new("test-context", "default");
-        
-        let result = plugin.execute(&["arg1".to_string()], &context).await.unwrap();
-        assert!(result.is_success());
-        assert!(result.stdout.contains("Example plugin executed"));
     }
 }

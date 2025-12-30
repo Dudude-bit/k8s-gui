@@ -21,7 +21,8 @@ pub fn get_k8s_client(state: &State<'_, AppState>) -> Result<Client> {
         .map(|c| (*c).clone())
 }
 
-/// Build ListParams from optional selectors and limit
+/// Build `ListParams` from optional selectors and limit
+#[must_use] 
 pub fn build_list_params(
     label_selector: Option<&str>,
     field_selector: Option<&str>,
@@ -67,6 +68,7 @@ impl CommandContext {
         Ok(CommandContext { client, namespace })
     }
 
+    #[must_use] 
     pub fn namespaced_api<K>(&self) -> Api<K>
     where
         K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope>,
@@ -100,8 +102,9 @@ impl ListContext {
     }
 
     /// Get API for a resource.
-    /// When namespace is Some, this uses Api::all() which doesn't filter by namespace.
+    /// When namespace is Some, this uses `Api::all()` which doesn't filter by namespace.
     /// For proper namespace filtering with namespaced resources, use `namespaced_api()` instead.
+    #[must_use] 
     pub fn api<K>(&self) -> Api<K>
     where
         K: kube::Resource,
@@ -116,6 +119,7 @@ impl ListContext {
     /// Get namespaced API for a resource when namespace filtering is needed.
     /// Use this when you have a namespace and K is a namespaced resource.
     /// This properly filters resources to the specified namespace.
+    #[must_use] 
     pub fn namespaced_api<K>(&self) -> Api<K>
     where
         K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope>,
@@ -126,6 +130,7 @@ impl ListContext {
         Api::namespaced(self.client.clone(), namespace)
     }
 
+    #[must_use] 
     pub fn cluster_api<K: Resource>(&self) -> Api<K>
     where
         K::DynamicType: Default,
@@ -175,7 +180,7 @@ where
 pub fn clean_yaml_for_editor(yaml: &str) -> Result<String> {
     // Parse YAML into a Value structure
     let mut value: serde_yaml::Value = serde_yaml::from_str(yaml)
-        .map_err(|e| Error::Serialization(format!("Failed to parse YAML: {}", e)))?;
+        .map_err(|e| Error::Serialization(format!("Failed to parse YAML: {e}")))?;
 
     // Remove top-level status field (server-managed)
     if let Some(mapping) = value.as_mapping_mut() {
@@ -198,7 +203,7 @@ pub fn clean_yaml_for_editor(yaml: &str) -> Result<String> {
 
     // Serialize back to YAML
     let cleaned = serde_yaml::to_string(&value)
-        .map_err(|e| Error::Serialization(format!("Failed to serialize YAML: {}", e)))?;
+        .map_err(|e| Error::Serialization(format!("Failed to serialize YAML: {e}")))?;
     
     Ok(cleaned)
 }

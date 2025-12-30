@@ -1,6 +1,6 @@
 //! Node commands
 
-use crate::commands::helpers::{build_list_params, ListContext};
+use crate::commands::helpers::ListContext;
 use crate::error::Result;
 use crate::resources::{NodeInfo, PodInfo};
 use crate::state::AppState;
@@ -159,7 +159,7 @@ pub async fn get_node_pods(name: String, state: State<'_, AppState>) -> Result<V
     let ctx = ListContext::new(&state, None)?;
     let api: kube::Api<Pod> = ctx.api();
 
-    let params = ListParams::default().fields(&format!("spec.nodeName={}", name));
+    let params = ListParams::default().fields(&format!("spec.nodeName={name}"));
     let pods = api.list(&params).await?;
 
     Ok(pods.items.iter().map(PodInfo::from).collect())
@@ -219,7 +219,7 @@ pub async fn drain_node(
     let ctx = ListContext::new(&state, None)?;
     let api: kube::Api<Pod> = ctx.api();
 
-    let params = ListParams::default().fields(&format!("spec.nodeName={}", name));
+    let params = ListParams::default().fields(&format!("spec.nodeName={name}"));
     let pods = api.list(&params).await?;
 
     let ignore_daemonsets = ignore_daemonsets.unwrap_or(true);

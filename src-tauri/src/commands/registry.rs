@@ -84,7 +84,7 @@ struct DockerAuthEntry {
 }
 
 fn registry_key(registry_id: &str) -> String {
-    format!("{}{}", REGISTRY_KEY_PREFIX, registry_id)
+    format!("{REGISTRY_KEY_PREFIX}{registry_id}")
 }
 
 fn build_auth_header(auth: &RegistryAuth) -> Option<String> {
@@ -95,15 +95,15 @@ fn build_auth_header(auth: &RegistryAuth) -> Option<String> {
             if username.is_empty() || password.is_empty() {
                 return None;
             }
-            let encoded = STANDARD.encode(format!("{}:{}", username, password));
-            Some(format!("Basic {}", encoded))
+            let encoded = STANDARD.encode(format!("{username}:{password}"));
+            Some(format!("Basic {encoded}"))
         }
         "bearer" => {
             let token = auth.token.as_ref()?.trim();
             if token.is_empty() {
                 return None;
             }
-            Some(format!("Bearer {}", token))
+            Some(format!("Bearer {token}"))
         }
         _ => None,
     }
@@ -114,7 +114,7 @@ fn normalize_base_url(input: &str) -> String {
     if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
         trimmed.to_string()
     } else {
-        format!("https://{}", trimmed)
+        format!("https://{trimmed}")
     }
 }
 
@@ -183,7 +183,7 @@ pub async fn import_docker_config() -> Result<Vec<RegistryImportEntry>, String> 
     let raw = fs::read_to_string(&path)
         .map_err(|e| format!("Failed to read Docker config at {}: {}", path.display(), e))?;
     let config: DockerConfigFile =
-        serde_json::from_str(&raw).map_err(|e| format!("Failed to parse Docker config: {}", e))?;
+        serde_json::from_str(&raw).map_err(|e| format!("Failed to parse Docker config: {e}"))?;
     let auths = config.auths.unwrap_or_default();
     let mut entries = Vec::new();
     let mut seen_hosts = HashMap::new();
@@ -260,13 +260,13 @@ async fn search_registry_catalog(
     let needle = query.to_lowercase();
     let host = host_from_url(base_url);
     let mut results = Vec::new();
-    for repo_value in repositories.iter() {
+    for repo_value in repositories {
         let repo = match repo_value.as_str() {
             Some(value) => value,
             None => continue,
         };
         if let Some(project) = project_filter {
-            if !repo.starts_with(&format!("{}/", project)) {
+            if !repo.starts_with(&format!("{project}/")) {
                 continue;
             }
         }
@@ -276,7 +276,7 @@ async fn search_registry_catalog(
         let name = if host.is_empty() {
             repo.to_string()
         } else {
-            format!("{}/{}", host, repo)
+            format!("{host}/{repo}")
         };
         results.push(RegistryImageResult {
             id: name.clone(),
@@ -323,7 +323,7 @@ async fn search_docker_hub(client: &Client, query: &str) -> Result<Vec<RegistryI
         let full_name = if !repo_name.is_empty() {
             repo_name
         } else if !namespace.is_empty() && !name.is_empty() {
-            &format!("{}/{}", namespace, name)
+            &format!("{namespace}/{name}")
         } else {
             ""
         };
@@ -338,11 +338,11 @@ async fn search_docker_hub(client: &Client, query: &str) -> Result<Vec<RegistryI
             .to_string();
         let is_official = entry
             .get("is_official")
-            .and_then(|value| value.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(false)
             || entry
                 .get("is_trusted")
-                .and_then(|value| value.as_bool())
+                .and_then(serde_json::Value::as_bool)
                 .unwrap_or(false);
         output.push(RegistryImageResult {
             id: display_name.to_string(),
@@ -390,14 +390,14 @@ async fn search_harbor(
             continue;
         }
         if let Some(project) = project_filter {
-            if !repo_name.starts_with(&format!("{}/", project)) {
+            if !repo_name.starts_with(&format!("{project}/")) {
                 continue;
             }
         }
         let full_name = if host.is_empty() {
             repo_name.to_string()
         } else {
-            format!("{}/{}", host, repo_name)
+            format!("{host}/{repo_name}")
         };
         let description = entry
             .get("description")
@@ -499,8 +499,7 @@ pub async fn search_registry_images(
                 .as_ref()
                 .ok_or_else(|| "ECR region is required".to_string())?;
             let base_url = normalize_base_url(&format!(
-                "{}.dkr.ecr.{}.amazonaws.com",
-                account_id, region
+                "{account_id}.dkr.ecr.{region}.amazonaws.com"
             ));
             search_registry_catalog(&client, &base_url, &request.query, auth_header, None).await
         }
@@ -513,6 +512,6 @@ pub async fn search_registry_images(
                 .ok_or_else(|| "Registry URL is required".to_string())?;
             search_registry_catalog(&client, &base_url, &request.query, auth_header, None).await
         }
-        other => Err(format!("Unsupported registry provider: {}", other)),
+        other => Err(format!("Unsupported registry provider: {other}")),
     }
 }

@@ -3,7 +3,6 @@
 use dashmap::DashMap;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 /// Cache entry with expiration
@@ -32,6 +31,7 @@ pub struct ResourceCache {
 
 impl ResourceCache {
     /// Create a new cache with the specified TTL
+    #[must_use] 
     pub fn new(ttl_seconds: u64) -> Self {
         Self {
             cache: DashMap::new(),
@@ -41,6 +41,7 @@ impl ResourceCache {
     }
 
     /// Create with custom settings
+    #[must_use] 
     pub fn with_settings(ttl_seconds: u64, max_entries: usize) -> Self {
         Self {
             cache: DashMap::new(),
@@ -50,30 +51,33 @@ impl ResourceCache {
     }
 
     /// Generate cache key for a resource
+    #[must_use] 
     pub fn resource_key(kind: &str, namespace: Option<&str>, name: Option<&str>) -> String {
         match (namespace, name) {
-            (Some(ns), Some(n)) => format!("{}:{}:{}", kind, ns, n),
-            (Some(ns), None) => format!("{}:{}", kind, ns),
-            (None, Some(n)) => format!("{}::{}", kind, n),
+            (Some(ns), Some(n)) => format!("{kind}:{ns}:{n}"),
+            (Some(ns), None) => format!("{kind}:{ns}"),
+            (None, Some(n)) => format!("{kind}::{n}"),
             (None, None) => kind.to_string(),
         }
     }
 
     /// Get a cached value
+    #[must_use] 
     pub fn get(&self, key: &str) -> Option<serde_json::Value> {
         if let Some(entry) = self.cache.get(key) {
-            if !entry.is_expired() {
-                return Some(entry.value.clone());
-            } else {
+            if entry.is_expired() {
                 // Remove expired entry
                 drop(entry);
                 self.cache.remove(key);
+            } else {
+                return Some(entry.value.clone());
             }
         }
         None
     }
 
     /// Get a typed cached value
+    #[must_use] 
     pub fn get_typed<T: for<'de> Deserialize<'de>>(&self, key: &str) -> Option<T> {
         self.get(key)
             .and_then(|v| serde_json::from_value(v).ok())
@@ -165,21 +169,24 @@ impl ResourceCache {
     }
 
     /// Get cache size
+    #[must_use] 
     pub fn len(&self) -> usize {
         self.cache.len()
     }
 
     /// Check if cache is empty
+    #[must_use] 
     pub fn is_empty(&self) -> bool {
         self.cache.is_empty()
     }
 
     /// Get cache statistics
+    #[must_use] 
     pub fn stats(&self) -> CacheStats {
         let total = self.cache.len();
         let mut expired = 0;
         
-        for entry in self.cache.iter() {
+        for entry in &self.cache {
             if entry.is_expired() {
                 expired += 1;
             }
@@ -195,7 +202,7 @@ impl ResourceCache {
 
     /// Invalidate resources by kind
     pub fn invalidate_kind(&self, kind: &str) {
-        self.remove_prefix(&format!("{}:", kind));
+        self.remove_prefix(&format!("{kind}:"));
     }
 
     /// Invalidate resources by namespace
@@ -203,7 +210,7 @@ impl ResourceCache {
         let keys_to_remove: Vec<_> = self
             .cache
             .iter()
-            .filter(|entry| entry.key().contains(&format!(":{}:", namespace)))
+            .filter(|entry| entry.key().contains(&format!(":{namespace}:")))
             .map(|entry| entry.key().clone())
             .collect();
 
@@ -230,6 +237,7 @@ pub struct Debouncer {
 
 impl Debouncer {
     /// Create a new debouncer with the specified delay
+    #[must_use] 
     pub fn new(delay_ms: u64) -> Self {
         Self {
             last_call: RwLock::new(None),
@@ -271,6 +279,7 @@ pub struct RateLimiter {
 
 impl RateLimiter {
     /// Create a new rate limiter
+    #[must_use] 
     pub fn new(max_requests: u32, window_seconds: u64) -> Self {
         Self {
             count: RwLock::new(0),

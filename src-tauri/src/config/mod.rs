@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 /// Application configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct AppConfig {
     /// UI theme
     pub theme: ThemeConfig,
@@ -171,17 +172,6 @@ impl Default for LoggingConfig {
     }
 }
 
-impl Default for AppConfig {
-    fn default() -> Self {
-        Self {
-            theme: ThemeConfig::default(),
-            kubernetes: KubernetesConfig::default(),
-            cache: CacheConfig::default(),
-            plugins: PluginsConfig::default(),
-            logging: LoggingConfig::default(),
-        }
-    }
-}
 
 impl AppConfig {
     /// Load configuration from file
@@ -190,10 +180,10 @@ impl AppConfig {
         
         if config_path.exists() {
             let content = std::fs::read_to_string(&config_path)
-                .map_err(|e| Error::Config(format!("Failed to read config: {}", e)))?;
+                .map_err(|e| Error::Config(format!("Failed to read config: {e}")))?;
             
             let config: Self = toml::from_str(&content)
-                .map_err(|e| Error::Config(format!("Failed to parse config: {}", e)))?;
+                .map_err(|e| Error::Config(format!("Failed to parse config: {e}")))?;
             
             Ok(config)
         } else {
@@ -202,47 +192,12 @@ impl AppConfig {
         }
     }
 
-    /// Save configuration to file
-    pub fn save(&self) -> Result<()> {
-        let config_path = Self::config_path()?;
-        
-        // Create directory if needed
-        if let Some(parent) = config_path.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| Error::Config(format!("Failed to create config dir: {}", e)))?;
-        }
-        
-        let content = toml::to_string_pretty(self)
-            .map_err(|e| Error::Config(format!("Failed to serialize config: {}", e)))?;
-        
-        std::fs::write(&config_path, content)
-            .map_err(|e| Error::Config(format!("Failed to write config: {}", e)))?;
-        
-        Ok(())
-    }
-
     /// Get the configuration file path
     pub fn config_path() -> Result<PathBuf> {
         let config_dir = dirs::config_dir()
             .ok_or_else(|| Error::Config("Could not determine config directory".to_string()))?;
         
         Ok(config_dir.join("k8s-gui").join("config.toml"))
-    }
-
-    /// Get the data directory path
-    pub fn data_dir() -> Result<PathBuf> {
-        let data_dir = dirs::data_dir()
-            .ok_or_else(|| Error::Config("Could not determine data directory".to_string()))?;
-        
-        Ok(data_dir.join("k8s-gui"))
-    }
-
-    /// Get the cache directory path
-    pub fn cache_dir() -> Result<PathBuf> {
-        let cache_dir = dirs::cache_dir()
-            .ok_or_else(|| Error::Config("Could not determine cache directory".to_string()))?;
-        
-        Ok(cache_dir.join("k8s-gui"))
     }
 }
 

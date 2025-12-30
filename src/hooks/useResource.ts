@@ -347,7 +347,3 @@ export function useResourceCrud<T extends ResourceWithIdentity, TCreate = Partia
   };
 }
 
-// Re-export for backward compatibility
-export { useResource as useResourceQuery };
-export { useResourceList as useResourceListQuery };
-

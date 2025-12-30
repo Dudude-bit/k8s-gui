@@ -166,7 +166,7 @@ pub async fn search_pod_logs(
 
     // Apply filter
     let filtered: Vec<LogLine> = if regex {
-        let re = regex::Regex::new(&query).map_err(|e| format!("Invalid regex: {}", e))?;
+        let re = regex::Regex::new(&query).map_err(|e| format!("Invalid regex: {e}"))?;
         all_logs.into_iter().filter(|line| re.is_match(&line.message)).collect()
     } else if case_sensitive {
         all_logs.into_iter().filter(|line| line.message.contains(&query)).collect()
@@ -263,23 +263,20 @@ pub async fn download_pod_logs(
     let logs = streamer.get_logs(&log_config).await
         .map_err(|e| e.to_string())?;
 
-    match format.as_str() {
-        "json" => {
-            serde_json::to_string_pretty(&logs).map_err(|e| e.to_string())
-        }
-        _ => {
-            let text: String = logs
-                .into_iter()
-                .map(|l| {
-                    if let Some(ts) = l.timestamp {
-                        format!("[{}] {}", ts.to_rfc3339(), l.message)
-                    } else {
-                        l.message
-                    }
-                })
-                .collect::<Vec<_>>()
-                .join("\n");
-            Ok(text)
-        }
+    if format.as_str() == "json" {
+        serde_json::to_string_pretty(&logs).map_err(|e| e.to_string())
+    } else {
+        let text: String = logs
+            .into_iter()
+            .map(|l| {
+                if let Some(ts) = l.timestamp {
+                    format!("[{}] {}", ts.to_rfc3339(), l.message)
+                } else {
+                    l.message
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        Ok(text)
     }
 }

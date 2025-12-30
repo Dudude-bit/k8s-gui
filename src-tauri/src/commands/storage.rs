@@ -1,19 +1,18 @@
 //! Storage-related Tauri commands
 //!
-//! Commands for managing PersistentVolumes, PersistentVolumeClaims, and StorageClasses.
+//! Commands for managing `PersistentVolumes`, `PersistentVolumeClaims`, and `StorageClasses`.
 
-use crate::commands::helpers::ListContext;
 use crate::error::Result;
 use crate::state::AppState;
 use crate::utils::format_k8s_age;
 use k8s_openapi::api::core::v1::{PersistentVolume, PersistentVolumeClaim};
 use k8s_openapi::api::storage::v1::StorageClass;
-use kube::{api::ListParams, ResourceExt};
+use kube::ResourceExt;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use tauri::State;
 
-/// Information about a PersistentVolume
+/// Information about a `PersistentVolume`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PersistentVolumeInfo {
@@ -28,7 +27,7 @@ pub struct PersistentVolumeInfo {
     pub age: String,
 }
 
-/// Information about a PersistentVolumeClaim
+/// Information about a `PersistentVolumeClaim`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PersistentVolumeClaimInfo {
@@ -42,7 +41,7 @@ pub struct PersistentVolumeClaimInfo {
     pub age: String,
 }
 
-/// Information about a StorageClass
+/// Information about a `StorageClass`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageClassInfo {
@@ -68,7 +67,7 @@ fn format_access_mode(mode: &str) -> String {
 
 use crate::commands::filters::ResourceFilters;
 
-/// List all PersistentVolumes in the cluster
+/// List all `PersistentVolumes` in the cluster
 #[tauri::command]
 pub async fn list_persistent_volumes(
     filters: Option<ResourceFilters>,
@@ -91,9 +90,7 @@ pub async fn list_persistent_volumes(
 
             let capacity = spec
                 .and_then(|s| s.capacity.as_ref())
-                .and_then(|c| c.get("storage"))
-                .map(|q| q.0.clone())
-                .unwrap_or_else(|| "Unknown".to_string());
+                .and_then(|c| c.get("storage")).map_or_else(|| "Unknown".to_string(), |q| q.0.clone());
 
             let access_modes = spec
                 .and_then(|s| s.access_modes.as_ref())
@@ -129,7 +126,7 @@ pub async fn list_persistent_volumes(
         .collect())
 }
 
-/// List PersistentVolumeClaims
+/// List `PersistentVolumeClaims`
 #[tauri::command]
 pub async fn list_persistent_volume_claims(
     filters: Option<ResourceFilters>,
@@ -187,7 +184,7 @@ pub async fn list_persistent_volume_claims(
         .collect())
 }
 
-/// List StorageClasses
+/// List `StorageClasses`
 #[tauri::command]
 pub async fn list_storage_classes(
     filters: Option<ResourceFilters>,
@@ -209,13 +206,11 @@ pub async fn list_storage_classes(
                 .metadata
                 .annotations
                 .as_ref()
-                .map(|ann| {
+                .is_some_and(|ann| {
                     ann.get("storageclass.kubernetes.io/is-default-class")
                         .or_else(|| ann.get("storageclass.beta.kubernetes.io/is-default-class"))
-                        .map(|v| v == "true")
-                        .unwrap_or(false)
-                })
-                .unwrap_or(false);
+                        .is_some_and(|v| v == "true")
+                });
 
             StorageClassInfo {
                 name: sc.name_any(),

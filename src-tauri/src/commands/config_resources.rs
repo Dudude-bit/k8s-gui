@@ -1,6 +1,6 @@
-//! ConfigMap and Secret commands
+//! `ConfigMap` and Secret commands
 
-use crate::commands::helpers::{build_list_params, CommandContext, ListContext};
+use crate::commands::helpers::CommandContext;
 use crate::error::Result;
 use crate::resources::{ConfigMapInfo, SecretInfo};
 use crate::state::AppState;
@@ -15,7 +15,7 @@ use crate::commands::filters::ResourceFilters;
 // ConfigMap Commands
 // ============================================================================
 
-/// List ConfigMaps
+/// List `ConfigMaps`
 #[tauri::command]
 pub async fn list_configmaps(
     filters: Option<ResourceFilters>,
@@ -34,7 +34,7 @@ pub async fn list_configmaps(
     Ok(list.items.iter().map(ConfigMapInfo::from).collect())
 }
 
-/// Get a ConfigMap by name
+/// Get a `ConfigMap` by name
 #[tauri::command]
 pub async fn get_configmap(
     name: String,
@@ -48,7 +48,7 @@ pub async fn get_configmap(
     Ok(ConfigMapInfo::from(&configmap))
 }
 
-/// Get ConfigMap data
+/// Get `ConfigMap` data
 #[tauri::command]
 pub async fn get_configmap_data(
     name: String,
@@ -62,7 +62,7 @@ pub async fn get_configmap_data(
     Ok(configmap.data.unwrap_or_default())
 }
 
-/// Get ConfigMap YAML
+/// Get `ConfigMap` YAML
 #[tauri::command]
 pub async fn get_configmap_yaml(
     name: String,
@@ -72,7 +72,7 @@ pub async fn get_configmap_yaml(
     super::helpers::get_resource_yaml::<ConfigMap>(name, namespace, state).await
 }
 
-/// Create ConfigMap
+/// Create `ConfigMap`
 #[tauri::command]
 pub async fn create_configmap(
     name: String,
@@ -98,7 +98,7 @@ pub async fn create_configmap(
     Ok(ConfigMapInfo::from(&created))
 }
 
-/// Update ConfigMap data
+/// Update `ConfigMap` data
 #[tauri::command]
 pub async fn update_configmap(
     name: String,
@@ -118,7 +118,7 @@ pub async fn update_configmap(
     Ok(ConfigMapInfo::from(&updated))
 }
 
-/// Delete ConfigMap
+/// Delete `ConfigMap`
 #[tauri::command]
 pub async fn delete_configmap(
     name: String,

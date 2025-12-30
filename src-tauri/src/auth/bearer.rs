@@ -11,6 +11,7 @@ pub struct BearerTokenAuth {
 
 impl BearerTokenAuth {
     /// Create a new bearer token auth provider
+    #[must_use] 
     pub fn new(token: String) -> Self {
         Self { token }
     }

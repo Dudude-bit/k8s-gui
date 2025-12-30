@@ -10,7 +10,6 @@ service PaymentService {
 }
 
 message GetHistoryRequest {
-  // access_token moved to metadata header "authorization"
   optional int32 limit = 1;
   optional int32 offset = 2;
 }
@@ -41,6 +40,9 @@ message WebhookRequest {
   optional string payment_provider = 7;
   optional string subscription_type = 8;
   string signature = 9;
+  // Raw payload bytes from the payment provider for signature verification
+  // This should contain the original JSON/body that was signed
+  bytes raw_payload = 10;
 }
 
 message WebhookResponse {

@@ -2,7 +2,6 @@
 
 use crate::resources::NamespaceInfo;
 use crate::state::AppState;
-use k8s_openapi::api::core::v1::Namespace;
 use tauri::State;
 
 /// List all namespaces

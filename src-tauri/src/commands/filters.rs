@@ -12,7 +12,7 @@ pub struct ResourceFilters {
     pub limit: Option<i64>,
 }
 
-/// Pod-specific filters (extends ResourceFilters)
+/// Pod-specific filters (extends `ResourceFilters`)
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PodFilters {
@@ -35,7 +35,7 @@ impl From<ResourceFilters> for PodFilters {
     }
 }
 
-/// Deployment-specific filters (extends ResourceFilters)
+/// Deployment-specific filters (extends `ResourceFilters`)
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct DeploymentFilters {
@@ -56,7 +56,7 @@ impl From<ResourceFilters> for DeploymentFilters {
     }
 }
 
-/// Service-specific filters (extends ResourceFilters)
+/// Service-specific filters (extends `ResourceFilters`)
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ServiceFilters {

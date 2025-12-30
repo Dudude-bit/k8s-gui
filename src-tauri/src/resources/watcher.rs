@@ -4,13 +4,11 @@ use crate::error::Result;
 use crate::state::AppEvent;
 use futures::StreamExt;
 use kube::{
-    api::{Api, WatchEvent, WatchParams},
-    Client, Resource, ResourceExt,
+    api::{Api, WatchEvent, WatchParams}, Resource, ResourceExt,
 };
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::fmt::Debug;
-use std::sync::Arc;
 use tokio::sync::{broadcast, oneshot};
 
 /// Resource watcher that streams events for any Kubernetes resource
@@ -20,7 +18,6 @@ where
 {
     api: Api<K>,
     event_tx: broadcast::Sender<AppEvent>,
-    resource_type: String,
 }
 
 impl<K> ResourceWatcher<K>
@@ -29,11 +26,11 @@ where
     <K as Resource>::DynamicType: Default,
 {
     /// Create a new resource watcher
-    pub fn new(api: Api<K>, event_tx: broadcast::Sender<AppEvent>, resource_type: &str) -> Self {
+    #[must_use] 
+    pub fn new(api: Api<K>, event_tx: broadcast::Sender<AppEvent>) -> Self {
         Self {
             api,
             event_tx,
-            resource_type: resource_type.to_string(),
         }
     }
 
@@ -87,8 +84,8 @@ where
     {
         let app_event = match event {
             WatchEvent::Added(resource) => {
-                let name = resource.name_any();
-                let namespace = resource.namespace().unwrap_or_default();
+                let _name = resource.name_any();
+                let _namespace = resource.namespace().unwrap_or_default();
                 
                 AppEvent::WatchEvent {
                     watch_id: watch_id.to_string(),
@@ -97,8 +94,8 @@ where
                 }
             }
             WatchEvent::Modified(resource) => {
-                let name = resource.name_any();
-                let namespace = resource.namespace().unwrap_or_default();
+                let _name = resource.name_any();
+                let _namespace = resource.namespace().unwrap_or_default();
                 
                 AppEvent::WatchEvent {
                     watch_id: watch_id.to_string(),
@@ -107,8 +104,8 @@ where
                 }
             }
             WatchEvent::Deleted(resource) => {
-                let name = resource.name_any();
-                let namespace = resource.namespace().unwrap_or_default();
+                let _name = resource.name_any();
+                let _namespace = resource.namespace().unwrap_or_default();
                 
                 AppEvent::WatchEvent {
                     watch_id: watch_id.to_string(),
@@ -132,50 +129,3 @@ where
     }
 }
 
-/// Watch configuration
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct WatchConfig {
-    /// Resource type to watch
-    pub resource_type: String,
-    /// Namespace (None for cluster-scoped or all namespaces)
-    pub namespace: Option<String>,
-    /// Label selector
-    pub label_selector: Option<String>,
-    /// Field selector
-    pub field_selector: Option<String>,
-}
-
-impl WatchConfig {
-    /// Create watch params from config
-    pub fn to_watch_params(&self) -> WatchParams {
-        let mut params = WatchParams::default();
-        
-        if let Some(labels) = &self.label_selector {
-            params = params.labels(labels);
-        }
-        
-        if let Some(fields) = &self.field_selector {
-            params = params.fields(fields);
-        }
-        
-        params
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_watch_config() {
-        let config = WatchConfig {
-            resource_type: "pods".to_string(),
-            namespace: Some("default".to_string()),
-            label_selector: Some("app=nginx".to_string()),
-            field_selector: None,
-        };
-
-        let params = config.to_watch_params();
-        // WatchParams doesn't expose selectors, so we just ensure it doesn't panic
-    }
-}

@@ -2,7 +2,6 @@
 
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
-use crate::state::AppEvent;
 use tauri::State;
 
 /// Terminal session info
@@ -42,7 +41,7 @@ pub async fn terminal_input(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     if let Some(input_tx) = state.terminal_inputs.get(&session_id) {
-        input_tx.send(data).await.map_err(|e| format!("Failed to send input: {}", e))?;
+        input_tx.send(data).await.map_err(|e| format!("Failed to send input: {e}"))?;
     } else {
         tracing::warn!("No input channel found for session {}", session_id);
     }
@@ -109,7 +108,7 @@ pub async fn open_shell(
         let pod_obj = api.get(&pod).await.map_err(|e| e.to_string())?;
         pod_obj.spec
             .and_then(|s| s.containers.first().map(|c| c.name.clone()))
-            .unwrap_or_else(|| "".to_string())
+            .unwrap_or_else(String::new)
     };
     
     let shell_cmd = shell.unwrap_or_else(|| "/bin/sh".to_string());
@@ -124,7 +123,7 @@ pub async fn open_shell(
     
     let mut attached = api.exec(&pod, vec![&shell_cmd], &params)
         .await
-        .map_err(|e| format!("Failed to exec into pod: {}", e))?;
+        .map_err(|e| format!("Failed to exec into pod: {e}"))?;
     
     let event_tx = state.event_tx.clone();
     let session_id_clone = session_id.clone();

@@ -1,7 +1,7 @@
 //! Deployment-specific commands
 
 use crate::commands::filters::DeploymentFilters;
-use crate::commands::helpers::{build_list_params, CommandContext, ListContext};
+use crate::commands::helpers::CommandContext;
 use crate::error::Result;
 use crate::resources::{DeploymentInfo, PodInfo};
 use crate::state::AppState;
@@ -152,7 +152,7 @@ pub async fn update_deployment_image(
         .iter_mut()
         .find(|c| c.name == container_name)
         .ok_or_else(|| {
-            crate::error::Error::InvalidInput(format!("Container '{}' not found", container_name))
+            crate::error::Error::InvalidInput(format!("Container '{container_name}' not found"))
         })?;
 
     container.image = Some(image.clone());
@@ -188,7 +188,7 @@ pub async fn get_deployment_pods(
     // Build label selector string
     let label_selector: String = selector
         .iter()
-        .map(|(k, v)| format!("{}={}", k, v))
+        .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
         .join(",");
 

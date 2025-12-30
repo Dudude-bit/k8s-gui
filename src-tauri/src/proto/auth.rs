@@ -19,18 +19,6 @@ pub struct RefreshRequest {
     pub refresh_token: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ForgotPasswordRequest {
-    #[prost(string, tag = "1")]
-    pub email: ::prost::alloc::string::String,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ResetPasswordRequest {
-    #[prost(string, tag = "1")]
-    pub token: ::prost::alloc::string::String,
-    #[prost(string, tag = "2")]
-    pub new_password: ::prost::alloc::string::String,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AuthResponse {
     #[prost(string, tag = "1")]
     pub user_id: ::prost::alloc::string::String,
@@ -212,54 +200,6 @@ pub mod auth_service_client {
             let path = http::uri::PathAndQuery::from_static("/auth.AuthService/Logout");
             let mut req = request.into_request();
             req.extensions_mut().insert(GrpcMethod::new("auth.AuthService", "Logout"));
-            self.inner.unary(req, path, codec).await
-        }
-        pub async fn forgot_password(
-            &mut self,
-            request: impl tonic::IntoRequest<super::ForgotPasswordRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::MessageResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/auth.AuthService/ForgotPassword",
-            );
-            let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("auth.AuthService", "ForgotPassword"));
-            self.inner.unary(req, path, codec).await
-        }
-        pub async fn reset_password(
-            &mut self,
-            request: impl tonic::IntoRequest<super::ResetPasswordRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::MessageResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/auth.AuthService/ResetPassword",
-            );
-            let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("auth.AuthService", "ResetPassword"));
             self.inner.unary(req, path, codec).await
         }
     }

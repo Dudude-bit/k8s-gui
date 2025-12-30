@@ -98,20 +98,6 @@ impl License {
         .await
     }
 
-    pub async fn find_by_id(
-        pool: &sqlx::PgPool,
-        license_id: Uuid,
-    ) -> Result<Option<Self>, sqlx::Error> {
-        sqlx::query_as::<_, License>(
-            "SELECT id, user_id, license_key, subscription_type, expires_at, is_active, created_at, updated_at 
-             FROM licenses 
-             WHERE id = $1"
-        )
-        .bind(license_id)
-        .fetch_optional(pool)
-        .await
-    }
-
     pub async fn create(
         pool: &sqlx::PgPool,
         user_id: Uuid,
@@ -119,13 +105,16 @@ impl License {
         subscription_type: SubscriptionType,
         expires_at: Option<DateTime<Utc>>,
     ) -> Result<Self, sqlx::Error> {
+        // Use a transaction to ensure atomicity - if insert fails, deactivation is rolled back
+        let mut tx = pool.begin().await?;
+
         // Deactivate all existing licenses for this user
         sqlx::query("UPDATE licenses SET is_active = FALSE WHERE user_id = $1")
             .bind(user_id)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
 
-        sqlx::query_as::<_, License>(
+        let license = sqlx::query_as::<_, License>(
             "INSERT INTO licenses (user_id, license_key, subscription_type, expires_at, is_active) 
              VALUES ($1, $2, $3, $4, TRUE) 
              RETURNING id, user_id, license_key, subscription_type, expires_at, is_active, created_at, updated_at"
@@ -134,19 +123,11 @@ impl License {
         .bind(&license_key)
         .bind(subscription_type)
         .bind(&expires_at)
-        .fetch_one(pool)
-        .await
-    }
+        .fetch_one(&mut *tx)
+        .await?;
 
-    pub async fn deactivate(
-        pool: &sqlx::PgPool,
-        license_id: Uuid,
-    ) -> Result<(), sqlx::Error> {
-        sqlx::query("UPDATE licenses SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id = $1")
-            .bind(license_id)
-            .execute(pool)
-            .await?;
-        Ok(())
+        tx.commit().await?;
+        Ok(license)
     }
 
     pub async fn extend_monthly(
@@ -212,6 +193,9 @@ impl License {
         license_id: Uuid,
         expires_at: Option<DateTime<Utc>>,
     ) -> Result<Self, sqlx::Error> {
+        // Use a transaction to ensure atomicity
+        let mut tx = pool.begin().await?;
+
         // First, get the license to check subscription type
         let license = sqlx::query_as::<_, License>(
             "SELECT id, user_id, license_key, subscription_type, expires_at, is_active, created_at, updated_at 
@@ -219,7 +203,7 @@ impl License {
              WHERE id = $1"
         )
         .bind(license_id)
-        .fetch_optional(pool)
+        .fetch_optional(&mut *tx)
         .await?;
 
         let license = license.ok_or_else(|| {
@@ -235,11 +219,11 @@ impl License {
         // Deactivate all existing licenses for this user
         sqlx::query("UPDATE licenses SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE user_id = $1")
             .bind(user_id)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
 
         // Activate the specified license
-        sqlx::query_as::<_, License>(
+        let activated_license = sqlx::query_as::<_, License>(
             "UPDATE licenses 
              SET user_id = $1, is_active = TRUE, expires_at = $2, updated_at = CURRENT_TIMESTAMP
              WHERE id = $3
@@ -248,8 +232,11 @@ impl License {
         .bind(user_id)
         .bind(&final_expires_at)
         .bind(license_id)
-        .fetch_one(pool)
-        .await
+        .fetch_one(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+        Ok(activated_license)
     }
 }
 

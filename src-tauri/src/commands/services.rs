@@ -1,7 +1,7 @@
 //! Service-specific commands
 
 use crate::commands::filters::ServiceFilters;
-use crate::commands::helpers::{build_list_params, CommandContext, ListContext};
+use crate::commands::helpers::CommandContext;
 use crate::error::Result;
 use crate::resources::{PodInfo, ServiceInfo};
 use crate::state::AppState;
@@ -145,7 +145,7 @@ pub async fn get_service_pods(
     // Build label selector string
     let label_selector: String = selector
         .iter()
-        .map(|(k, v)| format!("{}={}", k, v))
+        .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
         .join(",");
 
@@ -161,41 +161,4 @@ pub async fn get_service_pods(
         .collect();
 
     Ok(pod_infos)
-}
-
-/// Port forward configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PortForwardConfig {
-    pub local_port: u16,
-    pub remote_port: u16,
-}
-
-/// Start port forwarding to a service
-#[tauri::command]
-pub async fn port_forward_service(
-    name: String,
-    config: PortForwardConfig,
-    namespace: Option<String>,
-    _state: State<'_, AppState>,
-) -> Result<String> {
-    // TODO: Implement port forwarding
-    // This requires spawning a background task that maintains
-    // the port forward connection
-    Err(crate::error::Error::Internal(format!(
-        "Port forwarding to service {} ({}:{}) not yet implemented",
-        name, config.local_port, config.remote_port
-    )))
-}
-
-/// Stop service port forwarding
-#[tauri::command]
-pub async fn stop_service_port_forward(
-    forward_id: String,
-    _state: State<'_, AppState>,
-) -> Result<()> {
-    // TODO: Implement stopping port forward
-    Err(crate::error::Error::Internal(format!(
-        "Stop port forward {} not yet implemented",
-        forward_id
-    )))
 }

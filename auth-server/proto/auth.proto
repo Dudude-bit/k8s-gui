@@ -7,8 +7,6 @@ service AuthService {
   rpc Login(LoginRequest) returns (AuthResponse);
   rpc Refresh(RefreshRequest) returns (AuthResponse);
   rpc Logout(RefreshRequest) returns (MessageResponse);
-  rpc ForgotPassword(ForgotPasswordRequest) returns (MessageResponse);
-  rpc ResetPassword(ResetPasswordRequest) returns (MessageResponse);
 }
 
 message RegisterRequest {
@@ -23,15 +21,6 @@ message LoginRequest {
 
 message RefreshRequest {
   string refresh_token = 1;
-}
-
-message ForgotPasswordRequest {
-  string email = 1;
-}
-
-message ResetPasswordRequest {
-  string token = 1;
-  string new_password = 2;
 }
 
 message AuthResponse {

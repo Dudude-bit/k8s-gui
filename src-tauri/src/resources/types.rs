@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use k8s_openapi::api::apps::v1::Deployment;
 use k8s_openapi::api::core::v1::{
     ConfigMap, Container, Event, Namespace, Node, NodeCondition, Pod, PodCondition,
-    PodStatus, Secret, Service, ServicePort,
+    PodStatus, Secret, Service,
 };
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use kube::ResourceExt;
@@ -56,12 +56,11 @@ impl From<&Pod> for PodInfo {
         
         let restart_count = status
             .and_then(|s| s.container_statuses.as_ref())
-            .map(|cs| cs.iter().map(|c| c.restart_count).sum())
-            .unwrap_or(0);
+            .map_or(0, |cs| cs.iter().map(|c| c.restart_count).sum());
         
         // Aggregate resource requests and limits from all containers
         let (cpu_requests, cpu_limits, memory_requests, memory_limits) = spec
-            .map(|s| {
+            .map_or((None, None, None, None), |s| {
                 let mut total_cpu_requests_millicores = 0.0f64;
                 let mut total_cpu_limits_millicores = 0.0f64;
                 let mut total_memory_requests_bytes = 0u64;
@@ -100,19 +99,18 @@ impl From<&Pod> for PodInfo {
                     None
                 };
                 let memory_requests = if total_memory_requests_bytes > 0 {
-                    Some(format!("{}", total_memory_requests_bytes))
+                    Some(format!("{total_memory_requests_bytes}"))
                 } else {
                     None
                 };
                 let memory_limits = if total_memory_limits_bytes > 0 {
-                    Some(format!("{}", total_memory_limits_bytes))
+                    Some(format!("{total_memory_limits_bytes}"))
                 } else {
                     None
                 };
                 
                 (cpu_requests, cpu_limits, memory_requests, memory_limits)
-            })
-            .unwrap_or((None, None, None, None));
+            });
         
         Self {
             name: pod.name_any(),
@@ -179,12 +177,11 @@ impl PodStatusInfo {
         let ready = status
             .conditions
             .as_ref()
-            .map(|conds| {
+            .is_some_and(|conds| {
                 conds
                     .iter()
                     .any(|c| c.type_ == "Ready" && c.status == "True")
-            })
-            .unwrap_or(false);
+            });
         
         let conditions = status
             .conditions
@@ -601,12 +598,11 @@ impl From<&Node> for NodeInfo {
         
         let ready = status
             .and_then(|s| s.conditions.as_ref())
-            .map(|conds| {
+            .is_some_and(|conds| {
                 conds
                     .iter()
                     .any(|c| c.type_ == "Ready" && c.status == "True")
-            })
-            .unwrap_or(false);
+            });
         
         let conditions = status
             .and_then(|s| s.conditions.as_ref())
@@ -730,7 +726,7 @@ impl From<&Namespace> for NamespaceInfo {
     }
 }
 
-/// ConfigMap information
+/// `ConfigMap` information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigMapInfo {

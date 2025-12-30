@@ -1,11 +1,9 @@
-//! Workload resource commands (StatefulSets, DaemonSets, Jobs, CronJobs)
+//! Workload resource commands (`StatefulSets`, `DaemonSets`, Jobs, `CronJobs`)
 
-use crate::commands::helpers::ListContext;
 use crate::error::Result;
 use crate::state::AppState;
 use k8s_openapi::api::apps::v1::{DaemonSet, StatefulSet};
 use k8s_openapi::api::batch::v1::{CronJob, Job};
-use kube::api::ListParams;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -214,7 +212,7 @@ pub async fn list_cronjobs(
                 namespace: meta.namespace.unwrap_or_default(),
                 schedule: spec.schedule,
                 suspend: spec.suspend.unwrap_or(false),
-                active: status.active.as_ref().map(|a| a.len() as i32).unwrap_or(0),
+                active: status.active.as_ref().map_or(0, |a| a.len() as i32),
                 last_schedule: status.last_schedule_time.map(|t| t.0.to_rfc3339()),
                 created_at: meta.creation_timestamp.map(|t| t.0.to_rfc3339()),
             }

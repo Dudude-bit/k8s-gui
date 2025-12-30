@@ -8,7 +8,6 @@ use base64::Engine;
 
 /// AWS EKS authentication provider
 pub struct AwsEksAuth {
-    cluster_name: String,
     region: String,
     role_arn: Option<String>,
     profile: Option<String>,
@@ -16,14 +15,13 @@ pub struct AwsEksAuth {
 
 impl AwsEksAuth {
     /// Create a new AWS EKS auth provider
+    #[must_use] 
     pub fn new(
-        cluster_name: String,
         region: String,
         role_arn: Option<String>,
         profile: Option<String>,
     ) -> Self {
         Self {
-            cluster_name,
             region,
             role_arn,
             profile,
@@ -56,8 +54,7 @@ impl AwsEksAuth {
                 .send()
                 .await
                 .map_err(|e| Error::Auth(AuthError::AwsAuth(format!(
-                    "Failed to assume role {}: {}",
-                    role_arn, e
+                    "Failed to assume role {role_arn}: {e}"
                 ))))?;
             
             let creds = assume_role_output
@@ -83,19 +80,19 @@ impl AwsEksAuth {
         Ok(token)
     }
 
-    /// Generate EKS token using presigned STS GetCallerIdentity
+    /// Generate EKS token using presigned STS `GetCallerIdentity`
     async fn generate_eks_token(
         &self,
         config: &aws_config::SdkConfig,
-        credentials: Option<&aws_sdk_sts::config::Credentials>,
+        _credentials: Option<&aws_sdk_sts::config::Credentials>,
     ) -> Result<String> {
-        use aws_sigv4::http_request::{sign, SigningSettings, SignableRequest, SignableBody, SigningParams};
-        use aws_sigv4::sign::v4;
-        use std::time::SystemTime;
+        
+        
+        
         
         // Build the STS GetCallerIdentity request
-        let endpoint = format!("https://sts.{}.amazonaws.com/", self.region);
-        let body = "Action=GetCallerIdentity&Version=2011-06-15";
+        let _endpoint = format!("https://sts.{}.amazonaws.com/", self.region);
+        // Action=GetCallerIdentity&Version=2011-06-15
         
         // Get credentials from config or use provided ones
         let creds_provider = config.credentials_provider()
@@ -105,23 +102,21 @@ impl AwsEksAuth {
         
         let creds = creds_provider.provide_credentials().await
             .map_err(|e| Error::Auth(AuthError::AwsAuth(format!(
-                "Failed to get AWS credentials: {}",
-                e
+                "Failed to get AWS credentials: {e}"
             ))))?;
         
         // Create signing parameters
-        let identity = aws_credential_types::provider::ProvideCredentials::provide_credentials(&creds_provider)
+        let _identity = aws_credential_types::provider::ProvideCredentials::provide_credentials(&creds_provider)
             .await
             .map_err(|e| Error::Auth(AuthError::AwsAuth(format!(
-                "Failed to provide credentials: {}",
-                e
+                "Failed to provide credentials: {e}"
             ))))?;
         
         // For EKS, we need to create a presigned URL with specific headers
         // The token format is: k8s-aws-v1.<base64-encoded-presigned-url>
         
         let now = chrono::Utc::now();
-        let expiry = now + chrono::Duration::minutes(15);
+        let _expiry = now + chrono::Duration::minutes(15);
         
         // Build presigned URL manually
         // This is a simplified version - production code should use aws-sigv4 properly
@@ -175,59 +170,6 @@ impl AuthProvider for AwsEksAuth {
     }
 }
 
-/// Helper to get EKS cluster info
-pub async fn get_eks_cluster_info(
-    cluster_name: &str,
-    region: &str,
-    profile: Option<&str>,
-) -> Result<EksClusterInfo> {
-    use aws_config::BehaviorVersion;
-    
-    let mut config_loader = aws_config::defaults(BehaviorVersion::latest())
-        .region(aws_config::Region::new(region.to_string()));
-    
-    if let Some(profile) = profile {
-        config_loader = config_loader.profile_name(profile);
-    }
-    
-    let aws_config = config_loader.load().await;
-    let eks_client = aws_sdk_eks::Client::new(&aws_config);
-    
-    let cluster = eks_client
-        .describe_cluster()
-        .name(cluster_name)
-        .send()
-        .await
-        .map_err(|e| Error::Auth(AuthError::AwsAuth(format!(
-            "Failed to describe cluster {}: {}",
-            cluster_name, e
-        ))))?;
-    
-    let cluster = cluster
-        .cluster()
-        .ok_or_else(|| Error::Auth(AuthError::AwsAuth(
-            "No cluster info returned".to_string()
-        )))?;
-    
-    Ok(EksClusterInfo {
-        name: cluster.name().unwrap_or_default().to_string(),
-        endpoint: cluster.endpoint().unwrap_or_default().to_string(),
-        certificate_authority: cluster
-            .certificate_authority()
-            .and_then(|ca| ca.data())
-            .map(|s| s.to_string()),
-        version: cluster.version().map(|s| s.to_string()),
-    })
-}
-
-/// EKS cluster information
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct EksClusterInfo {
-    pub name: String,
-    pub endpoint: String,
-    pub certificate_authority: Option<String>,
-    pub version: Option<String>,
-}
 
 #[cfg(test)]
 mod tests {
@@ -236,7 +178,6 @@ mod tests {
     #[test]
     fn test_aws_eks_auth_creation() {
         let auth = AwsEksAuth::new(
-            "my-cluster".to_string(),
             "us-west-2".to_string(),
             None,
             None,

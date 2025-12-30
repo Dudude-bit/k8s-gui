@@ -17,10 +17,6 @@ export {
   type UseResourceCrudConfig,
 } from './useResource';
 
-// Aliases for backward compatibility
-export { useResource as useResourceQuery } from './useResource';
-export { useResourceList as useResourceListQuery } from './useResource';
-
 // Detail page hook
 export {
   useResourceDetail,

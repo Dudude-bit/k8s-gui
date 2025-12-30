@@ -49,6 +49,19 @@ impl Payment {
         .await
     }
 
+    /// Count total payments for a user (for pagination)
+    pub async fn count_by_user_id(
+        pool: &sqlx::PgPool,
+        user_id: Uuid,
+    ) -> Result<i64, sqlx::Error> {
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM payments WHERE user_id = $1"
+        )
+        .bind(user_id)
+        .fetch_one(pool)
+        .await
+    }
+
     pub async fn create(
         pool: &sqlx::PgPool,
         user_id: Uuid,
@@ -73,19 +86,6 @@ impl Payment {
         .bind(&payment_provider)
         .fetch_one(pool)
         .await
-    }
-
-    pub async fn update_status(
-        pool: &sqlx::PgPool,
-        payment_id: Uuid,
-        status: PaymentStatus,
-    ) -> Result<(), sqlx::Error> {
-        sqlx::query("UPDATE payments SET payment_status = $1 WHERE id = $2")
-            .bind(status)
-            .bind(payment_id)
-            .execute(pool)
-            .await?;
-        Ok(())
     }
 
     pub async fn find_by_transaction_id(

@@ -44,6 +44,7 @@ pub struct HelmPlugin {
 
 impl HelmPlugin {
     /// Create a new Helm plugin
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             helm_path: "helm".to_string(),
@@ -51,6 +52,7 @@ impl HelmPlugin {
     }
 
     /// Create with custom helm path
+    #[must_use] 
     pub fn with_helm_path(path: &str) -> Self {
         Self {
             helm_path: path.to_string(),
@@ -110,7 +112,7 @@ impl HelmPlugin {
 
         let releases: Vec<HelmRelease> = serde_json::from_str(&result.stdout)
             .map_err(|e| Error::Plugin(PluginError::ExecutionFailed(
-                format!("Failed to parse helm output: {}", e)
+                format!("Failed to parse helm output: {e}")
             )))?;
 
         Ok(releases)
@@ -129,7 +131,7 @@ impl HelmPlugin {
 
         let history: Vec<HelmRevision> = serde_json::from_str(&result.stdout)
             .map_err(|e| Error::Plugin(PluginError::ExecutionFailed(
-                format!("Failed to parse helm history: {}", e)
+                format!("Failed to parse helm history: {e}")
             )))?;
 
         Ok(history)
@@ -238,15 +240,15 @@ pub struct HelmRevision {
 
 #[async_trait]
 impl PluginCommand for HelmPlugin {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "helm"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Helm release management"
     }
 
-    fn usage(&self) -> &str {
+    fn usage(&self) -> &'static str {
         "helm [list|history|values|upgrade|rollback|uninstall] [options]"
     }
 
@@ -256,7 +258,7 @@ impl PluginCommand for HelmPlugin {
         }
 
         let command = &args[0];
-        let remaining_args: Vec<&str> = args[1..].iter().map(|s| s.as_str()).collect();
+        let remaining_args: Vec<&str> = args[1..].iter().map(std::string::String::as_str).collect();
 
         self.exec_helm(&[command.as_str()].into_iter().chain(remaining_args).collect::<Vec<_>>(), context).await
     }
@@ -264,7 +266,7 @@ impl PluginCommand for HelmPlugin {
 
 #[async_trait]
 impl ContextMenuExtension for HelmPlugin {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "helm"
     }
 
@@ -286,8 +288,7 @@ impl ContextMenuExtension for HelmPlugin {
             .metadata
             .labels
             .get("app.kubernetes.io/managed-by")
-            .map(|v| v == "Helm")
-            .unwrap_or(false);
+            .is_some_and(|v| v == "Helm");
 
         if !has_helm_label {
             return Ok(vec![]);
@@ -301,7 +302,7 @@ impl ContextMenuExtension for HelmPlugin {
             .unwrap_or_default();
 
         Ok(vec![
-            ContextMenuItem::new("helm-values", &format!("View Helm Values ({})", release_name))
+            ContextMenuItem::new("helm-values", &format!("View Helm Values ({release_name})"))
                 .with_icon("settings"),
             ContextMenuItem::new("helm-history", "View Helm History")
                 .with_icon("history"),
@@ -354,7 +355,7 @@ impl ContextMenuExtension for HelmPlugin {
                 self.uninstall(release_name, namespace, context).await
             }
             _ => Err(Error::Plugin(PluginError::ExecutionFailed(
-                format!("Unknown action: {}", action_id)
+                format!("Unknown action: {action_id}")
             ))),
         }
     }
@@ -365,7 +366,7 @@ pub struct HelmReleaseRenderer;
 
 #[async_trait]
 impl ResourceRenderer for HelmReleaseRenderer {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "helm-release"
     }
 
@@ -407,7 +408,7 @@ impl ResourceRenderer for HelmReleaseRenderer {
                 },
                 ResourceField {
                     label: "Chart".to_string(),
-                    value: format!("{}:{}", chart_name, chart_version),
+                    value: format!("{chart_name}:{chart_version}"),
                     value_type: FieldValueType::Code,
                 },
             ],
@@ -477,6 +478,7 @@ impl ResourceRenderer for HelmReleaseRenderer {
 }
 
 /// Get plugin info for Helm
+#[must_use] 
 pub fn helm_plugin_info() -> PluginInfo {
     PluginInfo {
         name: "helm".to_string(),

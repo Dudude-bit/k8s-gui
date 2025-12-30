@@ -18,6 +18,7 @@ use crate::proto::auth::auth_service_server::AuthServiceServer;
 use crate::proto::license::license_service_server::LicenseServiceServer;
 use crate::proto::payment::payment_service_server::PaymentServiceServer;
 use crate::proto::user::user_service_server::UserServiceServer;
+use crate::utils::rate_limit::RateLimiters;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -37,6 +38,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = format!("{}:{}", config.host, config.port).parse()?;
     tracing::info!("Starting gRPC server on {}", addr);
 
+    // Create rate limiters
+    let rate_limiters = Arc::new(RateLimiters::new());
+
     // Create business services
     let auth_service = Arc::new(services::auth::AuthService::new(db_pool.clone(), (*config).clone()));
     let user_service = Arc::new(services::user::UserService::new(db_pool.clone()));
@@ -44,10 +48,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let payment_service = Arc::new(services::payment::PaymentService::new(db_pool.clone()));
 
     // Spawn background tasks for cleanup
-    tasks::spawn_background_tasks(Arc::new(db_pool));
+    tasks::spawn_background_tasks(Arc::new(db_pool), rate_limiters.clone());
 
     // Create gRPC services
-    let auth_grpc = grpc::AuthGrpcService::new(auth_service.clone());
+    let auth_grpc = grpc::AuthGrpcService::new(auth_service.clone(), rate_limiters);
     let license_grpc = grpc::LicenseGrpcService::new(license_service, auth_service.clone());
     let payment_grpc = grpc::PaymentGrpcService::new(payment_service, auth_service.clone(), config);
     let user_grpc = grpc::UserGrpcService::new(user_service, auth_service);

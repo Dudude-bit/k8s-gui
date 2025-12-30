@@ -1,18 +1,8 @@
 //! Plugin management commands
 
-use crate::plugins::{PluginInfo, PluginResult, PluginContext};
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use tauri::State;
-
-/// Kubectl plugin info
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct KubectlPluginInfo {
-    pub name: String,
-    pub path: String,
-    pub description: Option<String>,
-}
 
 /// Helm release info
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24,41 +14,6 @@ pub struct HelmRelease {
     pub chart: String,
     pub app_version: Option<String>,
     pub updated: String,
-}
-
-/// Helm history entry
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HelmHistoryEntry {
-    pub revision: i32,
-    pub status: String,
-    pub chart: String,
-    pub app_version: Option<String>,
-    pub description: String,
-    pub updated: String,
-}
-
-/// Context menu item
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextMenuItem {
-    pub id: String,
-    pub label: String,
-    pub icon: Option<String>,
-    pub shortcut: Option<String>,
-}
-
-/// Resource renderer info
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResourceRendererInfo {
-    pub name: String,
-    pub supported_api_versions: Vec<String>,
-    pub supported_kinds: Vec<String>,
-}
-
-/// Rendered resource
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RenderedResource {
-    pub html: Option<String>,
-    pub sections: Vec<serde_json::Value>,
 }
 
 /// List Helm releases

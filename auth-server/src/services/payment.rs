@@ -9,17 +9,6 @@ use crate::db::models::{Payment, License};
 use crate::db::models::payment::PaymentStatus;
 use crate::db::models::license::SubscriptionType;
 
-/// Payment creation request
-pub struct CreatePaymentRequest {
-    pub user_id: Uuid,
-    pub license_id: Option<Uuid>,
-    pub amount: BigDecimal,
-    pub currency: String,
-    pub status: PaymentStatus,
-    pub transaction_id: Option<String>,
-    pub payment_provider: Option<String>,
-}
-
 pub struct PaymentService {
     pool: PgPool,
 }
@@ -29,33 +18,21 @@ impl PaymentService {
         Self { pool }
     }
 
-    /// Get payment history for user
+    /// Get payment history for user with total count for pagination
     pub async fn get_history(
         &self,
         user_id: Uuid,
         limit: i64,
         offset: i64,
-    ) -> Result<Vec<Payment>> {
-        Ok(Payment::find_by_user_id(&self.pool, user_id, limit, offset).await?)
+    ) -> Result<(Vec<Payment>, i64)> {
+        let payments = Payment::find_by_user_id(&self.pool, user_id, limit, offset).await?;
+        let total = Payment::count_by_user_id(&self.pool, user_id).await?;
+        Ok((payments, total))
     }
 
     /// Check if payment already processed (for idempotency)
     pub async fn find_by_transaction_id(&self, transaction_id: &str) -> Result<Option<Payment>> {
         Ok(Payment::find_by_transaction_id(&self.pool, transaction_id).await?)
-    }
-
-    /// Create payment record
-    pub async fn create(&self, req: CreatePaymentRequest) -> Result<Payment> {
-        Ok(Payment::create(
-            &self.pool,
-            req.user_id,
-            req.license_id,
-            req.amount,
-            &req.currency,
-            req.status,
-            req.transaction_id,
-            req.payment_provider,
-        ).await?)
     }
 
     /// Process webhook payment with license creation/extension

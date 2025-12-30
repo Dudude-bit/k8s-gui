@@ -30,17 +30,6 @@ impl LicenseService {
         Ok(license)
     }
 
-    /// Check if user has valid license
-    pub async fn is_valid(&self, user_id: Uuid) -> Result<bool> {
-        let license = License::find_by_user_id(&self.pool, user_id).await?;
-        Ok(license.map(|l| l.is_valid()).unwrap_or(false))
-    }
-
-    /// Find license by key
-    pub async fn find_by_key(&self, license_key: &str) -> Result<Option<License>> {
-        Ok(License::find_by_license_key(&self.pool, license_key).await?)
-    }
-
     /// Activate license for user
     pub async fn activate(
         &self,
@@ -102,27 +91,5 @@ impl LicenseService {
         }
 
         Ok(license)
-    }
-
-    /// Create a new license
-    pub async fn create(
-        &self,
-        user_id: Uuid,
-        subscription_type: SubscriptionType,
-    ) -> Result<License> {
-        let license_key = Uuid::new_v4().to_string();
-        let expires_at = match subscription_type {
-            SubscriptionType::Monthly => Some(Utc::now() + Duration::days(30)),
-            SubscriptionType::Infinite => None,
-        };
-
-        Ok(License::create(&self.pool, user_id, license_key, subscription_type, expires_at).await?)
-    }
-
-    /// Extend license by months
-    pub async fn extend_monthly(&self, license_id: Uuid, user_id: Uuid, months: i32) -> Result<()> {
-        License::extend_monthly(&self.pool, license_id, user_id, months).await
-            .map_err(|e| AppError::Internal(format!("Failed to extend license: {}", e)))?;
-        Ok(())
     }
 }

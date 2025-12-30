@@ -5,7 +5,7 @@ use crate::plugins::{
     traits::{ContextMenuExtension, PluginCommand, PluginContext, ResourceRenderer},
     kubectl::KubectlPluginManager,
     helm::{HelmPlugin, HelmReleaseRenderer, helm_plugin_info},
-    PluginInfo, PluginResult, PluginType,
+    PluginInfo, PluginResult,
 };
 use crate::resources::GenericResource;
 use dashmap::DashMap;
@@ -102,11 +102,13 @@ impl PluginManager {
     }
 
     /// List all plugins
+    #[must_use] 
     pub fn list_plugins(&self) -> Vec<PluginInfo> {
         self.plugin_info.iter().map(|r| r.value().clone()).collect()
     }
 
     /// Get plugin info by name
+    #[must_use] 
     pub fn get_plugin_info(&self, name: &str) -> Option<PluginInfo> {
         self.plugin_info.get(name).map(|r| r.value().clone())
     }
@@ -138,7 +140,7 @@ impl PluginManager {
     ) -> Result<Vec<(String, Vec<super::traits::ContextMenuItem>)>> {
         let mut all_items = Vec::new();
 
-        for plugin in self.context_menu_plugins.iter() {
+        for plugin in &self.context_menu_plugins {
             let supported = plugin.supported_kinds();
             if supported.is_empty() || supported.contains(&resource.kind) {
                 match plugin.get_menu_items(resource).await {
@@ -177,8 +179,9 @@ impl PluginManager {
     }
 
     /// Find a renderer for a resource
+    #[must_use] 
     pub fn find_renderer(&self, api_version: &str, kind: &str) -> Option<Arc<dyn ResourceRenderer>> {
-        for renderer in self.resource_renderers.iter() {
+        for renderer in &self.resource_renderers {
             if renderer.can_render(api_version, kind) {
                 return Some(renderer.clone());
             }
@@ -231,14 +234,15 @@ impl PluginManager {
     }
 
     /// Check if a plugin is enabled
+    #[must_use] 
     pub fn is_enabled(&self, name: &str) -> bool {
         self.plugin_info
             .get(name)
-            .map(|info| info.enabled)
-            .unwrap_or(false)
+            .is_some_and(|info| info.enabled)
     }
 
     /// Get plugin count
+    #[must_use] 
     pub fn plugin_count(&self) -> PluginCount {
         let kubectl_count = self.kubectl_manager.list().len();
         let command_count = self.command_plugins.len();

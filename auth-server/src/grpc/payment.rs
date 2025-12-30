@@ -12,6 +12,7 @@ use crate::services::payment::PaymentService as PaymentBusinessService;
 use crate::services::auth::AuthService;
 use crate::db::models::payment::PaymentStatus;
 use crate::config::Config;
+use crate::utils::validation::validate_pagination;
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use std::sync::Arc;
@@ -42,8 +43,8 @@ impl PaymentGrpcService {
 
     fn verify_webhook_signature(&self, payload: &[u8], signature: &str) -> bool {
         let Some(ref secret) = self.config.webhook_secret else {
-            log::warn!("WEBHOOK_SECRET not configured");
-            return true;
+            log::error!("WEBHOOK_SECRET not configured - rejecting webhook request");
+            return false;
         };
         
         let Ok(mut mac) = HmacSha256::new_from_slice(secret.as_bytes()) else {
@@ -68,10 +69,10 @@ impl PaymentService for PaymentGrpcService {
         let user_id = self.auth_service.extract_user_id_from_request(&request)?;
         let req = request.into_inner();
         
-        let limit = req.limit.unwrap_or(50).min(100) as i64;
-        let offset = req.offset.unwrap_or(0) as i64;
+        // Validate and sanitize pagination parameters
+        let (limit, offset) = validate_pagination(req.limit, req.offset, 100);
         
-        let payments = self.service.get_history(user_id, limit, offset).await
+        let (payments, total) = self.service.get_history(user_id, limit, offset).await
             .map_err(|e| Status::internal(e.to_string()))?;
         
         let payment_infos: Vec<PaymentInfo> = payments.iter().map(|p| {
@@ -92,8 +93,6 @@ impl PaymentService for PaymentGrpcService {
             }
         }).collect();
         
-        let total = payment_infos.len() as i64;
-        
         Ok(Response::new(PaymentHistoryResponse {
             payments: payment_infos,
             total,
@@ -106,15 +105,21 @@ impl PaymentService for PaymentGrpcService {
     ) -> Result<Response<WebhookResponse>, Status> {
         let req = request.into_inner();
         
-        // Verify signature
-        let payload = serde_json::to_vec(&serde_json::json!({
-            "transaction_id": req.transaction_id,
-            "user_id": req.user_id,
-            "license_id": req.license_id,
-            "amount": req.amount,
-            "currency": req.currency,
-            "status": req.status,
-        })).unwrap_or_default();
+        // Verify signature using raw_payload if provided, otherwise fallback to reconstructed payload
+        // Note: Using raw_payload is strongly recommended for accurate signature verification
+        let payload = if !req.raw_payload.is_empty() {
+            req.raw_payload.clone()
+        } else {
+            log::warn!("Webhook request missing raw_payload - using reconstructed payload (may cause signature mismatch)");
+            serde_json::to_vec(&serde_json::json!({
+                "transaction_id": req.transaction_id,
+                "user_id": req.user_id,
+                "license_id": req.license_id,
+                "amount": req.amount,
+                "currency": req.currency,
+                "status": req.status,
+            })).unwrap_or_default()
+        };
         
         if !self.verify_webhook_signature(&payload, &req.signature) {
             return Err(Status::unauthenticated("Invalid webhook signature"));

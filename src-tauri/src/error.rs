@@ -4,7 +4,6 @@
 //! error scenarios in the application, with proper conversion from library errors.
 
 use serde::{Deserialize, Serialize};
-use std::fmt;
 use thiserror::Error;
 
 /// Application-wide result type
@@ -179,12 +178,12 @@ impl Error {
     /// Get additional details for debugging
     pub fn details(&self) -> Option<String> {
         match self {
-            Error::KubeApi(e) => Some(format!("{:?}", e)),
+            Error::KubeApi(e) => Some(format!("{e:?}")),
             Error::NotFound { kind, name, namespace } => {
-                Some(format!("Kind: {}, Name: {}, Namespace: {}", kind, name, namespace))
+                Some(format!("Kind: {kind}, Name: {name}, Namespace: {namespace}"))
             }
-            Error::Auth(e) => Some(format!("{:?}", e)),
-            Error::Plugin(e) => Some(format!("{:?}", e)),
+            Error::Auth(e) => Some(format!("{e:?}")),
+            Error::Plugin(e) => Some(format!("{e:?}")),
             _ => None,
         }
     }
@@ -251,13 +250,13 @@ impl From<tokio_tungstenite::tungstenite::Error> for Error {
 
 impl From<url::ParseError> for Error {
     fn from(err: url::ParseError) -> Self {
-        Error::InvalidInput(format!("Invalid URL: {}", err))
+        Error::InvalidInput(format!("Invalid URL: {err}"))
     }
 }
 
 impl From<base64::DecodeError> for Error {
     fn from(err: base64::DecodeError) -> Self {
-        Error::Serialization(format!("Base64 decode error: {}", err))
+        Error::Serialization(format!("Base64 decode error: {err}"))
     }
 }
 

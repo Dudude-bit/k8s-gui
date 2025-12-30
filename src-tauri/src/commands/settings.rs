@@ -1,10 +1,8 @@
 //! Settings and configuration commands
 
-use crate::config::AppConfig;
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
 use tauri::State;
-use std::path::PathBuf;
 
 /// Theme configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -2,13 +2,12 @@
 //!
 //! Commands for managing Ingresses and Endpoints.
 
-use crate::commands::helpers::ListContext;
 use crate::error::Result;
 use crate::state::AppState;
 use crate::utils::format_k8s_age;
 use k8s_openapi::api::core::v1::Endpoints;
 use k8s_openapi::api::networking::v1::Ingress;
-use kube::{api::ListParams, ResourceExt};
+use kube::ResourceExt;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -132,9 +131,7 @@ pub async fn list_ingresses(
                                             let backend_service = path
                                                 .backend
                                                 .service
-                                                .as_ref()
-                                                .map(|s| s.name.clone())
-                                                .unwrap_or_else(|| "unknown".to_string());
+                                                .as_ref().map_or_else(|| "unknown".to_string(), |s| s.name.clone());
 
                                             let backend_port = path
                                                 .backend
@@ -143,9 +140,7 @@ pub async fn list_ingresses(
                                                 .and_then(|s| s.port.as_ref())
                                                 .map(|p| {
                                                     p.name.clone().unwrap_or_else(|| {
-                                                        p.number
-                                                            .map(|n| n.to_string())
-                                                            .unwrap_or_else(|| "?".to_string())
+                                                        p.number.map_or_else(|| "?".to_string(), |n| n.to_string())
                                                     })
                                                 })
                                                 .unwrap_or_else(|| "?".to_string());

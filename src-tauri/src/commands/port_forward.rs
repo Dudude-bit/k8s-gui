@@ -86,14 +86,14 @@ async fn forward_connection(
                         local_port,
                         remote_port,
                         status: "error".to_string(),
-                        message: Some(format!("Port-forward failed: {}", err)),
+                        message: Some(format!("Port-forward failed: {err}")),
                         attempt: None,
                     });
                     break;
                 }
 
                 attempt += 1;
-                let backoff = Duration::from_secs((attempt as u64).min(10));
+                let backoff = Duration::from_secs(u64::from(attempt).min(10));
                 let _ = event_tx.send(AppEvent::PortForwardStatus {
                     id: session_id.clone(),
                     pod: pod.clone(),
@@ -183,7 +183,7 @@ pub async fn port_forward_pod(
             local_port,
             remote_port,
             status: "listening".to_string(),
-            message: Some(format!("127.0.0.1:{} -> {}:{}", local_port, pod_for_task, remote_port)),
+            message: Some(format!("127.0.0.1:{local_port} -> {pod_for_task}:{remote_port}")),
             attempt: None,
         });
 
@@ -223,7 +223,7 @@ pub async fn port_forward_pod(
                                 local_port,
                                 remote_port,
                                 status: "error".to_string(),
-                                message: Some(format!("Listener error: {}", err)),
+                                message: Some(format!("Listener error: {err}")),
                                 attempt: None,
                             });
                             break;

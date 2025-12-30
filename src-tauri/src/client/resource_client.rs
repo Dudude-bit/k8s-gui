@@ -10,7 +10,7 @@ use k8s_openapi::api::core::v1::{
 };
 use kube::{
     api::{Api, DeleteParams, ListParams, Patch, PatchParams, PostParams, WatchEvent},
-    Client, Resource, ResourceExt,
+    Client, Resource,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use std::fmt::Debug;
@@ -25,16 +25,19 @@ pub struct ResourceClient {
 
 impl ResourceClient {
     /// Create a new resource client
+    #[must_use] 
     pub fn new(client: Arc<Client>) -> Self {
         Self { client }
     }
 
     /// Get the underlying kube client
+    #[must_use] 
     pub fn inner(&self) -> &Client {
         &self.client
     }
 
     /// Create an API handle for a namespaced resource
+    #[must_use] 
     pub fn namespaced<K>(&self, namespace: &str) -> Api<K>
     where
         K: Resource<Scope = k8s_openapi::NamespaceResourceScope>,
@@ -44,6 +47,7 @@ impl ResourceClient {
     }
 
     /// Create an API handle for a cluster-scoped resource
+    #[must_use] 
     pub fn cluster<K>(&self) -> Api<K>
     where
         K: Resource<Scope = k8s_openapi::ClusterResourceScope>,
@@ -53,6 +57,7 @@ impl ResourceClient {
     }
 
     /// Create an API handle for all namespaces
+    #[must_use] 
     pub fn all_namespaces<K>(&self) -> Api<K>
     where
         K: Resource,
@@ -145,7 +150,7 @@ impl ResourceClient {
         let stream = api
             .watch(&params, "0")
             .await?
-            .map_err(|e| Error::KubeApi(e));
+            .map_err(Error::KubeApi);
         
         Ok(Box::pin(stream))
     }
@@ -236,36 +241,11 @@ impl ResourceClient {
     }
 }
 
-/// Check if a kube error is a NotFound error
+/// Check if a kube error is a `NotFound` error
 fn is_not_found(err: &kube::Error) -> bool {
     matches!(err, kube::Error::Api(resp) if resp.code == 404)
 }
 
-/// Resource metadata for serialization to frontend
-#[derive(Debug, Clone, Serialize)]
-pub struct ResourceMeta {
-    pub name: String,
-    pub namespace: Option<String>,
-    pub uid: String,
-    pub creation_timestamp: Option<String>,
-    pub labels: std::collections::BTreeMap<String, String>,
-    pub annotations: std::collections::BTreeMap<String, String>,
-}
-
-impl<K: ResourceExt> From<&K> for ResourceMeta {
-    fn from(resource: &K) -> Self {
-        Self {
-            name: resource.name_any(),
-            namespace: resource.namespace(),
-            uid: resource.uid().unwrap_or_default(),
-            creation_timestamp: resource
-                .creation_timestamp()
-                .map(|t| t.0.to_rfc3339()),
-            labels: resource.labels().clone(),
-            annotations: resource.annotations().clone(),
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {

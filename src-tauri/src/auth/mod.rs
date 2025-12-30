@@ -14,7 +14,6 @@ mod interactive;
 mod manager;
 mod credentials;
 pub mod license_client;
-pub mod auth_client_hooks;
 
 pub use aws_eks::AwsEksAuth;
 pub use bearer::BearerTokenAuth;
@@ -109,6 +108,7 @@ pub struct AuthResult {
 
 impl AuthResult {
     /// Check if the token is expired
+    #[must_use] 
     pub fn is_expired(&self) -> bool {
         if let Some(expires_at) = self.expires_at {
             expires_at < chrono::Utc::now()
@@ -118,6 +118,7 @@ impl AuthResult {
     }
 
     /// Check if the token will expire soon (within 5 minutes)
+    #[must_use] 
     pub fn expires_soon(&self) -> bool {
         if let Some(expires_at) = self.expires_at {
             expires_at < chrono::Utc::now() + chrono::Duration::minutes(5)

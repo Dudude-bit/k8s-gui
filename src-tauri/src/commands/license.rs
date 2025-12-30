@@ -2,7 +2,7 @@
 
 use crate::error::{Result, Error};
 use crate::auth::license_client::{
-    LicenseClient, LicenseStatus, AuthTokens, 
+    LicenseClient, LicenseStatus, 
     UserProfile, UpdateProfileRequest, PaymentHistoryResponse
 };
 use serde::{Deserialize, Serialize};

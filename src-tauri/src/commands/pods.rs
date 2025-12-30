@@ -1,7 +1,7 @@
 //! Pod-specific commands
 
 use crate::commands::filters::PodFilters;
-use crate::commands::helpers::{build_list_params, CommandContext, ListContext};
+use crate::commands::helpers::CommandContext;
 use crate::error::Result;
 use crate::resources::PodInfo;
 use crate::state::AppState;

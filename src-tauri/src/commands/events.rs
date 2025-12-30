@@ -34,10 +34,10 @@ pub async fn list_events(
     // Build field selector
     let mut field_selectors = Vec::new();
     if let Some(name) = &filters.involved_object_name {
-        field_selectors.push(format!("involvedObject.name={}", name));
+        field_selectors.push(format!("involvedObject.name={name}"));
     }
     if let Some(kind) = &filters.involved_object_kind {
-        field_selectors.push(format!("involvedObject.kind={}", kind));
+        field_selectors.push(format!("involvedObject.kind={kind}"));
     }
     if let Some(custom) = &filters.field_selector {
         field_selectors.push(custom.clone());
@@ -157,7 +157,7 @@ pub async fn get_node_events(node_name: String, state: State<'_, AppState>) -> R
     let ctx = CommandContext::new(&state, Some("default".to_string()))?;
 
     let params = ListParams::default()
-        .fields(&format!("involvedObject.name={},involvedObject.kind=Node", node_name));
+        .fields(&format!("involvedObject.name={node_name},involvedObject.kind=Node"));
 
     let api: kube::Api<Event> = ctx.namespaced_api();
     let list = api.list(&params).await?;
@@ -217,8 +217,7 @@ pub async fn get_event_summary(
         .filter(|e| {
             e.reason
                 .as_ref()
-                .map(|r| r.to_lowercase().contains("error"))
-                .unwrap_or(false)
+                .is_some_and(|r| r.to_lowercase().contains("error"))
         })
         .count();
 

@@ -51,6 +51,7 @@ impl ClusterContext {
     }
 
     /// Set insecure TLS verification
+    #[must_use] 
     pub fn with_insecure_tls(mut self, insecure: bool) -> Self {
         self.insecure_skip_tls_verify = insecure;
         self

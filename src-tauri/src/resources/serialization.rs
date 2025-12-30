@@ -61,6 +61,7 @@ pub struct ResourceList<T> {
 }
 
 impl<T> ResourceList<T> {
+    #[must_use] 
     pub fn new(items: Vec<T>, total: usize, page: usize, per_page: usize) -> Self {
         Self {
             items,
@@ -71,6 +72,7 @@ impl<T> ResourceList<T> {
         }
     }
 
+    #[must_use] 
     pub fn with_continue(mut self, token: Option<String>) -> Self {
         self.continue_token = token;
         self
@@ -120,6 +122,7 @@ pub enum ResourceKind {
 
 impl ResourceKind {
     /// Get the API version for this resource kind
+    #[must_use] 
     pub fn api_version(&self) -> &'static str {
         match self {
             ResourceKind::Pod
@@ -153,6 +156,7 @@ impl ResourceKind {
     }
 
     /// Check if this is a namespaced resource
+    #[must_use] 
     pub fn is_namespaced(&self) -> bool {
         !matches!(
             self,
@@ -166,6 +170,7 @@ impl ResourceKind {
     }
 
     /// Get the plural name for API calls
+    #[must_use] 
     pub fn plural(&self) -> &'static str {
         match self {
             ResourceKind::Pod => "pods",
@@ -224,7 +229,7 @@ impl std::fmt::Display for ResourceKind {
             ResourceKind::CustomResourceDefinition => "CustomResourceDefinition",
             ResourceKind::Custom => "Custom",
         };
-        write!(f, "{}", name)
+        write!(f, "{name}")
     }
 }
 

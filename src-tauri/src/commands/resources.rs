@@ -1,8 +1,7 @@
 //! Generic resource management commands
 
-use crate::resources::{GenericResource, ResourceKind, ResourceList};
 use crate::state::AppState;
-use crate::utils::{normalize_namespace, require_namespace};
+use crate::utils::normalize_namespace;
 use kube::api::ListParams;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -59,7 +58,7 @@ pub async fn list_resources(
                 None => kube::Api::all((*client).clone()),
             };
             let list = api.list(&params).await.map_err(|e| e.to_string())?;
-            list.items.iter().map(|r| serde_json::to_value(r)).collect::<Result<Vec<_>, _>>()
+            list.items.iter().map(serde_json::to_value).collect::<Result<Vec<_>, _>>()
         }
         "Deployment" | "deployments" => {
             let api: kube::Api<k8s_openapi::api::apps::v1::Deployment> = match namespace.as_ref() {
@@ -67,7 +66,7 @@ pub async fn list_resources(
                 None => kube::Api::all((*client).clone()),
             };
             let list = api.list(&params).await.map_err(|e| e.to_string())?;
-            list.items.iter().map(|r| serde_json::to_value(r)).collect::<Result<Vec<_>, _>>()
+            list.items.iter().map(serde_json::to_value).collect::<Result<Vec<_>, _>>()
         }
         "Service" | "services" => {
             let api: kube::Api<k8s_openapi::api::core::v1::Service> = match namespace.as_ref() {
@@ -75,7 +74,7 @@ pub async fn list_resources(
                 None => kube::Api::all((*client).clone()),
             };
             let list = api.list(&params).await.map_err(|e| e.to_string())?;
-            list.items.iter().map(|r| serde_json::to_value(r)).collect::<Result<Vec<_>, _>>()
+            list.items.iter().map(serde_json::to_value).collect::<Result<Vec<_>, _>>()
         }
         "ConfigMap" | "configmaps" => {
             let api: kube::Api<k8s_openapi::api::core::v1::ConfigMap> = match namespace.as_ref() {
@@ -83,7 +82,7 @@ pub async fn list_resources(
                 None => kube::Api::all((*client).clone()),
             };
             let list = api.list(&params).await.map_err(|e| e.to_string())?;
-            list.items.iter().map(|r| serde_json::to_value(r)).collect::<Result<Vec<_>, _>>()
+            list.items.iter().map(serde_json::to_value).collect::<Result<Vec<_>, _>>()
         }
         "Secret" | "secrets" => {
             let api: kube::Api<k8s_openapi::api::core::v1::Secret> = match namespace.as_ref() {
@@ -91,19 +90,19 @@ pub async fn list_resources(
                 None => kube::Api::all((*client).clone()),
             };
             let list = api.list(&params).await.map_err(|e| e.to_string())?;
-            list.items.iter().map(|r| serde_json::to_value(r)).collect::<Result<Vec<_>, _>>()
+            list.items.iter().map(serde_json::to_value).collect::<Result<Vec<_>, _>>()
         }
         "Node" | "nodes" => {
             let api: kube::Api<k8s_openapi::api::core::v1::Node> = 
                 kube::Api::all((*client).clone());
             let list = api.list(&params).await.map_err(|e| e.to_string())?;
-            list.items.iter().map(|r| serde_json::to_value(r)).collect::<Result<Vec<_>, _>>()
+            list.items.iter().map(serde_json::to_value).collect::<Result<Vec<_>, _>>()
         }
         "Namespace" | "namespaces" => {
             let api: kube::Api<k8s_openapi::api::core::v1::Namespace> = 
                 kube::Api::all((*client).clone());
             let list = api.list(&params).await.map_err(|e| e.to_string())?;
-            list.items.iter().map(|r| serde_json::to_value(r)).collect::<Result<Vec<_>, _>>()
+            list.items.iter().map(serde_json::to_value).collect::<Result<Vec<_>, _>>()
         }
         _ => return Err(format!("Unsupported resource kind: {}", query.kind)),
     };

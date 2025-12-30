@@ -4,10 +4,9 @@
 
 use crate::error::{Error, Result};
 use crate::state::AppEvent;
-use futures::StreamExt;
 use k8s_openapi::api::core::v1::Pod;
 use kube::{
-    api::{Api, AttachParams, AttachedProcess},
+    api::{Api, AttachParams},
     Client,
 };
 use serde::{Deserialize, Serialize};
@@ -72,6 +71,7 @@ impl Default for TerminalConfig {
 
 impl TerminalConfig {
     /// Create a new terminal config with shell
+    #[must_use] 
     pub fn shell(pod: &str, namespace: &str) -> Self {
         Self {
             pod: pod.to_string(),
@@ -82,6 +82,7 @@ impl TerminalConfig {
     }
 
     /// Create a new terminal config with bash
+    #[must_use] 
     pub fn bash(pod: &str, namespace: &str) -> Self {
         Self {
             pod: pod.to_string(),
@@ -92,6 +93,7 @@ impl TerminalConfig {
     }
 
     /// Create exec config for a specific command
+    #[must_use] 
     pub fn exec(pod: &str, namespace: &str, command: Vec<String>) -> Self {
         Self {
             pod: pod.to_string(),
@@ -103,19 +105,22 @@ impl TerminalConfig {
     }
 
     /// Set container
+    #[must_use] 
     pub fn with_container(mut self, container: &str) -> Self {
         self.container = Some(container.to_string());
         self
     }
 
     /// Set terminal size
+    #[must_use] 
     pub fn with_size(mut self, width: u16, height: u16) -> Self {
         self.width = width;
         self.height = height;
         self
     }
 
-    /// Convert to kube AttachParams
+    /// Convert to kube `AttachParams`
+    #[must_use] 
     pub fn to_attach_params(&self) -> AttachParams {
         let mut params = AttachParams::default();
         
@@ -180,7 +185,7 @@ impl TerminalSession {
         self.input_tx
             .send(TerminalInput::Data(data.to_string()))
             .await
-            .map_err(|e| Error::Terminal(format!("Failed to send: {}", e)))
+            .map_err(|e| Error::Terminal(format!("Failed to send: {e}")))
     }
 
     /// Resize terminal
@@ -188,7 +193,7 @@ impl TerminalSession {
         self.input_tx
             .send(TerminalInput::Resize { width, height })
             .await
-            .map_err(|e| Error::Terminal(format!("Failed to resize: {}", e)))
+            .map_err(|e| Error::Terminal(format!("Failed to resize: {e}")))
     }
 
     /// Close the session
@@ -207,6 +212,7 @@ pub struct TerminalManager {
 
 impl TerminalManager {
     /// Create a new terminal manager
+    #[must_use] 
     pub fn new(client: Arc<Client>, event_tx: broadcast::Sender<AppEvent>) -> Self {
         Self { client, event_tx }
     }
@@ -218,7 +224,7 @@ impl TerminalManager {
         config: TerminalConfig,
     ) -> Result<(TerminalSession, mpsc::Receiver<TerminalInput>)> {
         let (input_tx, input_rx) = mpsc::channel(100);
-        let (cancel_tx, cancel_rx) = oneshot::channel();
+        let (cancel_tx, _cancel_rx) = oneshot::channel();
         let state = Arc::new(RwLock::new(TerminalState::Connecting));
 
         let session = TerminalSession {
@@ -246,7 +252,7 @@ impl TerminalManager {
         let mut attached = api
             .exec(&config.pod, &config.command, &params)
             .await
-            .map_err(|e| Error::Terminal(format!("Failed to exec: {}", e)))?;
+            .map_err(|e| Error::Terminal(format!("Failed to exec: {e}")))?;
 
         let event_tx = self.event_tx.clone();
         let session_id_clone = session_id.clone();
@@ -365,7 +371,7 @@ impl TerminalManager {
         let mut attached = api
             .exec(&config.pod, &config.command, &params)
             .await
-            .map_err(|e| Error::Terminal(format!("Failed to exec: {}", e)))?;
+            .map_err(|e| Error::Terminal(format!("Failed to exec: {e}")))?;
 
         let mut stdout_data = Vec::new();
         let mut stderr_data = Vec::new();
@@ -373,13 +379,13 @@ impl TerminalManager {
         // Read stdout
         if let Some(mut stdout) = attached.stdout() {
             stdout.read_to_end(&mut stdout_data).await
-                .map_err(|e| Error::Terminal(format!("Failed to read stdout: {}", e)))?;
+                .map_err(|e| Error::Terminal(format!("Failed to read stdout: {e}")))?;
         }
 
         // Read stderr
         if let Some(mut stderr) = attached.stderr() {
             stderr.read_to_end(&mut stderr_data).await
-                .map_err(|e| Error::Terminal(format!("Failed to read stderr: {}", e)))?;
+                .map_err(|e| Error::Terminal(format!("Failed to read stderr: {e}")))?;
         }
 
         // Get exit status

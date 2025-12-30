@@ -3,7 +3,7 @@
 use super::{AuthProvider, AuthResult};
 use crate::error::{AuthError, Error, Result};
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 /// OIDC authentication provider
 pub struct OidcAuth {
@@ -25,14 +25,15 @@ struct TokenResponse {
 
 /// OIDC discovery document
 #[derive(Debug, Deserialize)]
+#[allow(clippy::struct_field_names)]
 struct OidcDiscovery {
     token_endpoint: String,
     authorization_endpoint: String,
-    userinfo_endpoint: Option<String>,
 }
 
 impl OidcAuth {
     /// Create a new OIDC auth provider
+    #[must_use] 
     pub fn new(
         issuer_url: String,
         client_id: String,
@@ -59,12 +60,12 @@ impl OidcAuth {
             .get(&discovery_url)
             .send()
             .await
-            .map_err(|e| Error::Auth(AuthError::Oidc(format!("Discovery failed: {}", e))))?;
+            .map_err(|e| Error::Auth(AuthError::Oidc(format!("Discovery failed: {e}"))))?;
         
         let discovery: OidcDiscovery = response
             .json()
             .await
-            .map_err(|e| Error::Auth(AuthError::Oidc(format!("Invalid discovery document: {}", e))))?;
+            .map_err(|e| Error::Auth(AuthError::Oidc(format!("Invalid discovery document: {e}"))))?;
         
         Ok(discovery)
     }
@@ -89,20 +90,19 @@ impl OidcAuth {
             .form(&params)
             .send()
             .await
-            .map_err(|e| Error::Auth(AuthError::RefreshFailed(format!("Token refresh failed: {}", e))))?;
+            .map_err(|e| Error::Auth(AuthError::RefreshFailed(format!("Token refresh failed: {e}"))))?;
         
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
             return Err(Error::Auth(AuthError::RefreshFailed(format!(
-                "Token refresh failed: {}",
-                error_text
+                "Token refresh failed: {error_text}"
             ))));
         }
         
         let token_response: TokenResponse = response
             .json()
             .await
-            .map_err(|e| Error::Auth(AuthError::RefreshFailed(format!("Invalid token response: {}", e))))?;
+            .map_err(|e| Error::Auth(AuthError::RefreshFailed(format!("Invalid token response: {e}"))))?;
         
         Ok(token_response)
     }
@@ -132,8 +132,10 @@ impl AuthProvider for OidcAuth {
         
         let token_response = self.refresh_token(refresh_token).await?;
         
-        let expires_at = token_response.expires_in.map(|secs| {
-            chrono::Utc::now() + chrono::Duration::seconds(secs as i64)
+        let expires_at = token_response.expires_in.and_then(|secs| {
+            secs.try_into().ok().map(|secs_i64: i64| {
+                chrono::Utc::now() + chrono::Duration::seconds(secs_i64)
+            })
         });
         
         Ok(AuthResult {
@@ -162,6 +164,11 @@ pub struct OidcAuthorizationUrl {
 
 impl OidcAuth {
     /// Generate authorization URL for browser-based flow
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if OIDC discovery fails or if the discovery document
+    /// is invalid or missing required endpoints.
     pub async fn generate_auth_url(&self, redirect_uri: &str) -> Result<OidcAuthorizationUrl> {
         let discovery = self.discover().await?;
         
@@ -193,6 +200,11 @@ impl OidcAuth {
     }
 
     /// Exchange authorization code for tokens
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if OIDC discovery fails, the token exchange request fails,
+    /// or the token response is invalid.
     pub async fn exchange_code(
         &self,
         code: &str,
@@ -219,23 +231,24 @@ impl OidcAuth {
             .form(&params)
             .send()
             .await
-            .map_err(|e| Error::Auth(AuthError::Oidc(format!("Code exchange failed: {}", e))))?;
+            .map_err(|e| Error::Auth(AuthError::Oidc(format!("Code exchange failed: {e}"))))?;
         
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
             return Err(Error::Auth(AuthError::Oidc(format!(
-                "Code exchange failed: {}",
-                error_text
+                "Code exchange failed: {error_text}"
             ))));
         }
         
         let token_response: TokenResponse = response
             .json()
             .await
-            .map_err(|e| Error::Auth(AuthError::Oidc(format!("Invalid token response: {}", e))))?;
+            .map_err(|e| Error::Auth(AuthError::Oidc(format!("Invalid token response: {e}"))))?;
         
-        let expires_at = token_response.expires_in.map(|secs| {
-            chrono::Utc::now() + chrono::Duration::seconds(secs as i64)
+        let expires_at = token_response.expires_in.and_then(|secs| {
+            secs.try_into().ok().map(|secs_i64: i64| {
+                chrono::Utc::now() + chrono::Duration::seconds(secs_i64)
+            })
         });
         
         Ok(AuthResult {

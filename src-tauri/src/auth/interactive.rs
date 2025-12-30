@@ -51,6 +51,12 @@ struct ExecCredentialRequest {
     status: Option<serde_json::Value>,
 }
 
+/// Prepare kubeconfig for a context, handling exec auth if needed
+///
+/// # Errors
+///
+/// Returns an error if the context cannot be resolved, exec authentication fails,
+/// or kubeconfig processing fails.
 pub async fn prepare_kubeconfig_for_context(
     state: &AppState,
     mut kubeconfig: Kubeconfig,
@@ -103,12 +109,12 @@ fn resolve_context(kubeconfig: &Kubeconfig, context_name: &str) -> Result<(Strin
         .iter()
         .find(|ctx| ctx.name == context_name)
         .and_then(|ctx| ctx.context.as_ref())
-        .ok_or_else(|| Error::Config(format!("Context {} not found", context_name)))?;
+        .ok_or_else(|| Error::Config(format!("Context {context_name} not found")))?;
 
     let user = context
         .user
         .clone()
-        .ok_or_else(|| Error::Config(format!("Context {} has no user", context_name)))?;
+        .ok_or_else(|| Error::Config(format!("Context {context_name} has no user")))?;
     Ok((user, context.cluster.clone()))
 }
 
@@ -120,7 +126,7 @@ fn find_auth_info_mut<'a>(
         .auth_infos
         .iter_mut()
         .find(|info| info.name == user_name)
-        .ok_or_else(|| Error::Config(format!("Auth info {} not found", user_name)))?;
+        .ok_or_else(|| Error::Config(format!("Auth info {user_name} not found")))?;
 
     Ok(auth_info.auth_info.get_or_insert_with(AuthInfo::default))
 }
@@ -134,10 +140,10 @@ fn resolve_exec_cluster(
         .iter()
         .find(|cluster| cluster.name == cluster_name)
         .and_then(|cluster| cluster.cluster.as_ref())
-        .ok_or_else(|| Error::Config(format!("Cluster {} not found", cluster_name)))?;
+        .ok_or_else(|| Error::Config(format!("Cluster {cluster_name} not found")))?;
 
     let exec_cluster = ExecAuthCluster::try_from(cluster)
-        .map_err(|e| Error::Config(format!("Failed to load cluster info: {}", e)))?;
+        .map_err(|e| Error::Config(format!("Failed to load cluster info: {e}")))?;
     Ok(Some(exec_cluster))
 }
 
@@ -181,7 +187,7 @@ async fn run_exec_auth(
     };
     cmd.kill_on_drop(true);
     let mut child = cmd.spawn().map_err(|e| {
-        Error::Auth(AuthError::Kubeconfig(format!("Exec auth failed to start: {}", e)))
+        Error::Auth(AuthError::Kubeconfig(format!("Exec auth failed to start: {e}")))
     })?;
 
     let mut stdout = child.stdout.take();
@@ -190,7 +196,7 @@ async fn run_exec_auth(
         let status = child
             .wait()
             .await
-            .map_err(|e| Error::Auth(AuthError::Kubeconfig(format!("Exec auth failed: {}", e))))?;
+            .map_err(|e| Error::Auth(AuthError::Kubeconfig(format!("Exec auth failed: {e}"))))?;
         let stdout_buf = read_stream(&mut stdout).await?;
         let stderr_buf = read_stream(&mut stderr).await?;
         Ok::<ExecOutput, Error>(ExecOutput {
@@ -209,14 +215,14 @@ async fn run_exec_auth(
         tokio::select! {
             result = &mut output_task => {
                 let output = result
-                    .map_err(|e| Error::Auth(AuthError::Kubeconfig(format!("Exec auth task failed: {}", e))))??;
+                    .map_err(|e| Error::Auth(AuthError::Kubeconfig(format!("Exec auth task failed: {e}"))))??;
                 break output;
             }
             _ = interval.tick() => {
                 if !url_emitted {
                     if let Ok(url) = read_auth_url(&url_file).await {
                         if !url.is_empty() && url != last_url {
-                            last_url = url.clone();
+                            last_url.clone_from(&url);
                             url_emitted = true;
                             state.emit(AppEvent::AuthUrlRequested {
                                 context: context.to_string(),
@@ -274,7 +280,7 @@ async fn run_exec_auth(
     }
 
     let creds: ExecCredential = serde_json::from_slice(&output.stdout)
-        .map_err(|e| Error::Auth(AuthError::Kubeconfig(format!("Invalid exec credentials: {}", e))))?;
+        .map_err(|e| Error::Auth(AuthError::Kubeconfig(format!("Invalid exec credentials: {e}"))))?;
     let status = creds.status.ok_or_else(|| {
         Error::Auth(AuthError::Kubeconfig("Exec credentials missing status".to_string()))
     })?;
@@ -310,19 +316,17 @@ async fn run_oidc_auth(
     let config = &provider.config;
     let issuer_url = config
         .get("idp-issuer-url")
-        .ok_or_else(|| Error::Auth(AuthError::Oidc("Missing issuer URL".to_string())))?
-        .to_string();
+        .ok_or_else(|| Error::Auth(AuthError::Oidc("Missing issuer URL".to_string())))?.clone();
     let client_id = config
         .get("client-id")
-        .ok_or_else(|| Error::Auth(AuthError::Oidc("Missing client ID".to_string())))?
-        .to_string();
+        .ok_or_else(|| Error::Auth(AuthError::Oidc("Missing client ID".to_string())))?.clone();
     let client_secret = config.get("client-secret").cloned();
     let scopes = parse_scopes(config);
 
     let auth = OidcAuth::new(issuer_url, client_id, client_secret, scopes);
     let listener = TcpListener::bind(("127.0.0.1", 0)).await?;
     let redirect_port = listener.local_addr()?.port();
-    let redirect_uri = format!("http://127.0.0.1:{}/callback", redirect_port);
+    let redirect_uri = format!("http://127.0.0.1:{redirect_port}/callback");
 
     let auth_url = auth.generate_auth_url(&redirect_uri).await?;
     let (session_id, mut cancel_rx) = state.create_auth_session(context, "oidc");
@@ -348,7 +352,7 @@ async fn run_oidc_auth(
             });
             return Err(Error::Auth(AuthError::Oidc("Authentication cancelled".to_string())));
         }
-        _ = tokio::time::sleep(Duration::from_secs(180)) => {
+        () = tokio::time::sleep(Duration::from_secs(180)) => {
             state.remove_auth_session(&session_id);
             state.emit(AppEvent::AuthFlowCompleted {
                 session_id,
@@ -405,7 +409,7 @@ fn parse_scopes(config: &HashMap<String, String>) -> Vec<String> {
         .get("extra-scopes")
         .map(|scopes| {
             scopes
-                .split(|c| c == ',' || c == ' ')
+                .split([',', ' '])
                 .filter(|s| !s.trim().is_empty())
                 .map(|s| s.trim().to_string())
                 .collect::<Vec<String>>()
@@ -415,9 +419,9 @@ fn parse_scopes(config: &HashMap<String, String>) -> Vec<String> {
 
 fn build_exec_command(
     exec: &ExecConfig,
-    browser_script: &PathBuf,
-    url_file: &PathBuf,
-    bin_dir: &PathBuf,
+    browser_script: &std::path::Path,
+    url_file: &std::path::Path,
+    bin_dir: &std::path::Path,
     exec_cluster: Option<ExecAuthCluster>,
 ) -> Result<Command> {
     let command = exec
@@ -433,7 +437,7 @@ fn build_exec_command(
     if let Some(env) = &exec.env {
         let envs = env
             .iter()
-            .flat_map(|env| match (env.get("name"), env.get("value")) {
+            .filter_map(|env| match (env.get("name"), env.get("value")) {
                 (Some(name), Some(value)) => Some((name, value)),
                 _ => None,
             });
@@ -451,7 +455,7 @@ fn build_exec_command(
         status: None,
     };
     let exec_info = serde_json::to_string(&exec_info)
-        .map_err(|e| Error::Auth(AuthError::Kubeconfig(format!("Exec info serialize failed: {}", e))))?;
+        .map_err(|e| Error::Auth(AuthError::Kubeconfig(format!("Exec info serialize failed: {e}"))))?;
 
     cmd.env("KUBERNETES_EXEC_INFO", exec_info);
     cmd.env("K8S_GUI_AUTH_URL_FILE", url_file);
@@ -621,8 +625,8 @@ async fn wait_for_oidc_callback(listener: TcpListener) -> Result<OidcCallback> {
         .next()
         .and_then(|line| line.split_whitespace().nth(1))
         .unwrap_or("/");
-    let url = Url::parse(&format!("http://localhost{}", path))
-        .map_err(|e| Error::Auth(AuthError::Oidc(format!("OIDC callback parse failed: {}", e))))?;
+    let url = Url::parse(&format!("http://localhost{path}"))
+        .map_err(|e| Error::Auth(AuthError::Oidc(format!("OIDC callback parse failed: {e}"))))?;
 
     let mut code = None;
     let mut state = None;

@@ -180,8 +180,6 @@ fn main() {
             commands::services::delete_service,
             commands::services::get_service_endpoints,
             commands::services::get_service_pods,
-            commands::services::port_forward_service,
-            commands::services::stop_service_port_forward,
 
             // Port-forward commands
             commands::port_forward::port_forward_pod,
