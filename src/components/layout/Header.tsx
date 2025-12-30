@@ -37,7 +37,6 @@ import { LicenseStatusBadge } from "@/components/license/LicenseStatusBadge";
 import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
-import { invoke } from "@tauri-apps/api/core";
 import { useAuthStore } from "@/stores/authStore";
 
 export function Header() {

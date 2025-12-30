@@ -7,7 +7,7 @@
  * - Consistent layout structure
  */
 
-import React from "react";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -118,7 +118,7 @@ export function DetailError({
  */
 interface InfoRowProps {
   label: string;
-  value: React.ReactNode;
+  value: ReactNode;
   className?: string;
 }
 
@@ -138,8 +138,8 @@ export function InfoRow({ label, value, className }: InfoRowProps) {
  */
 interface InfoCardProps {
   title: string;
-  icon?: React.ReactNode;
-  children: React.ReactNode;
+  icon?: ReactNode;
+  children: ReactNode;
   className?: string;
   contentClassName?: string;
 }
@@ -233,7 +233,7 @@ export function ConditionsDisplay({
 export interface DetailTab {
   id: string;
   label: string;
-  content: React.ReactNode;
+  content: ReactNode;
 }
 
 /**
@@ -256,13 +256,13 @@ interface ResourceDetailLayoutProps {
   /** Namespace */
   namespace?: string;
   /** Status badge */
-  statusBadge?: React.ReactNode;
+  statusBadge?: ReactNode;
   /** Additional badges */
-  badges?: React.ReactNode;
+  badges?: ReactNode;
   /** Action buttons */
-  actions?: React.ReactNode;
+  actions?: ReactNode;
   /** Header icon */
-  icon?: React.ReactNode;
+  icon?: ReactNode;
 
   /** Go back callback */
   onBack: () => void;
@@ -288,7 +288,7 @@ interface ResourceDetailLayoutProps {
   conditions?: Condition[];
 
   /** Additional content below tabs */
-  children?: React.ReactNode;
+  children?: ReactNode;
 }
 
 /**

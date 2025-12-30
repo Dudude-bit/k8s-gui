@@ -1,6 +1,9 @@
 import { create } from "zustand";
-import { invokeTyped } from "@/lib/tauri";
-import type { PortForwardSessionPayload } from "@/types/tauri";
+import * as commands from "@/generated/commands";
+import type {
+  PortForwardSessionInfo,
+  PortForwardRequest,
+} from "@/generated/types";
 
 const CONFIG_STORAGE_KEY = "k8s-gui.port-forward.configs";
 
@@ -88,16 +91,16 @@ function saveConfigsToStorage(configs: PortForwardConfig[]) {
   }
 }
 
-function mapSession(payload: PortForwardSessionPayload): PortForwardSession {
+function mapSession(payload: PortForwardSessionInfo): PortForwardSession {
   return {
     id: payload.id,
     context: payload.context,
     pod: payload.pod,
     namespace: payload.namespace,
-    localPort: payload.local_port,
-    remotePort: payload.remote_port,
-    autoReconnect: payload.auto_reconnect,
-    createdAt: payload.created_at,
+    localPort: payload.localPort,
+    remotePort: payload.remotePort,
+    autoReconnect: payload.autoReconnect,
+    createdAt: payload.createdAt,
   };
 }
 
@@ -142,8 +145,7 @@ export const usePortForwardStore = create<PortForwardState>((set, get) => ({
   },
 
   refreshSessions: async () => {
-    const sessions =
-      await invokeTyped<PortForwardSessionPayload[]>("list_port_forwards");
+    const sessions = await commands.listPortForwards();
     set({ sessions: sessions.map(mapSession) });
   },
 
@@ -153,17 +155,16 @@ export const usePortForwardStore = create<PortForwardState>((set, get) => ({
       throw new Error("Port-forward config not found");
     }
 
-    const session = await invokeTyped<PortForwardSessionPayload>(
-      "port_forward_pod",
-      {
-        pod: config.pod,
-        namespace: config.namespace,
-        config: {
-          local_port: config.localPort,
-          remote_port: config.remotePort,
-          auto_reconnect: config.autoReconnect,
-        },
-      }
+    const portForwardConfig: PortForwardRequest = {
+      localPort: config.localPort,
+      remotePort: config.remotePort,
+      autoReconnect: config.autoReconnect,
+    };
+
+    const session = await commands.portForwardPod(
+      config.pod,
+      config.namespace,
+      portForwardConfig
     );
 
     const mapped = mapSession(session);
@@ -174,7 +175,7 @@ export const usePortForwardStore = create<PortForwardState>((set, get) => ({
   },
 
   stopSession: async (sessionId) => {
-    await invokeTyped<void>("stop_port_forward", { forwardId: sessionId });
+    await commands.stopPortForward(sessionId);
     set((state) => ({
       sessions: state.sessions.filter((session) => session.id !== sessionId),
     }));

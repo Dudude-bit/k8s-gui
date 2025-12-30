@@ -51,14 +51,11 @@ export { useToast, toast } from "./use-toast";
 export {
   StatusBadge,
   ConditionBadge,
-  ResourceTypeBadge,
   statusBadgeVariants,
 } from "./status-badge";
 export type {
   StatusBadgeProps,
   ConditionBadgeProps,
-  ResourceTypeBadgeProps,
-  ResourceType,
 } from "./status-badge";
 
 export {

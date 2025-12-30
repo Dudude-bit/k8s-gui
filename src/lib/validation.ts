@@ -1,9 +1,14 @@
 /**
  * Client-side validation utilities
  *
- * All validation functions delegate to Tauri backend commands.
- * Validation logic is centralized in k8s-gui-common (Rust) for consistency.
+ * These functions use Tauri commands that delegate to k8s-gui-common/src/validation.rs,
+ * ensuring consistency across all projects (src-tauri, auth-server, and frontend).
+ *
+ * All validation logic is centralized in k8s-gui-common for a single source of truth.
  */
+
+import * as commands from "@/generated/commands";
+import { normalizeTauriError } from "./error-utils";
 
 export interface ValidationResult {
   isValid: boolean;
@@ -12,26 +17,30 @@ export interface ValidationResult {
 
 /**
  * Validate email format
- * Delegates to Tauri backend command for validation
+ *
+ * Uses Tauri command that delegates to k8s-gui-common/src/validation.rs::validate_email
+ * for consistency across all projects.
  *
  * @param email - Email address to validate
  * @returns Validation result with isValid flag and optional error message
  */
-export function validateEmail(email: string): ValidationResult {
-  if (!email || email.trim() === "") {
-    return { isValid: false, error: "Email is required" };
+export async function validateEmail(email: string): Promise<ValidationResult> {
+  try {
+    await commands.validateEmailCommand(email);
+    return { isValid: true };
+  } catch (error) {
+    return {
+      isValid: false,
+      error: normalizeTauriError(error),
+    };
   }
-  if (!email.includes("@") || !email.includes(".")) {
-    return { isValid: false, error: "Please enter a valid email address" };
-  }
-  if (email.length > 255) {
-    return { isValid: false, error: "Email is too long (max 255 characters)" };
-  }
-  return { isValid: true };
 }
 
 /**
  * Password strength requirements
+ *
+ * Synchronized with: k8s-gui-common/src/validation.rs::PasswordRequirements
+ * These values must match the Rust implementation.
  */
 export const PASSWORD_REQUIREMENTS = {
   minLength: 8,
@@ -45,62 +54,23 @@ export const PASSWORD_REQUIREMENTS = {
 
 /**
  * Validate password strength
- * Synced with: auth-server/src/utils/password.rs:validate_password_strength
+ *
+ * Uses Tauri command that delegates to k8s-gui-common/src/validation.rs::validate_password
+ * for consistency across all projects.
+ *
+ * @param password - Password to validate
+ * @returns Validation result with isValid flag and optional error message
  */
-export function validatePassword(password: string): ValidationResult {
-  if (!password) {
-    return { isValid: false, error: "Password is required" };
-  }
-
-  if (password.length < PASSWORD_REQUIREMENTS.minLength) {
+export async function validatePassword(password: string): Promise<ValidationResult> {
+  try {
+    await commands.validatePasswordCommand(password);
+    return { isValid: true };
+  } catch (error) {
     return {
       isValid: false,
-      error: `Password must be at least ${PASSWORD_REQUIREMENTS.minLength} characters`,
+      error: normalizeTauriError(error),
     };
   }
-
-  if (password.length > PASSWORD_REQUIREMENTS.maxLength) {
-    return {
-      isValid: false,
-      error: `Password must be at most ${PASSWORD_REQUIREMENTS.maxLength} characters`,
-    };
-  }
-
-  if (PASSWORD_REQUIREMENTS.requireLowercase && !/[a-z]/.test(password)) {
-    return {
-      isValid: false,
-      error: "Password must contain at least one lowercase letter",
-    };
-  }
-
-  if (PASSWORD_REQUIREMENTS.requireUppercase && !/[A-Z]/.test(password)) {
-    return {
-      isValid: false,
-      error: "Password must contain at least one uppercase letter",
-    };
-  }
-
-  if (PASSWORD_REQUIREMENTS.requireDigit && !/\d/.test(password)) {
-    return {
-      isValid: false,
-      error: "Password must contain at least one digit",
-    };
-  }
-
-  if (PASSWORD_REQUIREMENTS.requireSpecial) {
-    const hasSpecial = PASSWORD_REQUIREMENTS.specialChars
-      .split("")
-      .some((char) => password.includes(char));
-    if (!hasSpecial) {
-      return {
-        isValid: false,
-        error:
-          "Password must contain at least one special character (!@#$%^&*()_+-=[]{}|;:,.<>?)",
-      };
-    }
-  }
-
-  return { isValid: true };
 }
 
 /**
@@ -141,35 +111,23 @@ export function getPasswordStrength(password: string): {
 
 /**
  * Validate license key format (UUID format)
- * Synced with: auth-server/src/utils/validation.rs:validate_license_key
+ *
+ * Uses Tauri command that delegates to k8s-gui-common/src/validation.rs::validate_license_key
+ * for consistency across all projects.
+ *
+ * @param licenseKey - License key to validate (must be in UUID format)
+ * @returns Validation result with isValid flag and optional error message
  */
-export function validateLicenseKey(licenseKey: string): ValidationResult {
-  if (!licenseKey || licenseKey.trim() === "") {
-    return { isValid: false, error: "License key is required" };
-  }
-
-  const trimmedKey = licenseKey.trim();
-
-  // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars)
-  if (trimmedKey.length !== 36) {
+export async function validateLicenseKey(licenseKey: string): Promise<ValidationResult> {
+  try {
+    await commands.validateLicenseKeyCommand(licenseKey);
+    return { isValid: true };
+  } catch (error) {
     return {
       isValid: false,
-      error:
-        "Invalid license key format. Expected UUID format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)",
+      error: normalizeTauriError(error),
     };
   }
-
-  // Validate UUID format with regex
-  const uuidRegex =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!uuidRegex.test(trimmedKey)) {
-    return {
-      isValid: false,
-      error: "Invalid license key format",
-    };
-  }
-
-  return { isValid: true };
 }
 
 /**

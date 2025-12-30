@@ -15,23 +15,6 @@ pub struct TerminalSessionInfo {
     pub created_at: String,
 }
 
-/// Exec command result
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ExecResult {
-    pub stdout: String,
-    pub stderr: String,
-    pub exit_code: Option<i32>,
-}
-
-/// Copy operation result
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CopyResult {
-    pub success: bool,
-    pub bytes_copied: Option<u64>,
-    pub error: Option<String>,
-}
 
 /// Send input to terminal session
 #[tauri::command]

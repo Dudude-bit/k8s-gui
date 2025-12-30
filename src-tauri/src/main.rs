@@ -7,7 +7,12 @@
 
 use k8s_gui_lib::{commands, state::AppState};
 use tauri::{Emitter, Manager};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use k8s_gui_common::init_tracing;
+
+/// Default auth server URL
+///
+/// Can be overridden by the `VITE_AUTH_SERVER_URL` environment variable.
+const DEFAULT_AUTH_SERVER_URL: &str = "http://localhost:8080";
 
 fn main() {
     // Install rustls crypto provider before any TLS operations
@@ -16,18 +21,11 @@ fn main() {
         .expect("Failed to install rustls crypto provider");
 
     // Initialize tracing
-    tracing_subscriber::registry()
-        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    init_tracing();
 
     tracing::info!("Starting K8s GUI application");
 
-    /// Default auth server URL
-    const DEFAULT_AUTH_SERVER_URL: &str = "http://localhost:8080";
-
-    // Default auth server URL (can be overridden by env var if needed, but for now hardcoded default)
-    // In production, this should likely be a compile-time constant or config
+    // Load auth server URL from environment variable or use default
     let auth_server_url = std::env::var("VITE_AUTH_SERVER_URL")
         .unwrap_or_else(|_| DEFAULT_AUTH_SERVER_URL.to_string());
     let license_client = k8s_gui_lib::auth::license_client::LicenseClient::new(auth_server_url);
@@ -225,6 +223,7 @@ fn main() {
             // Log commands
             commands::logs::get_pod_logs,
             commands::logs::stop_log_stream,
+            commands::logs::stream_pod_logs,
 
             // Terminal/Exec commands
             commands::terminal::terminal_input,
@@ -242,6 +241,8 @@ fn main() {
             commands::registry::set_registry_credentials,
             commands::registry::delete_registry_credentials,
             commands::registry::get_registry_auth_status,
+            commands::registry::import_docker_config,
+            commands::registry::search_registry_images,
 
             // Authentication commands
             commands::auth::cancel_auth_session,
@@ -280,6 +281,11 @@ fn main() {
             commands::workloads::list_daemonsets,
             commands::workloads::list_jobs,
             commands::workloads::list_cronjobs,
+
+            // Validation commands
+            commands::validation::validate_email_command,
+            commands::validation::validate_password_command,
+            commands::validation::validate_license_key_command,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

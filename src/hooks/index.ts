@@ -21,10 +21,6 @@ export {
 export {
   useResourceDetail,
   isResourceNotFoundError,
-  type UseResourceDetailOptions,
-  type UseResourceDetailResult,
-  type DetailLoadingProps,
-  type DetailErrorProps,
 } from "./useResourceDetail";
 
 // Specialized hooks

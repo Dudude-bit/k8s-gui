@@ -1,8 +1,8 @@
-import { invoke } from "@tauri-apps/api/core";
 import { create } from "zustand";
 
 import type { ClusterContext } from "@/types/kubernetes";
 import { normalizeTauriError } from "@/lib/error-utils";
+import * as commands from "@/generated/commands";
 
 interface ClusterState {
   contexts: ClusterContext[];
@@ -39,8 +39,16 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
   loadContexts: async () => {
     set({ isLoading: true, error: null, errorContext: null });
     try {
-      const contexts = await invoke<ClusterContext[]>("list_contexts");
-      const currentContext = await invoke<string | null>("get_current_context");
+      const contextInfos = await commands.listContexts();
+      // Convert ContextInfo[] to ClusterContext[]
+      const contexts: ClusterContext[] = contextInfos.map((ctx) => ({
+        name: ctx.name,
+        cluster: ctx.cluster,
+        user: ctx.user,
+        namespace: ctx.namespace ?? undefined,
+        is_current: ctx.isCurrent,
+      }));
+      const currentContext = await commands.getCurrentContext();
       set({ contexts, currentContext, isLoading: false });
     } catch (error) {
       set({
@@ -68,7 +76,7 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
     // Don't set isLoading for namespace switch - it causes flickering
     // Just update the namespace immediately, queries will refetch automatically
     try {
-      await invoke("switch_namespace", { namespace });
+      await commands.switchNamespace(namespace);
       set({ currentNamespace: namespace });
     } catch (error) {
       set({
@@ -92,7 +100,7 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
 
     const previousContext = get().currentContext;
     if (previousContext && previousContext !== targetContext) {
-      invoke("disconnect_cluster", { context: previousContext }).catch(() => {
+      commands.disconnectCluster(previousContext).catch(() => {
         // Best-effort cleanup to avoid stale auth sessions.
       });
     }
@@ -114,9 +122,7 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
       connectionAttemptId: attemptId,
     });
     try {
-      const info = await invoke<{ context: string }>("connect_cluster", {
-        context: targetContext,
-      });
+      const info = await commands.connectCluster(targetContext);
       if (get().connectionAttemptId !== attemptId) {
         return;
       }
@@ -148,7 +154,7 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
     const { currentContext } = get();
     if (currentContext) {
       try {
-        await invoke("disconnect_cluster", { context: currentContext });
+        await commands.disconnectCluster(currentContext);
       } catch (error) {
         console.error("Error disconnecting:", error);
       }

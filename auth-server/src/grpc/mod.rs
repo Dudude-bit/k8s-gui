@@ -8,7 +8,8 @@ pub mod license;
 pub mod payment;
 pub mod user;
 
-// Re-export all gRPC services for easy access
+// Re-export all gRPC services for easy access.
+// These re-exports provide a convenient public API for service registration in main.rs.
 pub use auth::AuthGrpcService;
 pub use license::LicenseGrpcService;
 pub use payment::PaymentGrpcService;

@@ -4,8 +4,8 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useClusterStore } from "@/stores/clusterStore";
-import { invokeTyped } from "@/lib/tauri";
-import type { ResourceListItem } from "@/types/tauri";
+import * as commands from "@/generated/commands";
+import type { ResourceQuery } from "@/generated/types";
 import {
   Box,
   Network,
@@ -196,32 +196,22 @@ export function CommandPalette() {
         const results = await Promise.all(
           kinds.map(async (resource) => {
             try {
-              const queryParams: Record<string, unknown> = {
+              const queryParams: ResourceQuery = {
                 kind: resource.kind,
                 limit: 200,
+                namespace: resource.namespaced ? (namespace || null) : null,
+                name: null,
+                labelSelector: null,
+                fieldSelector: null,
               };
-              // For namespaced resources, pass namespace (null/undefined means all namespaces)
-              // For cluster-scoped resources, don't pass namespace
-              if (resource.namespaced) {
-                // Pass null explicitly for "all namespaces", or the namespace string for a specific namespace
-                queryParams.namespace = namespace || null;
-              }
 
               console.log(
                 `[CommandPalette] Searching ${resource.kind} with query:`,
                 queryParams
               );
 
-              // In Tauri v2, when a command takes a single struct parameter (besides State),
-              // the parameter name must match. Since the Rust function signature is:
-              // list_resources(query: ResourceQuery, state: State)
-              // we need to pass { query: { kind, namespace, limit } }
-              const items = await invokeTyped<ResourceListItem[]>(
-                "list_resources",
-                {
-                  query: queryParams,
-                }
-              );
+              // Use generated command with proper typing
+              const items = await commands.listResources(queryParams);
 
               console.log(
                 `[CommandPalette] Received ${items?.length || 0} items for ${resource.kind}`,

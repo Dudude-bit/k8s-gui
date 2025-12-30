@@ -1,6 +1,6 @@
 //! Tauri commands module
 //!
-//! Exposes Rust functionality to the frontend via Tauri commands.
+//! This module exposes Rust functionality to the frontend via Tauri commands.
 
 pub mod filters;
 pub mod helpers;
@@ -29,7 +29,8 @@ pub mod terminal;
 pub mod validation;
 pub mod workloads;
 
-// Re-export all commands for easy registration
+// Re-export all commands for easy registration.
+// These re-exports provide a convenient public API for command registration in main.rs.
 pub use auth::*;
 pub use cluster::*;
 pub use config_resources::*;

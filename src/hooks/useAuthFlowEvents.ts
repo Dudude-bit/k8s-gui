@@ -1,10 +1,10 @@
 import React, { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { invoke } from "@tauri-apps/api/core";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { open } from "@tauri-apps/plugin-shell";
 import { useToast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
+import * as commands from "@/generated/commands";
 
 interface AuthUrlRequestedPayload {
   context: string;
@@ -165,11 +165,9 @@ export function useAuthFlowEvents() {
                     altText: "Cancel authentication",
                     onClick: () => {
                       console.log("Cancelling auth session:", sessionId);
-                      invoke("cancel_auth_session", { sessionId }).catch(
-                        (e) => {
-                          console.error("Failed to cancel auth session:", e);
-                        }
-                      );
+                      commands.cancelAuthSession(sessionId).catch((e) => {
+                        console.error("Failed to cancel auth session:", e);
+                      });
                     },
                   },
                   "Cancel"
@@ -197,12 +195,12 @@ export function useAuthFlowEvents() {
                     "Failed to open authentication window. Please try again.",
                   variant: "destructive",
                 });
-                invoke("cancel_auth_session", { sessionId }).catch(() => {});
+                commands.cancelAuthSession(sessionId).catch(() => {});
               });
 
               window
                 .onCloseRequested(async () => {
-                  await invoke("cancel_auth_session", { sessionId });
+                  await commands.cancelAuthSession(sessionId);
                 })
                 .catch(() => {
                   // ignore
@@ -217,7 +215,7 @@ export function useAuthFlowEvents() {
               description: "Could not open authentication. Please try again.",
               variant: "destructive",
             });
-            await invoke("cancel_auth_session", { sessionId }).catch(() => {});
+            await commands.cancelAuthSession(sessionId).catch(() => {});
           }
         }
       );

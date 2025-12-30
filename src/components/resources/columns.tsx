@@ -113,7 +113,7 @@ export function createAgeColumn<T extends WithCreatedAt>(): ColumnDef<T> {
  */
 export function createCpuColumn<
   T extends WithCpuUsage & Partial<WithCpuLimits>,
->(options?: { showProgressBar?: boolean }): ColumnDef<T> {
+>(): ColumnDef<T> {
   return {
     id: "cpu",
     header: "CPU",
@@ -130,7 +130,7 @@ export function createCpuColumn<
  */
 export function createMemoryColumn<
   T extends WithMemoryUsage & Partial<WithMemoryLimits>,
->(options?: { showProgressBar?: boolean }): ColumnDef<T> {
+>(): ColumnDef<T> {
   return {
     id: "memory",
     header: "Memory",
