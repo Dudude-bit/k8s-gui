@@ -36,7 +36,7 @@ pub async fn terminal_input(
 
 /// Resize terminal session
 #[tauri::command]
-pub async fn terminal_resize(
+pub fn terminal_resize(
     session_id: String,
     cols: u16,
     rows: u16,
@@ -56,7 +56,7 @@ pub async fn terminal_resize(
 
 /// Close terminal session
 #[tauri::command]
-pub async fn close_terminal(session_id: String, state: State<'_, AppState>) -> Result<(), String> {
+pub fn close_terminal(session_id: String, state: State<'_, AppState>) -> Result<(), String> {
     // Remove input channel (this will cause the stdin writer task to exit)
     state.terminal_inputs.remove(&session_id);
 

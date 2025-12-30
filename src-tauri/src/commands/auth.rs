@@ -15,7 +15,7 @@ pub struct AuthResultResponse {
 
 /// Cancel an active auth session
 #[tauri::command]
-pub async fn cancel_auth_session(
+pub fn cancel_auth_session(
     session_id: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {

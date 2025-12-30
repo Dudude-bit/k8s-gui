@@ -311,14 +311,6 @@ export interface EventFilters {
   limit: number | null;
 }
 
-export interface EventSummary {
-  total: number;
-  normal: number;
-  warning: number;
-  error: number;
-  recentWarnings: EventInfo[];
-}
-
 export interface RegistryAuth {
   authType: string;
   username: string | null;

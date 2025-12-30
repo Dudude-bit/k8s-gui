@@ -62,7 +62,7 @@ impl AuthManager {
 
                 // Start auto-refresh if supported
                 if result.expires_at.is_some() {
-                    self.start_auto_refresh(context).await;
+                    self.start_auto_refresh(context);
                 }
 
                 Ok(result)
@@ -209,7 +209,7 @@ impl AuthManager {
     }
 
     /// Start automatic token refresh
-    async fn start_auto_refresh(&self, context: &str) {
+    fn start_auto_refresh(&self, context: &str) {
         let context = context.to_string();
 
         // Cancel existing refresh task

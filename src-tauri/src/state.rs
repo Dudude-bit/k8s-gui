@@ -362,7 +362,7 @@ impl AppState {
     }
 
     /// Cancel all active watches
-    pub async fn cancel_all_watches(&self) {
+    pub fn cancel_all_watches(&self) {
         let keys: Vec<_> = self
             .watch_subscriptions
             .iter()
@@ -376,7 +376,7 @@ impl AppState {
     }
 
     /// Cancel all log streams
-    pub async fn cancel_all_log_streams(&self) {
+    pub fn cancel_all_log_streams(&self) {
         let keys: Vec<_> = self.log_streams.iter().map(|r| r.key().clone()).collect();
         for key in keys {
             if let Some((_, stream)) = self.log_streams.remove(&key) {

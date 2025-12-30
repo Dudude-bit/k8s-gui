@@ -162,7 +162,7 @@ pub async fn connect_cluster(context: String, state: State<'_, AppState>) -> Res
 
 /// Disconnect from a cluster
 #[tauri::command]
-pub async fn disconnect_cluster(context: String, state: State<'_, AppState>) -> Result<()> {
+pub fn disconnect_cluster(context: String, state: State<'_, AppState>) -> Result<()> {
     state.client_manager.disconnect(&context);
     state.remove_session(&context);
 

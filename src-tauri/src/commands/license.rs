@@ -41,7 +41,7 @@ pub async fn login_user(
 
 /// Logout user (clears tokens from keychain)
 #[tauri::command]
-pub async fn logout_user(state: tauri::State<'_, LicenseClient>) -> Result<()> {
+pub fn logout_user(state: tauri::State<'_, LicenseClient>) -> Result<()> {
     state.clear_auth();
     Ok(())
 }

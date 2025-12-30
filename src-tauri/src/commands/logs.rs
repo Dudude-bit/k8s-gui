@@ -127,7 +127,7 @@ pub async fn get_pod_logs(
 
 /// Stop log streaming
 #[tauri::command]
-pub async fn stop_log_stream(stream_id: String, state: State<'_, AppState>) -> Result<(), String> {
+pub fn stop_log_stream(stream_id: String, state: State<'_, AppState>) -> Result<(), String> {
     if let Some((_, log_stream)) = state.log_streams.remove(&stream_id) {
         let _ = log_stream.cancel_tx.send(());
         tracing::info!("Log stream {} stopped", stream_id);

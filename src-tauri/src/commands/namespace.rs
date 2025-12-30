@@ -27,7 +27,7 @@ pub async fn list_namespaces(state: State<'_, AppState>) -> Result<Vec<Namespace
 
 /// Get current namespace for the active context
 #[tauri::command]
-pub async fn get_current_namespace(state: State<'_, AppState>) -> Result<String, String> {
+pub fn get_current_namespace(state: State<'_, AppState>) -> Result<String, String> {
     let context = state
         .get_current_context()
         .ok_or_else(|| "No cluster connected".to_string())?;
@@ -37,7 +37,7 @@ pub async fn get_current_namespace(state: State<'_, AppState>) -> Result<String,
 
 /// Switch to a different namespace
 #[tauri::command]
-pub async fn switch_namespace(namespace: String, state: State<'_, AppState>) -> Result<(), String> {
+pub fn switch_namespace(namespace: String, state: State<'_, AppState>) -> Result<(), String> {
     let context = state
         .get_current_context()
         .ok_or_else(|| "No cluster connected".to_string())?;

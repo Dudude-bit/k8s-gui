@@ -180,7 +180,7 @@ fn load_saved_auth(registry_id: &str) -> Result<Option<RegistryAuth>, String> {
 }
 
 #[tauri::command]
-pub async fn import_docker_config() -> Result<Vec<RegistryImportEntry>, String> {
+pub fn import_docker_config() -> Result<Vec<RegistryImportEntry>, String> {
     let path = docker_config_path()?;
     let raw = fs::read_to_string(&path)
         .map_err(|e| format!("Failed to read Docker config at {}: {}", path.display(), e))?;
@@ -430,7 +430,7 @@ async fn search_harbor(
 }
 
 #[tauri::command]
-pub async fn set_registry_credentials(
+pub fn set_registry_credentials(
     registry_id: String,
     auth: RegistryAuth,
 ) -> Result<(), String> {
@@ -445,14 +445,14 @@ pub async fn set_registry_credentials(
 }
 
 #[tauri::command]
-pub async fn delete_registry_credentials(registry_id: String) -> Result<(), String> {
+pub fn delete_registry_credentials(registry_id: String) -> Result<(), String> {
     let store = CredentialStore::new();
     let key = registry_key(&registry_id);
     store.delete(&key).map_err(|e: Error| e.to_string())
 }
 
 #[tauri::command]
-pub async fn get_registry_auth_status(
+pub fn get_registry_auth_status(
     registry_id: String,
 ) -> Result<Option<RegistryAuthStatus>, String> {
     let auth = load_saved_auth(&registry_id)?;

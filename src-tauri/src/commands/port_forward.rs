@@ -267,7 +267,7 @@ pub async fn port_forward_pod(
 
 /// Stop a running port-forward session
 #[tauri::command]
-pub async fn stop_port_forward(
+pub fn stop_port_forward(
     forward_id: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
@@ -280,7 +280,7 @@ pub async fn stop_port_forward(
 
 /// List active port-forward sessions
 #[tauri::command]
-pub async fn list_port_forwards(
+pub fn list_port_forwards(
     state: State<'_, AppState>,
 ) -> Result<Vec<PortForwardSessionInfo>, String> {
     let sessions = state
