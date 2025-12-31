@@ -31,6 +31,10 @@ pub async fn get_nodes_metrics(
 
 /// Get aggregated cluster metrics
 #[tauri::command]
-pub async fn get_cluster_metrics(state: State<'_, AppState>) -> Result<ClusterMetrics> {
+pub async fn get_cluster_metrics(
+    state: State<'_, AppState>,
+    license: State<'_, LicenseClient>,
+) -> Result<ClusterMetrics> {
+    license.require_premium_license().await?;
     crate::metrics::get_cluster_metrics(&state).await
 }

@@ -1,6 +1,6 @@
 //! Events commands
 
-use crate::commands::helpers::ListContext;
+use crate::commands::helpers::ResourceContext;
 use crate::error::Result;
 use crate::resources::EventInfo;
 use crate::state::AppState;
@@ -27,7 +27,7 @@ pub async fn list_events(
     state: State<'_, AppState>,
 ) -> Result<Vec<EventInfo>> {
     let filters = filters.unwrap_or_default();
-    let ctx = ListContext::new(&state, filters.namespace)?;
+    let ctx = ResourceContext::for_list(&state, filters.namespace)?;
 
     let mut params = ListParams::default();
 
@@ -54,11 +54,7 @@ pub async fn list_events(
     }
 
     // Use namespaced API when namespace is provided for proper filtering
-    let api: kube::Api<Event> = if ctx.namespace.is_some() {
-        ctx.namespaced_api()
-    } else {
-        ctx.api()
-    };
+    let api: kube::Api<Event> = ctx.namespaced_or_cluster_api();
     let list = api.list(&params).await?;
 
     let mut events: Vec<EventInfo> = list.items.iter().map(EventInfo::from).collect();
@@ -73,4 +69,3 @@ pub async fn list_events(
 
     Ok(events)
 }
-

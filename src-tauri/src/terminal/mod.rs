@@ -2,6 +2,7 @@
 //!
 //! Provides interactive terminal sessions inside Kubernetes containers.
 
+use crate::commands::helpers::ResourceContext;
 use crate::error::{Error, Result};
 use crate::state::AppEvent;
 use k8s_openapi::api::core::v1::Pod;
@@ -261,7 +262,8 @@ impl TerminalManager {
         mut input_rx: mpsc::Receiver<TerminalInput>,
         mut cancel_rx: oneshot::Receiver<()>,
     ) -> Result<()> {
-        let api: Api<Pod> = Api::namespaced((*self.client).clone(), &config.namespace);
+        let ctx = ResourceContext::from_client((*self.client).clone(), config.namespace.clone());
+        let api: Api<Pod> = ctx.namespaced_api();
         let params = config.to_attach_params();
 
         let mut attached = api
@@ -372,7 +374,8 @@ impl TerminalManager {
 
     /// Execute a command and return output (non-interactive)
     pub async fn exec(&self, config: &TerminalConfig) -> Result<ExecResult> {
-        let api: Api<Pod> = Api::namespaced((*self.client).clone(), &config.namespace);
+        let ctx = ResourceContext::from_client((*self.client).clone(), config.namespace.clone());
+        let api: Api<Pod> = ctx.namespaced_api();
 
         let params = AttachParams {
             stdin: false,

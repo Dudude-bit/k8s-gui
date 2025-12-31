@@ -29,6 +29,7 @@ pub mod storage;
 pub mod terminal;
 pub mod validation;
 pub mod workloads;
+pub mod logging;
 
 // Re-export all commands for easy registration.
 // These re-exports provide a convenient public API for command registration in main.rs.
@@ -56,3 +57,4 @@ pub use storage::*;
 pub use terminal::*;
 pub use validation::*;
 pub use workloads::*;
+pub use logging::*;

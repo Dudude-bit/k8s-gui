@@ -5,10 +5,11 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Server, Cpu, HardDrive, MemoryStick } from "lucide-react";
+import { Server, Cpu, HardDrive, MemoryStick, Lock } from "lucide-react";
 import { formatKubernetesBytes } from "@/lib/utils";
 import { useNodeMetrics } from "@/hooks/useNodeMetrics";
 import { MetricCard } from "@/components/ui/metric-card";
+import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { ResourceDetailHeader } from "@/components/resources/ResourceDetailHeader";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
@@ -19,6 +20,7 @@ import { normalizeTauriError } from "@/lib/error-utils";
 export function NodeDetail() {
   const { name } = useParams<{ name: string }>();
   const navigate = useNavigate();
+  const { hasAccess } = usePremiumFeature();
 
   const {
     data: node,
@@ -100,6 +102,18 @@ export function NodeDetail() {
     return external?.address || "-";
   };
 
+  const renderPremiumMetricCard = (title: string) => (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        <Lock className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent>
+        <div className="text-sm text-muted-foreground">Premium feature</div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Header */}
@@ -123,33 +137,41 @@ export function NodeDetail() {
 
       {/* Resource Cards */}
       <div className="grid gap-4 md:grid-cols-4">
-        <MetricCard
-          title="CPU Usage"
-          used={nodeWithMetrics?.cpuUsage ?? null}
-          total={node.capacity.cpu ?? null}
-          type="cpu"
-          icon={<Cpu className="h-4 w-4" />}
-          showProgressBar={true}
-          description={
-            node.allocatable.cpu
-              ? `Allocatable: ${node.allocatable.cpu}`
-              : undefined
-          }
-        />
+        {hasAccess ? (
+          <MetricCard
+            title="CPU Usage"
+            used={nodeWithMetrics?.cpuUsage ?? null}
+            total={node.capacity.cpu ?? null}
+            type="cpu"
+            icon={<Cpu className="h-4 w-4" />}
+            showProgressBar={true}
+            description={
+              node.allocatable.cpu
+                ? `Allocatable: ${node.allocatable.cpu}`
+                : undefined
+            }
+          />
+        ) : (
+          renderPremiumMetricCard("CPU Usage")
+        )}
 
-        <MetricCard
-          title="Memory Usage"
-          used={nodeWithMetrics?.memoryUsage ?? null}
-          total={node.capacity.memory ?? null}
-          type="memory"
-          icon={<MemoryStick className="h-4 w-4" />}
-          showProgressBar={true}
-          description={
-            node.allocatable.memory
-              ? `Allocatable: ${formatKubernetesBytes(node.allocatable.memory)}`
-              : undefined
-          }
-        />
+        {hasAccess ? (
+          <MetricCard
+            title="Memory Usage"
+            used={nodeWithMetrics?.memoryUsage ?? null}
+            total={node.capacity.memory ?? null}
+            type="memory"
+            icon={<MemoryStick className="h-4 w-4" />}
+            showProgressBar={true}
+            description={
+              node.allocatable.memory
+                ? `Allocatable: ${formatKubernetesBytes(node.allocatable.memory)}`
+                : undefined
+            }
+          />
+        ) : (
+          renderPremiumMetricCard("Memory Usage")
+        )}
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

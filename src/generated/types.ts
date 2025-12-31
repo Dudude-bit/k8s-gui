@@ -25,6 +25,7 @@ export interface LicenseStatus {
   hasLicense: boolean;
   licenseKey: string | null;
   subscriptionType: string | null;
+  expiresAt: string | null;
   isValid: boolean;
 }
 

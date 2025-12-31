@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import * as commands from "@/generated/commands";
 import type { LogLine, StreamLogConfig } from "@/generated/types";
-import { normalizeTauriError } from "@/lib/error-utils";
+import { normalizeTauriError, isPremiumFeatureError } from "@/lib/error-utils";
 
 interface LogViewerProps {
   podName: string;
@@ -58,8 +58,8 @@ export function LogViewer({
   // Filter logs based on search
   const filteredLogs = searchQuery
     ? logs.filter((log) =>
-        log.message.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      log.message.toLowerCase().includes(searchQuery.toLowerCase())
+    )
     : logs;
 
   // Get the actual scroll viewport element
@@ -177,6 +177,14 @@ export function LogViewer({
     } catch (err) {
       console.error("Failed to start log streaming:", err);
       const errorMsg = normalizeTauriError(err);
+
+      // Check if this is a premium feature error
+      if (isPremiumFeatureError(errorMsg)) {
+        setError("Log streaming is a premium feature. Please activate your license to use real-time log streaming.");
+        setIsConnecting(false);
+        setIsStreaming(false);
+        return;
+      }
 
       // Check if pod was not found
       const isPodNotFound =

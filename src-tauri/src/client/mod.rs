@@ -15,10 +15,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 mod context;
-mod resource_client;
-
 pub use context::{ClusterContext, ContextInfo};
-pub use resource_client::ResourceClient;
 
 /// Manages Kubernetes client connections for multiple clusters
 pub struct K8sClientManager {
@@ -291,11 +288,6 @@ impl K8sClientManager {
         })
     }
 
-    /// Create a resource client for a specific context
-    pub async fn resource_client(&self, context: &str) -> Result<ResourceClient> {
-        let client = self.connect(context).await?;
-        Ok(ResourceClient::new(client))
-    }
 }
 
 impl Default for K8sClientManager {

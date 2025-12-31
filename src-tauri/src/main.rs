@@ -274,6 +274,9 @@ fn main() {
             commands::manifest::apply_manifest,
             commands::manifest::delete_manifest,
             commands::manifest::get_manifest,
+
+            // Logging commands
+            commands::logging::log_frontend_event,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -2,8 +2,11 @@
 
 use crate::error::{Error, Result};
 use crate::state::AppState;
+use crate::utils::normalize_optional_namespace;
+use kube::api::DynamicObject;
 use kube::api::DeleteParams;
 use kube::api::ListParams;
+use kube::discovery::{ApiCapabilities, ApiResource, Scope};
 use kube::Resource;
 use kube::{Api, Client};
 use tauri::State;
@@ -43,49 +46,14 @@ pub fn build_list_params(
     params
 }
 
-/// Context for namespaced resource commands
-pub struct CommandContext {
-    pub client: Client,
-    pub namespace: String,
-}
-
-impl CommandContext {
-    pub fn new(state: &State<'_, AppState>, namespace: Option<String>) -> Result<Self> {
-        let context = state
-            .get_current_context()
-            .ok_or_else(|| Error::Internal("No cluster connected".to_string()))?;
-
-        let client = state
-            .client_manager
-            .get_client(&context)
-            .ok_or_else(|| Error::Internal("Client not found".to_string()))
-            .map(|c| (*c).clone())?;
-
-        let namespace = namespace
-            .or_else(|| Some(state.get_namespace(&context)))
-            .unwrap_or_else(|| "default".to_string());
-
-        Ok(CommandContext { client, namespace })
-    }
-
-    #[must_use]
-    pub fn namespaced_api<K>(&self) -> Api<K>
-    where
-        K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope>,
-        K::DynamicType: Default,
-    {
-        Api::namespaced(self.client.clone(), &self.namespace)
-    }
-}
-
-/// Context for cluster-scoped or namespaced list commands
-pub struct ListContext {
+/// Context for Kubernetes API access with optional namespace scope.
+pub struct ResourceContext {
     pub client: Client,
     pub namespace: Option<String>,
 }
 
-impl ListContext {
-    pub fn new(state: &State<'_, AppState>, namespace: Option<String>) -> Result<Self> {
+impl ResourceContext {
+    pub fn for_command(state: &State<'_, AppState>, namespace: Option<String>) -> Result<Self> {
         let context = state
             .get_current_context()
             .ok_or_else(|| Error::Internal("No cluster connected".to_string()))?;
@@ -96,29 +64,42 @@ impl ListContext {
             .ok_or_else(|| Error::Internal("Client not found".to_string()))
             .map(|c| (*c).clone())?;
 
-        let namespace = namespace.or_else(|| Some(state.get_namespace(&context)));
+        let namespace = normalize_optional_namespace(namespace)
+            .or_else(|| normalize_optional_namespace(Some(state.get_namespace(&context))))
+            .unwrap_or_else(|| "default".to_string());
 
-        Ok(ListContext { client, namespace })
+        Ok(ResourceContext {
+            client,
+            namespace: Some(namespace),
+        })
     }
 
-    /// Get API for a resource.
-    /// When namespace is Some, this uses `Api::all()` which doesn't filter by namespace.
-    /// For proper namespace filtering with namespaced resources, use `namespaced_api()` instead.
+    pub fn for_list(state: &State<'_, AppState>, namespace: Option<String>) -> Result<Self> {
+        let context = state
+            .get_current_context()
+            .ok_or_else(|| Error::Internal("No cluster connected".to_string()))?;
+
+        let client = state
+            .client_manager
+            .get_client(&context)
+            .ok_or_else(|| Error::Internal("Client not found".to_string()))
+            .map(|c| (*c).clone())?;
+
+        let namespace = normalize_optional_namespace(namespace);
+
+        Ok(ResourceContext { client, namespace })
+    }
+
     #[must_use]
-    pub fn api<K>(&self) -> Api<K>
-    where
-        K: kube::Resource,
-        K::DynamicType: Default,
-    {
-        // BUG FIX: This should use Api::namespaced() when namespace is Some, but we can't
-        // conditionally call Api::namespaced() without a trait bound. Callers with a namespace
-        // should use namespaced_api() instead for proper filtering.
-        Api::all(self.client.clone())
+    pub fn from_client(client: Client, namespace: String) -> Self {
+        let namespace = normalize_optional_namespace(Some(namespace))
+            .unwrap_or_else(|| "default".to_string());
+        ResourceContext {
+            client,
+            namespace: Some(namespace),
+        }
     }
 
-    /// Get namespaced API for a resource when namespace filtering is needed.
-    /// Use this when you have a namespace and K is a namespaced resource.
-    /// This properly filters resources to the specified namespace.
     #[must_use]
     pub fn namespaced_api<K>(&self) -> Api<K>
     where
@@ -130,6 +111,60 @@ impl ListContext {
             .as_deref()
             .expect("namespaced_api() requires namespace to be Some");
         Api::namespaced(self.client.clone(), namespace)
+    }
+
+    #[must_use]
+    pub fn namespaced_api_for<K>(&self, namespace: &str) -> Api<K>
+    where
+        K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope>,
+        K::DynamicType: Default,
+    {
+        Api::namespaced(self.client.clone(), namespace)
+    }
+
+    #[must_use]
+    pub fn namespaced_or_cluster_api<K>(&self) -> Api<K>
+    where
+        K: kube::Resource<Scope = k8s_openapi::NamespaceResourceScope>,
+        K::DynamicType: Default,
+    {
+        if self.namespace.is_some() {
+            self.namespaced_api()
+        } else {
+            self.cluster_api()
+        }
+    }
+
+    #[must_use]
+    pub fn dynamic_api(
+        &self,
+        api_resource: &ApiResource,
+        caps: &ApiCapabilities,
+    ) -> Api<DynamicObject> {
+        match caps.scope {
+            Scope::Namespaced => match self.namespace.as_deref() {
+                Some(ns) => Api::namespaced_with(self.client.clone(), ns, api_resource),
+                None => Api::all_with(self.client.clone(), api_resource),
+            },
+            Scope::Cluster => Api::all_with(self.client.clone(), api_resource),
+        }
+    }
+
+    #[must_use]
+    pub fn dynamic_api_for_resource(
+        &self,
+        api_resource: &ApiResource,
+        is_cluster_scoped: bool,
+    ) -> Api<DynamicObject> {
+        if is_cluster_scoped {
+            Api::all_with(self.client.clone(), api_resource)
+        } else {
+            let namespace = self
+                .namespace
+                .as_deref()
+                .expect("dynamic_api_for_resource() requires namespace for namespaced resources");
+            Api::namespaced_with(self.client.clone(), namespace, api_resource)
+        }
     }
 
     #[must_use]
@@ -155,7 +190,7 @@ where
         + std::fmt::Debug,
     K::DynamicType: Default,
 {
-    let ctx = CommandContext::new(&state, namespace)?;
+    let ctx = ResourceContext::for_command(&state, namespace)?;
     let api: Api<K> = ctx.namespaced_api();
     let resource = api.get(&name).await?;
 
@@ -177,7 +212,7 @@ where
         + serde::de::DeserializeOwned,
     K::DynamicType: Default,
 {
-    let ctx = CommandContext::new(&state, namespace)?;
+    let ctx = ResourceContext::for_command(&state, namespace)?;
     let api: Api<K> = ctx.namespaced_api();
     let params = delete_params.unwrap_or_default();
     api.delete(&name, &params).await?;
@@ -229,7 +264,7 @@ where
         + serde::de::DeserializeOwned,
     K::DynamicType: Default,
 {
-    let ctx = CommandContext::new(&state, namespace)?;
+    let ctx = ResourceContext::for_command(&state, namespace)?;
     let api: Api<K> = ctx.namespaced_api();
     api.get(&name).await.map_err(Error::from)
 }
@@ -249,7 +284,7 @@ where
         + serde::de::DeserializeOwned,
     K::DynamicType: Default,
 {
-    let ctx = ListContext::new(&state, namespace)?;
+    let ctx = ResourceContext::for_list(&state, namespace)?;
     let params = build_list_params(label_selector, field_selector, limit);
 
     let api: Api<K> = if ctx.namespace.is_some() {
@@ -277,7 +312,7 @@ where
         + serde::de::DeserializeOwned,
     K::DynamicType: Default,
 {
-    let ctx = ListContext::new(&state, None)?;
+    let ctx = ResourceContext::for_list(&state, None)?;
     let params = build_list_params(label_selector, field_selector, limit);
 
     let api: Api<K> = ctx.cluster_api();

@@ -88,6 +88,10 @@ export async function getManifest(kind: string, apiVersion: string, name: string
   return invoke<string>("get_manifest", { kind, apiVersion, name, namespace });
 }
 
+export async function logFrontendEvent(level: string, message: string, context: string | null, data: unknown | null): Promise<void> {
+  return invoke<void>("log_frontend_event", { level, message, context, data });
+}
+
 export async function cancelAuthSession(sessionId: string): Promise<void> {
   return invoke<void>("cancel_auth_session", { sessionId });
 }

@@ -1,12 +1,3 @@
-/**
- * Pod Metrics Hook
- *
- * Fetches CPU and memory metrics for pods with real-time updates.
- * Automatically refreshes every 8 seconds.
- *
- * @module hooks/usePodMetrics
- */
-
 import {
   useQuery,
   keepPreviousData,
@@ -14,7 +5,8 @@ import {
 } from "@tanstack/react-query";
 import * as commands from "@/generated/commands";
 import { PodMetrics } from "@/generated/types";
-import { normalizeTauriError } from "@/lib/error-utils";
+import { handlePremiumQueryError } from "@/lib/error-utils";
+import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 
 export type { PodMetrics } from "@/generated/types";
 
@@ -37,13 +29,17 @@ export function usePodMetrics(
   namespace: string | null | undefined,
   options?: Omit<UseQueryOptions<PodMetrics[]>, "queryKey" | "queryFn">
 ) {
+  const { hasAccess } = usePremiumFeature();
+  const enabled = (options?.enabled ?? true) && hasAccess;
+
   return useQuery({
     queryKey: ["pod-metrics", namespace],
     queryFn: async () => {
       try {
         return await commands.getPodsMetrics(namespace ?? null);
       } catch (err) {
-        throw new Error(normalizeTauriError(err));
+        // Metrics are a premium feature - return empty array if not licensed
+        return handlePremiumQueryError(err, []);
       }
     },
     refetchInterval: 8000, // 8 seconds for real-time updates
@@ -51,5 +47,6 @@ export function usePodMetrics(
     staleTime: 5000,
     refetchOnWindowFocus: false,
     ...options,
+    enabled,
   });
 }

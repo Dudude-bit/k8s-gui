@@ -19,17 +19,21 @@ pub fn format_k8s_age(created_at: Option<&Time>) -> String {
 /// Normalize namespace input, returning None for "all namespaces".
 #[must_use]
 pub fn normalize_namespace(namespace: Option<String>, fallback: String) -> Option<String> {
-    if let Some(ns) = namespace {
-        if ns.trim().is_empty() {
+    normalize_optional_namespace(namespace)
+        .or_else(|| normalize_optional_namespace(Some(fallback)))
+}
+
+/// Normalize optional namespace input, returning None for empty/whitespace.
+#[must_use]
+pub fn normalize_optional_namespace(namespace: Option<String>) -> Option<String> {
+    namespace.and_then(|ns| {
+        let trimmed = ns.trim();
+        if trimmed.is_empty() {
             None
         } else {
-            Some(ns)
+            Some(trimmed.to_string())
         }
-    } else if fallback.trim().is_empty() {
-        None
-    } else {
-        Some(fallback)
-    }
+    })
 }
 
 /// Require a concrete namespace, returning an error when "all namespaces" is selected.
@@ -90,6 +94,20 @@ mod tests {
             Some("default".to_string())
         );
         assert_eq!(normalize_namespace(None, "".to_string()), None);
+    }
+
+    #[test]
+    fn test_normalize_optional_namespace() {
+        assert_eq!(
+            normalize_optional_namespace(Some("default".to_string())),
+            Some("default".to_string())
+        );
+        assert_eq!(normalize_optional_namespace(Some(" ".to_string())), None);
+        assert_eq!(
+            normalize_optional_namespace(Some(" kube-system ".to_string())),
+            Some("kube-system".to_string())
+        );
+        assert_eq!(normalize_optional_namespace(None), None);
     }
 
     #[test]

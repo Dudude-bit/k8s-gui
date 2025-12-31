@@ -78,12 +78,6 @@ export function Helm() {
     queryKey: ["helm-releases"],
     queryFn: async () => {
       try {
-        // listHelmReleases(namespace). Passing null usually implies all namespaces or default namespace logic from backend.
-        // Original call was: invoke<HelmRelease[]>("list_helm_releases", { namespace: null, allNamespaces: true });
-        // The generated `listHelmReleases` takes only `namespace`.
-        // If the backend implementation of `list_helm_releases` checks for a separate `allNamespaces` argument that IS NOT in the function signature,
-        // then we might be losing that flag.
-        // However, typically in this project, `namespace: null` implies all namespaces.
         return await commands.listHelmReleases(null);
       } catch (err) {
         throw normalizeTauriError(err);

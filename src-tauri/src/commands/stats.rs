@@ -1,11 +1,12 @@
 //! Cluster statistics commands
 
+use crate::commands::helpers::ResourceContext;
 use crate::error::{Error, Result};
 use crate::state::AppState;
-use crate::utils::normalize_namespace;
 use k8s_openapi::api::apps::v1::Deployment;
 use k8s_openapi::api::core::v1::{Node, Pod, Service};
-use kube::{api::ListParams, Api};
+use kube::api::ListParams;
+use kube::Api;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -60,45 +61,19 @@ pub async fn get_cluster_stats(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<ClusterStats> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| Error::Internal("No cluster connected".to_string()))?;
-
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| Error::Internal("Client not found".to_string()))?;
-
+    let ctx = ResourceContext::for_list(&state, namespace)?;
     let params = ListParams::default();
-    let namespace = normalize_namespace(namespace, state.get_namespace(&context));
+    let pods_api: Api<Pod> = ctx.namespaced_or_cluster_api();
+    let deployments_api: Api<Deployment> = ctx.namespaced_or_cluster_api();
+    let services_api: Api<Service> = ctx.namespaced_or_cluster_api();
+    let nodes_api: Api<Node> = ctx.cluster_api();
 
     // Fetch all resources in parallel
     let (pods_result, deployments_result, services_result, nodes_result) = tokio::join!(
-        async {
-            let api: Api<Pod> = match namespace.as_ref() {
-                Some(ns) => Api::namespaced((*client).clone(), ns),
-                None => Api::all((*client).clone()),
-            };
-            api.list(&params).await
-        },
-        async {
-            let api: Api<Deployment> = match namespace.as_ref() {
-                Some(ns) => Api::namespaced((*client).clone(), ns),
-                None => Api::all((*client).clone()),
-            };
-            api.list(&params).await
-        },
-        async {
-            let api: Api<Service> = match namespace.as_ref() {
-                Some(ns) => Api::namespaced((*client).clone(), ns),
-                None => Api::all((*client).clone()),
-            };
-            api.list(&params).await
-        },
-        async {
-            let api: Api<Node> = Api::all((*client).clone());
-            api.list(&params).await
-        }
+        pods_api.list(&params),
+        deployments_api.list(&params),
+        services_api.list(&params),
+        nodes_api.list(&params),
     );
 
     // Process pods

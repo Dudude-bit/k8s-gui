@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useDeduplicatedToast } from "./useDeduplicatedToast";
 import { isLicenseError } from "@/lib/license-error-utils";
 import { normalizeTauriError } from "@/lib/error-utils";
+import { logError } from "@/lib/logger";
 
 export function useGlobalErrorToasts() {
   const { emitToast } = useDeduplicatedToast();
@@ -11,11 +12,19 @@ export function useGlobalErrorToasts() {
     const onError = (event: ErrorEvent) => {
       const description =
         event.error?.message || event.message || "Unknown error";
+      logError("Window error", {
+        context: "window.error",
+        data: event.error ?? event.message,
+      });
       emitToast("Unexpected error", description);
     };
 
     const onRejection = (event: PromiseRejectionEvent) => {
       const description = normalizeTauriError(event.reason);
+      logError("Unhandled rejection", {
+        context: "window.unhandledrejection",
+        data: event.reason,
+      });
       // Check if it's a license-related error
       if (isLicenseError(description)) {
         emitToast("Premium Feature", description);
@@ -31,6 +40,10 @@ export function useGlobalErrorToasts() {
     listen<{ code?: string; message?: string }>("app-error", (event) => {
       const code = event.payload.code ? ` (${event.payload.code})` : "";
       const description = event.payload.message || "Unknown backend error";
+      logError("Backend error", {
+        context: "tauri.app-error",
+        data: event.payload,
+      });
       emitToast(`Backend error${code}`, description);
     }).then((fn) => {
       unlisten = fn;

@@ -61,3 +61,49 @@ export function normalizeTauriError(error: unknown): string {
   // Fallback
   return String(error);
 }
+
+/**
+ * Check if an error is related to premium features or authentication
+ *
+ * @param errorMessage - Normalized error message to check
+ * @returns true if this is a premium/auth error that should be handled gracefully
+ */
+export function isPremiumFeatureError(errorMessage: string): boolean {
+  const lowerMessage = errorMessage.toLowerCase();
+  return (
+    lowerMessage.includes("not authenticated") ||
+    lowerMessage.includes("license") ||
+    lowerMessage.includes("premium")
+  );
+}
+
+/**
+ * Handle errors from premium feature queries gracefully
+ *
+ * For premium features that are optional (like metrics), we want to:
+ * - Return a fallback value if user is not authenticated or lacks license
+ * - Throw the error for other unexpected failures
+ *
+ * @param error - The caught error
+ * @param fallback - Fallback value to return for premium/auth errors
+ * @returns The fallback value if it's a premium error
+ * @throws The original error if it's not a premium-related error
+ *
+ * @example
+ * ```ts
+ * try {
+ *   return await commands.getPodsMetrics(namespace);
+ * } catch (err) {
+ *   return handlePremiumQueryError(err, []);
+ * }
+ * ```
+ */
+export function handlePremiumQueryError<T>(error: unknown, fallback: T): T {
+  const errorMessage = normalizeTauriError(error);
+
+  if (isPremiumFeatureError(errorMessage)) {
+    return fallback;
+  }
+
+  throw new Error(errorMessage);
+}

@@ -1,20 +1,12 @@
-/**
- * Node Metrics Hook
- *
- * Fetches CPU and memory metrics for Kubernetes nodes with real-time updates.
- * Automatically refreshes every 8 seconds.
- *
- * @module hooks/useNodeMetrics
- */
-
 import {
   useQuery,
   keepPreviousData,
   UseQueryOptions,
 } from "@tanstack/react-query";
 import * as commands from "@/generated/commands";
-import { normalizeTauriError } from "@/lib/error-utils";
+import { handlePremiumQueryError } from "@/lib/error-utils";
 import type { NodeMetrics } from "@/generated/types";
+import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 
 /**
  * Hook for fetching node metrics
@@ -33,13 +25,17 @@ import type { NodeMetrics } from "@/generated/types";
 export function useNodeMetrics(
   options?: Omit<UseQueryOptions<NodeMetrics[]>, "queryKey" | "queryFn">
 ) {
+  const { hasAccess } = usePremiumFeature();
+  const enabled = (options?.enabled ?? true) && hasAccess;
+
   return useQuery({
     queryKey: ["node-metrics"],
     queryFn: async () => {
       try {
         return await commands.getNodesMetrics();
       } catch (err) {
-        throw new Error(normalizeTauriError(err));
+        // Metrics are a premium feature - return empty array if not licensed
+        return handlePremiumQueryError(err, []);
       }
     },
     refetchInterval: 8000, // 8 seconds for real-time updates
@@ -47,5 +43,6 @@ export function useNodeMetrics(
     staleTime: 5000,
     refetchOnWindowFocus: false,
     ...options,
+    enabled,
   });
 }

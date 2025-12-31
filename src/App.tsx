@@ -12,6 +12,8 @@ import { useGlobalErrorToasts } from "@/hooks/useGlobalErrorToasts";
 import { usePortForwardEvents } from "@/hooks/usePortForwardEvents";
 import { usePortForwardStore } from "@/stores/portForwardStore";
 import { useThemeStore } from "@/stores/themeStore";
+import { setupFrontendLogger } from "@/lib/frontend-logger";
+import { logInfo } from "@/lib/logger";
 
 // Lazy load all pages for code splitting
 const ClusterOverview = lazy(() =>
@@ -79,6 +81,13 @@ export default function App() {
   useLicense();
 
   useEffect(() => {
+    const cleanup = setupFrontendLogger();
+    return () => {
+      cleanup?.();
+    };
+  }, []);
+
+  useEffect(() => {
     hydratePortForwards();
   }, [hydratePortForwards]);
 
@@ -96,6 +105,10 @@ export default function App() {
       root.classList.add(theme);
     }
   }, [theme]);
+
+  useEffect(() => {
+    logInfo("Route change", { context: "router", data: { path: location.pathname } });
+  }, [location.pathname]);
 
   const handleError = useCallback(
     (error: Error) => {

@@ -1,11 +1,9 @@
 //! Generic resource management commands
 
-use crate::commands::helpers::{build_list_params, get_k8s_client};
+use crate::commands::helpers::{build_list_params, ResourceContext};
 use crate::error::{Error, Result};
 use crate::state::AppState;
-use crate::utils::normalize_namespace;
-use kube::api::DynamicObject;
-use kube::discovery::{verbs, ApiCapabilities, ApiResource, Discovery, Scope};
+use kube::discovery::{verbs, ApiCapabilities, ApiResource, Discovery};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -27,13 +25,7 @@ pub async fn list_resources(
     query: ResourceQuery,
     state: State<'_, AppState>,
 ) -> Result<Vec<serde_json::Value>> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| Error::Internal("No cluster connected".to_string()))?;
-
-    let client = get_k8s_client(&state)?;
-
-    let namespace = normalize_namespace(query.namespace, state.get_namespace(&context));
+    let ctx = ResourceContext::for_list(&state, query.namespace)?;
 
     let params = build_list_params(
         query.label_selector.as_deref(),
@@ -41,7 +33,7 @@ pub async fn list_resources(
         query.limit,
     );
 
-    let discovery = Discovery::new(client.clone()).run().await?;
+    let discovery = Discovery::new(ctx.client.clone()).run().await?;
 
     let (api_resource, caps) =
         resolve_api_resource(&discovery, &query.kind).ok_or_else(|| {
@@ -55,13 +47,7 @@ pub async fn list_resources(
         )));
     }
 
-    let api: kube::Api<DynamicObject> = match caps.scope {
-        Scope::Namespaced => match namespace.as_ref() {
-            Some(ns) => kube::Api::namespaced_with(client.clone(), ns, &api_resource),
-            None => kube::Api::all_with(client.clone(), &api_resource),
-        },
-        Scope::Cluster => kube::Api::all_with(client.clone(), &api_resource),
-    };
+    let api = ctx.dynamic_api(&api_resource, &caps);
 
     let list = api.list(&params).await?;
     list.items

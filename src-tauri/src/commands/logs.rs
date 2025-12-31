@@ -93,7 +93,9 @@ pub async fn get_pod_logs(
     _since_seconds: Option<i64>,
     _previous: bool,
     state: State<'_, AppState>,
+    license: State<'_, crate::auth::license_client::LicenseClient>,
 ) -> Result<Vec<LogLine>> {
+    license.require_premium_license().await?;
     let context = state
         .get_current_context()
         .ok_or_else(|| Error::Internal("No cluster connected".to_string()))?;

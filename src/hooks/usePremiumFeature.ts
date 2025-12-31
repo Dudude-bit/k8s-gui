@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import * as commands from "@/generated/commands";
-import { normalizeTauriError } from "@/lib/error-utils";
+import { normalizeTauriError, isPremiumFeatureError } from "@/lib/error-utils";
 
 interface UsePremiumFeatureResult {
   /** Whether the user has access to premium features */
@@ -85,7 +85,12 @@ export function usePremiumFeature(): UsePremiumFeatureResult {
       return true;
     } catch (err) {
       const errorMessage = normalizeTauriError(err);
-      setError(errorMessage);
+      // If user is not authenticated, show a friendly message
+      if (isPremiumFeatureError(errorMessage)) {
+        setError("Please log in to access premium features.");
+      } else {
+        setError(errorMessage);
+      }
       setIsLoading(false);
       return false;
     }

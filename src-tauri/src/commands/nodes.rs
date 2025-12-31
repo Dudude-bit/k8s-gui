@@ -1,6 +1,6 @@
 //! Node commands
 
-use crate::commands::helpers::ListContext;
+use crate::commands::helpers::ResourceContext;
 use crate::error::Result;
 use crate::resources::{NodeInfo, PodInfo};
 use crate::state::AppState;
@@ -47,7 +47,7 @@ pub async fn list_nodes(
 /// Get a single node by name
 #[tauri::command]
 pub async fn get_node(name: String, state: State<'_, AppState>) -> Result<NodeInfo> {
-    let ctx = ListContext::new(&state, None)?;
+    let ctx = ResourceContext::for_list(&state, None)?;
     let api: kube::Api<Node> = ctx.cluster_api();
     let node = api.get(&name).await?;
 
@@ -57,8 +57,8 @@ pub async fn get_node(name: String, state: State<'_, AppState>) -> Result<NodeIn
 /// Get pods running on a node
 #[tauri::command]
 pub async fn get_node_pods(name: String, state: State<'_, AppState>) -> Result<Vec<PodInfo>> {
-    let ctx = ListContext::new(&state, None)?;
-    let api: kube::Api<Pod> = ctx.api();
+    let ctx = ResourceContext::for_list(&state, None)?;
+    let api: kube::Api<Pod> = ctx.namespaced_or_cluster_api();
 
     let params = ListParams::default().fields(&format!("spec.nodeName={name}"));
     let pods = api.list(&params).await?;
@@ -69,7 +69,7 @@ pub async fn get_node_pods(name: String, state: State<'_, AppState>) -> Result<V
 /// Cordon a node (mark as unschedulable)
 #[tauri::command]
 pub async fn cordon_node(name: String, state: State<'_, AppState>) -> Result<()> {
-    let ctx = ListContext::new(&state, None)?;
+    let ctx = ResourceContext::for_list(&state, None)?;
     let api: kube::Api<Node> = ctx.cluster_api();
 
     let patch = serde_json::json!({
@@ -89,7 +89,7 @@ pub async fn cordon_node(name: String, state: State<'_, AppState>) -> Result<()>
 /// Uncordon a node (mark as schedulable)
 #[tauri::command]
 pub async fn uncordon_node(name: String, state: State<'_, AppState>) -> Result<()> {
-    let ctx = ListContext::new(&state, None)?;
+    let ctx = ResourceContext::for_list(&state, None)?;
     let api: kube::Api<Node> = ctx.cluster_api();
 
     let patch = serde_json::json!({
@@ -117,8 +117,8 @@ pub async fn drain_node(
     // First cordon the node
     cordon_node(name.clone(), state.clone()).await?;
 
-    let ctx = ListContext::new(&state, None)?;
-    let api: kube::Api<Pod> = ctx.api();
+    let ctx = ResourceContext::for_list(&state, None)?;
+    let api: kube::Api<Pod> = ctx.namespaced_or_cluster_api();
 
     let params = ListParams::default().fields(&format!("spec.nodeName={name}"));
     let pods = api.list(&params).await?;
@@ -143,7 +143,7 @@ pub async fn drain_node(
         }
 
         // Evict the pod
-        let pod_api: kube::Api<Pod> = kube::Api::namespaced(ctx.client.clone(), &namespace);
+        let pod_api: kube::Api<Pod> = ctx.namespaced_api_for(&namespace);
         let evict_params = kube::api::EvictParams::default();
         let _ = pod_api.evict(&pod_name, &evict_params).await;
     }

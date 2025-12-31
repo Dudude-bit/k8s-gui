@@ -2,13 +2,12 @@
 //!
 //! Provides Kubernetes API-based manifest operations for applying and validating YAML manifests.
 
-use crate::commands::helpers::get_k8s_client;
+use crate::commands::helpers::{get_k8s_client, ResourceContext};
 use crate::error::{Error, Result};
 use crate::state::AppState;
 use kube::api::{DeleteParams, Patch, PatchParams};
 use kube::core::DynamicObject;
 use kube::discovery::ApiResource;
-use kube::Api;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -262,7 +261,11 @@ pub async fn apply_manifest(
     for parsed in parsed_docs {
         let ns = parsed.effective_namespace(&namespace);
         let name = parsed.name();
-        let api = create_dynamic_api(&client, &parsed.api_resource, &ns);
+        let ctx = ResourceContext::from_client(client.clone(), ns.clone());
+        let api = ctx.dynamic_api_for_resource(
+            &parsed.api_resource,
+            is_cluster_scoped(&parsed.api_resource.kind),
+        );
 
         match api
             .patch(&name, &patch_params, &Patch::Apply(&parsed.object))
@@ -304,7 +307,11 @@ pub async fn delete_manifest(
             Ok(n) => n,
             Err(e) => return Ok(ManifestResult::error(e.to_string())),
         };
-        let api = create_dynamic_api(&client, &parsed.api_resource, &ns);
+        let ctx = ResourceContext::from_client(client.clone(), ns.clone());
+        let api = ctx.dynamic_api_for_resource(
+            &parsed.api_resource,
+            is_cluster_scoped(&parsed.api_resource.kind),
+        );
 
         match api.delete(&name, &DeleteParams::default()).await {
             Ok(_) => results.push(parsed.format_id(&ns, "deleted")),
@@ -343,19 +350,6 @@ fn is_cluster_scoped(kind: &str) -> bool {
     )
 }
 
-/// Create API for DynamicObject based on resource scope
-fn create_dynamic_api(
-    client: &kube::Client,
-    api_resource: &ApiResource,
-    namespace: &str,
-) -> Api<DynamicObject> {
-    if is_cluster_scoped(&api_resource.kind) {
-        Api::all_with(client.clone(), api_resource)
-    } else {
-        Api::namespaced_with(client.clone(), namespace, api_resource)
-    }
-}
-
 /// Get a resource manifest as YAML
 ///
 /// Fetches any Kubernetes resource by kind, apiVersion, name and namespace.
@@ -386,7 +380,8 @@ pub async fn get_manifest(
     };
 
     let ns = namespace.unwrap_or_else(|| "default".to_string());
-    let api = create_dynamic_api(&client, &api_resource, &ns);
+    let ctx = ResourceContext::from_client(client.clone(), ns.clone());
+    let api = ctx.dynamic_api_for_resource(&api_resource, is_cluster_scoped(&api_resource.kind));
 
     let resource = api.get(&name).await?;
 

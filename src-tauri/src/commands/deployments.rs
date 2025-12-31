@@ -1,7 +1,7 @@
 //! Deployment-specific commands
 
 use crate::commands::filters::DeploymentFilters;
-use crate::commands::helpers::CommandContext;
+use crate::commands::helpers::ResourceContext;
 use crate::error::Result;
 use crate::resources::{DeploymentInfo, PodInfo};
 use crate::state::AppState;
@@ -63,7 +63,7 @@ pub async fn scale_deployment(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<()> {
-    let ctx = CommandContext::new(&state, namespace)?;
+    let ctx = ResourceContext::for_command(&state, namespace)?;
 
     let api: kube::Api<Deployment> = ctx.namespaced_api();
 
@@ -86,7 +86,7 @@ pub async fn restart_deployment(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<()> {
-    let ctx = CommandContext::new(&state, namespace)?;
+    let ctx = ResourceContext::for_command(&state, namespace)?;
 
     let api: kube::Api<Deployment> = ctx.namespaced_api();
 
@@ -119,7 +119,7 @@ pub async fn update_deployment_image(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<()> {
-    let ctx = CommandContext::new(&state, namespace)?;
+    let ctx = ResourceContext::for_command(&state, namespace)?;
 
     let api: kube::Api<Deployment> = ctx.namespaced_api();
 
@@ -163,7 +163,7 @@ pub async fn get_deployment_pods(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<Vec<PodInfo>> {
-    let ctx = CommandContext::new(&state, namespace)?;
+    let ctx = ResourceContext::for_command(&state, namespace)?;
 
     // Get the deployment to find its label selector
     let deploy_api: kube::Api<Deployment> = ctx.namespaced_api();
@@ -221,7 +221,7 @@ pub async fn get_rollout_status(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<RolloutStatus> {
-    let ctx = CommandContext::new(&state, namespace)?;
+    let ctx = ResourceContext::for_command(&state, namespace)?;
 
     let api: kube::Api<Deployment> = ctx.namespaced_api();
     let deployment = api.get(&name).await?;

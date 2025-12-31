@@ -4,6 +4,7 @@
 
 use crate::error::{Error, Result};
 use crate::state::AppEvent;
+use crate::commands::helpers::ResourceContext;
 use chrono::{DateTime, Utc};
 use k8s_openapi::api::core::v1::Pod;
 use kube::{
@@ -186,7 +187,8 @@ impl LogStreamer {
 
     /// Get logs (non-streaming)
     pub async fn get_logs(&self, config: &LogConfig) -> Result<Vec<LogLine>> {
-        let api: Api<Pod> = Api::namespaced((*self.client).clone(), &config.namespace);
+        let ctx = ResourceContext::from_client((*self.client).clone(), config.namespace.clone());
+        let api: Api<Pod> = ctx.namespaced_api();
 
         let mut params = config.to_log_params();
         params.follow = false;
@@ -216,7 +218,8 @@ impl LogStreamer {
         config: LogConfig,
         mut cancel_rx: oneshot::Receiver<()>,
     ) -> Result<()> {
-        let api: Api<Pod> = Api::namespaced((*self.client).clone(), &config.namespace);
+        let ctx = ResourceContext::from_client((*self.client).clone(), config.namespace.clone());
+        let api: Api<Pod> = ctx.namespaced_api();
         let params = config.to_log_params();
 
         let container = config

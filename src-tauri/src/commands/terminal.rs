@@ -1,5 +1,7 @@
 //! Terminal/Exec commands
 
+use crate::auth::license_client::LicenseClient;
+use crate::commands::helpers::ResourceContext;
 use crate::error::{Error, Result};
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
@@ -76,22 +78,16 @@ pub async fn open_shell(
     container: Option<String>,
     shell: Option<String>,
     state: State<'_, AppState>,
+    license: State<'_, LicenseClient>,
 ) -> Result<String> {
     use crate::state::AppEvent;
     use kube::api::AttachParams;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| Error::Internal("No cluster connected".to_string()))?;
+    license.require_premium_license().await?;
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| Error::Internal("Client not found".to_string()))?;
-
-    let api: kube::Api<k8s_openapi::api::core::v1::Pod> =
-        kube::Api::namespaced((*client).clone(), &namespace);
+    let ctx = ResourceContext::for_command(&state, Some(namespace.clone()))?;
+    let api: kube::Api<k8s_openapi::api::core::v1::Pod> = ctx.namespaced_api();
 
     // Get first container if not specified
     let container_name = if let Some(c) = container {

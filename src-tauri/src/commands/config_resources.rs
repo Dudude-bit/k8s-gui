@@ -1,6 +1,6 @@
 //! `ConfigMap` and Secret commands
 
-use crate::commands::helpers::CommandContext;
+use crate::commands::helpers::ResourceContext;
 use crate::error::Result;
 use crate::resources::{ConfigMapInfo, SecretInfo};
 use crate::state::AppState;
@@ -133,7 +133,7 @@ pub async fn get_secret_yaml(
     redact: bool,
     state: State<'_, AppState>,
 ) -> Result<String> {
-    let ctx = CommandContext::new(&state, namespace)?;
+    let ctx = ResourceContext::for_command(&state, namespace)?;
     let api: kube::Api<Secret> = ctx.namespaced_api();
     let mut secret = api.get(&name).await?;
 

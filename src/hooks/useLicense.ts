@@ -24,10 +24,15 @@ import { useAuthStore } from "@/stores/authStore";
  * ```
  */
 export function useLicense() {
-  const { licenseStatus, isCheckingLicense, licenseError, checkLicenseStatus } =
+  const { licenseStatus, isCheckingLicense, licenseError, checkLicenseStatus, isAuthenticated } =
     useAuthStore();
 
   useEffect(() => {
+    // Only check license if user is authenticated
+    if (!isAuthenticated) {
+      return;
+    }
+
     // Check license on mount
     checkLicenseStatus();
 
@@ -40,7 +45,7 @@ export function useLicense() {
     );
 
     return () => clearInterval(interval);
-  }, [checkLicenseStatus]);
+  }, [checkLicenseStatus, isAuthenticated]);
 
   const hasValidLicense = licenseStatus?.isValid ?? false;
   const hasLicense = licenseStatus?.hasLicense ?? false;

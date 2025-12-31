@@ -195,6 +195,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   checkLicenseStatus: async (forceRefresh = false) => {
     const state = get();
+
+    // Don't check license if not authenticated
+    if (!state.isAuthenticated) {
+      return;
+    }
+
     if (state.isCheckingLicense && !forceRefresh) {
       return;
     }

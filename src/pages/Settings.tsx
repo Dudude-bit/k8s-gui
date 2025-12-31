@@ -16,6 +16,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { PortForwardManager } from "@/components/port-forward/PortForwardManager";
 import { RegistrySettings } from "@/components/registry/RegistrySettings";
 import { LicenseSection } from "@/components/profile/LicenseSection";
+import { PremiumFeatureGuard } from "@/components/license/PremiumFeatureGuard";
 import { Link } from "react-router-dom";
 import { User } from "lucide-react";
 import { normalizeTauriError } from "@/lib/error-utils";
@@ -178,7 +179,9 @@ export function Settings() {
 
       <RegistrySettings />
 
-      <PortForwardManager />
+      <PremiumFeatureGuard featureName="Port forwarding">
+        <PortForwardManager />
+      </PremiumFeatureGuard>
 
       {/* About */}
       <Card>

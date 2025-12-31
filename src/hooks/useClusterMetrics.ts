@@ -14,9 +14,17 @@ import {
 } from "@tanstack/react-query";
 import * as commands from "@/generated/commands";
 import { ClusterMetrics } from "@/generated/types";
-import { normalizeTauriError } from "@/lib/error-utils";
+import { handlePremiumQueryError } from "@/lib/error-utils";
+import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 
 export type { ClusterMetrics } from "@/generated/types";
+
+const EMPTY_CLUSTER_METRICS: ClusterMetrics = {
+  totalCpuUsage: null,
+  totalMemoryUsage: null,
+  totalCpuCapacity: null,
+  totalMemoryCapacity: null,
+};
 
 /**
  * Hook for fetching cluster-wide metrics
@@ -35,13 +43,16 @@ export type { ClusterMetrics } from "@/generated/types";
 export function useClusterMetrics(
   options?: Omit<UseQueryOptions<ClusterMetrics>, "queryKey" | "queryFn">
 ) {
+  const { hasAccess } = usePremiumFeature();
+  const enabled = (options?.enabled ?? true) && hasAccess;
+
   return useQuery({
     queryKey: ["cluster-metrics"],
     queryFn: async () => {
       try {
         return await commands.getClusterMetrics();
       } catch (err) {
-        throw new Error(normalizeTauriError(err));
+        return handlePremiumQueryError(err, EMPTY_CLUSTER_METRICS);
       }
     },
     refetchInterval: 10000, // 10 seconds for real-time updates
@@ -49,5 +60,6 @@ export function useClusterMetrics(
     staleTime: 5000,
     refetchOnWindowFocus: false,
     ...options,
+    enabled,
   });
 }

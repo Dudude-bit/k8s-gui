@@ -1,5 +1,6 @@
 //! Pod port-forward commands
 
+use crate::commands::helpers::ResourceContext;
 use crate::error::{Error, Result};
 use crate::state::{AppEvent, AppState};
 use crate::utils::require_namespace;
@@ -42,7 +43,8 @@ async fn forward_connection(
     event_tx: tokio::sync::broadcast::Sender<AppEvent>,
     session_id: String,
 ) {
-    let pod_api: Api<k8s_openapi::api::core::v1::Pod> = Api::namespaced(client, &namespace);
+    let ctx = ResourceContext::from_client(client, namespace.clone());
+    let pod_api: Api<k8s_openapi::api::core::v1::Pod> = ctx.namespaced_api();
     let mut attempt: u32 = 0;
 
     loop {

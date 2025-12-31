@@ -11,7 +11,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
-import { Eye, Shield, ShieldOff, AlertTriangle } from "lucide-react";
+import { Eye, Shield, ShieldOff, AlertTriangle, Lock } from "lucide-react";
 import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import {
   DropdownMenuItem,
@@ -21,6 +21,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { useNodeMetrics } from "@/hooks/useNodeMetrics";
 import { MetricBadge } from "@/components/ui/metric-card";
+import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { useMemo } from "react";
 import type { NodeInfo } from "@/generated/types";
 import * as commands from "@/generated/commands";
@@ -37,6 +38,7 @@ export function NodeList() {
   const { isConnected } = useClusterStore();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { hasAccess } = usePremiumFeature();
 
   const {
     data: nodes = [],
@@ -199,6 +201,14 @@ export function NodeList() {
         id: "cpu",
         header: "CPU Usage",
         cell: ({ row }) => {
+          if (!hasAccess) {
+            return (
+              <Badge variant="outline" className="gap-1 text-xs">
+                <Lock className="h-3 w-3" />
+                Premium
+              </Badge>
+            );
+          }
           const capacity = row.original.capacity
             ? row.original.capacity.cpu
             : null;
@@ -215,6 +225,14 @@ export function NodeList() {
         id: "memory",
         header: "Memory Usage",
         cell: ({ row }) => {
+          if (!hasAccess) {
+            return (
+              <Badge variant="outline" className="gap-1 text-xs">
+                <Lock className="h-3 w-3" />
+                Premium
+              </Badge>
+            );
+          }
           const capacity = row.original.capacity
             ? row.original.capacity.memory
             : null;
@@ -275,7 +293,7 @@ export function NodeList() {
         ),
       },
     ],
-    [cordonMutation, uncordonMutation, drainMutation]
+    [cordonMutation, uncordonMutation, drainMutation, hasAccess]
   );
 
   if (!isConnected) {

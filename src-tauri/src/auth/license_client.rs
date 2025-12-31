@@ -55,6 +55,7 @@ pub struct LicenseStatus {
     pub has_license: bool,
     pub license_key: Option<String>,
     pub subscription_type: Option<String>,
+    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
     pub is_valid: bool,
 }
 
@@ -64,6 +65,9 @@ impl From<LicenseStatusResponse> for LicenseStatus {
             has_license: r.has_license,
             license_key: r.license_key,
             subscription_type: r.subscription_type,
+            expires_at: r.expires_at.and_then(|t| {
+                chrono::DateTime::from_timestamp(t.seconds, t.nanos as u32)
+            }),
             is_valid: r.is_valid,
         }
     }
@@ -416,15 +420,32 @@ impl LicenseClient {
         Ok(status.is_valid)
     }
 
+    /// Check if user is authenticated
+    pub async fn is_authenticated(&self) -> bool {
+        self.access_token.read().await.is_some() || self.refresh_token.read().await.is_some()
+    }
+
     /// Require premium license for premium features
     pub async fn require_premium_license(&self) -> Result<()> {
+        // If user is not authenticated, return error without logging
+        if !self.is_authenticated().await {
+            return Err(Error::Internal(
+                "Not authenticated. Please log in to use premium features.".to_string(),
+            ));
+        }
+
         match self.check_license_valid().await {
             Ok(true) => Ok(()),
             Ok(false) => Err(Error::Internal(
                 "Premium feature requires a valid license.".to_string(),
             )),
             Err(e) => {
-                tracing::error!("License check failed: {}", e);
+                // Only log as error if it's not an authentication issue
+                if e.to_string().contains("Not authenticated") {
+                    tracing::debug!("User not authenticated for license check");
+                } else {
+                    tracing::error!("License check failed: {}", e);
+                }
                 Err(Error::Internal(format!("License validation failed: {e}")))
             }
         }
