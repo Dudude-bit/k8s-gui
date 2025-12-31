@@ -29,15 +29,15 @@ export async function importDockerConfig(): Promise<RegistryImportEntry[]> {
 }
 
 export async function setRegistryCredentials(registryId: string, auth: RegistryAuth): Promise<void> {
-  return invoke<void>("set_registry_credentials", { registry_id: registryId, auth });
+  return invoke<void>("set_registry_credentials", { registryId, auth });
 }
 
 export async function deleteRegistryCredentials(registryId: string): Promise<void> {
-  return invoke<void>("delete_registry_credentials", { registry_id: registryId });
+  return invoke<void>("delete_registry_credentials", { registryId });
 }
 
 export async function getRegistryAuthStatus(registryId: string): Promise<RegistryAuthStatus | null> {
-  return invoke<RegistryAuthStatus | null>("get_registry_auth_status", { registry_id: registryId });
+  return invoke<RegistryAuthStatus | null>("get_registry_auth_status", { registryId });
 }
 
 export async function searchRegistryImages(request: RegistrySearchRequest): Promise<RegistryImageResult[]> {
@@ -49,7 +49,7 @@ export async function portForwardPod(pod: string, namespace: string | null, conf
 }
 
 export async function stopPortForward(forwardId: string): Promise<void> {
-  return invoke<void>("stop_port_forward", { forward_id: forwardId });
+  return invoke<void>("stop_port_forward", { forwardId });
 }
 
 export async function listPortForwards(): Promise<PortForwardSessionInfo[]> {
@@ -57,15 +57,15 @@ export async function listPortForwards(): Promise<PortForwardSessionInfo[]> {
 }
 
 export async function terminalInput(sessionId: string, data: string): Promise<void> {
-  return invoke<void>("terminal_input", { session_id: sessionId, data });
+  return invoke<void>("terminal_input", { sessionId, data });
 }
 
 export async function terminalResize(sessionId: string, cols: number, rows: number): Promise<void> {
-  return invoke<void>("terminal_resize", { session_id: sessionId, cols, rows });
+  return invoke<void>("terminal_resize", { sessionId, cols, rows });
 }
 
 export async function closeTerminal(sessionId: string): Promise<void> {
-  return invoke<void>("close_terminal", { session_id: sessionId });
+  return invoke<void>("close_terminal", { sessionId });
 }
 
 export async function openShell(namespace: string, pod: string, container: string | null, shell: string | null): Promise<string> {
@@ -85,11 +85,11 @@ export async function deleteManifest(manifest: string, namespace: string | null)
 }
 
 export async function getManifest(kind: string, apiVersion: string, name: string, namespace: string | null): Promise<string> {
-  return invoke<string>("get_manifest", { kind, api_version: apiVersion, name, namespace });
+  return invoke<string>("get_manifest", { kind, apiVersion, name, namespace });
 }
 
 export async function cancelAuthSession(sessionId: string): Promise<void> {
-  return invoke<void>("cancel_auth_session", { session_id: sessionId });
+  return invoke<void>("cancel_auth_session", { sessionId });
 }
 
 export async function listHelmReleases(namespace: string | null): Promise<HelmRelease[]> {
@@ -129,7 +129,7 @@ export async function validatePasswordCommand(password: string): Promise<void> {
 }
 
 export async function validateLicenseKeyCommand(licenseKey: string): Promise<void> {
-  return invoke<void>("validate_license_key_command", { license_key: licenseKey });
+  return invoke<void>("validate_license_key_command", { licenseKey });
 }
 
 export async function listConfigmaps(filters: ResourceFilters | null): Promise<ConfigMapInfo[]> {
@@ -201,7 +201,7 @@ export async function uncordonNode(name: string): Promise<void> {
 }
 
 export async function drainNode(name: string, ignoreDaemonsets: boolean | null, force: boolean | null): Promise<void> {
-  return invoke<void>("drain_node", { name, ignore_daemonsets: ignoreDaemonsets, force });
+  return invoke<void>("drain_node", { name, ignoreDaemonsets, force });
 }
 
 export async function listNamespaces(): Promise<NamespaceInfo[]> {
@@ -237,15 +237,15 @@ export async function logoutUser(): Promise<void> {
 }
 
 export async function registerUser(email: string, password: string, firstName: string | null, lastName: string | null): Promise<void> {
-  return invoke<void>("register_user", { email, password, first_name: firstName, last_name: lastName });
+  return invoke<void>("register_user", { email, password, firstName, lastName });
 }
 
 export async function checkLicenseStatus(forceRefresh: boolean): Promise<LicenseStatus> {
-  return invoke<LicenseStatus>("check_license_status", { force_refresh: forceRefresh });
+  return invoke<LicenseStatus>("check_license_status", { forceRefresh });
 }
 
 export async function activateLicense(licenseKey: string): Promise<LicenseStatus> {
-  return invoke<LicenseStatus>("activate_license", { license_key: licenseKey });
+  return invoke<LicenseStatus>("activate_license", { licenseKey });
 }
 
 export async function isLicenseValid(): Promise<boolean> {
@@ -257,7 +257,7 @@ export async function getUserProfile(): Promise<UserProfile> {
 }
 
 export async function updateUserProfile(firstName: string | null, lastName: string | null, company: string | null): Promise<UserProfile> {
-  return invoke<UserProfile>("update_user_profile", { first_name: firstName, last_name: lastName, company });
+  return invoke<UserProfile>("update_user_profile", { firstName, lastName, company });
 }
 
 export async function getPaymentHistory(): Promise<PaymentHistoryResponse> {
@@ -289,7 +289,7 @@ export async function restartDeployment(name: string, namespace: string | null):
 }
 
 export async function updateDeploymentImage(name: string, containerName: string, image: string, namespace: string | null): Promise<void> {
-  return invoke<void>("update_deployment_image", { name, container_name: containerName, image, namespace });
+  return invoke<void>("update_deployment_image", { name, containerName, image, namespace });
 }
 
 export async function getDeploymentPods(name: string, namespace: string | null): Promise<PodInfo[]> {
@@ -341,10 +341,10 @@ export async function streamPodLogs(config: StreamLogConfig): Promise<string> {
 }
 
 export async function getPodLogs(podName: string, namespace: string | null, container: string | null, tailLines: number | null, SinceSeconds: number | null, Previous: boolean): Promise<LogLine[]> {
-  return invoke<LogLine[]>("get_pod_logs", { pod_name: podName, namespace, container, tail_lines: tailLines, _since_seconds: SinceSeconds, _previous: Previous });
+  return invoke<LogLine[]>("get_pod_logs", { podName, namespace, container, tailLines, SinceSeconds, Previous });
 }
 
 export async function stopLogStream(streamId: string): Promise<void> {
-  return invoke<void>("stop_log_stream", { stream_id: streamId });
+  return invoke<void>("stop_log_stream", { streamId });
 }
 
