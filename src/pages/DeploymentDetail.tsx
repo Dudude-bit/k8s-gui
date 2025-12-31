@@ -628,13 +628,12 @@ export function DeploymentDetail() {
                         <SelectItem key={pod.name} value={pod.name}>
                           <div className="flex items-center gap-2">
                             <span
-                              className={`h-2 w-2 rounded-full ${
-                                status === "Running"
+                              className={`h-2 w-2 rounded-full ${status === "Running"
                                   ? "bg-green-500"
                                   : status === "Pending"
                                     ? "bg-yellow-500"
                                     : "bg-red-500"
-                              }`}
+                                }`}
                             />
                             {pod.name}
                           </div>
@@ -674,9 +673,6 @@ export function DeploymentDetail() {
             resourceKind="Deployment"
             resourceName={name || ""}
             namespace={namespace}
-            fetchYaml={() =>
-              commands.getDeploymentYaml(name || "", namespace || null)
-            }
             onCopy={copyYaml}
           />
         </TabsContent>

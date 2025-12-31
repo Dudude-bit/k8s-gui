@@ -1,8 +1,11 @@
 //! Generic resource management commands
 
+use crate::commands::helpers::{build_list_params, get_k8s_client};
+use crate::error::{Error, Result};
 use crate::state::AppState;
 use crate::utils::normalize_namespace;
-use kube::api::ListParams;
+use kube::api::DynamicObject;
+use kube::discovery::{verbs, ApiCapabilities, ApiResource, Discovery, Scope};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -23,110 +26,83 @@ pub struct ResourceQuery {
 pub async fn list_resources(
     query: ResourceQuery,
     state: State<'_, AppState>,
-) -> Result<Vec<serde_json::Value>, String> {
+) -> Result<Vec<serde_json::Value>> {
     let context = state
         .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+        .ok_or_else(|| Error::Internal("No cluster connected".to_string()))?;
 
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
+    let client = get_k8s_client(&state)?;
 
     let namespace = normalize_namespace(query.namespace, state.get_namespace(&context));
 
-    // Build list params
-    let mut params = ListParams::default();
-    if let Some(labels) = &query.label_selector {
-        params = params.labels(labels);
-    }
-    if let Some(fields) = &query.field_selector {
-        params = params.fields(fields);
-    }
-    if let Some(limit) = query.limit {
-        if limit > 0 {
-            params = params.limit(limit as u32);
-        }
+    let params = build_list_params(
+        query.label_selector.as_deref(),
+        query.field_selector.as_deref(),
+        query.limit,
+    );
+
+    let discovery = Discovery::new(client.clone()).run().await?;
+
+    let (api_resource, caps) =
+        resolve_api_resource(&discovery, &query.kind).ok_or_else(|| {
+            Error::InvalidInput(format!("Unsupported resource kind: {}", query.kind))
+        })?;
+
+    if !caps.supports_operation(verbs::LIST) {
+        return Err(Error::InvalidInput(format!(
+            "Resource kind '{}' does not support list operation",
+            query.kind
+        )));
     }
 
-    // This is a simplified implementation
-    // In production, we'd use dynamic API discovery
-    let result = match query.kind.as_str() {
-        "Pod" | "pods" => {
-            let api: kube::Api<k8s_openapi::api::core::v1::Pod> = match namespace.as_ref() {
-                Some(ns) => kube::Api::namespaced((*client).clone(), ns),
-                None => kube::Api::all((*client).clone()),
-            };
-            let list = api.list(&params).await.map_err(|e| e.to_string())?;
-            list.items
-                .iter()
-                .map(serde_json::to_value)
-                .collect::<Result<Vec<_>, _>>()
-        }
-        "Deployment" | "deployments" => {
-            let api: kube::Api<k8s_openapi::api::apps::v1::Deployment> = match namespace.as_ref() {
-                Some(ns) => kube::Api::namespaced((*client).clone(), ns),
-                None => kube::Api::all((*client).clone()),
-            };
-            let list = api.list(&params).await.map_err(|e| e.to_string())?;
-            list.items
-                .iter()
-                .map(serde_json::to_value)
-                .collect::<Result<Vec<_>, _>>()
-        }
-        "Service" | "services" => {
-            let api: kube::Api<k8s_openapi::api::core::v1::Service> = match namespace.as_ref() {
-                Some(ns) => kube::Api::namespaced((*client).clone(), ns),
-                None => kube::Api::all((*client).clone()),
-            };
-            let list = api.list(&params).await.map_err(|e| e.to_string())?;
-            list.items
-                .iter()
-                .map(serde_json::to_value)
-                .collect::<Result<Vec<_>, _>>()
-        }
-        "ConfigMap" | "configmaps" => {
-            let api: kube::Api<k8s_openapi::api::core::v1::ConfigMap> = match namespace.as_ref() {
-                Some(ns) => kube::Api::namespaced((*client).clone(), ns),
-                None => kube::Api::all((*client).clone()),
-            };
-            let list = api.list(&params).await.map_err(|e| e.to_string())?;
-            list.items
-                .iter()
-                .map(serde_json::to_value)
-                .collect::<Result<Vec<_>, _>>()
-        }
-        "Secret" | "secrets" => {
-            let api: kube::Api<k8s_openapi::api::core::v1::Secret> = match namespace.as_ref() {
-                Some(ns) => kube::Api::namespaced((*client).clone(), ns),
-                None => kube::Api::all((*client).clone()),
-            };
-            let list = api.list(&params).await.map_err(|e| e.to_string())?;
-            list.items
-                .iter()
-                .map(serde_json::to_value)
-                .collect::<Result<Vec<_>, _>>()
-        }
-        "Node" | "nodes" => {
-            let api: kube::Api<k8s_openapi::api::core::v1::Node> =
-                kube::Api::all((*client).clone());
-            let list = api.list(&params).await.map_err(|e| e.to_string())?;
-            list.items
-                .iter()
-                .map(serde_json::to_value)
-                .collect::<Result<Vec<_>, _>>()
-        }
-        "Namespace" | "namespaces" => {
-            let api: kube::Api<k8s_openapi::api::core::v1::Namespace> =
-                kube::Api::all((*client).clone());
-            let list = api.list(&params).await.map_err(|e| e.to_string())?;
-            list.items
-                .iter()
-                .map(serde_json::to_value)
-                .collect::<Result<Vec<_>, _>>()
-        }
-        _ => return Err(format!("Unsupported resource kind: {}", query.kind)),
+    let api: kube::Api<DynamicObject> = match caps.scope {
+        Scope::Namespaced => match namespace.as_ref() {
+            Some(ns) => kube::Api::namespaced_with(client.clone(), ns, &api_resource),
+            None => kube::Api::all_with(client.clone(), &api_resource),
+        },
+        Scope::Cluster => kube::Api::all_with(client.clone(), &api_resource),
     };
 
-    result.map_err(|e| e.to_string())
+    let list = api.list(&params).await?;
+    list.items
+        .iter()
+        .map(serde_json::to_value)
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(Error::from)
+}
+
+fn resolve_api_resource(
+    discovery: &Discovery,
+    kind: &str,
+) -> Option<(ApiResource, ApiCapabilities)> {
+    let needle = kind.trim().to_lowercase();
+    if needle.is_empty() {
+        return None;
+    }
+
+    let mut matches = Vec::new();
+    for group in discovery.groups_alphabetical() {
+        for (ar, caps) in group.recommended_resources() {
+            let kind_lc = ar.kind.to_lowercase();
+            let plural_lc = ar.plural.to_lowercase();
+            if kind_lc == needle || plural_lc == needle {
+                matches.push((ar, caps));
+            }
+        }
+    }
+
+    matches.into_iter().max_by(|(a, _), (b, _)| {
+        let a_stable = is_stable_version(&a.version);
+        let b_stable = is_stable_version(&b.version);
+        a_stable
+            .cmp(&b_stable)
+            .then_with(|| (a.group == "extensions").cmp(&(b.group == "extensions")))
+            .then_with(|| a.group.cmp(&b.group))
+            .then_with(|| a.version.cmp(&b.version))
+    })
+}
+
+fn is_stable_version(version: &str) -> bool {
+    let lower = version.to_lowercase();
+    !lower.contains("alpha") && !lower.contains("beta")
 }

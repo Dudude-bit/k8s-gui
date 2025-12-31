@@ -1,5 +1,6 @@
 //! Authentication commands
 
+use crate::error::Result;
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -18,7 +19,7 @@ pub struct AuthResultResponse {
 pub fn cancel_auth_session(
     session_id: String,
     state: State<'_, AppState>,
-) -> Result<(), String> {
+) -> Result<()> {
     if let Some(session) = state.remove_auth_session(&session_id) {
         let _ = session.cancel_tx.send(());
         state.emit(crate::state::AppEvent::AuthFlowCancelled {

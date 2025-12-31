@@ -2,7 +2,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { YamlEditorAction } from "@/components/ui/yaml-editor";
+import { fetchResourceYaml } from "@/hooks/useResourceYaml";
 import { Copy } from "lucide-react";
+import { useCallback } from "react";
 
 interface YamlTabContentProps {
   title: string;
@@ -10,7 +12,6 @@ interface YamlTabContentProps {
   resourceKind: string;
   resourceName: string;
   namespace: string | undefined;
-  fetchYaml: () => Promise<string>;
   onCopy: () => void;
 }
 
@@ -20,9 +21,12 @@ export function YamlTabContent({
   resourceKind,
   resourceName,
   namespace,
-  fetchYaml,
   onCopy,
 }: YamlTabContentProps) {
+  const handleFetchYaml = useCallback(() => {
+    return fetchResourceYaml(resourceKind, resourceName, namespace);
+  }, [resourceKind, resourceName, namespace]);
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -35,7 +39,7 @@ export function YamlTabContent({
               name: resourceName,
               namespace: namespace,
             }}
-            fetchYaml={fetchYaml}
+            fetchYaml={handleFetchYaml}
           />
           <Button variant="outline" size="sm" onClick={onCopy}>
             <Copy className="mr-2 h-4 w-4" />
@@ -53,3 +57,4 @@ export function YamlTabContent({
     </Card>
   );
 }
+

@@ -1,13 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import yaml from "js-yaml";
-
-export interface ManifestResult {
-  success: boolean;
-  stdout: string;
-  stderr: string;
-  exit_code: number | null;
-}
+import type { ManifestResult } from "@/generated/types";
 
 export interface HistoryEntry {
   timestamp: number;

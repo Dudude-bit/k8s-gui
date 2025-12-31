@@ -29,9 +29,10 @@ export function formatAge(createdAt: string | null): string {
   if (!createdAt) return "Unknown";
 
   const created = new Date(createdAt);
+  if (Number.isNaN(created.getTime())) return "Unknown";
   const now = new Date();
   const diffMs = now.getTime() - created.getTime();
-  const diffSecs = Math.floor(diffMs / 1000);
+  const diffSecs = Math.max(0, Math.floor(diffMs / 1000));
   const diffMins = Math.floor(diffSecs / 60);
   const diffHours = Math.floor(diffMins / 60);
   const diffDays = Math.floor(diffHours / 24);

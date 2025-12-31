@@ -46,16 +46,6 @@ pub async fn get_service(
     Ok(ServiceInfo::from(&service))
 }
 
-/// Get full service YAML
-#[tauri::command]
-pub async fn get_service_yaml(
-    name: String,
-    namespace: Option<String>,
-    state: State<'_, AppState>,
-) -> Result<String> {
-    crate::commands::helpers::get_resource_yaml::<Service>(name, namespace, state).await
-}
-
 /// Delete a service
 #[tauri::command]
 pub async fn delete_service(

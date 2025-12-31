@@ -4,7 +4,6 @@ use k8s_openapi::api::core::v1::Pod;
 use tauri::State;
 
 use crate::commands::filters::PodFilters;
-use crate::commands::helpers::CommandContext;
 use crate::error::Result;
 use crate::resources::PodInfo;
 use crate::state::AppState;
@@ -48,16 +47,6 @@ pub async fn get_pod(
     Ok(PodInfo::from(&pod))
 }
 
-/// Get full pod YAML/JSON
-#[tauri::command]
-pub async fn get_pod_yaml(
-    name: String,
-    namespace: Option<String>,
-    state: State<'_, AppState>,
-) -> Result<String> {
-    crate::commands::helpers::get_resource_yaml::<Pod>(name, namespace, state).await
-}
-
 /// Delete a pod
 #[tauri::command]
 pub async fn delete_pod(
@@ -68,18 +57,13 @@ pub async fn delete_pod(
 ) -> Result<()> {
     crate::validation::validate_resource_name(&name)?;
 
-    let ctx = CommandContext::new(&state, namespace)?;
-    crate::validation::validate_namespace(&ctx.namespace)?;
+    let delete_params = if force.unwrap_or(false) {
+        Some(kube::api::DeleteParams::default().grace_period(0))
+    } else {
+        None
+    };
 
-    let mut dp = kube::api::DeleteParams::default();
-    if force.unwrap_or(false) {
-        dp = dp.grace_period(0);
-    }
-
-    let api: kube::Api<Pod> = ctx.namespaced_api();
-    api.delete(&name, &dp).await?;
-
-    Ok(())
+    crate::commands::helpers::delete_resource::<Pod>(name, namespace, state, delete_params).await
 }
 
 /// Restart a pod (delete and let the controller recreate it)

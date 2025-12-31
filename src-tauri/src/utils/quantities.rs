@@ -207,4 +207,12 @@ mod tests {
         assert_eq!(format_memory(1024 * 1024), "1.00Mi");
         assert_eq!(format_memory(1024 * 1024 * 1024), "1.00Gi");
     }
+
+    #[test]
+    fn test_calculate_utilization() {
+        assert_eq!(calculate_utilization(50.0, 100.0), Some(50.0));
+        assert_eq!(calculate_utilization(150.0, 100.0), Some(100.0));
+        assert_eq!(calculate_utilization(-10.0, 100.0), Some(0.0));
+        assert_eq!(calculate_utilization(10.0, 0.0), None);
+    }
 }

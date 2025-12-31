@@ -1,5 +1,6 @@
 //! Pod port-forward commands
 
+use crate::error::{Error, Result};
 use crate::state::{AppEvent, AppState};
 use crate::utils::require_namespace;
 use kube::Api;
@@ -119,30 +120,33 @@ pub async fn port_forward_pod(
     config: PortForwardRequest,
     state: State<'_, AppState>,
     license: State<'_, crate::auth::license_client::LicenseClient>,
-) -> Result<PortForwardSessionInfo, String> {
-    license
-        .require_premium_license()
-        .await
-        .map_err(|e| e.to_string())?;
+) -> Result<PortForwardSessionInfo> {
+    license.require_premium_license().await?;
     if config.local_port == 0 || config.remote_port == 0 {
-        return Err("Ports must be greater than 0".to_string());
+        return Err(Error::InvalidInput(
+            "Ports must be greater than 0".to_string(),
+        ));
     }
 
     let context = state
         .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+        .ok_or_else(|| Error::Internal("No cluster connected".to_string()))?;
 
     let client = state
         .client_manager
         .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
+        .ok_or_else(|| Error::Internal("Client not found".to_string()))?;
 
-    let namespace =
-        require_namespace(namespace, state.get_namespace(&context)).map_err(|e| e.to_string())?;
+    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
 
     let listener = TcpListener::bind(("127.0.0.1", config.local_port))
         .await
-        .map_err(|e| format!("Failed to bind port {}: {}", config.local_port, e))?;
+        .map_err(|e| {
+            Error::Connection(format!(
+                "Failed to bind port {}: {e}",
+                config.local_port
+            ))
+        })?;
 
     let session_id = format!("pf-{}", uuid::Uuid::new_v4());
     let created_at = chrono::Utc::now();
@@ -270,7 +274,7 @@ pub async fn port_forward_pod(
 pub fn stop_port_forward(
     forward_id: String,
     state: State<'_, AppState>,
-) -> Result<(), String> {
+) -> Result<()> {
     if let Some((_, cancel_tx)) = state.port_forward_controls.remove(&forward_id) {
         let _ = cancel_tx.send(());
     }
@@ -282,7 +286,7 @@ pub fn stop_port_forward(
 #[tauri::command]
 pub fn list_port_forwards(
     state: State<'_, AppState>,
-) -> Result<Vec<PortForwardSessionInfo>, String> {
+) -> Result<Vec<PortForwardSessionInfo>> {
     let sessions = state
         .port_forward_sessions
         .iter()

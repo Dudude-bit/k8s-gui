@@ -878,7 +878,6 @@ export function PodDetail() {
             resourceKind="Pod"
             resourceName={name || ""}
             namespace={namespace}
-            fetchYaml={() => commands.getPodYaml(name || "", namespace || null)}
             onCopy={copyYaml}
           />
         </TabsContent>

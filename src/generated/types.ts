@@ -373,6 +373,13 @@ export interface PortForwardSessionInfo {
   createdAt: string;
 }
 
+export interface ManifestResult {
+  success: boolean;
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+}
+
 export interface HelmRelease {
   name: string;
   namespace: string;
@@ -383,35 +390,12 @@ export interface HelmRelease {
   updated: string;
 }
 
-export interface EndpointInfo {
-  ip: string;
-  port: number;
-  protocol: string;
-  nodeName: string | null;
-  targetRef: EndpointTarget | null;
-}
-
-export interface EndpointTarget {
-  kind: string;
-  name: string;
-  namespace: string | null;
-}
-
 export interface SecretFilters {
   namespace: string | null;
   labelSelector: string | null;
   fieldSelector: string | null;
   secretType: string | null;
   limit: number | null;
-}
-
-export interface ContainerStatus {
-  name: string;
-  ready: boolean;
-  restartCount: number;
-  state: string;
-  started: boolean;
-  image: string;
 }
 
 export interface ResourceFilters {
@@ -449,24 +433,6 @@ export interface NodeFilters {
   fieldSelector: string | null;
   limit: number | null;
   readyOnly: boolean | null;
-}
-
-export interface NodeResourceUsage {
-  cpuCapacity: string;
-  cpuAllocatable: string;
-  memoryCapacity: string;
-  memoryAllocatable: string;
-  podsCapacity: string;
-  podsAllocatable: string;
-}
-
-export interface NodeCondition {
-  conditionType: string;
-  status: string;
-  reason: string | null;
-  message: string | null;
-  lastHeartbeat: string | null;
-  lastTransition: string | null;
 }
 
 export interface PersistentVolumeInfo {

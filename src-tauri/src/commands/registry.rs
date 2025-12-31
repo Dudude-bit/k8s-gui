@@ -1,7 +1,7 @@
 //! Registry search and credential storage commands.
 
 use crate::auth::CredentialStore;
-use crate::error::Error;
+use crate::error::{Error, Result};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use dirs::home_dir;
 use reqwest::Client;
@@ -148,8 +148,9 @@ fn is_docker_hub_host(host: &str) -> bool {
     )
 }
 
-fn docker_config_path() -> Result<PathBuf, String> {
-    let home = home_dir().ok_or_else(|| "Unable to resolve home directory".to_string())?;
+fn docker_config_path() -> Result<PathBuf> {
+    let home =
+        home_dir().ok_or_else(|| Error::Config("Unable to resolve home directory".to_string()))?;
     Ok(home.join(".docker").join("config.json"))
 }
 
@@ -166,26 +167,28 @@ fn decode_basic_auth(encoded: &str) -> Option<(String, String)> {
     }
 }
 
-fn load_saved_auth(registry_id: &str) -> Result<Option<RegistryAuth>, String> {
+fn load_saved_auth(registry_id: &str) -> Result<Option<RegistryAuth>> {
     let store = CredentialStore::new();
     let key = registry_key(registry_id);
-    let raw = store.get(&key).map_err(|e: Error| e.to_string())?;
+    let raw = store.get(&key)?;
     if let Some(value) = raw {
-        serde_json::from_str(&value)
-            .map(Some)
-            .map_err(|e| e.to_string())
+        serde_json::from_str(&value).map(Some).map_err(Error::from)
     } else {
         Ok(None)
     }
 }
 
 #[tauri::command]
-pub fn import_docker_config() -> Result<Vec<RegistryImportEntry>, String> {
+pub fn import_docker_config() -> Result<Vec<RegistryImportEntry>> {
     let path = docker_config_path()?;
-    let raw = fs::read_to_string(&path)
-        .map_err(|e| format!("Failed to read Docker config at {}: {}", path.display(), e))?;
+    let raw = fs::read_to_string(&path).map_err(|e| {
+        Error::Config(format!(
+            "Failed to read Docker config at {}: {e}",
+            path.display()
+        ))
+    })?;
     let config: DockerConfigFile =
-        serde_json::from_str(&raw).map_err(|e| format!("Failed to parse Docker config: {e}"))?;
+        serde_json::from_str(&raw).map_err(|e| Error::Serialization(e.to_string()))?;
     let auths = config.auths.unwrap_or_default();
     let mut entries = Vec::new();
     let mut seen_hosts = HashMap::new();
@@ -244,7 +247,7 @@ async fn search_registry_catalog(
     query: &str,
     auth_header: Option<String>,
     project_filter: Option<&str>,
-) -> Result<Vec<RegistryImageResult>, String> {
+) -> Result<Vec<RegistryImageResult>> {
     let url = format!(
         "{}/v2/_catalog?n={}",
         base_url.trim_end_matches('/'),
@@ -254,18 +257,20 @@ async fn search_registry_catalog(
     if let Some(header) = auth_header {
         request = request.header("Authorization", header);
     }
-    let response = request.send().await.map_err(|e| e.to_string())?;
+    let response = request.send().await?;
     if !response.status().is_success() {
-        return Err(format!(
+        return Err(Error::Connection(format!(
             "Registry request failed with {}",
             response.status()
-        ));
+        )));
     }
-    let payload: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+    let payload: serde_json::Value = response.json().await?;
     let repositories = payload
         .get("repositories")
         .and_then(|value| value.as_array())
-        .ok_or_else(|| "Registry catalog did not return repositories".to_string())?;
+        .ok_or_else(|| {
+            Error::Internal("Registry catalog did not return repositories".to_string())
+        })?;
     let needle = query.to_lowercase();
     let host = host_from_url(base_url);
     let mut results = Vec::new();
@@ -303,20 +308,20 @@ async fn search_registry_catalog(
 async fn search_docker_hub(
     client: &Client,
     query: &str,
-) -> Result<Vec<RegistryImageResult>, String> {
+) -> Result<Vec<RegistryImageResult>> {
     let url = format!(
         "https://hub.docker.com/v2/search/repositories/?query={}&page_size={}",
         urlencoding::encode(query),
         RESULT_LIMIT
     );
-    let response = client.get(url).send().await.map_err(|e| e.to_string())?;
+    let response = client.get(url).send().await?;
     if !response.status().is_success() {
-        return Err(format!(
+        return Err(Error::Connection(format!(
             "Docker Hub search failed with {}",
             response.status()
-        ));
+        )));
     }
-    let payload: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+    let payload: serde_json::Value = response.json().await?;
     let results = match payload.get("results").and_then(|value| value.as_array()) {
         Some(value) => value,
         None => return Ok(Vec::new()),
@@ -375,7 +380,7 @@ async fn search_harbor(
     query: &str,
     auth_header: Option<String>,
     project_filter: Option<&str>,
-) -> Result<Vec<RegistryImageResult>, String> {
+) -> Result<Vec<RegistryImageResult>> {
     let url = format!(
         "{}/api/v2.0/search?q={}",
         base_url.trim_end_matches('/'),
@@ -385,11 +390,14 @@ async fn search_harbor(
     if let Some(header) = auth_header {
         request = request.header("Authorization", header);
     }
-    let response = request.send().await.map_err(|e| e.to_string())?;
+    let response = request.send().await?;
     if !response.status().is_success() {
-        return Err(format!("Harbor search failed with {}", response.status()));
+        return Err(Error::Connection(format!(
+            "Harbor search failed with {}",
+            response.status()
+        )));
     }
-    let payload: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+    let payload: serde_json::Value = response.json().await?;
     let repositories = match payload.get("repository").and_then(|value| value.as_array()) {
         Some(value) => value,
         None => return Ok(Vec::new()),
@@ -433,28 +441,30 @@ async fn search_harbor(
 pub fn set_registry_credentials(
     registry_id: String,
     auth: RegistryAuth,
-) -> Result<(), String> {
+) -> Result<()> {
     let store = CredentialStore::new();
     let key = registry_key(&registry_id);
     if auth.auth_type == "none" {
-        store.delete(&key).map_err(|e: Error| e.to_string())?;
+        store.delete(&key)?;
         return Ok(());
     }
-    let value = serde_json::to_string(&auth).map_err(|e| e.to_string())?;
-    store.store(&key, &value).map_err(|e: Error| e.to_string())
+    let value = serde_json::to_string(&auth).map_err(Error::from)?;
+    store.store(&key, &value)?;
+    Ok(())
 }
 
 #[tauri::command]
-pub fn delete_registry_credentials(registry_id: String) -> Result<(), String> {
+pub fn delete_registry_credentials(registry_id: String) -> Result<()> {
     let store = CredentialStore::new();
     let key = registry_key(&registry_id);
-    store.delete(&key).map_err(|e: Error| e.to_string())
+    store.delete(&key)?;
+    Ok(())
 }
 
 #[tauri::command]
 pub fn get_registry_auth_status(
     registry_id: String,
-) -> Result<Option<RegistryAuthStatus>, String> {
+) -> Result<Option<RegistryAuthStatus>> {
     let auth = load_saved_auth(&registry_id)?;
     if let Some(auth) = auth {
         Ok(Some(RegistryAuthStatus {
@@ -470,7 +480,7 @@ pub fn get_registry_auth_status(
 #[tauri::command]
 pub async fn search_registry_images(
     request: RegistrySearchRequest,
-) -> Result<Vec<RegistryImageResult>, String> {
+) -> Result<Vec<RegistryImageResult>> {
     let client = Client::new();
     let mut auth = request.auth.clone();
     if request.use_saved_auth {
@@ -488,7 +498,7 @@ pub async fn search_registry_images(
                 .base_url
                 .as_ref()
                 .map(|value| normalize_base_url(value))
-                .ok_or_else(|| "Harbor base URL is required".to_string())?;
+                .ok_or_else(|| Error::InvalidInput("Harbor base URL is required".to_string()))?;
             let project_filter = request.registry.project.as_deref();
             search_harbor(
                 &client,
@@ -517,12 +527,12 @@ pub async fn search_registry_images(
                 .registry
                 .account_id
                 .as_ref()
-                .ok_or_else(|| "ECR account ID is required".to_string())?;
+                .ok_or_else(|| Error::InvalidInput("ECR account ID is required".to_string()))?;
             let region = request
                 .registry
                 .region
                 .as_ref()
-                .ok_or_else(|| "ECR region is required".to_string())?;
+                .ok_or_else(|| Error::InvalidInput("ECR region is required".to_string()))?;
             let base_url =
                 normalize_base_url(&format!("{account_id}.dkr.ecr.{region}.amazonaws.com"));
             search_registry_catalog(&client, &base_url, &request.query, auth_header, None).await
@@ -533,9 +543,11 @@ pub async fn search_registry_images(
                 .base_url
                 .as_ref()
                 .map(|value| normalize_base_url(value))
-                .ok_or_else(|| "Registry URL is required".to_string())?;
+                .ok_or_else(|| Error::InvalidInput("Registry URL is required".to_string()))?;
             search_registry_catalog(&client, &base_url, &request.query, auth_header, None).await
         }
-        other => Err(format!("Unsupported registry provider: {other}")),
+        other => Err(Error::InvalidInput(format!(
+            "Unsupported registry provider: {other}"
+        ))),
     }
 }

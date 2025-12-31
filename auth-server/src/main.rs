@@ -15,6 +15,7 @@ use std::sync::Arc;
 
 use tonic::transport::Server;
 
+use crate::error::Result;
 use crate::proto::auth::auth_service_server::AuthServiceServer;
 use crate::proto::license::license_service_server::LicenseServiceServer;
 use crate::proto::payment::payment_service_server::PaymentServiceServer;
@@ -23,23 +24,21 @@ use crate::utils::rate_limit::RateLimiters;
 use k8s_gui_common::init_tracing;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<()> {
     dotenv::dotenv().ok();
 
     // Initialize tracing
     init_tracing();
 
-    let config =
-        config::Config::load().map_err(|e| format!("Failed to load configuration: {e}"))?;
+    let config = config::Config::load()
+        .map_err(|e| crate::error::Error::Internal(format!("Failed to load configuration: {e}")))?;
     let config = Arc::new(config);
 
-    let db_pool = db::create_pool(&config.database_url)
-        .await
-        .map_err(|e| format!("Failed to create database pool: {e}"))?;
+    let db_pool = db::create_pool(&config.database_url).await?;
 
     let addr = format!("{}:{}", config.host, config.port)
         .parse()
-        .map_err(|e| format!("Failed to parse server address: {e}"))?;
+        .map_err(|e| crate::error::Error::Internal(format!("Failed to parse server address: {e}")))?;
     tracing::info!("Starting gRPC server on {}", addr);
 
     // Create rate limiters
@@ -70,7 +69,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .add_service(UserServiceServer::new(user_grpc))
         .serve(addr)
         .await
-        .map_err(|e| format!("Server error: {e}"))?;
+        .map_err(|e| crate::error::Error::Internal(format!("Server error: {e}")))?;
 
     Ok(())
 }

@@ -1,5 +1,6 @@
 //! Settings and configuration commands
 
+use crate::error::Result;
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -73,7 +74,7 @@ pub struct AppInfo {
 
 /// Clear the resource cache
 #[tauri::command]
-pub fn clear_cache(state: State<'_, AppState>) -> Result<(), String> {
+pub fn clear_cache(state: State<'_, AppState>) -> Result<()> {
     state.cache.clear();
     Ok(())
 }

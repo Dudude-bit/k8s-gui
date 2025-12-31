@@ -1,5 +1,6 @@
 //! Log streaming commands
 
+use crate::error::{Error, Result};
 use crate::logs::{LogConfig, LogLine, LogStreamer};
 use crate::state::{AppState, LogStream};
 use serde::{Deserialize, Serialize};
@@ -27,19 +28,16 @@ pub async fn stream_pod_logs(
     config: StreamLogConfig,
     state: State<'_, AppState>,
     license: State<'_, crate::auth::license_client::LicenseClient>,
-) -> Result<String, String> {
-    license
-        .require_premium_license()
-        .await
-        .map_err(|e| e.to_string())?;
+) -> Result<String> {
+    license.require_premium_license().await?;
     let context = state
         .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+        .ok_or_else(|| Error::Internal("No cluster connected".to_string()))?;
 
     let client = state
         .client_manager
         .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
+        .ok_or_else(|| Error::Internal("Client not found".to_string()))?;
 
     let namespace = config
         .namespace
@@ -95,15 +93,15 @@ pub async fn get_pod_logs(
     _since_seconds: Option<i64>,
     _previous: bool,
     state: State<'_, AppState>,
-) -> Result<Vec<LogLine>, String> {
+) -> Result<Vec<LogLine>> {
     let context = state
         .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+        .ok_or_else(|| Error::Internal("No cluster connected".to_string()))?;
 
     let client = state
         .client_manager
         .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
+        .ok_or_else(|| Error::Internal("Client not found".to_string()))?;
 
     let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
 
@@ -117,21 +115,17 @@ pub async fn get_pod_logs(
 
     let event_tx = state.event_tx.clone();
     let streamer = LogStreamer::new(Arc::new((*client).clone()), event_tx);
-    let logs = streamer
-        .get_logs(&log_config)
-        .await
-        .map_err(|e| e.to_string())?;
+    let logs = streamer.get_logs(&log_config).await?;
 
     Ok(logs)
 }
 
 /// Stop log streaming
 #[tauri::command]
-pub fn stop_log_stream(stream_id: String, state: State<'_, AppState>) -> Result<(), String> {
+pub fn stop_log_stream(stream_id: String, state: State<'_, AppState>) -> Result<()> {
     if let Some((_, log_stream)) = state.log_streams.remove(&stream_id) {
         let _ = log_stream.cancel_tx.send(());
         tracing::info!("Log stream {} stopped", stream_id);
     }
     Ok(())
 }
-

@@ -157,14 +157,12 @@ fn main() {
             // Pod commands
             commands::pods::list_pods,
             commands::pods::get_pod,
-            commands::pods::get_pod_yaml,
             commands::pods::delete_pod,
             commands::pods::restart_pod,
 
             // Deployment commands
             commands::deployments::list_deployments,
             commands::deployments::get_deployment,
-            commands::deployments::get_deployment_yaml,
             commands::deployments::delete_deployment,
             commands::deployments::scale_deployment,
             commands::deployments::restart_deployment,
@@ -175,7 +173,6 @@ fn main() {
             // Service commands
             commands::services::list_services,
             commands::services::get_service,
-            commands::services::get_service_yaml,
             commands::services::delete_service,
 
             // Port-forward commands
@@ -187,7 +184,6 @@ fn main() {
             commands::config_resources::list_configmaps,
             commands::config_resources::get_configmap,
             commands::config_resources::get_configmap_data,
-            commands::config_resources::get_configmap_yaml,
             commands::config_resources::delete_configmap,
 
             // Secret commands
@@ -272,6 +268,12 @@ fn main() {
             commands::validation::validate_email_command,
             commands::validation::validate_password_command,
             commands::validation::validate_license_key_command,
+
+            // Manifest commands
+            commands::manifest::validate_manifest,
+            commands::manifest::apply_manifest,
+            commands::manifest::delete_manifest,
+            commands::manifest::get_manifest,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

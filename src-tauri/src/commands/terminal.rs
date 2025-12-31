@@ -1,5 +1,6 @@
 //! Terminal/Exec commands
 
+use crate::error::{Error, Result};
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -22,12 +23,12 @@ pub async fn terminal_input(
     session_id: String,
     data: String,
     state: State<'_, AppState>,
-) -> Result<(), String> {
+) -> Result<()> {
     if let Some(input_tx) = state.terminal_inputs.get(&session_id) {
         input_tx
             .send(data)
             .await
-            .map_err(|e| format!("Failed to send input: {e}"))?;
+            .map_err(|e| Error::Terminal(format!("Failed to send input: {e}")))?;
     } else {
         tracing::warn!("No input channel found for session {}", session_id);
     }
@@ -41,7 +42,7 @@ pub fn terminal_resize(
     cols: u16,
     rows: u16,
     _state: State<'_, AppState>,
-) -> Result<(), String> {
+) -> Result<()> {
     // Note: Terminal resize requires PTY (pseudo-terminal) support.
     // Currently, terminal sessions use exec attach which doesn't support resize.
     // When PTY support is added, this will send SIGWINCH signal or use resize API.
@@ -56,7 +57,7 @@ pub fn terminal_resize(
 
 /// Close terminal session
 #[tauri::command]
-pub fn close_terminal(session_id: String, state: State<'_, AppState>) -> Result<(), String> {
+pub fn close_terminal(session_id: String, state: State<'_, AppState>) -> Result<()> {
     // Remove input channel (this will cause the stdin writer task to exit)
     state.terminal_inputs.remove(&session_id);
 
@@ -75,19 +76,19 @@ pub async fn open_shell(
     container: Option<String>,
     shell: Option<String>,
     state: State<'_, AppState>,
-) -> Result<String, String> {
+) -> Result<String> {
     use crate::state::AppEvent;
     use kube::api::AttachParams;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     let context = state
         .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+        .ok_or_else(|| Error::Internal("No cluster connected".to_string()))?;
 
     let client = state
         .client_manager
         .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
+        .ok_or_else(|| Error::Internal("Client not found".to_string()))?;
 
     let api: kube::Api<k8s_openapi::api::core::v1::Pod> =
         kube::Api::namespaced((*client).clone(), &namespace);
@@ -96,7 +97,7 @@ pub async fn open_shell(
     let container_name = if let Some(c) = container {
         c
     } else {
-        let pod_obj = api.get(&pod).await.map_err(|e| e.to_string())?;
+        let pod_obj = api.get(&pod).await?;
         pod_obj
             .spec
             .and_then(|s| s.containers.first().map(|c| c.name.clone()))
@@ -116,7 +117,7 @@ pub async fn open_shell(
     let mut attached = api
         .exec(&pod, vec![&shell_cmd], &params)
         .await
-        .map_err(|e| format!("Failed to exec into pod: {e}"))?;
+        .map_err(|e| Error::Terminal(format!("Failed to exec into pod: {e}")))?;
 
     let event_tx = state.event_tx.clone();
     let session_id_clone = session_id.clone();

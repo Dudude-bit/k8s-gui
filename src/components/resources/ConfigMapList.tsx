@@ -1,4 +1,5 @@
 import * as commands from "@/generated/commands";
+import { fetchResourceYaml } from "@/hooks/useResourceYaml";
 import { useClusterStore } from "@/stores/clusterStore";
 import { ColumnDef } from "@tanstack/react-table";
 import { Trash2, Copy } from "lucide-react";
@@ -72,7 +73,8 @@ export function ConfigMapList() {
                 title="ConfigMap YAML"
                 description={`${row.original.namespace}/${row.original.name}`}
                 fetchYaml={() =>
-                  commands.getConfigmapYaml(
+                  fetchResourceYaml(
+                    "ConfigMap",
                     row.original.name,
                     row.original.namespace
                   )
@@ -86,7 +88,8 @@ export function ConfigMapList() {
                   namespace: row.original.namespace,
                 }}
                 fetchYaml={() =>
-                  commands.getConfigmapYaml(
+                  fetchResourceYaml(
+                    "ConfigMap",
                     row.original.name,
                     row.original.namespace
                   )

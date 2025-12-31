@@ -44,16 +44,6 @@ pub async fn get_deployment(
     Ok(DeploymentInfo::from(&deployment))
 }
 
-/// Get full deployment YAML
-#[tauri::command]
-pub async fn get_deployment_yaml(
-    name: String,
-    namespace: Option<String>,
-    state: State<'_, AppState>,
-) -> Result<String> {
-    crate::commands::helpers::get_resource_yaml::<Deployment>(name, namespace, state).await
-}
-
 /// Delete a deployment
 #[tauri::command]
 pub async fn delete_deployment(
@@ -62,15 +52,7 @@ pub async fn delete_deployment(
     state: State<'_, AppState>,
 ) -> Result<()> {
     crate::validation::validate_resource_name(&name)?;
-
-    let ctx = CommandContext::new(&state, namespace)?;
-    crate::validation::validate_namespace(&ctx.namespace)?;
-
-    let api: kube::Api<Deployment> = ctx.namespaced_api();
-    api.delete(&name, &kube::api::DeleteParams::default())
-        .await?;
-
-    Ok(())
+    crate::commands::helpers::delete_resource::<Deployment>(name, namespace, state, None).await
 }
 
 /// Scale a deployment

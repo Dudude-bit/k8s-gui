@@ -11,8 +11,7 @@ use kube::ResourceExt;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-// Import unified quantities module
-use crate::utils::quantities::{format_cpu, parse_cpu, parse_memory};
+use crate::utils::{format_cpu, parse_cpu, parse_memory};
 
 /// Simplified pod information for frontend
 #[derive(Debug, Clone, Serialize, Deserialize)]

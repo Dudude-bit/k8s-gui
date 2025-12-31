@@ -1,5 +1,6 @@
 //! Plugin management commands
 
+use crate::error::{Error, PluginError, Result};
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -21,7 +22,7 @@ pub struct HelmRelease {
 pub async fn list_helm_releases(
     namespace: Option<String>,
     _state: State<'_, AppState>,
-) -> Result<Vec<HelmRelease>, String> {
+) -> Result<Vec<HelmRelease>> {
     let mut cmd = tokio::process::Command::new("helm");
     cmd.arg("list").arg("-o").arg("json");
 
@@ -31,14 +32,19 @@ pub async fn list_helm_releases(
         cmd.arg("-A");
     }
 
-    let output = cmd.output().await.map_err(|e| e.to_string())?;
+    let output = cmd
+        .output()
+        .await
+        .map_err(|e| Error::Plugin(PluginError::ExecutionFailed(e.to_string())))?;
 
     if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+        return Err(Error::Plugin(PluginError::ExecutionFailed(
+            String::from_utf8_lossy(&output.stderr).to_string(),
+        )));
     }
 
     let releases: Vec<HelmRelease> =
-        serde_json::from_slice(&output.stdout).map_err(|e| e.to_string())?;
+        serde_json::from_slice(&output.stdout).map_err(Error::from)?;
 
     Ok(releases)
 }

@@ -1,5 +1,6 @@
 //! Cluster statistics commands
 
+use crate::error::{Error, Result};
 use crate::state::AppState;
 use crate::utils::normalize_namespace;
 use k8s_openapi::api::apps::v1::Deployment;
@@ -58,15 +59,15 @@ pub struct ClusterStats {
 pub async fn get_cluster_stats(
     namespace: Option<String>,
     state: State<'_, AppState>,
-) -> Result<ClusterStats, String> {
+) -> Result<ClusterStats> {
     let context = state
         .get_current_context()
-        .ok_or_else(|| "No cluster connected".to_string())?;
+        .ok_or_else(|| Error::Internal("No cluster connected".to_string()))?;
 
     let client = state
         .client_manager
         .get_client(&context)
-        .ok_or_else(|| "Client not found".to_string())?;
+        .ok_or_else(|| Error::Internal("Client not found".to_string()))?;
 
     let params = ListParams::default();
     let namespace = normalize_namespace(namespace, state.get_namespace(&context));
@@ -101,7 +102,7 @@ pub async fn get_cluster_stats(
     );
 
     // Process pods
-    let pods = pods_result.map_err(|e| format!("Failed to list pods: {e}"))?;
+    let pods = pods_result.map_err(Error::from)?;
     let pod_stats = PodStats {
         total: pods.items.len(),
         running: pods
@@ -147,7 +148,7 @@ pub async fn get_cluster_stats(
     };
 
     // Process deployments
-    let deployments = deployments_result.map_err(|e| format!("Failed to list deployments: {e}"))?;
+    let deployments = deployments_result.map_err(Error::from)?;
     let deployment_stats = DeploymentStats {
         total: deployments.items.len(),
         available: deployments
@@ -175,13 +176,13 @@ pub async fn get_cluster_stats(
     };
 
     // Process services
-    let services = services_result.map_err(|e| format!("Failed to list services: {e}"))?;
+    let services = services_result.map_err(Error::from)?;
     let service_stats = ServiceStats {
         total: services.items.len(),
     };
 
     // Process nodes
-    let nodes = nodes_result.map_err(|e| format!("Failed to list nodes: {e}"))?;
+    let nodes = nodes_result.map_err(Error::from)?;
     let node_stats = NodeStats {
         total: nodes.items.len(),
         ready: nodes

@@ -42,10 +42,8 @@ pub async fn get_configmap(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<ConfigMapInfo> {
-    let ctx = CommandContext::new(&state, namespace)?;
-    let api: kube::Api<ConfigMap> = ctx.namespaced_api();
-    let configmap = api.get(&name).await?;
-
+    let configmap: ConfigMap =
+        crate::commands::helpers::get_resource(name, namespace, state).await?;
     Ok(ConfigMapInfo::from(&configmap))
 }
 
@@ -56,21 +54,9 @@ pub async fn get_configmap_data(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<BTreeMap<String, String>> {
-    let ctx = CommandContext::new(&state, namespace)?;
-    let api: kube::Api<ConfigMap> = ctx.namespaced_api();
-    let configmap = api.get(&name).await?;
-
+    let configmap: ConfigMap =
+        crate::commands::helpers::get_resource(name, namespace, state).await?;
     Ok(configmap.data.unwrap_or_default())
-}
-
-/// Get `ConfigMap` YAML
-#[tauri::command]
-pub async fn get_configmap_yaml(
-    name: String,
-    namespace: Option<String>,
-    state: State<'_, AppState>,
-) -> Result<String> {
-    crate::commands::helpers::get_resource_yaml::<ConfigMap>(name, namespace, state).await
 }
 
 /// Delete `ConfigMap`
@@ -134,10 +120,8 @@ pub async fn get_secret(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<SecretInfo> {
-    let ctx = CommandContext::new(&state, namespace)?;
-    let api: kube::Api<Secret> = ctx.namespaced_api();
-    let secret = api.get(&name).await?;
-
+    let secret: Secret =
+        crate::commands::helpers::get_resource(name, namespace, state).await?;
     Ok(SecretInfo::from(&secret))
 }
 

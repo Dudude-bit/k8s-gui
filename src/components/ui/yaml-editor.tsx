@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { invokeTyped } from "@/lib/tauri";
+import * as commands from "@/generated/commands";
 import CodeMirror from "@uiw/react-codemirror";
 import { yaml as yamlLanguage } from "@codemirror/lang-yaml";
 import { EditorView } from "@codemirror/view";
@@ -32,9 +32,9 @@ import { useThemeStore } from "@/stores/themeStore";
 import { useClusterStore } from "@/stores/clusterStore";
 import {
   useYamlEditorStore,
-  type ManifestResult,
   type ResourceKey,
 } from "@/stores/yamlEditorStore";
+import type { ManifestResult } from "@/generated/types";
 import {
   CheckCircle2,
   XCircle,
@@ -372,10 +372,10 @@ export function YamlEditorDialog() {
     setValidationResult(null);
 
     try {
-      const result = await invokeTyped<ManifestResult>("validate_manifest", {
-        manifest: editedContent,
-        namespace: resourceKey?.namespace || currentNamespace || null,
-      });
+      const result = await commands.validateManifest(
+        editedContent,
+        resourceKey?.namespace || currentNamespace || null
+      );
       setValidationResult(result);
 
       if (result.success) {
@@ -389,7 +389,7 @@ export function YamlEditorDialog() {
         success: false,
         stdout: "",
         stderr: String(error),
-        exit_code: 1,
+        exitCode: 1,
       });
     } finally {
       setIsValidating(false);
@@ -409,10 +409,10 @@ export function YamlEditorDialog() {
     setApplyResult(null);
 
     try {
-      const result = await invokeTyped<ManifestResult>("apply_manifest", {
-        manifest: editedContent,
-        namespace: resourceKey?.namespace || currentNamespace || null,
-      });
+      const result = await commands.applyManifest(
+        editedContent,
+        resourceKey?.namespace || currentNamespace || null
+      );
       setApplyResult(result);
 
       if (result.success) {
@@ -435,7 +435,7 @@ export function YamlEditorDialog() {
         success: false,
         stdout: "",
         stderr: String(error),
-        exit_code: 1,
+        exitCode: 1,
       };
       setApplyResult(errorResult);
       toast({

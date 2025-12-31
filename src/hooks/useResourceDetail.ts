@@ -19,14 +19,13 @@ import {
 } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { useResourceYaml } from "./useResourceYaml";
 
 export interface UseResourceDetailOptions<T> {
   /** Resource kind for YAML command (e.g., "Pod", "Deployment") */
   resourceKind: string;
   /** Function for fetching resource */
   fetchResource: (name: string, namespace: string | null) => Promise<T>;
-  /** Function for fetching YAML */
-  fetchYaml: (name: string, namespace: string | null) => Promise<string>;
   /** Function for deleting resource */
   deleteResource?: (name: string, namespace: string | null) => Promise<void>;
   /** Optional callback when resource is fetched */
@@ -55,6 +54,7 @@ export interface UseResourceDetailResult<T> {
   yaml: string | undefined;
   isLoadingYaml: boolean;
   copyYaml: () => void;
+  refetchYaml: () => Promise<unknown>;
 
   // Tab management
   activeTab: string;
@@ -83,7 +83,6 @@ export function useResourceDetail<T>(
   const {
     resourceKind,
     fetchResource,
-    fetchYaml,
     deleteResource,
     onResourceFetched,
     onDeleted,
@@ -118,15 +117,13 @@ export function useResourceDetail<T>(
     placeholderData: placeholderData ? keepPreviousData : undefined,
   });
 
-  // Fetch YAML (only when YAML tab is active)
-  const { data: yaml, isLoading: isLoadingYaml } = useQuery({
-    queryKey: [`${resourceKind.toLowerCase()}-yaml`, namespace, name],
-    queryFn: () => {
-      if (!name) throw new Error("Name is required");
-      return fetchYaml(name, namespace || null);
-    },
-    enabled: activeTab === "yaml" && !!name,
-  });
+  // Always use useResourceYaml for YAML fetching
+  const { data: yaml, isLoading: isLoadingYaml, refetch: refetchYaml } = useResourceYaml(
+    resourceKind,
+    name,
+    namespace,
+    activeTab
+  );
 
   // Copy YAML to clipboard
   const copyYaml = useCallback(() => {
@@ -143,28 +140,28 @@ export function useResourceDetail<T>(
   // Delete mutation
   const deleteMutation = deleteResource
     ? useMutation({
-        mutationFn: async () => {
-          if (!name) return;
-          await deleteResource(name, namespace || null);
-        },
-        onSuccess: () => {
-          toast({
-            title: `${resourceKind} deleted`,
-            description: `${resourceKind} ${name} has been deleted.`,
-          });
-          queryClient.invalidateQueries({
-            queryKey: [resourceKind.toLowerCase()],
-          });
-          onDeleted?.() ?? goBack();
-        },
-        onError: (err) => {
-          toast({
-            title: "Error",
-            description: `Failed to delete ${resourceKind.toLowerCase()}: ${err}`,
-            variant: "destructive",
-          });
-        },
-      })
+      mutationFn: async () => {
+        if (!name) return;
+        await deleteResource(name, namespace || null);
+      },
+      onSuccess: () => {
+        toast({
+          title: `${resourceKind} deleted`,
+          description: `${resourceKind} ${name} has been deleted.`,
+        });
+        queryClient.invalidateQueries({
+          queryKey: [resourceKind.toLowerCase()],
+        });
+        onDeleted?.() ?? goBack();
+      },
+      onError: (err) => {
+        toast({
+          title: "Error",
+          description: `Failed to delete ${resourceKind.toLowerCase()}: ${err}`,
+          variant: "destructive",
+        });
+      },
+    })
     : null;
 
   return {
@@ -178,6 +175,7 @@ export function useResourceDetail<T>(
     yaml,
     isLoadingYaml,
     copyYaml,
+    refetchYaml,
     activeTab,
     setActiveTab,
     goBack,

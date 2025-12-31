@@ -39,13 +39,6 @@ export function ServiceDetail() {
         throw new Error(normalizeTauriError(err));
       }
     },
-    fetchYaml: async (name, ns) => {
-      try {
-        return await commands.getServiceYaml(name, ns);
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
     deleteResource: async (name, ns) => {
       try {
         await commands.deleteService(name, ns);
@@ -205,9 +198,6 @@ export function ServiceDetail() {
             resourceKind="Service"
             resourceName={name || ""}
             namespace={namespace}
-            fetchYaml={() =>
-              commands.getServiceYaml(name || "", namespace || null)
-            }
             onCopy={copyYaml}
           />
         </TabsContent>

@@ -1,4 +1,5 @@
 import * as commands from "@/generated/commands";
+import { fetchResourceYaml } from "@/hooks/useResourceYaml";
 import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
 import { ColumnDef } from "@tanstack/react-table";
@@ -99,10 +100,10 @@ export function SecretList() {
                 title="Secret YAML"
                 description={`${row.original.namespace}/${row.original.name}`}
                 fetchYaml={() =>
-                  commands.getSecretYaml(
+                  fetchResourceYaml(
+                    "Secret",
                     row.original.name,
-                    row.original.namespace,
-                    false
+                    row.original.namespace
                   )
                 }
               />
@@ -114,10 +115,10 @@ export function SecretList() {
                   namespace: row.original.namespace,
                 }}
                 fetchYaml={() =>
-                  commands.getSecretYaml(
+                  fetchResourceYaml(
+                    "Secret",
                     row.original.name,
-                    row.original.namespace,
-                    false
+                    row.original.namespace
                   )
                 }
               />

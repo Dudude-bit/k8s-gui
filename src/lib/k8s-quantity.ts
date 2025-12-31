@@ -3,6 +3,8 @@
  *
  * Unified module for parsing and formatting Kubernetes resource quantities.
  * Supports both CPU (cores/millicores) and Memory (bytes/Ki/Mi/Gi) formats.
+ *
+ * Source of truth: k8s-gui-common/src/quantities.rs
  */
 
 // Binary unit multipliers (Ki, Mi, Gi, Ti, Pi, Ei)
@@ -17,6 +19,7 @@ export const BINARY_UNITS: Record<string, number> = {
 
 // Decimal unit multipliers (K, M, G, T, P, E)
 export const DECIMAL_UNITS: Record<string, number> = {
+  k: 1e3,
   K: 1e3,
   M: 1e6,
   G: 1e9,
@@ -74,32 +77,38 @@ export function parseQuantity(value: string | null | undefined): number | null {
 }
 
 /**
- * Parse CPU quantity to cores (number)
- * Supports formats: "500m", "0.5", "2", "2.5", "100n"
+ * Parse CPU quantity to millicores (number)
+ * Supports formats: "500m", "0.5", "2", "2.5", "100n", "1000000u"
  *
  * @param cpuStr - CPU string value
- * @returns CPU in cores (e.g., 0.5 for "500m")
+ * @returns CPU in millicores (e.g., 500 for "500m")
  */
 export function parseCPU(cpuStr: string | null | undefined): number {
   if (!cpuStr) return 0;
 
   const trimmed = cpuStr.trim();
 
-  // Nanocores: "100000000n" -> 0.1 cores
+  // Nanocores: "100000000n" -> 100 millicores
   if (trimmed.endsWith("n")) {
     const nanocores = parseFloat(trimmed.slice(0, -1));
-    return isNaN(nanocores) ? 0 : nanocores / 1e9;
+    return isNaN(nanocores) ? 0 : nanocores / 1e6;
   }
 
-  // Millicores: "500m" -> 0.5 cores
+  // Microcores: "1000000u" -> 1000 millicores
+  if (trimmed.endsWith("u")) {
+    const microcores = parseFloat(trimmed.slice(0, -1));
+    return isNaN(microcores) ? 0 : microcores / 1e3;
+  }
+
+  // Millicores: "500m" -> 500 millicores
   if (trimmed.endsWith("m")) {
     const millicores = parseFloat(trimmed.slice(0, -1));
-    return isNaN(millicores) ? 0 : millicores / 1000;
+    return isNaN(millicores) ? 0 : millicores;
   }
 
-  // Cores: "2", "0.5", "2.5"
+  // Cores: "2", "0.5", "2.5" -> millicores
   const cores = parseFloat(trimmed);
-  return isNaN(cores) ? 0 : cores;
+  return isNaN(cores) ? 0 : cores * 1000;
 }
 
 /**
@@ -162,25 +171,25 @@ export function parseMemory(memStr: string | null | undefined): number {
 }
 
 /**
- * Format CPU from cores to string representation
- * Returns format like "500m" for < 1 core, or "2" for >= 1 core
+ * Format CPU from millicores to string representation
+ * Returns format like "500m" for < 1000 millicores, or "2" for >= 1000 millicores
  *
- * @param cores - CPU in cores
+ * @param millicores - CPU in millicores
  * @returns Formatted CPU string
  */
-export function formatCPU(cores: number): string {
-  if (cores === 0) return "0";
+export function formatCPU(millicores: number): string {
+  if (millicores === 0) return "0";
 
-  if (cores < 1) {
-    const millicores = Math.round(cores * 1000);
-    return `${millicores}m`;
+  if (millicores < 1000) {
+    return `${Math.floor(millicores)}m`;
   }
 
+  const cores = millicores / 1000;
   if (cores % 1 === 0) {
     return `${cores}`;
   }
 
-  return cores.toFixed(2);
+  return cores.toFixed(1);
 }
 
 /**
@@ -206,7 +215,7 @@ export function formatMemory(bytes: number, decimals: number = 2): string {
   const kib = bytes / BINARY_UNITS.Ki;
   if (kib >= 1) return `${kib.toFixed(decimals)}Ki`;
 
-  return `${bytes}B`;
+  return `${bytes}`;
 }
 
 /**
@@ -287,13 +296,13 @@ export function getUtilizationColor(
 export function aggregatePodMetrics(
   metrics: Array<{ cpuUsage?: string | null; memoryUsage?: string | null }>
 ): { cpuUsage: string | null; memoryUsage: string | null } {
-  let totalCpuCores = 0;
+  let totalCpuMillicores = 0;
   let totalMemoryBytes = 0;
 
   for (const metric of metrics) {
     const cpu = metric.cpuUsage;
     if (cpu) {
-      totalCpuCores += parseCPU(cpu);
+      totalCpuMillicores += parseCPU(cpu);
     }
     const memory = metric.memoryUsage;
     if (memory) {
@@ -302,7 +311,7 @@ export function aggregatePodMetrics(
   }
 
   return {
-    cpuUsage: totalCpuCores > 0 ? formatCPU(totalCpuCores) : null,
+    cpuUsage: totalCpuMillicores > 0 ? formatCPU(totalCpuMillicores) : null,
     memoryUsage: totalMemoryBytes > 0 ? formatMemory(totalMemoryBytes) : null,
   };
 }
@@ -346,4 +355,3 @@ export function getTopPodsByMemory(
     .sort((a, b) => b.memoryUsage - a.memoryUsage)
     .slice(0, limit);
 }
-
