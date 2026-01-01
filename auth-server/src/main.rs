@@ -7,6 +7,7 @@ mod db;
 mod error;
 mod grpc;
 mod proto;
+mod rest;
 mod services;
 mod tasks;
 mod utils;
@@ -20,6 +21,7 @@ use crate::proto::auth::auth_service_server::AuthServiceServer;
 use crate::proto::license::license_service_server::LicenseServiceServer;
 use crate::proto::payment::payment_service_server::PaymentServiceServer;
 use crate::proto::user::user_service_server::UserServiceServer;
+use crate::rest::RestConfig;
 use crate::utils::rate_limit::RateLimiters;
 use auth_server_migration::{Migrator, MigratorTrait};
 use k8s_gui_common::init_tracing;
@@ -54,6 +56,7 @@ async fn main() -> Result<()> {
         db_pool.clone(),
         (*config).clone(),
     ));
+    let admin_service = Arc::new(services::admin::AdminService::new(db_pool.clone()));
     let user_service = Arc::new(services::user::UserService::new(db_pool.clone()));
     let license_service = Arc::new(services::license::LicenseService::new(db_pool.clone()));
     let payment_service = Arc::new(services::payment::PaymentService::new(db_pool.clone()));
@@ -64,17 +67,30 @@ async fn main() -> Result<()> {
     // Create gRPC services
     let auth_grpc = grpc::AuthGrpcService::new(auth_service.clone(), rate_limiters);
     let license_grpc = grpc::LicenseGrpcService::new(license_service, auth_service.clone());
-    let payment_grpc = grpc::PaymentGrpcService::new(payment_service, auth_service.clone(), config);
+    let payment_grpc =
+        grpc::PaymentGrpcService::new(payment_service, auth_service.clone(), config.clone());
     let user_grpc = grpc::UserGrpcService::new(user_service, auth_service);
 
-    Server::builder()
-        .add_service(AuthServiceServer::new(auth_grpc))
-        .add_service(LicenseServiceServer::new(license_grpc))
-        .add_service(PaymentServiceServer::new(payment_grpc))
-        .add_service(UserServiceServer::new(user_grpc))
-        .serve(addr)
-        .await
-        .map_err(|e| crate::error::Error::Internal(format!("Server error: {e}")))?;
+    let rest_config = RestConfig {
+        host: config.rest_host.clone(),
+        port: config.rest_port,
+        admin_api_key: config.admin_api_key.clone(),
+    };
+
+    let grpc_server = async {
+        Server::builder()
+            .add_service(AuthServiceServer::new(auth_grpc))
+            .add_service(LicenseServiceServer::new(license_grpc))
+            .add_service(PaymentServiceServer::new(payment_grpc))
+            .add_service(UserServiceServer::new(user_grpc))
+            .serve(addr)
+            .await
+            .map_err(|e| crate::error::Error::Internal(format!("Server error: {e}")))
+    };
+
+    let rest_server = rest::run(rest_config, admin_service);
+
+    tokio::try_join!(grpc_server, rest_server)?;
 
     Ok(())
 }

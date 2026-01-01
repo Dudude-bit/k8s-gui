@@ -16,6 +16,10 @@ tonic = "0.12"
 prost = "0.13"
 prost-types = "0.13"
 
+# REST API
+actix-web = "4"
+utoipa = { version = "4", features = ["uuid"] }
+
 # Database
 sea-orm = { version = "0.12", features = ["runtime-tokio-rustls", "sqlx-postgres", "macros", "with-uuid", "with-chrono", "with-json", "with-bigdecimal"] }
 auth-server-migration = { path = "migration" }

@@ -18,6 +18,9 @@ const DEFAULT_HOST: &str = "127.0.0.1";
 /// Default server port
 const DEFAULT_PORT: u16 = 50051;
 
+/// Default REST server port
+const DEFAULT_REST_PORT: u16 = 8080;
+
 /// Application configuration
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -33,6 +36,12 @@ pub struct Config {
     pub host: String,
     /// Server port (default: 50051)
     pub port: u16,
+    /// REST server host address (default: 127.0.0.1)
+    pub rest_host: String,
+    /// REST server port (default: 8080)
+    pub rest_port: u16,
+    /// Admin API key for REST endpoints
+    pub admin_api_key: String,
     /// Secret for verifying webhook signatures (optional)
     pub webhook_secret: Option<String>,
 }
@@ -55,6 +64,9 @@ impl Config {
     /// - `REFRESH_TOKEN_EXPIRY`: Refresh token expiry in seconds (default: 2592000)
     /// - `HOST`: Server host address (default: 127.0.0.1)
     /// - `PORT`: Server port (default: 50051)
+    /// - `REST_HOST`: REST server host address (default: 127.0.0.1)
+    /// - `REST_PORT`: REST server port (default: 8080)
+    /// - `ADMIN_API_KEY`: Admin API key for REST endpoints
     /// - `WEBHOOK_SECRET`: Secret for verifying webhook signatures (optional)
     ///
     /// # Errors
@@ -91,6 +103,13 @@ impl Config {
                 .unwrap_or_else(|_| DEFAULT_PORT.to_string())
                 .parse()
                 .unwrap_or(DEFAULT_PORT),
+            rest_host: env::var("REST_HOST").unwrap_or_else(|_| DEFAULT_HOST.to_string()),
+            rest_port: env::var("REST_PORT")
+                .unwrap_or_else(|_| DEFAULT_REST_PORT.to_string())
+                .parse()
+                .unwrap_or(DEFAULT_REST_PORT),
+            admin_api_key: env::var("ADMIN_API_KEY")
+                .map_err(|_| Error::Internal("ADMIN_API_KEY not set".to_string()))?,
             webhook_secret: env::var("WEBHOOK_SECRET").ok(),
         })
     }

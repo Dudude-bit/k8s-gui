@@ -4,6 +4,7 @@
 //! authentication, user management, licensing, and payment processing.
 
 pub mod auth;
+pub mod admin;
 pub mod license;
 pub mod payment;
 pub mod user;
