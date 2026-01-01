@@ -14,9 +14,14 @@ const serializeError = (value: unknown) => {
   return value;
 };
 
-export function logEvent(level: LogLevel, message: string, options?: LogOptions) {
+export function logEvent(
+  level: LogLevel,
+  message: string,
+  options?: LogOptions
+) {
   const context = options?.context ?? null;
-  const data = options?.data !== undefined ? serializeError(options.data) : null;
+  const data =
+    options?.data !== undefined ? serializeError(options.data) : null;
 
   logFrontendEvent(level, message, context, data).catch(() => undefined);
 }

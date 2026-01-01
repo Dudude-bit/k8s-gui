@@ -23,4 +23,3 @@ export async function invokeTyped<T>(
     throw new Error(`Tauri command '${cmd}' failed: ${errorMessage}`);
   }
 }
-

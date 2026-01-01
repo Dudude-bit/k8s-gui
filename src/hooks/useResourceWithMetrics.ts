@@ -126,4 +126,3 @@ export function matchJobPods<T extends { name: string; namespace: string }>(
     pod.name.startsWith(resource.name + "-")
   );
 }
-

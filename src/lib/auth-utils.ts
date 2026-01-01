@@ -58,4 +58,3 @@ export function isTokenExpired(token: string): boolean {
   }
   return Date.now() >= expiration;
 }
-

@@ -61,7 +61,9 @@ export const PASSWORD_REQUIREMENTS = {
  * @param password - Password to validate
  * @returns Validation result with isValid flag and optional error message
  */
-export async function validatePassword(password: string): Promise<ValidationResult> {
+export async function validatePassword(
+  password: string
+): Promise<ValidationResult> {
   try {
     await commands.validatePasswordCommand(password);
     return { isValid: true };
@@ -82,7 +84,9 @@ export async function validatePassword(password: string): Promise<ValidationResu
  * @param licenseKey - License key to validate (must be in UUID format)
  * @returns Validation result with isValid flag and optional error message
  */
-export async function validateLicenseKey(licenseKey: string): Promise<ValidationResult> {
+export async function validateLicenseKey(
+  licenseKey: string
+): Promise<ValidationResult> {
   try {
     await commands.validateLicenseKeyCommand(licenseKey);
     return { isValid: true };
@@ -93,4 +97,3 @@ export async function validateLicenseKey(licenseKey: string): Promise<Validation
     };
   }
 }
-

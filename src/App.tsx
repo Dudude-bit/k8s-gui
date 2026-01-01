@@ -107,7 +107,10 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
-    logInfo("Route change", { context: "router", data: { path: location.pathname } });
+    logInfo("Route change", {
+      context: "router",
+      data: { path: location.pathname },
+    });
   }, [location.pathname]);
 
   const handleError = useCallback(

@@ -53,10 +53,7 @@ export {
   ConditionBadge,
   statusBadgeVariants,
 } from "./status-badge";
-export type {
-  StatusBadgeProps,
-  ConditionBadgeProps,
-} from "./status-badge";
+export type { StatusBadgeProps, ConditionBadgeProps } from "./status-badge";
 
 export {
   MetricCard,

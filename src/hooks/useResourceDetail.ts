@@ -118,12 +118,11 @@ export function useResourceDetail<T>(
   });
 
   // Always use useResourceYaml for YAML fetching
-  const { data: yaml, isLoading: isLoadingYaml, refetch: refetchYaml } = useResourceYaml(
-    resourceKind,
-    name,
-    namespace,
-    activeTab
-  );
+  const {
+    data: yaml,
+    isLoading: isLoadingYaml,
+    refetch: refetchYaml,
+  } = useResourceYaml(resourceKind, name, namespace, activeTab);
 
   // Copy YAML to clipboard
   const copyYaml = useCallback(() => {
@@ -140,28 +139,28 @@ export function useResourceDetail<T>(
   // Delete mutation
   const deleteMutation = deleteResource
     ? useMutation({
-      mutationFn: async () => {
-        if (!name) return;
-        await deleteResource(name, namespace || null);
-      },
-      onSuccess: () => {
-        toast({
-          title: `${resourceKind} deleted`,
-          description: `${resourceKind} ${name} has been deleted.`,
-        });
-        queryClient.invalidateQueries({
-          queryKey: [resourceKind.toLowerCase()],
-        });
-        onDeleted?.() ?? goBack();
-      },
-      onError: (err) => {
-        toast({
-          title: "Error",
-          description: `Failed to delete ${resourceKind.toLowerCase()}: ${err}`,
-          variant: "destructive",
-        });
-      },
-    })
+        mutationFn: async () => {
+          if (!name) return;
+          await deleteResource(name, namespace || null);
+        },
+        onSuccess: () => {
+          toast({
+            title: `${resourceKind} deleted`,
+            description: `${resourceKind} ${name} has been deleted.`,
+          });
+          queryClient.invalidateQueries({
+            queryKey: [resourceKind.toLowerCase()],
+          });
+          onDeleted?.() ?? goBack();
+        },
+        onError: (err) => {
+          toast({
+            title: "Error",
+            description: `Failed to delete ${resourceKind.toLowerCase()}: ${err}`,
+            variant: "destructive",
+          });
+        },
+      })
     : null;
 
   return {

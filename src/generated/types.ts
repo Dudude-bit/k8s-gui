@@ -615,8 +615,8 @@ export interface ContextInfo {
 
 export type ContainerState =
   | { type: "running" }
-  | { type: "waiting", reason: string | null }
-  | { type: "terminated", exitCode: number; reason: string | null }
+  | { type: "waiting"; reason: string | null }
+  | { type: "terminated"; exitCode: number; reason: string | null }
   | { type: "unknown" };
 
 export type LogLevel =
@@ -626,4 +626,3 @@ export type LogLevel =
   | "error"
   | "fatal"
   | "unknown";
-

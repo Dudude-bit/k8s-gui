@@ -44,7 +44,12 @@ export function fetchResourceYaml(
   namespace?: string | null
 ): Promise<string> {
   const apiVersion = getApiVersion(resourceKind);
-  return commands.getManifest(resourceKind, apiVersion, name, namespace || null);
+  return commands.getManifest(
+    resourceKind,
+    apiVersion,
+    name,
+    namespace || null
+  );
 }
 
 /**

@@ -7,4 +7,3 @@ export interface ClusterContext {
   namespace?: string;
   is_current: boolean;
 }
-

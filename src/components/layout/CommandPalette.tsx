@@ -199,7 +199,7 @@ export function CommandPalette() {
               const queryParams: ResourceQuery = {
                 kind: resource.kind,
                 limit: 200,
-                namespace: resource.namespaced ? (namespace || null) : null,
+                namespace: resource.namespaced ? namespace || null : null,
                 name: null,
                 labelSelector: null,
                 fieldSelector: null,

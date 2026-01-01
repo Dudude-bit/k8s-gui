@@ -24,8 +24,13 @@ import { useAuthStore } from "@/stores/authStore";
  * ```
  */
 export function useLicense() {
-  const { licenseStatus, isCheckingLicense, licenseError, checkLicenseStatus, isAuthenticated } =
-    useAuthStore();
+  const {
+    licenseStatus,
+    isCheckingLicense,
+    licenseError,
+    checkLicenseStatus,
+    isAuthenticated,
+  } = useAuthStore();
 
   useEffect(() => {
     // Only check license if user is authenticated

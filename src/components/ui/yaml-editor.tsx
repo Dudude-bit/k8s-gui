@@ -30,10 +30,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { useThemeStore } from "@/stores/themeStore";
 import { useClusterStore } from "@/stores/clusterStore";
-import {
-  useYamlEditorStore,
-  type ResourceKey,
-} from "@/stores/yamlEditorStore";
+import { useYamlEditorStore, type ResourceKey } from "@/stores/yamlEditorStore";
 import type { ManifestResult } from "@/generated/types";
 import {
   CheckCircle2,

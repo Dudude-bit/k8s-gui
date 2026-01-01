@@ -167,4 +167,3 @@ export function useResourceMutation<
     },
   } as UseMutationOptions<TData, TError, TVariables>);
 }
-

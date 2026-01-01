@@ -58,8 +58,8 @@ export function LogViewer({
   // Filter logs based on search
   const filteredLogs = searchQuery
     ? logs.filter((log) =>
-      log.message.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+        log.message.toLowerCase().includes(searchQuery.toLowerCase())
+      )
     : logs;
 
   // Get the actual scroll viewport element
@@ -180,7 +180,9 @@ export function LogViewer({
 
       // Check if this is a premium feature error
       if (isPremiumFeatureError(errorMsg)) {
-        setError("Log streaming is a premium feature. Please activate your license to use real-time log streaming.");
+        setError(
+          "Log streaming is a premium feature. Please activate your license to use real-time log streaming."
+        );
         setIsConnecting(false);
         setIsStreaming(false);
         return;
