@@ -85,15 +85,21 @@ mod tests {
             normalize_namespace(Some("default".to_string()), "ignored".to_string()),
             Some("default".to_string())
         );
+        // Empty string falls back to fallback
         assert_eq!(
             normalize_namespace(Some("".to_string()), "default".to_string()),
-            None
+            Some("default".to_string())
         );
         assert_eq!(
             normalize_namespace(None, "default".to_string()),
             Some("default".to_string())
         );
+        // Both empty - returns None
         assert_eq!(normalize_namespace(None, "".to_string()), None);
+        assert_eq!(
+            normalize_namespace(Some("".to_string()), "".to_string()),
+            None
+        );
     }
 
     #[test]
@@ -116,7 +122,13 @@ mod tests {
             require_namespace(Some("default".to_string()), "ignored".to_string()).unwrap(),
             "default".to_string()
         );
-        assert!(require_namespace(Some("".to_string()), "default".to_string()).is_err());
+        // Empty namespace falls back to fallback successfully
+        assert_eq!(
+            require_namespace(Some("".to_string()), "default".to_string()).unwrap(),
+            "default".to_string()
+        );
+        // Both empty - error
         assert!(require_namespace(None, "".to_string()).is_err());
+        assert!(require_namespace(Some("".to_string()), "".to_string()).is_err());
     }
 }

@@ -13,7 +13,7 @@ group_imports = "StdExternalCrate"
 reorder_imports = true
 
 # Function formatting
-fn_args_layout = "Tall"
+fn_params_layout = "Tall"
 brace_style = "SameLineWhere"
 empty_item_single_line = false
 
@@ -22,4 +22,3 @@ use_small_heuristics = "Default"
 format_code_in_doc_comments = true
 format_strings = true
 format_macro_matchers = true
-

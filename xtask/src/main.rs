@@ -27,7 +27,8 @@ async fn main() -> Result<()> {
                 "Usage: cargo run -p xtask -- gen-entities\n\
                  \n\
                  Environment overrides:\n\
-                 - POSTGRES_IMAGE (optional, e.g. postgres:16)"
+                 - POSTGRES_IMAGE (optional, e.g. postgres:16)\n\
+                 - RUSTFMT (optional, e.g. \"rustup run nightly rustfmt\")"
             );
             Ok(())
         }
@@ -197,7 +198,11 @@ async fn generate_entities(database_url: &str, schema: &str, output_dir: &Path) 
 
     for OutputFile { name, .. } in output.files.iter() {
         let file_path = output_dir.join(name);
-        let status = Command::new("rustfmt").arg(&file_path).status();
+        let rustfmt_cmd = rustfmt_command();
+        let (program, args) = rustfmt_cmd
+            .split_first()
+            .context("RUSTFMT must not be empty")?;
+        let status = Command::new(program).args(args).arg(&file_path).status();
         if let Ok(status) = status {
             if !status.success() {
                 bail!("rustfmt failed for {}", file_path.display());
@@ -208,6 +213,23 @@ async fn generate_entities(database_url: &str, schema: &str, output_dir: &Path) 
     }
 
     Ok(())
+}
+
+fn rustfmt_command() -> Vec<String> {
+    match env::var("RUSTFMT") {
+        Ok(value) => {
+            let parts = value
+                .split_whitespace()
+                .map(|part| part.to_string())
+                .collect::<Vec<_>>();
+            if parts.is_empty() {
+                vec!["rustfmt".to_string()]
+            } else {
+                parts
+            }
+        }
+        Err(_) => vec!["rustfmt".to_string()],
+    }
 }
 
 async fn connect_postgres(database_url: &str, schema: &str) -> Result<Pool<Postgres>> {
