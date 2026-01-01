@@ -20,6 +20,7 @@ COPY src-tauri/Cargo.toml src-tauri/Cargo.toml
 # Copy build script and proto files (needed for code generation)
 COPY auth-server/build.rs auth-server/build.rs
 COPY auth-server/proto auth-server/proto
+COPY src-tauri/src src-tauri/src
 
 # Copy source code
 COPY auth-server/src auth-server/src
