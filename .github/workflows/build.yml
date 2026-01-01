@@ -34,7 +34,7 @@ jobs:
             target: aarch64-apple-darwin
 
           - name: macos-x64
-            os: macos-13
+            os: macos-14
             artifact_name: k8s-gui-macos-x64
             target: x86_64-apple-darwin
 
@@ -49,6 +49,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up protoc
+        uses: arduino/setup-protoc@v3
 
       # ---------------- Setup dependencies ----------------
       - name: Set up Node.js
