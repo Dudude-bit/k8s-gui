@@ -1,4 +1,4 @@
-FROM rust:1.88-bookworm as builder
+FROM rust:1.88-bookworm AS builder
 
 # Install protobuf compiler for gRPC code generation
 RUN apt-get update && apt-get install -y \
@@ -15,6 +15,7 @@ COPY Cargo.toml Cargo.lock ./
 COPY auth-server/Cargo.toml auth-server/Cargo.toml
 COPY auth-server/migration/Cargo.toml auth-server/migration/Cargo.toml
 COPY k8s-gui-common/Cargo.toml k8s-gui-common/Cargo.toml
+COPY src-tauri/Cargo.toml src-tauri/Cargo.toml
 
 # Copy build script and proto files (needed for code generation)
 COPY auth-server/build.rs auth-server/build.rs
