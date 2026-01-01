@@ -46,12 +46,8 @@ impl PaymentGrpcService {
     }
 
     fn verify_webhook_signature(&self, payload: &[u8], signature: &str) -> bool {
-        let Some(ref secret) = self.config.webhook_secret else {
-            tracing::error!("WEBHOOK_SECRET not configured - rejecting webhook request");
-            return false;
-        };
-
-        let Ok(mut mac) = HmacSha256::new_from_slice(secret.as_bytes()) else {
+        let Ok(mut mac) = HmacSha256::new_from_slice(self.config.webhook_secret.as_bytes())
+        else {
             return false;
         };
         mac.update(payload);

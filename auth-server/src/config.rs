@@ -42,8 +42,8 @@ pub struct Config {
     pub rest_port: u16,
     /// Admin API key for REST endpoints
     pub admin_api_key: String,
-    /// Secret for verifying webhook signatures (optional)
-    pub webhook_secret: Option<String>,
+    /// Secret for verifying webhook signatures
+    pub webhook_secret: String,
 }
 
 impl Config {
@@ -57,6 +57,8 @@ impl Config {
     ///
     /// - `DATABASE_URL`: PostgreSQL database connection URL
     /// - `JWT_SECRET`: Secret key for JWT token signing
+    /// - `ADMIN_API_KEY`: Admin API key for REST endpoints
+    /// - `WEBHOOK_SECRET`: Secret for verifying webhook signatures
     ///
     /// # Optional Environment Variables (with defaults)
     ///
@@ -66,8 +68,6 @@ impl Config {
     /// - `PORT`: Server port (default: 50051)
     /// - `REST_HOST`: REST server host address (default: 127.0.0.1)
     /// - `REST_PORT`: REST server port (default: 8080)
-    /// - `ADMIN_API_KEY`: Admin API key for REST endpoints
-    /// - `WEBHOOK_SECRET`: Secret for verifying webhook signatures (optional)
     ///
     /// # Errors
     ///
@@ -110,7 +110,14 @@ impl Config {
                 .unwrap_or(DEFAULT_REST_PORT),
             admin_api_key: env::var("ADMIN_API_KEY")
                 .map_err(|_| Error::Internal("ADMIN_API_KEY not set".to_string()))?,
-            webhook_secret: env::var("WEBHOOK_SECRET").ok(),
+            webhook_secret: {
+                let secret = env::var("WEBHOOK_SECRET")
+                    .map_err(|_| Error::Internal("WEBHOOK_SECRET not set".to_string()))?;
+                if secret.trim().is_empty() {
+                    return Err(Error::Internal("WEBHOOK_SECRET is empty".to_string()));
+                }
+                secret
+            },
         })
     }
 }
