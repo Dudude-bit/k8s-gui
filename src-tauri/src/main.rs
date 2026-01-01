@@ -148,7 +148,6 @@ fn main() {
 
             // Namespace management
             commands::namespace::list_namespaces,
-            commands::namespace::switch_namespace,
 
             // Generic resource management
             commands::resources::list_resources,

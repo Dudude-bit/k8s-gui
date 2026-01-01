@@ -86,15 +86,7 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
   switchNamespace: async (namespace: string) => {
     // Don't set isLoading for namespace switch - it causes flickering
     // Just update the namespace immediately, queries will refetch automatically
-    try {
-      await commands.switchNamespace(namespace);
-      set({ currentNamespace: namespace });
-    } catch (error) {
-      set({
-        error: normalizeTauriError(error),
-        errorContext: null,
-      });
-    }
+    set({ currentNamespace: namespace, error: null, errorContext: null });
   },
 
   connect: async (context?: string) => {

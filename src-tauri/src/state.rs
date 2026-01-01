@@ -101,7 +101,6 @@ pub enum AppEvent {
 pub struct Session {
     pub id: String,
     pub context: String,
-    pub namespace: String,
     pub connected_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -178,9 +177,6 @@ pub struct AppState {
     /// Current active context
     pub current_context: Arc<RwLock<Option<String>>>,
 
-    /// Current namespace per context
-    pub namespaces: DashMap<String, String>,
-
     /// Active terminal sessions
     pub terminal_sessions: DashMap<String, TerminalSession>,
 
@@ -228,7 +224,6 @@ impl AppState {
             cache,
             sessions: DashMap::new(),
             current_context: Arc::new(RwLock::new(None)),
-            namespaces: DashMap::new(),
             terminal_sessions: DashMap::new(),
             terminal_inputs: DashMap::new(),
             port_forward_sessions: Arc::new(DashMap::new()),
@@ -316,25 +311,11 @@ impl AppState {
         *self.current_context.write() = context;
     }
 
-    /// Get current namespace for a context
-    pub fn get_namespace(&self, context: &str) -> String {
-        self.namespaces
-            .get(context)
-            .map_or_else(|| "default".to_string(), |n| n.clone())
-    }
-
-    /// Set namespace for a context
-    pub fn set_namespace(&self, context: &str, namespace: &str) {
-        self.namespaces
-            .insert(context.to_string(), namespace.to_string());
-    }
-
     /// Create a new session
     pub fn create_session(&self, context: &str) -> Session {
         let session = Session {
             id: Uuid::new_v4().to_string(),
             context: context.to_string(),
-            namespace: self.get_namespace(context),
             connected_at: chrono::Utc::now(),
         };
         self.sessions.insert(context.to_string(), session.clone());
@@ -427,16 +408,6 @@ mod tests {
 
         state.remove_session("test-context");
         assert!(!state.sessions.contains_key("test-context"));
-    }
-
-    #[test]
-    fn test_namespace_management() {
-        let state = AppState::new().unwrap();
-
-        assert_eq!(state.get_namespace("test"), "default");
-
-        state.set_namespace("test", "kube-system");
-        assert_eq!(state.get_namespace("test"), "kube-system");
     }
 
     #[test]

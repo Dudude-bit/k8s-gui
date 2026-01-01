@@ -212,10 +212,6 @@ export async function listNamespaces(): Promise<NamespaceInfo[]> {
   return invoke<NamespaceInfo[]>("list_namespaces");
 }
 
-export async function switchNamespace(namespace: string): Promise<void> {
-  return invoke<void>("switch_namespace", { namespace });
-}
-
 export async function listPersistentVolumes(filters: ResourceFilters | null): Promise<PersistentVolumeInfo[]> {
   return invoke<PersistentVolumeInfo[]>("list_persistent_volumes", { filters });
 }

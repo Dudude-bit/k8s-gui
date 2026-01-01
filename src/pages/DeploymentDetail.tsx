@@ -40,6 +40,7 @@ import {
   FileText,
 } from "lucide-react";
 import { LogViewer } from "@/components/logs/LogViewer";
+import { LicenseErrorBanner } from "@/components/license/LicenseErrorBanner";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { ResourceDetailHeader } from "@/components/resources/ResourceDetailHeader";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
@@ -53,6 +54,7 @@ import {
   formatMemory,
 } from "@/lib/k8s-quantity";
 import { normalizeTauriError } from "@/lib/error-utils";
+import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 
 export function DeploymentDetail() {
   const { namespace, name } = useParams<{ namespace: string; name: string }>();
@@ -65,6 +67,7 @@ export function DeploymentDetail() {
   const [newImage, setNewImage] = useState("");
   const [selectedContainer, setSelectedContainer] = useState("");
   const [selectedLogPod, setSelectedLogPod] = useState<string | null>(null);
+  const { hasAccess } = usePremiumFeature();
 
   const {
     data: deployment,
@@ -484,18 +487,24 @@ export function DeploymentDetail() {
               <CardTitle>Resource Usage</CardTitle>
             </CardHeader>
             <CardContent>
-              <MetricPair
-                cpuUsed={aggregatedMetrics.cpuUsage}
-                cpuTotal="2" /* example */
-                memoryUsed={aggregatedMetrics.memoryUsage}
-                memoryTotal={totalResources.memory}
-                showProgressBar={true}
-                orientation="vertical"
-              />
-              <p className="text-xs text-muted-foreground mt-2">
-                Aggregated across {podsWithMetrics.length} pod
-                {podsWithMetrics.length !== 1 ? "s" : ""}
-              </p>
+              {hasAccess ? (
+                <>
+                  <MetricPair
+                    cpuUsed={aggregatedMetrics.cpuUsage}
+                    cpuTotal="2" /* example */
+                    memoryUsed={aggregatedMetrics.memoryUsage}
+                    memoryTotal={totalResources.memory}
+                    showProgressBar={true}
+                    orientation="vertical"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Aggregated across {podsWithMetrics.length} pod
+                    {podsWithMetrics.length !== 1 ? "s" : ""}
+                  </p>
+                </>
+              ) : (
+                <LicenseErrorBanner message="Metrics are available for premium users only." />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -607,63 +616,68 @@ export function DeploymentDetail() {
         </TabsContent>
 
         <TabsContent value="logs">
-          <Card className="h-[600px]">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Pod Logs
-                </CardTitle>
-                <Select
-                  value={selectedLogPod || ""}
-                  onValueChange={setSelectedLogPod}
-                >
-                  <SelectTrigger className="w-64">
-                    <SelectValue placeholder="Select pod" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {pods.map((pod) => {
-                      const status = pod.status?.phase || "Unknown";
-                      return (
-                        <SelectItem key={pod.name} value={pod.name}>
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`h-2 w-2 rounded-full ${status === "Running"
-                                  ? "bg-green-500"
-                                  : status === "Pending"
-                                    ? "bg-yellow-500"
-                                    : "bg-red-500"
+          {hasAccess ? (
+            <Card className="h-[600px]">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Pod Logs
+                  </CardTitle>
+                  <Select
+                    value={selectedLogPod || ""}
+                    onValueChange={setSelectedLogPod}
+                  >
+                    <SelectTrigger className="w-64">
+                      <SelectValue placeholder="Select pod" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {pods.map((pod) => {
+                        const status = pod.status?.phase || "Unknown";
+                        return (
+                          <SelectItem key={pod.name} value={pod.name}>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`h-2 w-2 rounded-full ${
+                                  status === "Running"
+                                    ? "bg-green-500"
+                                    : status === "Pending"
+                                      ? "bg-yellow-500"
+                                      : "bg-red-500"
                                 }`}
-                            />
-                            {pod.name}
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0 h-[calc(100%-4rem)]">
-              {logPod ? (
-                <LogViewer
-                  key={`${logPod.namespace}:${logPod.name}`}
-                  podName={logPod.name}
-                  namespace={logPod.namespace}
-                  // logPod is generated PodInfo where containers is ContainerInfo[]
-                  // ContainerInfo has name.
-                  containers={logPod.containers?.map((c) => c.name) || []}
-                  initialContainer={logPod.containers?.[0]?.name}
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  {pods.length === 0
-                    ? "No pods available for this deployment"
-                    : "Select a pod to view logs"}
+                              />
+                              {pod.name}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardHeader>
+              <CardContent className="p-0 h-[calc(100%-4rem)]">
+                {logPod ? (
+                  <LogViewer
+                    key={`${logPod.namespace}:${logPod.name}`}
+                    podName={logPod.name}
+                    namespace={logPod.namespace}
+                    // logPod is generated PodInfo where containers is ContainerInfo[]
+                    // ContainerInfo has name.
+                    containers={logPod.containers?.map((c) => c.name) || []}
+                    initialContainer={logPod.containers?.[0]?.name}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    {pods.length === 0
+                      ? "No pods available for this deployment"
+                      : "Select a pod to view logs"}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <LicenseErrorBanner message="Logs viewer is available for premium users only." />
+          )}
         </TabsContent>
 
         <TabsContent value="yaml">

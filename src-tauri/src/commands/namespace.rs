@@ -13,16 +13,3 @@ pub async fn list_namespaces(state: State<'_, AppState>) -> Result<Vec<Namespace
     let list = list_cluster_resources::<Namespace>(state, None, None, None).await?;
     Ok(list.items.iter().map(NamespaceInfo::from).collect())
 }
-
-/// Switch to a different namespace
-#[tauri::command]
-pub fn switch_namespace(namespace: String, state: State<'_, AppState>) -> Result<()> {
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| Error::Internal("No cluster connected".to_string()))?;
-
-    state.set_namespace(&context, &namespace);
-    tracing::info!("Switched to namespace: {}", namespace);
-
-    Ok(())
-}

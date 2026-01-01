@@ -64,9 +64,8 @@ impl ResourceContext {
             .ok_or_else(|| Error::Internal("Client not found".to_string()))
             .map(|c| (*c).clone())?;
 
-        let namespace = normalize_optional_namespace(namespace)
-            .or_else(|| normalize_optional_namespace(Some(state.get_namespace(&context))))
-            .unwrap_or_else(|| "default".to_string());
+        let namespace =
+            normalize_optional_namespace(namespace).unwrap_or_else(|| "default".to_string());
 
         Ok(ResourceContext {
             client,

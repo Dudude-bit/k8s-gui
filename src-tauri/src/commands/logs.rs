@@ -3,6 +3,7 @@
 use crate::error::{Error, Result};
 use crate::logs::{LogConfig, LogLine, LogStreamer};
 use crate::state::{AppState, LogStream};
+use crate::utils::normalize_optional_namespace;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::State;
@@ -39,10 +40,8 @@ pub async fn stream_pod_logs(
         .get_client(&context)
         .ok_or_else(|| Error::Internal("Client not found".to_string()))?;
 
-    let namespace = config
-        .namespace
-        .clone()
-        .unwrap_or_else(|| state.get_namespace(&context));
+    let namespace = normalize_optional_namespace(config.namespace.clone())
+        .unwrap_or_else(|| "default".to_string());
 
     let mut log_config = LogConfig::new(&config.pod_name, &namespace)
         .with_follow(config.follow)
@@ -105,7 +104,8 @@ pub async fn get_pod_logs(
         .get_client(&context)
         .ok_or_else(|| Error::Internal("Client not found".to_string()))?;
 
-    let namespace = namespace.unwrap_or_else(|| state.get_namespace(&context));
+    let namespace =
+        normalize_optional_namespace(namespace).unwrap_or_else(|| "default".to_string());
 
     let mut log_config = LogConfig::new(&pod_name, &namespace)
         .with_follow(false)

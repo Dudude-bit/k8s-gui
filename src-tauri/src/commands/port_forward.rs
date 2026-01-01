@@ -139,7 +139,7 @@ pub async fn port_forward_pod(
         .get_client(&context)
         .ok_or_else(|| Error::Internal("Client not found".to_string()))?;
 
-    let namespace = require_namespace(namespace, state.get_namespace(&context))?;
+    let namespace = require_namespace(namespace, "".to_string())?;
 
     let listener = TcpListener::bind(("127.0.0.1", config.local_port))
         .await
