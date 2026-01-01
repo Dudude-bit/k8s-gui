@@ -4,6 +4,7 @@ use crate::proto::license::{
     license_service_server::LicenseService, ActivateRequest, GetStatusRequest,
     LicenseStatusResponse, ValidateRequest, ValidateResponse,
 };
+use crate::db::repositories::licenses;
 use crate::services::auth::AuthService;
 use crate::services::license::LicenseService as LicenseBusinessService;
 use prost_types::Timestamp;
@@ -41,18 +42,18 @@ impl LicenseService for LicenseGrpcService {
 
         let license = self
             .service
-            .get_status(user_id, None)
+            .get_status(user_id)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
         Ok(Response::new(LicenseStatusResponse {
             has_license: license.is_some(),
-            license_key: license.as_ref().map(|l| l.masked_key()),
+            license_key: license.as_ref().map(licenses::masked_key),
             subscription_type: license.as_ref().map(|l| l.subscription_type.to_string()),
             expires_at: license
                 .as_ref()
                 .and_then(|l| l.expires_at.map(Self::datetime_to_timestamp)),
-            is_valid: license.as_ref().map(|l| l.is_valid()).unwrap_or(false),
+            is_valid: license.as_ref().map(licenses::is_valid).unwrap_or(false),
         }))
     }
 
@@ -71,10 +72,10 @@ impl LicenseService for LicenseGrpcService {
 
         Ok(Response::new(LicenseStatusResponse {
             has_license: true,
-            license_key: Some(license.masked_key()),
+            license_key: Some(licenses::masked_key(&license)),
             subscription_type: Some(license.subscription_type.to_string()),
             expires_at: license.expires_at.map(Self::datetime_to_timestamp),
-            is_valid: license.is_valid(),
+            is_valid: licenses::is_valid(&license),
         }))
     }
 
@@ -92,7 +93,7 @@ impl LicenseService for LicenseGrpcService {
             .map_err(|e| Status::internal(e.to_string()))?;
 
         Ok(Response::new(ValidateResponse {
-            valid: license.is_valid(),
+            valid: licenses::is_valid(&license),
             subscription_type: license.subscription_type.to_string(),
             expires_at: license.expires_at.map(Self::datetime_to_timestamp),
         }))

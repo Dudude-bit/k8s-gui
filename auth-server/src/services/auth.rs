@@ -4,14 +4,14 @@
 //! It uses common DTOs from k8s_gui_common for consistency with the Tauri client.
 
 use crate::config::Config;
-use crate::db::models::{token::RefreshToken, AuditLog, User, UserProfile};
+use crate::db::repositories::{refresh_tokens, user_profiles, users};
 use crate::error::{Error, Result};
 use crate::utils::jwt::{hash_refresh_token, JwtService};
 use crate::utils::password::{hash_password, verify_password};
 use chrono::{Duration, Utc};
 use k8s_gui_common::validation::{validate_email, validate_password};
+use sea_orm::DatabaseConnection;
 use serde::Serialize;
-use sqlx::PgPool;
 use uuid::Uuid;
 
 // Re-export common DTOs
@@ -29,12 +29,12 @@ pub struct AuthResponse {
 }
 
 pub struct AuthService {
-    pool: PgPool,
+    pool: DatabaseConnection,
     config: Config,
 }
 
 impl AuthService {
-    pub fn new(pool: PgPool, config: Config) -> Self {
+    pub fn new(pool: DatabaseConnection, config: Config) -> Self {
         Self { pool, config }
     }
 
@@ -44,7 +44,10 @@ impl AuthService {
         validate_password(&req.password).map_err(Error::Validation)?;
 
         // Check if user already exists
-        if User::find_by_email(&self.pool, &req.email).await?.is_some() {
+        if users::find_by_email(&self.pool, &req.email)
+            .await?
+            .is_some()
+        {
             return Err(Error::Validation(
                 "User with this email already exists".to_string(),
             ));
@@ -55,11 +58,11 @@ impl AuthService {
             .map_err(|e| Error::Internal(format!("Failed to hash password: {}", e)))?;
 
         // Create user
-        let user = User::create(&self.pool, &req.email, &password_hash).await?;
+        let user = users::create(&self.pool, &req.email, &password_hash).await?;
 
         // Create profile if provided
         if req.first_name.is_some() || req.last_name.is_some() || req.company.is_some() {
-            UserProfile::create(
+            user_profiles::create(
                 &self.pool,
                 user.id,
                 req.first_name.clone(),
@@ -86,7 +89,7 @@ impl AuthService {
         // Store refresh token
         let token_hash = hash_refresh_token(&refresh_token);
         let expires_at = Utc::now() + Duration::seconds(self.config.refresh_token_expiry as i64);
-        RefreshToken::create(&self.pool, user.id, token_hash, expires_at).await?;
+        refresh_tokens::create(&self.pool, user.id, token_hash, expires_at).await?;
 
         Ok(AuthResponse {
             user_id: user.id,
@@ -99,15 +102,12 @@ impl AuthService {
 
     pub async fn login(&self, req: LoginRequest) -> Result<AuthResponse> {
         // Find user
-        let user = User::find_by_email(&self.pool, &req.email)
+        let user = users::find_by_email(&self.pool, &req.email)
             .await?
             .ok_or_else(|| Error::Authentication("Invalid email or password".to_string()))?;
 
         // Check if account is locked
-        if user.is_locked() {
-            AuditLog::log_login_attempt(&self.pool, Some(user.id), &req.email, false, None, None)
-                .await
-                .ok();
+        if users::is_locked(&user) {
             return Err(Error::Authentication(
                 "Account is locked. Please try again later.".to_string(),
             ));
@@ -118,10 +118,7 @@ impl AuthService {
             .map_err(|e| Error::Internal(format!("Failed to verify password: {}", e)))?;
 
         if !password_valid {
-            User::increment_failed_login_attempts(&self.pool, user.id)
-                .await
-                .ok();
-            AuditLog::log_login_attempt(&self.pool, Some(user.id), &req.email, false, None, None)
+            users::increment_failed_login_attempts(&self.pool, user.id)
                 .await
                 .ok();
             return Err(Error::Authentication(
@@ -130,13 +127,13 @@ impl AuthService {
         }
 
         // Reset failed attempts
-        User::reset_failed_login_attempts(&self.pool, user.id)
+        users::reset_failed_login_attempts(&self.pool, user.id)
             .await
             .ok();
 
         // Delete all existing refresh tokens for this user to prevent token accumulation
         // This also invalidates all other sessions for security
-        if let Ok(deleted) = RefreshToken::delete_all_for_user(&self.pool, user.id).await {
+        if let Ok(deleted) = refresh_tokens::delete_all_for_user(&self.pool, user.id).await {
             if deleted > 0 {
                 tracing::debug!(
                     "Deleted {} old refresh tokens for user {}",
@@ -163,12 +160,7 @@ impl AuthService {
         // Store refresh token
         let token_hash = hash_refresh_token(&refresh_token);
         let expires_at = Utc::now() + Duration::seconds(self.config.refresh_token_expiry as i64);
-        RefreshToken::create(&self.pool, user.id, token_hash, expires_at).await?;
-
-        // Log successful login
-        AuditLog::log_login_attempt(&self.pool, Some(user.id), &req.email, true, None, None)
-            .await
-            .ok();
+        refresh_tokens::create(&self.pool, user.id, token_hash, expires_at).await?;
 
         Ok(AuthResponse {
             user_id: user.id,
@@ -195,7 +187,7 @@ impl AuthService {
         // This prevents race conditions where the same token could be used twice
         let token_hash = hash_refresh_token(&req.refresh_token);
 
-        let consumed_user_id = RefreshToken::consume(&self.pool, &token_hash)
+        let consumed_user_id = refresh_tokens::consume(&self.pool, &token_hash)
             .await?
             .ok_or_else(|| {
                 Error::Authentication("Invalid or already used refresh token".to_string())
@@ -217,7 +209,7 @@ impl AuthService {
         // Store new refresh token
         let new_token_hash = hash_refresh_token(&refresh_token);
         let expires_at = Utc::now() + Duration::seconds(self.config.refresh_token_expiry as i64);
-        RefreshToken::create(&self.pool, user_id, new_token_hash, expires_at).await?;
+        refresh_tokens::create(&self.pool, user_id, new_token_hash, expires_at).await?;
 
         Ok(AuthResponse {
             user_id,
@@ -230,7 +222,7 @@ impl AuthService {
 
     pub async fn logout(&self, req: RefreshRequest) -> Result<MessageResponse> {
         let token_hash = hash_refresh_token(&req.refresh_token);
-        RefreshToken::delete(&self.pool, &token_hash).await?;
+        refresh_tokens::delete(&self.pool, &token_hash).await?;
 
         Ok(MessageResponse {
             message: "Logged out successfully".to_string(),

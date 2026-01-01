@@ -14,7 +14,7 @@ COPY proto ./proto
 
 # Copy source code
 COPY src ./src
-COPY migrations ./migrations
+COPY migration ./migration
 
 # Build for release
 RUN cargo build --release
@@ -32,12 +32,8 @@ WORKDIR /app
 # Copy binary from builder
 COPY --from=builder /app/target/release/auth-server /app/auth-server
 
-# Copy migrations
-COPY migrations ./migrations
-
 EXPOSE 50051
 
 ENV RUST_LOG=info
 
 CMD ["./auth-server"]
-

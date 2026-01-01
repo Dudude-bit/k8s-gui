@@ -1,0 +1,17 @@
+[package]
+name = "xtask"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+auth-server-migration = { path = "../auth-server/migration" }
+sea-orm-codegen = { version = "0.12", default-features = false }
+sea-orm-migration = { version = "0.12", default-features = false, features = ["runtime-tokio-rustls", "sqlx-postgres"] }
+sea-schema = { version = "0.14", default-features = false, features = ["sqlx-all", "runtime-tokio-rustls"] }
+sqlx = { version = "0.7", default-features = false, features = ["runtime-tokio-rustls", "postgres", "mysql", "sqlite"] }
+tokio = { version = "1.42", features = ["full"] }
+testcontainers = { version = "0.26", features = ["blocking"] }
+testcontainers-modules = { version = "0.14", features = ["postgres"] }
+url = "2.5"
+uuid = { version = "1.11", features = ["v4"] }

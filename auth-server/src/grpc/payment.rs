@@ -1,7 +1,7 @@
 //! Payment gRPC service implementation
 
 use crate::config::Config;
-use crate::db::models::payment::PaymentStatus;
+use crate::db::entities::PaymentStatus;
 use crate::proto::payment::{
     payment_service_server::PaymentService, GetHistoryRequest, PaymentHistoryResponse, PaymentInfo,
     WebhookRequest, WebhookResponse,

@@ -21,6 +21,7 @@ use crate::proto::license::license_service_server::LicenseServiceServer;
 use crate::proto::payment::payment_service_server::PaymentServiceServer;
 use crate::proto::user::user_service_server::UserServiceServer;
 use crate::utils::rate_limit::RateLimiters;
+use auth_server_migration::{Migrator, MigratorTrait};
 use k8s_gui_common::init_tracing;
 
 #[tokio::main]
@@ -35,6 +36,10 @@ async fn main() -> Result<()> {
     let config = Arc::new(config);
 
     let db_pool = db::create_pool(&config.database_url).await?;
+
+    tracing::info!("Applying database migrations...");
+    Migrator::up(&db_pool, None).await?;
+    tracing::info!("Database migrations complete.");
 
     let addr = format!("{}:{}", config.host, config.port)
         .parse()

@@ -1,11 +1,11 @@
 //! Background tasks for cleanup and maintenance
 
-use sqlx::PgPool;
+use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::interval;
 
-use crate::db::models::token::RefreshToken;
+use crate::db::repositories::refresh_tokens;
 use crate::utils::rate_limit::RateLimiters;
 
 /// Interval for token cleanup task (1 hour)
@@ -15,7 +15,7 @@ const CLEANUP_INTERVAL_SECS: u64 = 3600;
 const RATE_LIMIT_CLEANUP_INTERVAL_SECS: u64 = 300;
 
 /// Spawn all background tasks
-pub fn spawn_background_tasks(pool: Arc<PgPool>, rate_limiters: Arc<RateLimiters>) {
+pub fn spawn_background_tasks(pool: Arc<DatabaseConnection>, rate_limiters: Arc<RateLimiters>) {
     let cleanup_pool = pool.clone();
     tokio::spawn(async move {
         token_cleanup_task(cleanup_pool).await;
@@ -27,7 +27,7 @@ pub fn spawn_background_tasks(pool: Arc<PgPool>, rate_limiters: Arc<RateLimiters
 }
 
 /// Periodically clean up expired tokens
-async fn token_cleanup_task(pool: Arc<PgPool>) {
+async fn token_cleanup_task(pool: Arc<DatabaseConnection>) {
     let mut interval = interval(Duration::from_secs(CLEANUP_INTERVAL_SECS));
 
     // Skip the first tick (immediate)
@@ -38,7 +38,7 @@ async fn token_cleanup_task(pool: Arc<PgPool>) {
 
         tracing::info!("Running token cleanup task...");
 
-        match RefreshToken::cleanup_expired(&pool).await {
+        match refresh_tokens::cleanup_expired(&pool).await {
             Ok(count) => {
                 if count > 0 {
                     tracing::info!("Cleaned up {} expired refresh tokens", count);

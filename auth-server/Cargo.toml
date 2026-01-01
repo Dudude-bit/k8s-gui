@@ -17,7 +17,8 @@ prost = "0.13"
 prost-types = "0.13"
 
 # Database
-sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json", "bigdecimal"] }
+sea-orm = { version = "0.12", features = ["runtime-tokio-rustls", "sqlx-postgres", "macros", "with-uuid", "with-chrono", "with-json", "with-bigdecimal"] }
+auth-server-migration = { path = "migration" }
 
 # Password hashing
 argon2 = "0.5"
@@ -58,7 +59,7 @@ base64 = "0.22"
 rand = "0.8"
 
 # Decimal for money
-bigdecimal = { version = "0.4", features = ["serde"] }
+bigdecimal = { version = "0.3", features = ["serde"] }
 
 # SHA2 for token hashing
 sha2 = "0.10"

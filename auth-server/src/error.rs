@@ -7,6 +7,7 @@
 //! consistent error handling across all K8s GUI projects.
 
 use k8s_gui_common::ErrorExt;
+use sea_orm::DbErr;
 use serde::Serialize;
 use thiserror::Error;
 use tonic::Status;
@@ -19,7 +20,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     /// Database errors
     #[error("Database error: {0}")]
-    Database(#[from] sqlx::Error),
+    Database(#[from] DbErr),
 
     /// Validation errors
     #[error("Validation error: {0}")]

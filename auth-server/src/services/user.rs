@@ -1,7 +1,7 @@
-use crate::db::models::{User, UserProfile};
+use crate::db::repositories::{user_profiles, users};
 use crate::error::{Error, Result};
+use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
 use uuid::Uuid;
 
 #[derive(Debug, Serialize)]
@@ -24,20 +24,20 @@ pub struct UpdateProfileRequest {
 }
 
 pub struct UserService {
-    pool: PgPool,
+    pool: DatabaseConnection,
 }
 
 impl UserService {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: DatabaseConnection) -> Self {
         Self { pool }
     }
 
     pub async fn get_profile(&self, user_id: Uuid) -> Result<ProfileResponse> {
-        let user = User::find_by_id(&self.pool, user_id)
+        let user = users::find_by_id(&self.pool, user_id)
             .await?
             .ok_or_else(|| Error::NotFound("User not found".to_string()))?;
 
-        let profile = UserProfile::find_by_user_id(&self.pool, user_id).await?;
+        let profile = user_profiles::find_by_user_id(&self.pool, user_id).await?;
 
         Ok(ProfileResponse {
             user_id: user.id,
@@ -55,11 +55,11 @@ impl UserService {
         req: UpdateProfileRequest,
     ) -> Result<ProfileResponse> {
         // Check if profile exists, create if not
-        let profile = if UserProfile::find_by_user_id(&self.pool, user_id)
+        let profile = if user_profiles::find_by_user_id(&self.pool, user_id)
             .await?
             .is_some()
         {
-            UserProfile::update(
+            user_profiles::update(
                 &self.pool,
                 user_id,
                 req.first_name.clone(),
@@ -68,7 +68,7 @@ impl UserService {
             )
             .await?
         } else {
-            UserProfile::create(
+            user_profiles::create(
                 &self.pool,
                 user_id,
                 req.first_name.clone(),
@@ -78,7 +78,7 @@ impl UserService {
             .await?
         };
 
-        let user = User::find_by_id(&self.pool, user_id)
+        let user = users::find_by_id(&self.pool, user_id)
             .await?
             .ok_or_else(|| Error::NotFound("User not found".to_string()))?;
 

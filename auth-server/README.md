@@ -18,52 +18,37 @@ REST API server for user authentication, license management, and payment trackin
 
 - Rust 1.70+ 
 - PostgreSQL 12+
-- sqlx-cli (for database migrations)
 
 ## Setup
 
-1. Install dependencies:
-```bash
-cargo install sqlx-cli
-```
-
-2. Create PostgreSQL database:
+1. Create PostgreSQL database:
 ```bash
 createdb k8s_gui_auth
 ```
 
-3. Copy environment file:
+2. Copy environment file:
 ```bash
 cp .env.example .env
 ```
 
-4. Update `.env` with your database credentials and configuration.
+3. Update `.env` with your database credentials and configuration.
 
-5. Run database migrations:
-```bash
-# Set DATABASE_URL environment variable
-export DATABASE_URL=postgresql://user:password@localhost/k8s_gui_auth
+4. Database migrations are applied automatically on server startup.
 
-# Run migrations
-for migration in migrations/*.sql; do
-    psql $DATABASE_URL < $migration
-done
-```
-
-Or use sqlx-cli:
-```bash
-sqlx migrate run
-```
-
-6. Generate JWT secret (optional, will be auto-generated if not set):
+5. Generate JWT secret (optional, will be auto-generated if not set):
 ```bash
 # Generate a secure random secret
 openssl rand -base64 64
 ```
 
-7. Run the server:
+6. Run the server:
 ```bash
 cargo run
+```
+
+Optional: regenerate SeaORM entities from a temporary Postgres instance (requires Docker):
+```bash
+cargo run -p xtask -- gen-entities
 ```
 
 The server will start on `http://127.0.0.1:8080` by default.
@@ -103,16 +88,15 @@ The database includes the following tables:
 - `licenses` - License records (monthly/infinite)
 - `payments` - Payment history
 - `refresh_tokens` - JWT refresh tokens
-- `audit_logs` - Security audit logs
 
-See `migrations/` directory for full schema.
+See `migration/` for the full schema.
 
 ## Security
 
 - **Password Hashing**: Argon2 with cost factor 10
 - **Rate Limiting**: 5 login attempts per minute per IP
 - **Account Locking**: Accounts locked for 15 minutes after 5 failed login attempts
-- **SQL Injection Protection**: All queries use prepared statements via sqlx
+- **SQL Injection Protection**: All queries use prepared statements via SeaORM
 - **CORS**: Configurable allowed origins
 - **Security Headers**: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection
 
@@ -134,10 +118,8 @@ RUST_LOG=debug cargo run
 2. Use HTTPS in production
 3. Configure proper CORS origins
 4. Set up database backups
-5. Monitor audit logs for suspicious activity
-6. Use a reverse proxy (nginx) for rate limiting and SSL termination
+5. Use a reverse proxy (nginx) for rate limiting and SSL termination
 
 ## License
 
 MIT
-

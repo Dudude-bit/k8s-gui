@@ -1,40 +1,32 @@
 //! License service layer
 
 use chrono::{Duration, Utc};
-use sqlx::PgPool;
+use sea_orm::DatabaseConnection;
 use uuid::Uuid;
 
-use crate::db::models::license::SubscriptionType;
-use crate::db::models::{AuditLog, License};
+use crate::db::entities::{License, SubscriptionType};
+use crate::db::repositories::licenses;
 use crate::error::{Error, Result};
 
 pub struct LicenseService {
-    pool: PgPool,
+    pool: DatabaseConnection,
 }
 
 impl LicenseService {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: DatabaseConnection) -> Self {
         Self { pool }
     }
 
     /// Get license status for a user
-    pub async fn get_status(&self, user_id: Uuid, ip: Option<&str>) -> Result<Option<License>> {
-        let license = License::find_by_user_id(&self.pool, user_id).await?;
-
-        // Log the license check
-        if let Some(ref lic) = license {
-            let is_valid = lic.is_valid();
-            AuditLog::log_license_check(&self.pool, user_id, is_valid, ip)
-                .await
-                .ok();
-        }
+    pub async fn get_status(&self, user_id: Uuid) -> Result<Option<License>> {
+        let license = licenses::find_by_user_id(&self.pool, user_id).await?;
 
         Ok(license)
     }
 
     /// Activate license for user
     pub async fn activate(&self, user_id: Uuid, license_key: &str) -> Result<License> {
-        let license = License::find_by_license_key(&self.pool, license_key)
+        let license = licenses::find_by_license_key(&self.pool, license_key)
             .await?
             .ok_or_else(|| Error::NotFound("License not found".to_string()))?;
 
@@ -75,12 +67,12 @@ impl LicenseService {
             SubscriptionType::Infinite => None,
         };
 
-        Ok(License::activate_for_user(&self.pool, user_id, license.id, expires_at).await?)
+        Ok(licenses::activate_for_user(&self.pool, user_id, license.id, expires_at).await?)
     }
 
     /// Validate license ownership
     pub async fn validate(&self, user_id: Uuid, license_key: &str) -> Result<License> {
-        let license = License::find_by_license_key(&self.pool, license_key)
+        let license = licenses::find_by_license_key(&self.pool, license_key)
             .await?
             .ok_or_else(|| Error::NotFound("License not found".to_string()))?;
 
