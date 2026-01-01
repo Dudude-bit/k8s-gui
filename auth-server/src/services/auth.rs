@@ -10,6 +10,7 @@ use crate::utils::jwt::{hash_refresh_token, JwtService};
 use crate::utils::password::{hash_password, verify_password};
 use chrono::{Duration, Utc};
 use k8s_gui_common::validation::{validate_email, validate_password};
+use sea_orm::entity::prelude::DateTimeWithTimeZone;
 use sea_orm::DatabaseConnection;
 use serde::Serialize;
 use uuid::Uuid;
@@ -55,7 +56,7 @@ impl AuthService {
 
         // Hash password
         let password_hash = hash_password(&req.password)
-            .map_err(|e| Error::Internal(format!("Failed to hash password: {}", e)))?;
+            .map_err(|e| Error::Internal(format!("Failed to hash password: {e}")))?;
 
         // Create user
         let user = users::create(&self.pool, &req.email, &password_hash).await?;
@@ -81,14 +82,15 @@ impl AuthService {
 
         let access_token = jwt_service
             .generate_access_token(user.id)
-            .map_err(|e| Error::Internal(format!("Failed to generate token: {}", e)))?;
+            .map_err(|e| Error::Internal(format!("Failed to generate token: {e}")))?;
         let refresh_token = jwt_service
             .generate_refresh_token(user.id)
-            .map_err(|e| Error::Internal(format!("Failed to generate refresh token: {}", e)))?;
+            .map_err(|e| Error::Internal(format!("Failed to generate refresh token: {e}")))?;
 
         // Store refresh token
         let token_hash = hash_refresh_token(&refresh_token);
-        let expires_at = Utc::now() + Duration::seconds(self.config.refresh_token_expiry as i64);
+        let expires_at: DateTimeWithTimeZone =
+            (Utc::now() + Duration::seconds(self.config.refresh_token_expiry as i64)).into();
         refresh_tokens::create(&self.pool, user.id, token_hash, expires_at).await?;
 
         Ok(AuthResponse {
@@ -115,7 +117,7 @@ impl AuthService {
 
         // Verify password
         let password_valid = verify_password(&req.password, &user.password_hash)
-            .map_err(|e| Error::Internal(format!("Failed to verify password: {}", e)))?;
+            .map_err(|e| Error::Internal(format!("Failed to verify password: {e}")))?;
 
         if !password_valid {
             users::increment_failed_login_attempts(&self.pool, user.id)
@@ -152,14 +154,15 @@ impl AuthService {
 
         let access_token = jwt_service
             .generate_access_token(user.id)
-            .map_err(|e| Error::Internal(format!("Failed to generate token: {}", e)))?;
+            .map_err(|e| Error::Internal(format!("Failed to generate token: {e}")))?;
         let refresh_token = jwt_service
             .generate_refresh_token(user.id)
-            .map_err(|e| Error::Internal(format!("Failed to generate refresh token: {}", e)))?;
+            .map_err(|e| Error::Internal(format!("Failed to generate refresh token: {e}")))?;
 
         // Store refresh token
         let token_hash = hash_refresh_token(&refresh_token);
-        let expires_at = Utc::now() + Duration::seconds(self.config.refresh_token_expiry as i64);
+        let expires_at: DateTimeWithTimeZone =
+            (Utc::now() + Duration::seconds(self.config.refresh_token_expiry as i64)).into();
         refresh_tokens::create(&self.pool, user.id, token_hash, expires_at).await?;
 
         Ok(AuthResponse {
@@ -201,14 +204,15 @@ impl AuthService {
         // Generate new tokens
         let access_token = jwt_service
             .generate_access_token(user_id)
-            .map_err(|e| Error::Internal(format!("Failed to generate token: {}", e)))?;
+            .map_err(|e| Error::Internal(format!("Failed to generate token: {e}")))?;
         let refresh_token = jwt_service
             .generate_refresh_token(user_id)
-            .map_err(|e| Error::Internal(format!("Failed to generate refresh token: {}", e)))?;
+            .map_err(|e| Error::Internal(format!("Failed to generate refresh token: {e}")))?;
 
         // Store new refresh token
         let new_token_hash = hash_refresh_token(&refresh_token);
-        let expires_at = Utc::now() + Duration::seconds(self.config.refresh_token_expiry as i64);
+        let expires_at: DateTimeWithTimeZone =
+            (Utc::now() + Duration::seconds(self.config.refresh_token_expiry as i64)).into();
         refresh_tokens::create(&self.pool, user_id, new_token_hash, expires_at).await?;
 
         Ok(AuthResponse {
@@ -239,10 +243,11 @@ impl AuthService {
 
         jwt_service
             .validate_access_token(token)
-            .map_err(|e| Error::Authentication(format!("Invalid token: {}", e)))
+            .map_err(|e| Error::Authentication(format!("Invalid token: {e}")))
     }
 
     /// Extract user ID from gRPC request metadata
+    #[allow(clippy::result_large_err)]
     pub fn extract_user_id_from_request<T>(
         &self,
         request: &tonic::Request<T>,
@@ -257,6 +262,6 @@ impl AuthService {
             })?;
 
         self.validate_access_token(token)
-            .map_err(|e| tonic::Status::unauthenticated(format!("Invalid token: {}", e)))
+            .map_err(|e| tonic::Status::unauthenticated(format!("Invalid token: {e}")))
     }
 }

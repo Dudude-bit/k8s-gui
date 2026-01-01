@@ -1,5 +1,6 @@
 use crate::db::entities::refresh_tokens;
 use chrono::Utc;
+use sea_orm::entity::prelude::DateTimeWithTimeZone;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait,
     QueryFilter, Set, Statement,
@@ -10,13 +11,14 @@ pub async fn create(
     db: &DatabaseConnection,
     user_id: Uuid,
     token_hash: String,
-    expires_at: chrono::DateTime<chrono::Utc>,
+    expires_at: DateTimeWithTimeZone,
 ) -> Result<refresh_tokens::Model, DbErr> {
+    let now: DateTimeWithTimeZone = Utc::now().into();
     let token = refresh_tokens::ActiveModel {
         user_id: Set(user_id),
         token_hash: Set(token_hash),
         expires_at: Set(expires_at),
-        created_at: Set(Utc::now()),
+        created_at: Set(now),
         ..Default::default()
     };
 
@@ -62,8 +64,9 @@ pub async fn delete_all_for_user(
 }
 
 pub async fn cleanup_expired(db: &DatabaseConnection) -> Result<i64, DbErr> {
+    let now: DateTimeWithTimeZone = Utc::now().into();
     let result = refresh_tokens::Entity::delete_many()
-        .filter(refresh_tokens::Column::ExpiresAt.lt(Utc::now()))
+        .filter(refresh_tokens::Column::ExpiresAt.lt(now))
         .exec(db)
         .await?;
     Ok(result.rows_affected as i64)

@@ -1,5 +1,7 @@
 use crate::db::entities::licenses;
+use crate::db::entities::SubscriptionType;
 use chrono::{Duration, Utc};
+use sea_orm::entity::prelude::DateTimeWithTimeZone;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel,
     QueryFilter, QueryOrder, Set, TransactionTrait,
@@ -12,8 +14,9 @@ pub fn is_valid(license: &licenses::Model) -> bool {
         return false;
     }
 
+    let now: DateTimeWithTimeZone = Utc::now().into();
     match license.expires_at {
-        Some(expires_at) => expires_at > Utc::now(),
+        Some(expires_at) => expires_at > now,
         None => true,
     }
 }
@@ -26,7 +29,7 @@ pub fn masked_key(license: &licenses::Model) -> String {
 
     let prefix = &key[..8];
     let suffix = &key[key.len() - 4..];
-    format!("{}...{}", prefix, suffix)
+    format!("{prefix}...{suffix}")
 }
 
 pub async fn find_by_user_id(
@@ -55,13 +58,13 @@ pub async fn create(
     db: &DatabaseConnection,
     user_id: Uuid,
     license_key: String,
-    subscription_type: licenses::SubscriptionType,
-    expires_at: Option<chrono::DateTime<chrono::Utc>>,
+    subscription_type: SubscriptionType,
+    expires_at: Option<DateTimeWithTimeZone>,
 ) -> Result<licenses::Model, DbErr> {
-    let now = Utc::now();
+    let now: DateTimeWithTimeZone = Utc::now().into();
     let expires_at = match subscription_type {
-        licenses::SubscriptionType::Infinite => None,
-        licenses::SubscriptionType::Monthly => expires_at,
+        SubscriptionType::Infinite => None,
+        SubscriptionType::Monthly => expires_at,
     };
 
     let txn = db.begin().await?;
@@ -106,11 +109,11 @@ pub async fn extend_monthly(
         return Err(DbErr::RecordNotFound("license not found".to_string()));
     };
 
-    if matches!(license.subscription_type, licenses::SubscriptionType::Infinite) {
+    if matches!(license.subscription_type, SubscriptionType::Infinite) {
         return Ok(license);
     }
 
-    let now = Utc::now();
+    let now: DateTimeWithTimeZone = Utc::now().into();
     let base = match license.expires_at {
         Some(expires_at) if expires_at > now => expires_at,
         _ => now,
@@ -129,9 +132,9 @@ pub async fn activate_for_user(
     db: &DatabaseConnection,
     user_id: Uuid,
     license_id: Uuid,
-    expires_at: Option<chrono::DateTime<chrono::Utc>>,
+    expires_at: Option<DateTimeWithTimeZone>,
 ) -> Result<licenses::Model, DbErr> {
-    let now = Utc::now();
+    let now: DateTimeWithTimeZone = Utc::now().into();
     let txn = db.begin().await?;
 
     licenses::Entity::update_many()

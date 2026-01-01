@@ -8,6 +8,7 @@ use crate::db::repositories::licenses;
 use crate::services::auth::AuthService;
 use crate::services::license::LicenseService as LicenseBusinessService;
 use prost_types::Timestamp;
+use sea_orm::entity::prelude::DateTimeWithTimeZone;
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 
@@ -24,7 +25,7 @@ impl LicenseGrpcService {
         }
     }
 
-    fn datetime_to_timestamp(dt: chrono::DateTime<chrono::Utc>) -> Timestamp {
+    fn datetime_to_timestamp(dt: DateTimeWithTimeZone) -> Timestamp {
         Timestamp {
             seconds: dt.timestamp(),
             nanos: dt.timestamp_subsec_nanos() as i32,

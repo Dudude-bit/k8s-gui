@@ -57,8 +57,7 @@ impl AuthService for AuthGrpcService {
         let client_ip = Self::extract_client_ip(&request);
         if let Err(retry_after) = self.rate_limiters.register.check(&client_ip) {
             return Err(Status::resource_exhausted(format!(
-                "Too many registration attempts. Please try again in {} seconds.",
-                retry_after
+                "Too many registration attempts. Please try again in {retry_after} seconds.",
             )));
         }
 
@@ -94,8 +93,7 @@ impl AuthService for AuthGrpcService {
         let client_ip = Self::extract_client_ip(&request);
         if let Err(retry_after) = self.rate_limiters.login.check(&client_ip) {
             return Err(Status::resource_exhausted(format!(
-                "Too many login attempts. Please try again in {} seconds.",
-                retry_after
+                "Too many login attempts. Please try again in {retry_after} seconds.",
             )));
         }
 

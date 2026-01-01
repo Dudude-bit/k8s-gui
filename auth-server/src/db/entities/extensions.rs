@@ -1,4 +1,4 @@
-use super::{PaymentStatus, SubscriptionType};
+use super::sea_orm_active_enums::{PaymentStatus, SubscriptionType};
 
 impl std::fmt::Display for SubscriptionType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -11,6 +11,7 @@ use crate::services::payment::PaymentService as PaymentBusinessService;
 use crate::utils::validation::validate_pagination;
 use hmac::{Hmac, Mac};
 use prost_types::Timestamp;
+use sea_orm::entity::prelude::{DateTimeWithTimeZone, Decimal};
 use sha2::Sha256;
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
@@ -37,7 +38,7 @@ impl PaymentGrpcService {
         }
     }
 
-    fn datetime_to_timestamp(dt: chrono::DateTime<chrono::Utc>) -> Timestamp {
+    fn datetime_to_timestamp(dt: DateTimeWithTimeZone) -> Timestamp {
         Timestamp {
             seconds: dt.timestamp(),
             nanos: dt.timestamp_subsec_nanos() as i32,
@@ -141,7 +142,7 @@ impl PaymentService for PaymentGrpcService {
 
         let license_id = req.license_id.and_then(|s| Uuid::parse_str(&s).ok());
 
-        let amount = req
+        let amount: Decimal = req
             .amount
             .parse()
             .map_err(|_| Status::invalid_argument("Invalid amount"))?;

@@ -68,7 +68,7 @@ pub fn validate_email(email: &str) -> ValidationResult {
     }
 
     // TLD must be at least 2 characters
-    let tld = domain.split('.').last().unwrap_or("");
+    let tld = domain.split('.').next_back().unwrap_or("");
     if tld.len() < 2 {
         return Err("Please enter a valid email address".to_string());
     }

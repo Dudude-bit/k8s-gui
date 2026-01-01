@@ -1,5 +1,6 @@
 use crate::db::entities::user_profiles;
 use chrono::Utc;
+use sea_orm::entity::prelude::DateTimeWithTimeZone;
 use sea_orm::{
     ActiveModelTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel, Set,
 };
@@ -19,7 +20,7 @@ pub async fn create(
     last_name: Option<String>,
     company: Option<String>,
 ) -> Result<user_profiles::Model, DbErr> {
-    let now = Utc::now();
+    let now: DateTimeWithTimeZone = Utc::now().into();
     let profile = user_profiles::ActiveModel {
         user_id: Set(user_id),
         first_name: Set(first_name),
@@ -27,7 +28,6 @@ pub async fn create(
         company: Set(company),
         created_at: Set(now),
         updated_at: Set(now),
-        ..Default::default()
     };
 
     profile.insert(db).await
@@ -49,7 +49,7 @@ pub async fn update(
     profile.first_name = Set(first_name);
     profile.last_name = Set(last_name);
     profile.company = Set(company);
-    profile.updated_at = Set(Utc::now());
+    profile.updated_at = Set(Utc::now().into());
 
     profile.update(db).await
 }

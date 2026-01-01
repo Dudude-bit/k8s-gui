@@ -1,7 +1,7 @@
 //! Payment service layer
 
-use bigdecimal::BigDecimal;
 use sea_orm::DatabaseConnection;
+use sea_orm::entity::prelude::{DateTimeWithTimeZone, Decimal};
 use uuid::Uuid;
 
 use crate::db::entities::{Payment, PaymentStatus, SubscriptionType};
@@ -35,11 +35,12 @@ impl PaymentService {
     }
 
     /// Process webhook payment with license creation/extension
+    #[allow(clippy::too_many_arguments)]
     pub async fn process_webhook(
         &self,
         user_id: Uuid,
         license_id: Option<Uuid>,
-        amount: BigDecimal,
+        amount: Decimal,
         currency: &str,
         status: PaymentStatus,
         transaction_id: String,
@@ -67,7 +68,10 @@ impl PaymentService {
             };
 
             let expires_at = match sub_type {
-                SubscriptionType::Monthly => Some(chrono::Utc::now() + chrono::Duration::days(30)),
+                SubscriptionType::Monthly => {
+                    let now: DateTimeWithTimeZone = chrono::Utc::now().into();
+                    Some(now + chrono::Duration::days(30))
+                }
                 SubscriptionType::Infinite => None,
             };
 
@@ -75,7 +79,7 @@ impl PaymentService {
             let new_license =
                 licenses::create(&self.pool, user_id, license_key, sub_type, expires_at)
                     .await
-                    .map_err(|e| Error::Internal(format!("Failed to create license: {}", e)))?;
+                    .map_err(|e| Error::Internal(format!("Failed to create license: {e}")))?;
 
             tracing::info!(
                 "Created license {} for user {} via webhook",
@@ -101,7 +105,7 @@ impl PaymentService {
             payment_provider,
         )
         .await
-        .map_err(|e| Error::Internal(format!("Failed to create payment: {}", e)))?;
+        .map_err(|e| Error::Internal(format!("Failed to create payment: {e}")))?;
 
         // Extend existing license if payment completed
         if matches!(status, PaymentStatus::Completed) && license_id.is_some() {

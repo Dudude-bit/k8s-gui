@@ -1,5 +1,6 @@
 use crate::db::entities::users;
 use chrono::{Duration, Utc};
+use sea_orm::entity::prelude::DateTimeWithTimeZone;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait,
     QueryFilter, Set, Statement,
@@ -31,7 +32,7 @@ pub async fn create(
     email: &str,
     password_hash: &str,
 ) -> Result<users::Model, DbErr> {
-    let now = Utc::now();
+    let now: DateTimeWithTimeZone = Utc::now().into();
     let user = users::ActiveModel {
         email: Set(email.to_string()),
         password_hash: Set(password_hash.to_string()),
@@ -47,8 +48,9 @@ pub async fn create(
 }
 
 pub fn is_locked(user: &users::Model) -> bool {
+    let now: DateTimeWithTimeZone = Utc::now().into();
     user.locked_until
-        .map(|locked_until| locked_until > Utc::now())
+        .map(|locked_until| locked_until > now)
         .unwrap_or(false)
 }
 
@@ -56,8 +58,9 @@ pub async fn increment_failed_login_attempts(
     db: &DatabaseConnection,
     user_id: Uuid,
 ) -> Result<(), DbErr> {
-    let now = Utc::now();
-    let lock_until = now + Duration::minutes(LOCKOUT_MINUTES);
+    let now: DateTimeWithTimeZone = Utc::now().into();
+    let lock_until: DateTimeWithTimeZone =
+        (Utc::now() + Duration::minutes(LOCKOUT_MINUTES)).into();
     let stmt = Statement::from_sql_and_values(
         db.get_database_backend(),
         "UPDATE users SET failed_login_attempts = failed_login_attempts + 1, \
@@ -79,7 +82,7 @@ pub async fn reset_failed_login_attempts(
     db: &DatabaseConnection,
     user_id: Uuid,
 ) -> Result<(), DbErr> {
-    let now = Utc::now();
+    let now: DateTimeWithTimeZone = Utc::now().into();
     let stmt = Statement::from_sql_and_values(
         db.get_database_backend(),
         "UPDATE users SET failed_login_attempts = 0, locked_until = NULL, updated_at = $1 \

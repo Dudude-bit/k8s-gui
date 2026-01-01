@@ -1,5 +1,7 @@
 use crate::db::entities::payments;
+use crate::db::entities::sea_orm_active_enums::PaymentStatus;
 use chrono::Utc;
+use sea_orm::entity::prelude::{DateTimeWithTimeZone, Decimal};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, PaginatorTrait,
     QueryFilter, QueryOrder, QuerySelect, Set,
@@ -29,16 +31,18 @@ pub async fn count_by_user_id(db: &DatabaseConnection, user_id: Uuid) -> Result<
     Ok(total as i64)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn create(
     db: &DatabaseConnection,
     user_id: Uuid,
     license_id: Option<Uuid>,
-    amount: bigdecimal::BigDecimal,
+    amount: Decimal,
     currency: &str,
-    status: payments::PaymentStatus,
+    status: PaymentStatus,
     transaction_id: Option<String>,
     payment_provider: Option<String>,
 ) -> Result<payments::Model, DbErr> {
+    let now: DateTimeWithTimeZone = Utc::now().into();
     let payment = payments::ActiveModel {
         user_id: Set(user_id),
         license_id: Set(license_id),
@@ -47,7 +51,7 @@ pub async fn create(
         payment_status: Set(status),
         transaction_id: Set(transaction_id),
         payment_provider: Set(payment_provider),
-        created_at: Set(Utc::now()),
+        created_at: Set(now),
         ..Default::default()
     };
 

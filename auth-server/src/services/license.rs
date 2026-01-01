@@ -1,6 +1,7 @@
 //! License service layer
 
 use chrono::{Duration, Utc};
+use sea_orm::entity::prelude::DateTimeWithTimeZone;
 use sea_orm::DatabaseConnection;
 use uuid::Uuid;
 
@@ -30,6 +31,8 @@ impl LicenseService {
             .await?
             .ok_or_else(|| Error::NotFound("License not found".to_string()))?;
 
+        let now: DateTimeWithTimeZone = Utc::now().into();
+
         // Prevent license key reuse by other users
         if license.user_id != user_id {
             return Err(Error::Authorization(
@@ -44,7 +47,7 @@ impl LicenseService {
 
         // Check if expired (requires renewal)
         if let Some(expires_at) = license.expires_at {
-            if expires_at <= Utc::now() {
+            if expires_at <= now {
                 return Err(Error::Authorization(
                     "License has expired. Please renew your subscription.".to_string(),
                 ));
@@ -55,13 +58,13 @@ impl LicenseService {
         let expires_at = match license.subscription_type {
             SubscriptionType::Monthly => {
                 if let Some(existing) = license.expires_at {
-                    if existing > Utc::now() {
+                    if existing > now {
                         Some(existing)
                     } else {
-                        Some(Utc::now() + Duration::days(30))
+                        Some(now + Duration::days(30))
                     }
                 } else {
-                    Some(Utc::now() + Duration::days(30))
+                    Some(now + Duration::days(30))
                 }
             }
             SubscriptionType::Infinite => None,
