@@ -1,4 +1,4 @@
-.PHONY: gen-entities gen-entities-tauri dev build test clean help
+.PHONY: gen-entities gen-entities-tauri gen-icons dev build test clean help
 
 MISE := $(shell command -v mise 2>/dev/null)
 MISE_EXEC := $(if $(MISE),$(MISE) exec --,)
@@ -13,6 +13,7 @@ help:
 	@echo "  make build         - Build all packages"
 	@echo "  make test          - Run all tests"
 	@echo "  make clean         - Clean build artifacts"
+	@echo "  make gen-icons     - Generate base icon and Tauri icon assets"
 
 # Generate SeaORM entities using xtask
 gen-entities:
@@ -21,6 +22,11 @@ gen-entities:
 # Generate ts types from tauri commands
 gen-entities-tauri:
 	$(MISE_EXEC) tauri-ts-generator generate --config tauri-codegen.toml --verbose
+
+# Generate base icon and all Tauri icon assets
+gen-icons:
+	$(MISE_EXEC) python3 scripts/gen_icon.py
+	$(MISE_EXEC) cargo tauri icon src-tauri/icons/base.png
 
 # Run Tauri development server
 dev:
