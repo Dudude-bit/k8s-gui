@@ -16,6 +16,7 @@ use crate::proto::user::user_service_client::UserServiceClient;
 use crate::proto::user::{
     GetProfileRequest, ProfileResponse, UpdateProfileRequest as GrpcUpdateProfileRequest,
 };
+use chrono::TimeZone;
 use keyring::Entry;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -118,7 +119,7 @@ pub struct PaymentInfo {
     pub status: String,
     pub transaction_id: Option<String>,
     pub payment_provider: Option<String>,
-    pub created_at: Option<i64>,
+    pub created_at: Option<String>,
 }
 
 impl From<GrpcPaymentInfo> for PaymentInfo {
@@ -131,7 +132,13 @@ impl From<GrpcPaymentInfo> for PaymentInfo {
             status: p.status,
             transaction_id: p.transaction_id,
             payment_provider: p.payment_provider,
-            created_at: p.created_at.map(|t| t.seconds),
+            created_at: p.created_at.and_then(|t| {
+                let nanos = u32::try_from(t.nanos).ok()?;
+                chrono::Utc
+                    .timestamp_opt(t.seconds, nanos)
+                    .single()
+                    .map(|dt| dt.to_rfc3339())
+            }),
         }
     }
 }

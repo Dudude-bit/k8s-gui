@@ -46,7 +46,7 @@ export interface PaymentInfo {
   status: string;
   transactionId: string | null;
   paymentProvider: string | null;
-  createdAt: number | null;
+  createdAt: string | null;
 }
 
 export interface PaymentHistoryResponse {
@@ -507,6 +507,15 @@ export interface ResourceQuery {
   labelSelector: string | null;
   fieldSelector: string | null;
   limit: number | null;
+}
+
+export interface ResourceMetadata {
+  name: string;
+  namespace: string | null;
+}
+
+export interface ResourceListItem {
+  metadata: ResourceMetadata;
 }
 
 export interface RolloutStatus {

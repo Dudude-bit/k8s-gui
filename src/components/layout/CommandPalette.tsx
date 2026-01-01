@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useClusterStore } from "@/stores/clusterStore";
 import * as commands from "@/generated/commands";
-import type { ResourceQuery } from "@/generated/types";
+import type { ResourceListItem, ResourceQuery } from "@/generated/types";
 import {
   Box,
   Network,
@@ -227,10 +227,9 @@ export function CommandPalette() {
               }
 
               const filtered = items
-                .map((item) => {
-                  const metadata = item?.metadata || {};
-                  const name = metadata.name as string | undefined;
-                  const ns = metadata.namespace as string | undefined;
+                .map((item: ResourceListItem) => {
+                  const name = item.metadata.name;
+                  const ns = item.metadata.namespace ?? undefined;
                   if (!name) {
                     return null;
                   }

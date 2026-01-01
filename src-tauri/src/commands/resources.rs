@@ -4,6 +4,7 @@ use crate::commands::helpers::{build_list_params, ResourceContext};
 use crate::error::{Error, Result};
 use crate::state::AppState;
 use kube::discovery::{verbs, ApiCapabilities, ApiResource, Discovery};
+use kube::ResourceExt;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -19,12 +20,25 @@ pub struct ResourceQuery {
     pub limit: Option<i64>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResourceMetadata {
+    pub name: String,
+    pub namespace: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResourceListItem {
+    pub metadata: ResourceMetadata,
+}
+
 /// List resources of a given kind
 #[tauri::command]
 pub async fn list_resources(
     query: ResourceQuery,
     state: State<'_, AppState>,
-) -> Result<Vec<serde_json::Value>> {
+) -> Result<Vec<ResourceListItem>> {
     let ctx = ResourceContext::for_list(&state, query.namespace)?;
 
     let params = build_list_params(
@@ -50,11 +64,16 @@ pub async fn list_resources(
     let api = ctx.dynamic_api(&api_resource, &caps);
 
     let list = api.list(&params).await?;
-    list.items
-        .iter()
-        .map(serde_json::to_value)
-        .collect::<std::result::Result<Vec<_>, _>>()
-        .map_err(Error::from)
+    Ok(list
+        .items
+        .into_iter()
+        .map(|item| ResourceListItem {
+            metadata: ResourceMetadata {
+                name: item.name_any(),
+                namespace: item.namespace(),
+            },
+        })
+        .collect())
 }
 
 fn resolve_api_resource(

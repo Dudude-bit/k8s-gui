@@ -19,8 +19,14 @@ import * as commands from "@/generated/commands";
 import type { PaymentInfo } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
 
-const formatDate = (dateString: string) => {
+const formatDate = (dateString: string | null) => {
+  if (!dateString) {
+    return "N/A";
+  }
   const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) {
+    return "N/A";
+  }
   return date.toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
