@@ -1,0 +1,3 @@
+[submodule "appsmith-admin-panel"]
+	path = appsmith-admin-panel
+	url = git@github.com:Dudude-bit/k8s-gui-appsmith-admin-panel.git
