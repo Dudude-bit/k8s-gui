@@ -16,6 +16,7 @@ COPY auth-server/Cargo.toml auth-server/Cargo.toml
 COPY auth-server/migration/Cargo.toml auth-server/migration/Cargo.toml
 COPY k8s-gui-common/Cargo.toml k8s-gui-common/Cargo.toml
 COPY src-tauri/Cargo.toml src-tauri/Cargo.toml
+COPY xtask/Cargo.toml xtask/Cargo.toml
 
 # Copy build script and proto files (needed for code generation)
 COPY auth-server/build.rs auth-server/build.rs
@@ -26,6 +27,7 @@ COPY src-tauri/src src-tauri/src
 COPY auth-server/src auth-server/src
 COPY auth-server/migration auth-server/migration
 COPY k8s-gui-common/src k8s-gui-common/src
+COPY xtask/src xtask/src
 
 # Build for release
 RUN cargo build -p auth-server --release --locked
