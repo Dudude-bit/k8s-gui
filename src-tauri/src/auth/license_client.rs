@@ -21,7 +21,7 @@ use keyring::Entry;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tonic::metadata::MetadataValue;
-use tonic::transport::Channel;
+use tonic::transport::{Channel, ClientTlsConfig};
 
 type CachedLicenseStatus = Arc<RwLock<Option<(LicenseStatus, chrono::DateTime<chrono::Utc>)>>>;
 
@@ -220,11 +220,18 @@ impl LicenseClient {
     }
 
     async fn connect(&self) -> Result<Channel> {
-        Channel::from_shared(self.endpoint.clone())
-            .map_err(|e| Error::Config(format!("Invalid endpoint: {e}")))?
-            .connect()
-            .await
-            .map_err(|e| Error::Connection(format!("Failed to connect to auth server: {e}")))
+        let mut endpoint = Channel::from_shared(self.endpoint.clone())
+            .map_err(|e| Error::Config(format!("Invalid endpoint: {e}")))?;
+
+        if self.endpoint.starts_with("https://") {
+            endpoint = endpoint
+                .tls_config(ClientTlsConfig::new().with_enabled_roots())
+                .map_err(|e| Error::Config(format!("TLS config error: {e}")))?;
+        }
+
+        endpoint.connect().await.map_err(|e| {
+            Error::Connection(format!("Failed to connect to auth server: {e}"))
+        })
     }
 
     /// Create an authenticated request with Bearer token in metadata
