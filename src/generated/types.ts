@@ -533,6 +533,12 @@ export interface DeploymentCondition {
   message: string | null;
 }
 
+export interface AppInfo {
+  version: string;
+  name: string;
+  tauriVersion: string;
+}
+
 export interface IngressPath {
   path: string;
   pathType: string;
@@ -615,8 +621,8 @@ export interface ContextInfo {
 
 export type ContainerState =
   | { type: "running" }
-  | { type: "waiting"; reason: string | null }
-  | { type: "terminated"; exitCode: number; reason: string | null }
+  | { type: "waiting", reason: string | null }
+  | { type: "terminated", exitCode: number; reason: string | null }
   | { type: "unknown" };
 
 export type LogLevel =
@@ -626,3 +632,4 @@ export type LogLevel =
   | "error"
   | "fatal"
   | "unknown";
+

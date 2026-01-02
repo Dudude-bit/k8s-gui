@@ -217,6 +217,7 @@ fn main() {
             commands::plugins::list_helm_releases,
 
             // Settings commands
+            commands::settings::get_app_info,
             commands::settings::clear_cache,
 
             // Registry commands

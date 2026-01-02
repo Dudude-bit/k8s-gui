@@ -72,6 +72,16 @@ pub struct AppInfo {
     pub tauri_version: String,
 }
 
+/// Get application version and build info
+#[tauri::command]
+pub fn get_app_info() -> AppInfo {
+    AppInfo {
+        version: env!("GIT_VERSION").to_string(),
+        name: env!("CARGO_PKG_NAME").to_string(),
+        tauri_version: tauri::VERSION.to_string(),
+    }
+}
+
 /// Clear the resource cache
 #[tauri::command]
 pub fn clear_cache(state: State<'_, AppState>) -> Result<()> {

@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import * as commands from "@/generated/commands";
 import { useToast } from "@/components/ui/use-toast";
 import { PortForwardManager } from "@/components/port-forward/PortForwardManager";
@@ -24,6 +24,12 @@ import { normalizeTauriError } from "@/lib/error-utils";
 export function Settings() {
   const { theme, setTheme } = useThemeStore();
   const { toast } = useToast();
+
+  const { data: appInfo } = useQuery({
+    queryKey: ["appInfo"],
+    queryFn: commands.getAppInfo,
+    staleTime: Infinity,
+  });
 
   const clearCacheMutation = useMutation({
     mutationFn: async () => {
@@ -192,12 +198,12 @@ export function Settings() {
         <CardContent className="space-y-2">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Version</span>
-            <span>0.1.0</span>
+            <span className="font-mono">{appInfo?.version ?? "..."}</span>
           </div>
           <Separator />
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Platform</span>
-            <span>Tauri 2.1</span>
+            <span className="text-muted-foreground">Tauri</span>
+            <span>{appInfo?.tauriVersion ?? "..."}</span>
           </div>
           <Separator />
           <div className="flex justify-between">
