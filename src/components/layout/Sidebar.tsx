@@ -12,6 +12,8 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import * as commands from "@/generated/commands";
 import { useEffect, useState } from "react";
 
 const navItems = [
@@ -68,6 +70,11 @@ const navItems = [
 export function Sidebar() {
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const location = useLocation();
+  const { data: appInfo } = useQuery({
+    queryKey: ["appInfo"],
+    queryFn: commands.getAppInfo,
+    staleTime: Infinity,
+  });
 
   useEffect(() => {
     const activeParents = navItems
@@ -176,7 +183,7 @@ export function Sidebar() {
 
       {/* Version */}
       <div className="border-t border-border p-4 text-xs text-muted-foreground">
-        v0.1.0
+        {appInfo?.version ?? "..."}
       </div>
     </aside>
   );
