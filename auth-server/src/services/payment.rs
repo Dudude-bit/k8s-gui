@@ -72,7 +72,8 @@ impl PaymentService {
 
         // Idempotency check
         if let Some(existing) = self.find_by_transaction_id(&transaction_id).await? {
-            return Ok((existing, existing.license_id, false));
+            let existing_license_id = existing.license_id;
+            return Ok((existing, existing_license_id, false));
         }
 
         let sub_type = Self::parse_subscription_type(subscription_type)?;
