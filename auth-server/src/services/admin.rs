@@ -105,7 +105,7 @@ impl AdminService {
                 let now: DateTimeWithTimeZone = Utc::now().into();
                 Some(now + Duration::days(30 * req.months as i64))
             }
-            SubscriptionType::Infinite => None,
+            SubscriptionType::Lifetime => None,
         };
 
         let license_key = Uuid::new_v4().to_string();

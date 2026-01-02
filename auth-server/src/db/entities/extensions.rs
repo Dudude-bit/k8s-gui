@@ -4,7 +4,7 @@ impl std::fmt::Display for SubscriptionType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let value = match self {
             SubscriptionType::Monthly => "monthly",
-            SubscriptionType::Infinite => "infinite",
+            SubscriptionType::Lifetime => "lifetime",
         };
         f.write_str(value)
     }

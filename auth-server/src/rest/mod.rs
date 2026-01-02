@@ -44,15 +44,15 @@ pub struct RegisterUserResponse {
 #[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum SubscriptionTypeDto {
-    Infinite,
     Monthly,
+    Lifetime,
 }
 
 impl From<SubscriptionTypeDto> for SubscriptionType {
     fn from(value: SubscriptionTypeDto) -> Self {
         match value {
-            SubscriptionTypeDto::Infinite => SubscriptionType::Infinite,
             SubscriptionTypeDto::Monthly => SubscriptionType::Monthly,
+            SubscriptionTypeDto::Lifetime => SubscriptionType::Lifetime,
         }
     }
 }
@@ -60,8 +60,8 @@ impl From<SubscriptionTypeDto> for SubscriptionType {
 impl From<SubscriptionType> for SubscriptionTypeDto {
     fn from(value: SubscriptionType) -> Self {
         match value {
-            SubscriptionType::Infinite => SubscriptionTypeDto::Infinite,
             SubscriptionType::Monthly => SubscriptionTypeDto::Monthly,
+            SubscriptionType::Lifetime => SubscriptionTypeDto::Lifetime,
         }
     }
 }

@@ -34,7 +34,7 @@ const getSubscriptionTypeDisplay = (
   switch (type) {
     case "monthly":
       return "Monthly";
-    case "infinite":
+    case "lifetime":
       return "Lifetime";
     default:
       return "N/A";
@@ -128,7 +128,7 @@ export function LicenseInfoDialog({
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Subscription Type</span>
                   <div className="flex items-center gap-2">
-                    {licenseStatus.subscriptionType === "infinite" ? (
+                    {licenseStatus.subscriptionType === "lifetime" ? (
                       <Infinity className="h-4 w-4" />
                     ) : (
                       <Calendar className="h-4 w-4" />

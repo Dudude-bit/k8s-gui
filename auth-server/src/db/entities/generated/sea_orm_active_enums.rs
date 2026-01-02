@@ -17,8 +17,8 @@ pub enum PaymentStatus {
 #[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "subscription_type")]
 pub enum SubscriptionType {
-    #[sea_orm(string_value = "infinite")]
-    Infinite,
+    #[sea_orm(string_value = "lifetime")]
+    Lifetime,
     #[sea_orm(string_value = "monthly")]
     Monthly,
 }

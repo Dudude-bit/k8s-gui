@@ -63,7 +63,7 @@ export function LicenseStatusBadge() {
         }
       }
 
-      if (licenseStatus.subscriptionType === "infinite") {
+      if (licenseStatus.subscriptionType === "lifetime") {
         return (
           <>
             <Crown className="h-3 w-3 mr-1" />

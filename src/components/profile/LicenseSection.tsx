@@ -68,7 +68,7 @@ export function LicenseSection() {
                       Subscription Type
                     </span>
                     <div className="flex items-center gap-2">
-                      {licenseStatus.subscriptionType === "infinite" ? (
+                      {licenseStatus.subscriptionType === "lifetime" ? (
                         <Infinity className="h-4 w-4" />
                       ) : (
                         <Calendar className="h-4 w-4" />

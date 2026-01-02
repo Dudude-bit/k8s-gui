@@ -6,7 +6,7 @@ REST API server for user authentication, license management, and payment trackin
 
 - User registration and authentication with JWT tokens
 - Password hashing using Argon2
-- License management (monthly and infinite subscriptions)
+- License management (monthly and lifetime subscriptions)
 - Payment history tracking
 - Security features:
   - Rate limiting to prevent brute-force attacks
@@ -85,7 +85,7 @@ The database includes the following tables:
 
 - `users` - User accounts
 - `user_profiles` - User profile information
-- `licenses` - License records (monthly/infinite)
+- `licenses` - License records (monthly/lifetime)
 - `payments` - Payment history
 - `refresh_tokens` - JWT refresh tokens
 

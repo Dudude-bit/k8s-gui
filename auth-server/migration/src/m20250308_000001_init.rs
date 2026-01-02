@@ -21,7 +21,7 @@ impl MigrationTrait for Migration {
             .create_type(
                 Type::create()
                     .as_enum(SubscriptionType::Table)
-                    .values([SubscriptionType::Monthly, SubscriptionType::Infinite])
+                    .values([SubscriptionType::Monthly, SubscriptionType::Lifetime])
                     .to_owned(),
             )
             .await?;
@@ -148,7 +148,7 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(Licenses::SubscriptionType)
                             .enumeration(
                                 SubscriptionType::Table,
-                                [SubscriptionType::Monthly, SubscriptionType::Infinite],
+                                [SubscriptionType::Monthly, SubscriptionType::Lifetime],
                             )
                             .not_null(),
                     )
@@ -179,7 +179,7 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .check(Expr::cust(
-                        "(subscription_type = 'infinite' AND expires_at IS NULL) \
+                        "(subscription_type = 'lifetime' AND expires_at IS NULL) \
                         OR (subscription_type = 'monthly' AND expires_at IS NOT NULL)",
                     ))
                     .to_owned(),
@@ -361,6 +361,7 @@ impl MigrationTrait for Migration {
                     .name("idx_payments_transaction_id")
                     .table(Payments::Table)
                     .col(Payments::TransactionId)
+                    .unique()
                     .to_owned(),
             )
             .await?;
@@ -557,7 +558,7 @@ enum RefreshTokens {
 enum SubscriptionType {
     Table,
     Monthly,
-    Infinite,
+    Lifetime,
 }
 
 #[derive(Iden)]

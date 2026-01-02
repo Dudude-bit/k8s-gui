@@ -40,11 +40,6 @@ impl LicenseService {
             ));
         }
 
-        // Already active for this user
-        if license.is_active {
-            return Ok(license);
-        }
-
         // Check if expired (requires renewal)
         if let Some(expires_at) = license.expires_at {
             if expires_at <= now {
@@ -52,6 +47,11 @@ impl LicenseService {
                     "License has expired. Please renew your subscription.".to_string(),
                 ));
             }
+        }
+
+        // Already active for this user
+        if license.is_active {
+            return Ok(license);
         }
 
         // Calculate expiration
@@ -67,7 +67,7 @@ impl LicenseService {
                     Some(now + Duration::days(30))
                 }
             }
-            SubscriptionType::Infinite => None,
+            SubscriptionType::Lifetime => None,
         };
 
         Ok(licenses::activate_for_user(&self.pool, user_id, license.id, expires_at).await?)

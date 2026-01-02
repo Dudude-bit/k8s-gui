@@ -54,6 +54,18 @@ pub async fn find_by_license_key(
         .await
 }
 
+pub async fn find_by_id_for_user(
+    db: &DatabaseConnection,
+    license_id: Uuid,
+    user_id: Uuid,
+) -> Result<Option<licenses::Model>, DbErr> {
+    licenses::Entity::find()
+        .filter(licenses::Column::Id.eq(license_id))
+        .filter(licenses::Column::UserId.eq(user_id))
+        .one(db)
+        .await
+}
+
 pub async fn create(
     db: &DatabaseConnection,
     user_id: Uuid,
@@ -63,7 +75,7 @@ pub async fn create(
 ) -> Result<licenses::Model, DbErr> {
     let now: DateTimeWithTimeZone = Utc::now().into();
     let expires_at = match subscription_type {
-        SubscriptionType::Infinite => None,
+        SubscriptionType::Lifetime => None,
         SubscriptionType::Monthly => expires_at,
     };
 
@@ -109,7 +121,7 @@ pub async fn extend_monthly(
         return Err(DbErr::RecordNotFound("license not found".to_string()));
     };
 
-    if matches!(license.subscription_type, SubscriptionType::Infinite) {
+    if matches!(license.subscription_type, SubscriptionType::Lifetime) {
         return Ok(license);
     }
 
@@ -123,6 +135,59 @@ pub async fn extend_monthly(
     let mut active: licenses::ActiveModel = license.into_active_model();
     active.expires_at = Set(Some(new_expires_at));
     active.is_active = Set(true);
+    active.updated_at = Set(now);
+
+    active.update(db).await
+}
+
+pub async fn upgrade_to_lifetime(
+    db: &DatabaseConnection,
+    license_id: Uuid,
+    user_id: Uuid,
+) -> Result<licenses::Model, DbErr> {
+    let license = licenses::Entity::find()
+        .filter(licenses::Column::Id.eq(license_id))
+        .filter(licenses::Column::UserId.eq(user_id))
+        .one(db)
+        .await?;
+
+    let Some(license) = license else {
+        return Err(DbErr::RecordNotFound("license not found".to_string()));
+    };
+
+    if matches!(license.subscription_type, SubscriptionType::Lifetime) && license.expires_at.is_none()
+    {
+        return Ok(license);
+    }
+
+    let now: DateTimeWithTimeZone = Utc::now().into();
+    let mut active: licenses::ActiveModel = license.into_active_model();
+    active.subscription_type = Set(SubscriptionType::Lifetime);
+    active.expires_at = Set(None);
+    active.is_active = Set(true);
+    active.updated_at = Set(now);
+
+    active.update(db).await
+}
+
+pub async fn set_inactive(
+    db: &DatabaseConnection,
+    license_id: Uuid,
+    user_id: Uuid,
+) -> Result<licenses::Model, DbErr> {
+    let license = licenses::Entity::find()
+        .filter(licenses::Column::Id.eq(license_id))
+        .filter(licenses::Column::UserId.eq(user_id))
+        .one(db)
+        .await?;
+
+    let Some(license) = license else {
+        return Err(DbErr::RecordNotFound("license not found".to_string()));
+    };
+
+    let now: DateTimeWithTimeZone = Utc::now().into();
+    let mut active: licenses::ActiveModel = license.into_active_model();
+    active.is_active = Set(false);
     active.updated_at = Set(now);
 
     active.update(db).await

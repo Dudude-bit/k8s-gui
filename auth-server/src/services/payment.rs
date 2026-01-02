@@ -1,5 +1,6 @@
 //! Payment service layer
 
+use chrono::{Duration, Utc};
 use sea_orm::DatabaseConnection;
 use sea_orm::entity::prelude::{DateTimeWithTimeZone, Decimal};
 use uuid::Uuid;
@@ -34,7 +35,24 @@ impl PaymentService {
         Ok(payments::find_by_transaction_id(&self.pool, transaction_id).await?)
     }
 
-    /// Process webhook payment with license creation/extension
+    fn parse_subscription_type(subscription_type: Option<&str>) -> Result<SubscriptionType> {
+        let normalized = subscription_type
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_ascii_lowercase);
+
+        match normalized.as_deref() {
+            None => Ok(SubscriptionType::Monthly),
+            Some("monthly") => Ok(SubscriptionType::Monthly),
+            Some("lifetime") => Ok(SubscriptionType::Lifetime),
+            Some(value) => Err(Error::Validation(format!(
+                "Unsupported subscription_type: {}",
+                value
+            ))),
+        }
+    }
+
+    /// Process webhook payment with license updates and idempotency
     #[allow(clippy::too_many_arguments)]
     pub async fn process_webhook(
         &self,
@@ -46,58 +64,77 @@ impl PaymentService {
         transaction_id: String,
         payment_provider: Option<String>,
         subscription_type: Option<&str>,
-    ) -> Result<(Payment, Uuid, bool)> {
-        // Idempotency check
-        if !transaction_id.is_empty() {
-            if let Some(existing) = self.find_by_transaction_id(&transaction_id).await? {
-                return Err(Error::Validation(format!(
-                    "Payment already processed: {}",
-                    existing.id
-                )));
-            }
+    ) -> Result<(Payment, Option<Uuid>, bool)> {
+        let transaction_id = transaction_id.trim().to_string();
+        if transaction_id.is_empty() {
+            return Err(Error::Validation("transaction_id is required".to_string()));
         }
 
-        // Determine license_id - create if not provided
-        let (final_license_id, license_created) = if let Some(id) = license_id {
-            (id, false)
-        } else if matches!(status, PaymentStatus::Completed) {
-            // Create new license
-            let sub_type = match subscription_type.unwrap_or("monthly") {
-                "infinite" | "lifetime" => SubscriptionType::Infinite,
-                _ => SubscriptionType::Monthly,
-            };
+        // Idempotency check
+        if let Some(existing) = self.find_by_transaction_id(&transaction_id).await? {
+            return Ok((existing, existing.license_id, false));
+        }
 
-            let expires_at = match sub_type {
-                SubscriptionType::Monthly => {
-                    let now: DateTimeWithTimeZone = chrono::Utc::now().into();
-                    Some(now + chrono::Duration::days(30))
+        let sub_type = Self::parse_subscription_type(subscription_type)?;
+        let mut license_created = false;
+        let mut final_license_id = license_id;
+
+        if matches!(status, PaymentStatus::Completed) {
+            let license = if let Some(id) = license_id {
+                licenses::find_by_id_for_user(&self.pool, id, user_id)
+                    .await?
+                    .ok_or_else(|| Error::NotFound("License not found".to_string()))?;
+
+                match sub_type {
+                    SubscriptionType::Monthly => {
+                        licenses::extend_monthly(&self.pool, id, user_id, 1).await?
+                    }
+                    SubscriptionType::Lifetime => {
+                        licenses::upgrade_to_lifetime(&self.pool, id, user_id).await?
+                    }
                 }
-                SubscriptionType::Infinite => None,
+            } else {
+                let expires_at = match sub_type {
+                    SubscriptionType::Monthly => {
+                        let now: DateTimeWithTimeZone = Utc::now().into();
+                        Some(now + Duration::days(30))
+                    }
+                    SubscriptionType::Lifetime => None,
+                };
+
+                let license_key = Uuid::new_v4().to_string();
+                let new_license =
+                    licenses::create(&self.pool, user_id, license_key, sub_type, expires_at)
+                        .await
+                        .map_err(|e| Error::Internal(format!("Failed to create license: {e}")))?;
+
+                tracing::info!(
+                    "Created license {} for user {} via webhook",
+                    new_license.id,
+                    user_id
+                );
+                license_created = true;
+                new_license
             };
 
-            let license_key = Uuid::new_v4().to_string();
-            let new_license =
-                licenses::create(&self.pool, user_id, license_key, sub_type, expires_at)
-                    .await
-                    .map_err(|e| Error::Internal(format!("Failed to create license: {e}")))?;
-
-            tracing::info!(
-                "Created license {} for user {} via webhook",
-                new_license.id,
-                user_id
-            );
-            (new_license.id, true)
-        } else {
-            return Err(Error::Validation(
-                "license_id required for non-completed payments".to_string(),
-            ));
-        };
+            final_license_id = Some(license.id);
+        } else if matches!(status, PaymentStatus::Refunded) {
+            if let Some(id) = license_id {
+                let license = licenses::set_inactive(&self.pool, id, user_id).await?;
+                final_license_id = Some(license.id);
+            }
+        } else if let Some(id) = license_id {
+            let exists = licenses::find_by_id_for_user(&self.pool, id, user_id).await?;
+            if exists.is_none() {
+                return Err(Error::NotFound("License not found".to_string()));
+            }
+        }
 
         // Create payment record
         let payment = payments::create(
             &self.pool,
             user_id,
-            Some(final_license_id),
+            final_license_id,
             amount,
             currency,
             status.clone(),
@@ -106,14 +143,6 @@ impl PaymentService {
         )
         .await
         .map_err(|e| Error::Internal(format!("Failed to create payment: {e}")))?;
-
-        // Extend existing license if payment completed
-        if matches!(status, PaymentStatus::Completed) && license_id.is_some() {
-            if let Err(e) = licenses::extend_monthly(&self.pool, final_license_id, user_id, 1).await
-            {
-                tracing::error!("Failed to extend license {}: {}", final_license_id, e);
-            }
-        }
 
         Ok((payment, final_license_id, license_created))
     }

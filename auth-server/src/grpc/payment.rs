@@ -169,7 +169,7 @@ impl PaymentService for PaymentGrpcService {
         Ok(Response::new(WebhookResponse {
             status: "processed".to_string(),
             payment_id: payment.id.to_string(),
-            license_id: Some(final_license_id.to_string()),
+            license_id: final_license_id.map(|id| id.to_string()),
             license_created: created,
         }))
     }
