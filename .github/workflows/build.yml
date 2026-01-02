@@ -22,26 +22,31 @@ jobs:
             os: ubuntu-24.04
             artifact_name: k8s-gui-linux-x64
             target: x86_64-unknown-linux-gnu
+            is_linux: true
 
           - name: linux-arm64
             os: ubuntu-24.04
             artifact_name: k8s-gui-linux-arm64
             target: aarch64-unknown-linux-gnu
+            is_linux: true
 
           - name: macos-arm64
-            os: macos-14
+            os: [self-hosted, macOS, ARM64]
             artifact_name: k8s-gui-macos-arm64
             target: aarch64-apple-darwin
+            is_macos: true
 
           - name: macos-x64
-            os: macos-14
+            os: [self-hosted, macOS, ARM64]
             artifact_name: k8s-gui-macos-x64
             target: x86_64-apple-darwin
+            is_macos: true
 
           - name: windows-x64
             os: windows-latest
             artifact_name: k8s-gui-windows-x64
             target: x86_64-pc-windows-msvc
+            is_windows: true
 
     env:
       CARGO_TERM_COLOR: always
@@ -78,7 +83,7 @@ jobs:
 
       # ---------------- System-specific build ----------------
       - name: Install system dependencies (Linux)
-        if: startsWith(matrix.os, 'ubuntu-') && matrix.target != 'aarch64-unknown-linux-gnu'
+        if: matrix.is_linux && matrix.target != 'aarch64-unknown-linux-gnu'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -121,11 +126,11 @@ jobs:
             libappindicator3-dev:arm64 libssl-dev:arm64
 
       - name: Install system dependencies (macOS)
-        if: startsWith(matrix.os, 'macos-')
+        if: matrix.is_macos
         run: brew install pkg-config protobuf
 
       - name: Install protoc (Windows)
-        if: startsWith(matrix.os, 'windows-')
+        if: matrix.is_windows
         run: choco install protoc --no-progress
 
       - name: Configure cross-compilation for ARM64

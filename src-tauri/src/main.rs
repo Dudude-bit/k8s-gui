@@ -9,10 +9,11 @@ use k8s_gui_lib::{commands, state::AppState};
 use tauri::{Emitter, Manager};
 use k8s_gui_common::init_tracing;
 
-/// Default auth server URL
+/// Auth server URL baked at build time.
 ///
-/// Can be overridden by the `VITE_AUTH_SERVER_URL` environment variable.
-const DEFAULT_AUTH_SERVER_URL: &str = "http://localhost:8080";
+/// Build will fail if `VITE_AUTH_SERVER_URL` is not set.
+const AUTH_SERVER_URL: &str =
+    env!("VITE_AUTH_SERVER_URL", "VITE_AUTH_SERVER_URL must be set at build time");
 
 fn main() {
     // Install rustls crypto provider before any TLS operations
@@ -25,10 +26,9 @@ fn main() {
 
     tracing::info!("Starting K8s GUI application");
 
-    // Load auth server URL from environment variable or use default
-    let auth_server_url = std::env::var("VITE_AUTH_SERVER_URL")
-        .unwrap_or_else(|_| DEFAULT_AUTH_SERVER_URL.to_string());
-    let license_client = k8s_gui_lib::auth::license_client::LicenseClient::new(auth_server_url);
+    // Use the baked-in auth server URL
+    let license_client =
+        k8s_gui_lib::auth::license_client::LicenseClient::new(AUTH_SERVER_URL.to_string());
 
     tauri::Builder::default()
         .manage(license_client)
