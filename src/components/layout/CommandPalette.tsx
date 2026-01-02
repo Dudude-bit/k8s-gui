@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
 import { useClusterStore } from "@/stores/clusterStore";
 import * as commands from "@/generated/commands";
 import type { ResourceListItem, ResourceQuery } from "@/generated/types";
@@ -15,7 +16,6 @@ import {
   Activity,
   Package,
   LayoutDashboard,
-  Loader2,
   Search,
 } from "lucide-react";
 
@@ -419,7 +419,7 @@ export function CommandPalette() {
 
             {isConnected && isSearching && (
               <div className="flex items-center px-2 py-2 text-sm text-muted-foreground">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Spinner size="sm" className="mr-2" />
                 Searching...
               </div>
             )}

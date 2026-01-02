@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { TableSkeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
 import * as commands from "@/generated/commands";
 import type { PaymentInfo } from "@/generated/types";
@@ -82,7 +83,7 @@ export function PaymentHistory() {
           <CardDescription>Your transaction history</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Loading...</p>
+          <TableSkeleton columns={5} rows={4} showSearch={false} />
         </CardContent>
       </Card>
     );

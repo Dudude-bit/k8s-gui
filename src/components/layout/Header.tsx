@@ -30,7 +30,6 @@ import {
   Monitor,
   Command,
   AlertCircle,
-  Loader2,
   User,
   LogOut,
 } from "lucide-react";
@@ -39,6 +38,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/authStore";
+import { Spinner } from "@/components/ui/spinner";
 
 export function Header() {
   const {
@@ -142,7 +142,7 @@ export function Header() {
             <TooltipTrigger asChild>
               <div className="flex items-center gap-1.5">
                 {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  <Spinner size="sm" className="text-muted-foreground" />
                 ) : error ? (
                   <AlertCircle className="h-4 w-4 text-red-500" />
                 ) : (

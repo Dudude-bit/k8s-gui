@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
-import { Loader2 } from "lucide-react";
 import { RefreshButton } from "@/components/ui/refresh-button";
+import { Spinner } from "@/components/ui/spinner";
 
 interface ResourceListHeaderProps {
   title: string;
@@ -25,7 +25,7 @@ export function ResourceListHeader({
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">{title}</h1>
           {isFetching && !isLoading && (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            <Spinner size="sm" className="text-muted-foreground" />
           )}
         </div>
         {description && (

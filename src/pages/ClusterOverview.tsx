@@ -9,7 +9,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { HeaderSkeleton, StatsSkeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Box,
   Server,
@@ -17,7 +18,6 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
-  Loader2,
 } from "lucide-react";
 import { cn, formatBytes } from "@/lib/utils";
 import { Link } from "react-router-dom";
@@ -156,12 +156,8 @@ export function ClusterOverview() {
   if (showSkeleton) {
     return (
       <div className="space-y-6 animate-in fade-in duration-200">
-        <Skeleton className="h-8 w-48" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-32" />
-          ))}
-        </div>
+        <HeaderSkeleton />
+        <StatsSkeleton count={4} />
       </div>
     );
   }
@@ -181,7 +177,7 @@ export function ClusterOverview() {
           </p>
         </div>
         {isFetching && (
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          <Spinner size="sm" className="text-muted-foreground" />
         )}
       </div>
 

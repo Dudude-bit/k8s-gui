@@ -26,7 +26,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
+import { DetailTabsSkeleton } from "@/components/ui/skeleton";
 import { LogViewer } from "@/components/logs/LogViewer";
 import { Terminal } from "@/components/terminal/Terminal";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
@@ -400,12 +400,7 @@ export function PodDetail() {
   };
 
   if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
+    return <DetailTabsSkeleton tabCount={5} rows={4} />;
   }
 
   if (error || !pod) {

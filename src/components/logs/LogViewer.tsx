@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/components/ui/use-toast";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Download,
   Pause,
@@ -18,7 +19,6 @@ import {
   Search,
   Trash2,
   ArrowDown,
-  Loader2,
 } from "lucide-react";
 import * as commands from "@/generated/commands";
 import type { LogLine, StreamLogConfig } from "@/generated/types";
@@ -384,7 +384,7 @@ export function LogViewer({
           >
             {isConnecting ? (
               <>
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                <Spinner size="sm" className="mr-1" />
                 Connecting
               </>
             ) : isStreaming ? (

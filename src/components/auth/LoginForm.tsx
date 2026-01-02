@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/card";
 import { useAuthStore } from "@/stores/authStore";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
+import { AlertCircle } from "lucide-react";
 import { validateEmail, validatePassword } from "@/lib/validation";
 
 interface LoginFormProps {
@@ -188,7 +189,7 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
           <Button type="submit" className="w-full" disabled={isSubmitting}>
             {isSubmitting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Spinner size="sm" className="mr-2" />
                 Signing in...
               </>
             ) : (

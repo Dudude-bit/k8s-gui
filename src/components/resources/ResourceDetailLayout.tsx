@@ -9,7 +9,7 @@
 
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { DetailSkeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,32 +18,6 @@ import { LabelsDisplay } from "./LabelsDisplay";
 import { ArrowLeft, AlertCircle, RefreshCw } from "lucide-react";
 import { isResourceNotFoundError } from "@/hooks/useResourceDetail";
 
-/**
- * Loading skeleton for detail pages
- */
-interface DetailSkeletonProps {
-  /** Number of content rows to show */
-  rows?: number;
-  /** Show header skeleton */
-  showHeader?: boolean;
-}
-
-export function DetailSkeleton({
-  rows = 4,
-  showHeader = true,
-}: DetailSkeletonProps) {
-  return (
-    <div className="space-y-4">
-      {showHeader && <Skeleton className="h-8 w-64" />}
-      <Skeleton className="h-10 w-96" />
-      <div className="grid gap-4 md:grid-cols-2">
-        {Array.from({ length: rows }).map((_, i) => (
-          <Skeleton key={i} className="h-32 w-full" />
-        ))}
-      </div>
-    </div>
-  );
-}
 
 /**
  * Error state for detail pages

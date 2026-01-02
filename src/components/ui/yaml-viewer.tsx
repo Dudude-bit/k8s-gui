@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { TextSkeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/use-toast";
 import { useYamlViewerStore } from "@/stores/yamlViewerStore";
 
@@ -75,9 +76,15 @@ export function YamlViewerDialog() {
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <ScrollArea className="h-[60vh] rounded-md border">
-          <pre className="whitespace-pre-wrap p-4 text-xs font-mono">
-            {isLoading ? "Loading..." : content}
-          </pre>
+          {isLoading ? (
+            <div className="p-4">
+              <TextSkeleton lines={18} />
+            </div>
+          ) : (
+            <pre className="whitespace-pre-wrap p-4 text-xs font-mono">
+              {content}
+            </pre>
+          )}
         </ScrollArea>
         <DialogFooter>
           <Button variant="outline" onClick={closeViewer}>

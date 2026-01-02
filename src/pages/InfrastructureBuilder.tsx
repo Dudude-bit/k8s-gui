@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Dialog,
   DialogContent,
@@ -53,7 +54,6 @@ import {
   RefreshCw,
   CheckCircle2,
   Play,
-  Loader2,
   AlertTriangle,
   Trash2,
   HelpCircle,
@@ -986,7 +986,7 @@ export function InfrastructureBuilder() {
             disabled={isImporting}
           >
             {isImporting ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Spinner size="sm" className="mr-2" />
             ) : (
               <RefreshCw className="mr-2 h-4 w-4" />
             )}
@@ -998,7 +998,7 @@ export function InfrastructureBuilder() {
             disabled={isValidating}
           >
             {isValidating ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Spinner size="sm" className="mr-2" />
             ) : (
               <CheckCircle2 className="mr-2 h-4 w-4" />
             )}
@@ -1006,7 +1006,7 @@ export function InfrastructureBuilder() {
           </Button>
           <Button onClick={handleApply} disabled={isApplying}>
             {isApplying ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Spinner size="sm" className="mr-2" />
             ) : (
               <Play className="mr-2 h-4 w-4" />
             )}

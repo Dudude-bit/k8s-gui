@@ -33,10 +33,23 @@ export {
   SelectTrigger,
   SelectValue,
 } from "./select";
-export { Skeleton } from "./skeleton";
+export {
+  Skeleton,
+  TableSkeleton,
+  CardSkeleton,
+  DetailSkeleton,
+  DetailTabsSkeleton,
+  StatsSkeleton,
+  HeaderStatsSkeleton,
+  HeaderSkeleton,
+  ListSkeleton,
+  TextSkeleton,
+  PageSkeleton,
+} from "./skeleton";
 export { Switch } from "./switch";
 export { Tabs, TabsContent, TabsList, TabsTrigger } from "./tabs";
 export { Progress } from "./progress";
+export { Spinner } from "./spinner";
 export { ScrollArea } from "./scroll-area";
 export {
   DropdownMenu,

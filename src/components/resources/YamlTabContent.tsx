@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { TextSkeleton } from "@/components/ui/skeleton";
 import { YamlEditorAction } from "@/components/ui/yaml-editor";
 import { fetchResourceYaml } from "@/hooks/useResourceYaml";
 import { Copy } from "lucide-react";
@@ -23,6 +24,8 @@ export function YamlTabContent({
   namespace,
   onCopy,
 }: YamlTabContentProps) {
+  const isYamlLoading = yaml == null;
+
   const handleFetchYaml = useCallback(() => {
     return fetchResourceYaml(resourceKind, resourceName, namespace);
   }, [resourceKind, resourceName, namespace]);
@@ -49,9 +52,15 @@ export function YamlTabContent({
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-[500px]">
-          <pre className="text-xs font-mono bg-muted p-4 rounded-md overflow-x-auto">
-            {yaml || "Loading..."}
-          </pre>
+          {isYamlLoading ? (
+            <div className="rounded-md border bg-muted/40 p-4">
+              <TextSkeleton lines={18} />
+            </div>
+          ) : (
+            <pre className="text-xs font-mono bg-muted p-4 rounded-md overflow-x-auto">
+              {yaml}
+            </pre>
+          )}
         </ScrollArea>
       </CardContent>
     </Card>

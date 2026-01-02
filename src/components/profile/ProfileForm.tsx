@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { normalizeTauriError } from "@/lib/error-utils";
 
 export function ProfileForm() {
@@ -117,7 +117,7 @@ export function ProfileForm() {
           </div>
 
           <Button type="submit" disabled={isLoading}>
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isLoading && <Spinner size="sm" className="mr-2" />}
             Save Changes
           </Button>
         </form>

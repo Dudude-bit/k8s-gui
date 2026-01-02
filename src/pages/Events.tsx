@@ -3,7 +3,8 @@ import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
 import { RefreshButton } from "@/components/ui/refresh-button";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ListSkeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Card,
   CardContent,
@@ -19,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState } from "react";
-import { AlertTriangle, Info, Clock, Loader2 } from "lucide-react";
+import { AlertTriangle, Info, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import * as commands from "@/generated/commands";
 import type { EventInfo, EventFilters } from "@/generated/types";
@@ -75,7 +76,7 @@ export function Events() {
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">Events</h1>
           {isFetching && !isLoading && (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            <Spinner size="sm" className="text-muted-foreground" />
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -138,11 +139,7 @@ export function Events() {
         </CardHeader>
         <CardContent className="max-h-[600px] overflow-y-auto scrollbar-thin">
           {showSkeleton ? (
-            <div className="space-y-2">
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-20" />
-              ))}
-            </div>
+            <ListSkeleton count={5} showIcon />
           ) : events.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">
               No events found

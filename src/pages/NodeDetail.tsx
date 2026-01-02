@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
+import { HeaderStatsSkeleton } from "@/components/ui/skeleton";
 import { Server, Cpu, HardDrive, MemoryStick, Lock } from "lucide-react";
 import { formatKubernetesBytes } from "@/lib/utils";
 import { useNodeMetrics } from "@/hooks/useNodeMetrics";
@@ -69,19 +69,7 @@ export function NodeDetail() {
   }, [node, nodeMetrics]);
 
   if (isLoading) {
-    return (
-      <div className="space-y-6 animate-in fade-in duration-200">
-        <div className="flex items-center gap-4">
-          <Skeleton className="h-10 w-10" />
-          <Skeleton className="h-8 w-64" />
-        </div>
-        <div className="grid gap-4 md:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
-        </div>
-      </div>
-    );
+    return <HeaderStatsSkeleton stats={4} />;
   }
 
   if (!node) {

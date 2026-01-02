@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { TextSkeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +32,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useThemeStore } from "@/stores/themeStore";
 import { useClusterStore } from "@/stores/clusterStore";
 import { useYamlEditorStore, type ResourceKey } from "@/stores/yamlEditorStore";
+import { Spinner } from "@/components/ui/spinner";
 import type { ManifestResult } from "@/generated/types";
 import {
   CheckCircle2,
@@ -42,7 +44,6 @@ import {
   AlignLeft,
   Play,
   FileCheck,
-  Loader2,
   GitCompare,
   FileJson,
 } from "lucide-react";
@@ -593,7 +594,7 @@ export function YamlEditorDialog() {
                 disabled={isLoading || isValidating || isApplying}
               >
                 {isValidating ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Spinner size="sm" className="mr-2" />
                 ) : (
                   <FileCheck className="mr-2 h-4 w-4" />
                 )}
@@ -607,7 +608,7 @@ export function YamlEditorDialog() {
                 disabled={isLoading || isValidating || isApplying}
               >
                 {isApplying ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Spinner size="sm" className="mr-2" />
                 ) : (
                   <Play className="mr-2 h-4 w-4" />
                 )}
@@ -619,8 +620,8 @@ export function YamlEditorDialog() {
           {/* Main Content */}
           <div className="flex-1 min-h-0 overflow-hidden">
             {isLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <div className="h-full rounded-md border p-4">
+                <TextSkeleton lines={18} />
               </div>
             ) : showDiff ? (
               <DiffViewer original={originalContent} modified={editedContent} />

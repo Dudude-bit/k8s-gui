@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuthStore } from "@/stores/authStore";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { validateLicenseKey } from "@/lib/validation";
 import { normalizeTauriError } from "@/lib/error-utils";
 
@@ -114,7 +114,7 @@ export function ActivateLicenseDialog({
             </Button>
             <Button onClick={handleActivate} disabled={isActivating}>
               {isActivating && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Spinner size="sm" className="mr-2" />
               )}
               Activate
             </Button>

@@ -5,8 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { ResourceDetailHeader } from "@/components/resources/ResourceDetailHeader";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
+import { DetailSkeleton } from "@/components/ui/skeleton";
 import {
-  DetailSkeleton,
   DetailError,
   InfoCard,
 } from "@/components/resources/ResourceDetailLayout";

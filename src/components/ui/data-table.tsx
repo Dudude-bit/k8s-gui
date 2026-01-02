@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
+import { TableSkeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, ChevronRight, Search, AlertTriangle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -134,32 +134,7 @@ export function DataTable<TData, TValue>({
     : String(pagination.pageSize);
 
   if (isLoading) {
-    return (
-      <div className="space-y-4 animate-in fade-in duration-200">
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-10 w-64" />
-        </div>
-        <div className="rounded-md border">
-          <div className="border-b">
-            <div className="flex h-12 items-center gap-4 px-4">
-              {columns.map((_, i) => (
-                <Skeleton key={i} className="h-4 w-24" />
-              ))}
-            </div>
-          </div>
-          {[...Array(5)].map((_, i) => (
-            <div
-              key={i}
-              className="flex h-16 items-center gap-4 border-b px-4 last:border-0"
-            >
-              {columns.map((_, j) => (
-                <Skeleton key={j} className="h-4 w-24" />
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    return <TableSkeleton columns={columns.length} rows={5} />;
   }
 
   return (
@@ -192,8 +167,8 @@ export function DataTable<TData, TValue>({
         <div
           className={cn(
             shouldVirtualScroll &&
-              isShowingAllRows &&
-              "overflow-auto scrollbar-thin"
+            isShowingAllRows &&
+            "overflow-auto scrollbar-thin"
           )}
           style={
             shouldVirtualScroll && isShowingAllRows
@@ -205,8 +180,8 @@ export function DataTable<TData, TValue>({
             <TableHeader
               className={cn(
                 shouldVirtualScroll &&
-                  isShowingAllRows &&
-                  "sticky top-0 bg-background z-10"
+                isShowingAllRows &&
+                "sticky top-0 bg-background z-10"
               )}
             >
               {table.getHeaderGroups().map((headerGroup) => (
@@ -217,9 +192,9 @@ export function DataTable<TData, TValue>({
                         {header.isPlaceholder
                           ? null
                           : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
                       </TableHead>
                     );
                   })}

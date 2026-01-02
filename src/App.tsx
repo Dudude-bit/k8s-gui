@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect } from "react";
 import { Route, Routes, useLocation } from "react-router-dom";
 
 import { ErrorBoundary } from "@/components/ui/error-boundary";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageSkeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/use-toast";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Layout } from "@/components/layout/Layout";
@@ -124,49 +124,44 @@ export default function App() {
     [toast]
   );
 
-  const PageSkeleton = () => (
-    <div className="space-y-4 p-4">
-      <Skeleton className="h-8 w-64" />
-      <Skeleton className="h-64 w-full" />
-    </div>
-  );
-
   return (
     <ErrorBoundary resetKey={location.pathname} onError={handleError}>
-      <Suspense fallback={<PageSkeleton />}>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/" element={<Layout />}>
-            <Route index element={<ClusterOverview />} />
-            <Route path="workloads/*" element={<Workloads />} />
-            <Route path="network/*" element={<Network />} />
-            <Route path="storage/*" element={<Storage />} />
-            <Route path="configuration/*" element={<Configuration />} />
-            <Route path="nodes" element={<Nodes />} />
-            <Route path="nodes/:name" element={<NodeDetail />} />
-            <Route path="events" element={<Events />} />
-            <Route path="helm" element={<Helm />} />
-            <Route path="settings" element={<Settings />} />
-            <Route
-              path="profile"
-              element={
-                <ProtectedRoute>
-                  <Profile />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="pod/:namespace/:name" element={<PodDetail />} />
-            <Route
-              path="deployment/:namespace/:name"
-              element={<DeploymentDetail />}
-            />
-            <Route
-              path="service/:namespace/:name"
-              element={<ServiceDetail />}
-            />
-          </Route>
-        </Routes>
-      </Suspense>
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            <Suspense fallback={<PageSkeleton />}>
+              <Login />
+            </Suspense>
+          }
+        />
+        <Route path="/" element={<Layout />}>
+          <Route index element={<ClusterOverview />} />
+          <Route path="workloads/*" element={<Workloads />} />
+          <Route path="network/*" element={<Network />} />
+          <Route path="storage/*" element={<Storage />} />
+          <Route path="configuration/*" element={<Configuration />} />
+          <Route path="nodes" element={<Nodes />} />
+          <Route path="nodes/:name" element={<NodeDetail />} />
+          <Route path="events" element={<Events />} />
+          <Route path="helm" element={<Helm />} />
+          <Route path="settings" element={<Settings />} />
+          <Route
+            path="profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="pod/:namespace/:name" element={<PodDetail />} />
+          <Route
+            path="deployment/:namespace/:name"
+            element={<DeploymentDetail />}
+          />
+          <Route path="service/:namespace/:name" element={<ServiceDetail />} />
+        </Route>
+      </Routes>
     </ErrorBoundary>
   );
 }
