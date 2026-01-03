@@ -11,7 +11,8 @@ import { Link } from "react-router-dom";
 import { Eye } from "lucide-react";
 import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { formatAge, formatKubernetesBytes } from "@/lib/utils";
+import { formatAge } from "@/lib/utils";
+import { formatKubernetesBytes } from "@/lib/k8s-quantity";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { normalizeTauriError } from "@/lib/error-utils";
 

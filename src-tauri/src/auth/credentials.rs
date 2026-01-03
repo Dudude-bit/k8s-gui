@@ -5,6 +5,18 @@ use keyring::Entry;
 
 const SERVICE_NAME: &str = "k8s-gui";
 
+#[cfg(target_os = "linux")]
+fn with_linux_keyring_hint(message: String) -> String {
+    format!(
+        "{message}. Hint: ensure Secret Service (gnome-keyring or KWallet) is installed and DBUS session is available."
+    )
+}
+
+#[cfg(not(target_os = "linux"))]
+fn with_linux_keyring_hint(message: String) -> String {
+    message
+}
+
 /// Secure credential store using system keyring
 pub struct CredentialStore {
     service: String,
@@ -27,11 +39,19 @@ impl CredentialStore {
     /// the credential fails.
     pub fn store(&self, key: &str, value: &str) -> Result<()> {
         let entry = Entry::new(&self.service, key)
-            .map_err(|e| Error::Keyring(format!("Failed to create keyring entry: {e}")))?;
+            .map_err(|e| {
+                Error::Keyring(with_linux_keyring_hint(format!(
+                    "Failed to create keyring entry: {e}"
+                )))
+            })?;
 
         entry
             .set_password(value)
-            .map_err(|e| Error::Keyring(format!("Failed to store credential: {e}")))?;
+            .map_err(|e| {
+                Error::Keyring(with_linux_keyring_hint(format!(
+                    "Failed to store credential: {e}"
+                )))
+            })?;
 
         tracing::debug!("Stored credential for key: {}", key);
         Ok(())
@@ -45,14 +65,18 @@ impl CredentialStore {
     /// the credential fails (other than when the entry doesn't exist).
     pub fn get(&self, key: &str) -> Result<Option<String>> {
         let entry = Entry::new(&self.service, key)
-            .map_err(|e| Error::Keyring(format!("Failed to create keyring entry: {e}")))?;
+            .map_err(|e| {
+                Error::Keyring(with_linux_keyring_hint(format!(
+                    "Failed to create keyring entry: {e}"
+                )))
+            })?;
 
         match entry.get_password() {
             Ok(password) => Ok(Some(password)),
             Err(keyring::Error::NoEntry) => Ok(None),
-            Err(e) => Err(Error::Keyring(format!(
+            Err(e) => Err(Error::Keyring(with_linux_keyring_hint(format!(
                 "Failed to retrieve credential: {e}"
-            ))),
+            )))),
         }
     }
 
@@ -64,7 +88,11 @@ impl CredentialStore {
     /// the credential fails (other than when the entry doesn't exist).
     pub fn delete(&self, key: &str) -> Result<()> {
         let entry = Entry::new(&self.service, key)
-            .map_err(|e| Error::Keyring(format!("Failed to create keyring entry: {e}")))?;
+            .map_err(|e| {
+                Error::Keyring(with_linux_keyring_hint(format!(
+                    "Failed to create keyring entry: {e}"
+                )))
+            })?;
 
         match entry.delete_credential() {
             Ok(()) => {
@@ -72,7 +100,9 @@ impl CredentialStore {
                 Ok(())
             }
             Err(keyring::Error::NoEntry) => Ok(()), // Already deleted
-            Err(e) => Err(Error::Keyring(format!("Failed to delete credential: {e}"))),
+            Err(e) => Err(Error::Keyring(with_linux_keyring_hint(format!(
+                "Failed to delete credential: {e}"
+            )))),
         }
     }
 

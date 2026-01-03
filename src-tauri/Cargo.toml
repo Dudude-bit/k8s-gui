@@ -55,7 +55,7 @@ tower-http = { version = "0.6", features = ["trace"] }
 tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
 
 # Security
-keyring = "3.6"
+keyring = { version = "3.6", features = ["apple-native", "windows-native", "linux-native-sync-persistent"] }
 rustls = { version = "0.23", features = ["ring"] }
 rustls-pemfile = "2.2"
 secrecy = "0.10"

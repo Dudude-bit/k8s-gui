@@ -11,14 +11,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// Re-export quantity utilities from k8s-quantity for backward compatibility
-export {
-  formatBytes,
-  formatMemory,
-  formatCPU,
-  formatKubernetesBytes,
-} from "./k8s-quantity";
-
 /**
  * Format age from a timestamp string
  *

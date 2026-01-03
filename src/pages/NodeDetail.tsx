@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HeaderStatsSkeleton } from "@/components/ui/skeleton";
 import { Server, Cpu, HardDrive, MemoryStick, Lock } from "lucide-react";
-import { formatKubernetesBytes } from "@/lib/utils";
+import { formatKubernetesBytes } from "@/lib/k8s-quantity";
 import { useNodeMetrics } from "@/hooks/useNodeMetrics";
 import { MetricCard } from "@/components/ui/metric-card";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";

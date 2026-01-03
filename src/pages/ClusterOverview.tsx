@@ -19,7 +19,8 @@ import {
   CheckCircle,
   Clock,
 } from "lucide-react";
-import { cn, formatBytes } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { formatBytes } from "@/lib/k8s-quantity";
 import { Link } from "react-router-dom";
 import { useClusterMetrics } from "@/hooks/useClusterMetrics";
 import { usePodMetrics } from "@/hooks/usePodMetrics";

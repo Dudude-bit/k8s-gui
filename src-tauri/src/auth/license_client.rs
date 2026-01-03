@@ -16,8 +16,8 @@ use crate::proto::user::user_service_client::UserServiceClient;
 use crate::proto::user::{
     GetProfileRequest, ProfileResponse, UpdateProfileRequest as GrpcUpdateProfileRequest,
 };
+use super::CredentialStore;
 use chrono::TimeZone;
-use keyring::Entry;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tonic::metadata::MetadataValue;
@@ -25,7 +25,6 @@ use tonic::transport::{Channel, ClientTlsConfig};
 
 type CachedLicenseStatus = Arc<RwLock<Option<(LicenseStatus, chrono::DateTime<chrono::Utc>)>>>;
 
-const SERVICE_NAME: &str = "k8s-gui-auth";
 const ACCESS_TOKEN_KEY: &str = "access_token";
 const REFRESH_TOKEN_KEY: &str = "refresh_token";
 
@@ -170,7 +169,7 @@ pub struct LicenseClient {
 impl LicenseClient {
     #[must_use]
     pub fn new(endpoint: String) -> Self {
-        let (access_token, refresh_token) = Self::load_tokens_from_keyring();
+        let (access_token, refresh_token) = Self::load_tokens_from_store();
 
         Self {
             endpoint,
@@ -180,43 +179,42 @@ impl LicenseClient {
         }
     }
 
-    fn load_tokens_from_keyring() -> (Option<String>, Option<String>) {
-        let access_token = Entry::new(SERVICE_NAME, ACCESS_TOKEN_KEY)
-            .and_then(|e| e.get_password())
-            .ok();
-
-        let refresh_token = Entry::new(SERVICE_NAME, REFRESH_TOKEN_KEY)
-            .and_then(|e| e.get_password())
-            .ok();
+    fn load_tokens_from_store() -> (Option<String>, Option<String>) {
+        let store = CredentialStore::new();
+        let access_token = match store.get(ACCESS_TOKEN_KEY) {
+            Ok(token) => token,
+            Err(e) => {
+                tracing::error!("Failed to read access token from credential store: {}", e);
+                None
+            }
+        };
+        let refresh_token = match store.get(REFRESH_TOKEN_KEY) {
+            Ok(token) => token,
+            Err(e) => {
+                tracing::error!("Failed to read refresh token from credential store: {}", e);
+                None
+            }
+        };
 
         if access_token.is_some() {
-            tracing::info!("Restored access token from keyring");
+            tracing::info!("Restored access token from credential store");
         }
 
         (access_token, refresh_token)
     }
 
-    fn save_tokens_to_keyring(access_token: &str, refresh_token: &str) {
-        if let Ok(entry) = Entry::new(SERVICE_NAME, ACCESS_TOKEN_KEY) {
-            if let Err(e) = entry.set_password(access_token) {
-                tracing::error!("Failed to save access token: {}", e);
-            }
+    fn save_tokens_to_store(access_token: &str, refresh_token: &str) {
+        let store = CredentialStore::new();
+        if let Err(e) = store.store(ACCESS_TOKEN_KEY, access_token) {
+            tracing::error!("Failed to save access token: {}", e);
         }
-
-        if let Ok(entry) = Entry::new(SERVICE_NAME, REFRESH_TOKEN_KEY) {
-            if let Err(e) = entry.set_password(refresh_token) {
-                tracing::error!("Failed to save refresh token: {}", e);
-            }
+        if let Err(e) = store.store(REFRESH_TOKEN_KEY, refresh_token) {
+            tracing::error!("Failed to save refresh token: {}", e);
         }
-    }
-
-    fn clear_tokens_from_keyring() {
-        if let Ok(entry) = Entry::new(SERVICE_NAME, ACCESS_TOKEN_KEY) {
-            let _ = entry.delete_credential();
-        }
-        if let Ok(entry) = Entry::new(SERVICE_NAME, REFRESH_TOKEN_KEY) {
-            let _ = entry.delete_credential();
-        }
+        match store.get(ACCESS_TOKEN_KEY) {
+        let store = CredentialStore::new();
+        let _ = store.delete(ACCESS_TOKEN_KEY);
+        let _ = store.delete(REFRESH_TOKEN_KEY);
     }
 
     async fn connect(&self) -> Result<Channel> {
@@ -229,9 +227,10 @@ impl LicenseClient {
                 .map_err(|e| Error::Config(format!("TLS config error: {e}")))?;
         }
 
-        endpoint.connect().await.map_err(|e| {
+        let channel = endpoint.connect().await.map_err(|e| {
             Error::Connection(format!("Failed to connect to auth server: {e}"))
-        })
+        })?;
+        Ok(channel)
     }
 
     /// Create an authenticated request with Bearer token in metadata
@@ -268,7 +267,7 @@ impl LicenseClient {
 
         *self.access_token.write().await = Some(tokens.access_token.clone());
         *self.refresh_token.write().await = Some(tokens.refresh_token.clone());
-        Self::save_tokens_to_keyring(&tokens.access_token, &tokens.refresh_token);
+        Self::save_tokens_to_store(&tokens.access_token, &tokens.refresh_token);
 
         Ok(tokens)
     }
@@ -303,13 +302,13 @@ impl LicenseClient {
 
         *self.access_token.write().await = Some(tokens.access_token.clone());
         *self.refresh_token.write().await = Some(tokens.refresh_token.clone());
-        Self::save_tokens_to_keyring(&tokens.access_token, &tokens.refresh_token);
+        Self::save_tokens_to_store(&tokens.access_token, &tokens.refresh_token);
 
         Ok(tokens)
     }
 
     pub async fn set_tokens(&self, access_token: String, refresh_token: String) {
-        Self::save_tokens_to_keyring(&access_token, &refresh_token);
+        Self::save_tokens_to_store(&access_token, &refresh_token);
         *self.access_token.write().await = Some(access_token);
         *self.refresh_token.write().await = Some(refresh_token);
     }
@@ -347,7 +346,7 @@ impl LicenseClient {
 
         *self.access_token.write().await = Some(tokens.access_token.clone());
         *self.refresh_token.write().await = Some(tokens.refresh_token.clone());
-        Self::save_tokens_to_keyring(&tokens.access_token, &tokens.refresh_token);
+        Self::save_tokens_to_store(&tokens.access_token, &tokens.refresh_token);
 
         Ok(())
     }
@@ -471,7 +470,7 @@ impl LicenseClient {
         let cached_status = Arc::clone(&self.cached_status);
 
         tokio::spawn(async move {
-            Self::clear_tokens_from_keyring();
+            Self::clear_tokens_from_store();
             *access_token.write().await = None;
             *refresh_token.write().await = None;
             *cached_status.write().await = None;
