@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "K8s GUI",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "identifier": "com.k8s-gui.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -43,7 +43,7 @@
     ],
     "resources": [],
     "externalBin": [],
-    "copyright": "© 2024 K8s GUI",
+    "copyright": "\u00a9 2024 K8s GUI",
     "category": "DeveloperTool",
     "shortDescription": "Kubernetes GUI Client",
     "longDescription": "A modern, cross-platform Kubernetes GUI client built with Tauri and Rust",
