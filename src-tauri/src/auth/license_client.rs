@@ -211,7 +211,10 @@ impl LicenseClient {
         if let Err(e) = store.store(REFRESH_TOKEN_KEY, refresh_token) {
             tracing::error!("Failed to save refresh token: {}", e);
         }
-        match store.get(ACCESS_TOKEN_KEY) {
+        tracing::info!("Tokens saved to credential store");
+    }
+
+    fn clear_tokens_from_store() {
         let store = CredentialStore::new();
         let _ = store.delete(ACCESS_TOKEN_KEY);
         let _ = store.delete(REFRESH_TOKEN_KEY);
