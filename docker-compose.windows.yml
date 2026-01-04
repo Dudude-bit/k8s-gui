@@ -1,0 +1,47 @@
+# Windows Build Environment via Docker
+# Uses dockurr/windows to run Windows VM inside Docker
+# Requires: Linux host with KVM support
+#
+# FULLY AUTOMATED SETUP:
+#   1. Start the container
+#   2. Windows installs automatically (~15 min)  
+#   3. install.bat runs and installs SSH, Rust, Node.js, VS Build Tools (~20 min)
+#   4. SSH becomes available on port 2222
+#
+# Usage on Linux host:
+#   cd /path/to/k8s-gui
+#   docker-compose -f docker-compose.windows.yml up -d
+#   # Check logs: docker-compose -f docker-compose.windows.yml logs -f
+#   # Wait for build tools installation to complete
+
+services:
+  windows:
+    image: dockurr/windows
+    container_name: windows-builder
+    environment:
+      VERSION: "win11"  # Options: win11, win10, ltsc10, 2022, 2019, 2016
+      RAM_SIZE: "8G"
+      CPU_CORES: "4"
+      DISK_SIZE: "80G"
+      USERNAME: "builder"
+      PASSWORD: "BuilderPass123!"
+    devices:
+      - /dev/kvm
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "3389:3389/tcp"   # RDP
+      - "3389:3389/udp"   # RDP
+      - "8006:8006"       # VNC web viewer
+      - "2222:22"         # SSH (mapped to 2222 to avoid conflicts)
+    volumes:
+      - windows_data:/storage
+      # Mount install.bat for automatic post-install setup
+      - ./windows-builder:/oem
+      # Mount project for file sharing (optional)
+      - ./:/shared
+    stop_grace_period: 2m
+    restart: unless-stopped
+
+volumes:
+  windows_data:
