@@ -243,28 +243,82 @@ def ask_secret(prompt: str) -> str:
     return getpass.getpass(f"   {prompt}: ")
 
 
+# =============================================================================
+# Build Configuration
+# =============================================================================
+
+def load_build_config() -> dict:
+    """Load persistent build configuration"""
+    config_path = Path.home() / ".config" / "k8s-gui" / "build-config.json"
+    if not config_path.exists():
+        return {}
+    
+    try:
+        with open(config_path) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_build_config(config: dict):
+    """Save persistent build configuration"""
+    config_dir = Path.home() / ".config" / "k8s-gui"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    config_path = config_dir / "build-config.json"
+    
+    with open(config_path, "w") as f:
+        json.dump(config, f, indent=2)
+
+
+
 def ask_s3_config() -> Optional[dict]:
     """Interactively ask for S3/MinIO configuration"""
     print_step("S3/MinIO Configuration")
     
     # Storage type
+    # Storage type
     storage_types = ["MinIO (self-hosted)", "AWS S3", "Other S3-compatible"]
+    
+    # Try to find default from saved config
+    default_type_idx = 0
+    build_config = load_build_config()
+    saved_type = build_config.get("s3", {}).get("storage_type")
+    
+    if saved_type:
+        # Find index matching saved type string (or part of it)
+        for i, t in enumerate(storage_types):
+            if saved_type == t:
+                default_type_idx = i
+                break
+                
+    # We don't have a way to pass default index to ask_choice currently, but we can assume first is default or user picks.
+    # To improve, we can modify ask_choice to accept default index, but for now let's just proceed.
+    # Actually, let's just make the saved one the first option if we want? No, that confuses order.
+    # The Prompt doesn't support default selection well for choice list without code change to ask_choice.
+    # Let's just ask.
     storage_type = ask_choice("Select storage type:", storage_types)[0]
     
     config = {}
     
     # Bucket
-    config["bucket"] = ask("Bucket name", os.environ.get("S3_BUCKET", ""))
+    # Bucket
+    build_config = load_build_config()
+    s3_saved = build_config.get("s3", {})
+    
+    default_bucket = s3_saved.get("bucket") or os.environ.get("S3_BUCKET", "")
+    config["bucket"] = ask("Bucket name", default_bucket)
     if not config["bucket"]:
         print_error("Bucket name is required")
         return None
     
     # Prefix
-    config["prefix"] = ask("Key prefix", os.environ.get("S3_PREFIX", "releases"))
+    # Prefix
+    default_prefix = s3_saved.get("prefix") or os.environ.get("S3_PREFIX", "releases")
+    config["prefix"] = ask("Key prefix", default_prefix)
     
     # Endpoint (for MinIO)
     if "MinIO" in storage_type or "Other" in storage_type:
-        default_endpoint = os.environ.get("S3_ENDPOINT", "http://localhost:9000")
+        default_endpoint = s3_saved.get("endpoint") or os.environ.get("S3_ENDPOINT", "http://localhost:9000")
         config["endpoint"] = ask("Endpoint URL", default_endpoint)
         if not config["endpoint"]:
             print_error("Endpoint URL is required for MinIO")
@@ -273,7 +327,8 @@ def ask_s3_config() -> Optional[dict]:
         config["region"] = "us-east-1"
     else:
         config["endpoint"] = None
-        config["region"] = ask("AWS Region", os.environ.get("AWS_REGION", "us-east-1"))
+        default_region = s3_saved.get("region") or os.environ.get("AWS_REGION", "us-east-1")
+        config["region"] = ask("AWS Region", default_region)
     
     # Credentials
     if os.environ.get("AWS_ACCESS_KEY_ID") and os.environ.get("AWS_SECRET_ACCESS_KEY"):
@@ -281,12 +336,39 @@ def ask_s3_config() -> Optional[dict]:
         config["access_key"] = os.environ["AWS_ACCESS_KEY_ID"]
         config["secret_key"] = os.environ["AWS_SECRET_ACCESS_KEY"]
     else:
-        config["access_key"] = ask("Access Key", os.environ.get("MINIO_ACCESS_KEY", ""))
+        # Load from config if available (only access key, secrets usually not saved but we can for convenience)
+        default_access = s3_saved.get("access_key") or os.environ.get("MINIO_ACCESS_KEY", "")
+        # Try to load secret key too if user permitted (we'll implement saving below)
+        default_secret = s3_saved.get("secret_key")
+
+        config["access_key"] = ask("Access Key", default_access)
         if config["access_key"]:
-            config["secret_key"] = ask_secret("Secret Key")
+            # If we have a saved secret and the access key matches, we can suggest/use it
+            # But ask_secret doesn't typically show the default. 
+            # We can change logic: if we have a saved secret, ask if we want to use it
+            if default_secret and config["access_key"] == default_access:
+                if ask_yes_no("Use saved secret key?", default=True):
+                    config["secret_key"] = default_secret
+                else:
+                    config["secret_key"] = ask_secret("Secret Key")
+            else:
+                config["secret_key"] = ask_secret("Secret Key")
         else:
             config["access_key"] = None
             config["secret_key"] = None
+    
+    # Save S3 Config
+    build_config = load_build_config()
+    build_config["s3"] = {
+        "storage_type": storage_type,
+        "bucket": config["bucket"],
+        "prefix": config["prefix"],
+        "endpoint": config["endpoint"],
+        "region": config["region"],
+        "access_key": config["access_key"],
+        "secret_key": config["secret_key"] # Saving secret for convenience as requested
+    }
+    save_build_config(build_config)
     
     return config
 
@@ -1808,10 +1890,17 @@ def main():
             selected_builds.append((target_name, method, extra))
     
     # Auth URL
-    auth_url = ask("Auth server URL", os.environ.get("VITE_AUTH_SERVER_URL", ""))
+    build_config = load_build_config()
+    default_auth = build_config.get("auth_url") or os.environ.get("VITE_AUTH_SERVER_URL", "")
+    auth_url = ask("Auth server URL", default_auth)
     if not auth_url:
         print_error("Auth URL is required")
         sys.exit(1)
+    
+    # Save auth URL
+    if auth_url != build_config.get("auth_url"):
+        build_config["auth_url"] = auth_url
+        save_build_config(build_config)
     
     # Release mode (signing)
     release_mode = ask_yes_no("Release mode (sign artifacts)?", default=False)

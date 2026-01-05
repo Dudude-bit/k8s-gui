@@ -2,7 +2,10 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Default capabilities for K8s GUI",
-  "windows": ["main", "auth-*"],
+  "windows": [
+    "main",
+    "auth-*"
+  ],
   "permissions": [
     "core:default",
     "core:event:default",
@@ -19,9 +22,14 @@
     "fs:default",
     "clipboard-manager:default",
     "clipboard-manager:allow-read-text",
-    "clipboard-manager:allow-write-text"
+    "clipboard-manager:allow-write-text",
+    "updater:default"
   ],
   "remote": {
-    "urls": ["https://*", "http://127.0.0.1:*", "http://localhost:*"]
+    "urls": [
+      "https://*",
+      "http://127.0.0.1:*",
+      "http://localhost:*"
+    ]
   }
 }
