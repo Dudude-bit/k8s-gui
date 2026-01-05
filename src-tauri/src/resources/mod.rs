@@ -2,10 +2,16 @@
 //!
 //! Provides abstractions for working with Kubernetes resources.
 
+mod network;
 mod serialization;
+mod storage;
 mod types;
 mod watcher;
+mod workloads;
 
+pub use network::*;
 pub use serialization::*;
+pub use storage::*;
 pub use types::*;
 pub use watcher::ResourceWatcher;
+pub use workloads::*;

@@ -269,6 +269,8 @@ def ask_s3_config() -> Optional[dict]:
         if not config["endpoint"]:
             print_error("Endpoint URL is required for MinIO")
             return None
+        # MinIO doesn't care about region, but boto3 requires it
+        config["region"] = "us-east-1"
     else:
         config["endpoint"] = None
         config["region"] = ask("AWS Region", os.environ.get("AWS_REGION", "us-east-1"))
@@ -565,17 +567,17 @@ def get_build_method(target_name: str, verified_hosts: list = None) -> Tuple[str
     if target.os == "linux" and check_docker():
         return BuildMethod.DOCKER, None
     
-    # 3. Check Docker Windows VM (for Windows targets)
-    # Available if: local Docker + compose OR Linux remote host exists
-    if target.os == "windows":
-        if check_docker_windows_available() or find_linux_host_for_windows():
-            return BuildMethod.DOCKER_WINDOWS, None
-    
-    # 4. Check verified remote hosts  
+    # 3. Check verified remote hosts (including Windows hosts)
     if verified_hosts:
         for host in verified_hosts:
             if host.can_build(target):
                 return BuildMethod.REMOTE, host
+    
+    # 4. Check Docker Windows VM (for Windows targets) - fallback
+    # Available if: local Docker + compose OR Linux remote host exists
+    if target.os == "windows":
+        if check_docker_windows_available() or find_linux_host_for_windows():
+            return BuildMethod.DOCKER_WINDOWS, None
     
     return BuildMethod.UNAVAILABLE, None
 
@@ -710,6 +712,13 @@ def sync_windows_files_to_linux_host(linux_host: RemoteHost):
     print_step(f"Syncing Windows build files to {linux_host.name}")
     
     ensure_host_password(linux_host)
+    
+    # Ensure rsync is installed on remote host
+    print_info("Checking rsync on remote host...")
+    check_rsync_cmd = linux_host.get_ssh_cmd("which rsync || (apt-get update -qq && apt-get install -y -qq rsync)")
+    result = subprocess.run(check_rsync_cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print_warning(f"rsync installation may have failed: {result.stderr}")
     
     # Create project directory on remote host
     mkdir_cmd = linux_host.get_ssh_cmd(f"mkdir -p {linux_host.project_path}/windows-builder")
@@ -1311,27 +1320,52 @@ def test_remote_host(host: RemoteHost) -> bool:
 
 
 def sync_to_remote(host: RemoteHost, env: dict):
-    """Sync project to remote host using rsync"""
+    """Sync project to remote host using rsync (or scp for Windows)"""
     print_step(f"Syncing to {host.name}")
     
     # Ensure password is set if needed
     ensure_host_password(host)
     
-    # Exclude patterns for rsync
-    excludes = [
-        "--exclude", "target/",
-        "--exclude", "node_modules/",
-        "--exclude", ".git/",
-        "--exclude", "artifacts/",
-        "--exclude", "*.log",
-    ]
+    # Create project directory on remote
+    if host.platform == "windows":
+        mkdir_cmd = f'powershell -Command "New-Item -ItemType Directory -Force -Path {host.project_path}"'
+    else:
+        mkdir_cmd = f"mkdir -p {host.project_path}"
     
-    excludes.append("--delete")
+    cmd = host.get_ssh_cmd(mkdir_cmd)
+    subprocess.run(cmd, capture_output=True)
     
-    cmd = host.get_rsync_cmd("./", f"{host.host}:{host.project_path}/", extra_args=excludes)
-    
-    print(f"   → rsync to {host.host}:{host.project_path}")
-    result = subprocess.run(cmd)
+    # Windows: use scp (rsync typically not installed)
+    # Linux/macOS: use rsync
+    if host.platform == "windows":
+        print(f"   → scp to {host.host}:{host.project_path}")
+        # For Windows, we use a tar + ssh approach to handle excludes
+        # Create a tar stream excluding unwanted files and extract on remote
+        tar_excludes = "--exclude=target --exclude=node_modules --exclude=.git --exclude=artifacts --exclude='*.log'"
+        
+        if host.auth_method == "password" and host._password:
+            ssh_cmd = f"sshpass -p '{host._password}' ssh {host.host}"
+        else:
+            ssh_cmd = f"ssh {host.host}"
+        
+        # Use tar to pipe files through SSH
+        cmd = f"tar {tar_excludes} -cf - . | {ssh_cmd} \"powershell -Command \\\"cd {host.project_path}; tar -xf -\\\"\""
+        result = subprocess.run(cmd, shell=True)
+    else:
+        # Exclude patterns for rsync
+        excludes = [
+            "--exclude", "target/",
+            "--exclude", "node_modules/",
+            "--exclude", ".git/",
+            "--exclude", "artifacts/",
+            "--exclude", "*.log",
+            "--delete"
+        ]
+        
+        cmd = host.get_rsync_cmd("./", f"{host.host}:{host.project_path}/", extra_args=excludes)
+        
+        print(f"   → rsync to {host.host}:{host.project_path}")
+        result = subprocess.run(cmd)
     
     if result.returncode != 0:
         raise BuildError(f"Failed to sync to {host.name}")
@@ -1346,19 +1380,36 @@ def build_on_remote(host: RemoteHost, target: Target, env: dict):
     # Ensure password is set if needed
     ensure_host_password(host)
     
-    # Prepare environment variables
-    env_exports = " && ".join([f"export {k}='{v}'" for k, v in env.items()])
-    
-    # Add signing keys if present
-    if "TAURI_SIGNING_PRIVATE_KEY" in os.environ:
-        key = os.environ["TAURI_SIGNING_PRIVATE_KEY"].replace("'", "'\\''")
-        env_exports += f" && export TAURI_SIGNING_PRIVATE_KEY='{key}'"
-    if "TAURI_SIGNING_PRIVATE_KEY_PASSWORD" in os.environ:
-        pwd = os.environ["TAURI_SIGNING_PRIVATE_KEY_PASSWORD"]
-        env_exports += f" && export TAURI_SIGNING_PRIVATE_KEY_PASSWORD='{pwd}'"
-    
-    # Build command
-    build_cmd = f"cd {host.project_path} && {env_exports} && npm ci && npm run build && cargo tauri build --target {target.rust_target}"
+    # Windows uses PowerShell, Linux/macOS use bash
+    if host.platform == "windows":
+        # PowerShell environment variables
+        env_exports = " ; ".join([f"$env:{k}='{v}'" for k, v in env.items()])
+        
+        # Add signing keys if present
+        if "TAURI_SIGNING_PRIVATE_KEY" in os.environ:
+            key = os.environ["TAURI_SIGNING_PRIVATE_KEY"].replace("'", "''")
+            env_exports += f" ; $env:TAURI_SIGNING_PRIVATE_KEY='{key}'"
+        if "TAURI_SIGNING_PRIVATE_KEY_PASSWORD" in os.environ:
+            pwd = os.environ["TAURI_SIGNING_PRIVATE_KEY_PASSWORD"].replace("'", "''")
+            env_exports += f" ; $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD='{pwd}'"
+        
+        # PowerShell build command
+        ps_cmd = f"cd {host.project_path} ; {env_exports} ; npm ci ; npm run build ; cargo tauri build --target {target.rust_target}"
+        build_cmd = f'powershell -Command "{ps_cmd}"'
+    else:
+        # Bash environment variables
+        env_exports = " && ".join([f"export {k}='{v}'" for k, v in env.items()])
+        
+        # Add signing keys if present
+        if "TAURI_SIGNING_PRIVATE_KEY" in os.environ:
+            key = os.environ["TAURI_SIGNING_PRIVATE_KEY"].replace("'", "'\\''")
+            env_exports += f" && export TAURI_SIGNING_PRIVATE_KEY='{key}'"
+        if "TAURI_SIGNING_PRIVATE_KEY_PASSWORD" in os.environ:
+            pwd = os.environ["TAURI_SIGNING_PRIVATE_KEY_PASSWORD"]
+            env_exports += f" && export TAURI_SIGNING_PRIVATE_KEY_PASSWORD='{pwd}'"
+        
+        # Bash build command
+        build_cmd = f"cd {host.project_path} && {env_exports} && npm ci && npm run build && cargo tauri build --target {target.rust_target}"
     
     cmd = host.get_ssh_cmd(build_cmd)
     print(f"   → ssh {host.host} 'cargo tauri build --target {target.rust_target}'")
@@ -1379,22 +1430,40 @@ def fetch_artifacts_from_remote(host: RemoteHost, target: Target, output_dir: Pa
     ensure_host_password(host)
     
     artifacts = []
-    remote_bundle = f"{host.project_path}/src-tauri/target/{target.rust_target}/release/bundle/"
     
     # Create local output dir
     target_output = output_dir / target.name
     target_output.mkdir(parents=True, exist_ok=True)
     
-    # Fetch artifacts using host's rsync method
-    cmd = host.get_rsync_cmd(f"{host.host}:{remote_bundle}", str(target_output) + "/")
-    subprocess.run(cmd, capture_output=True)
+    if host.platform == "windows":
+        # Windows path with backslashes
+        remote_bundle = f"{host.project_path}\\\\src-tauri\\\\target\\\\{target.rust_target}\\\\release\\\\bundle"
+        
+        # Use scp to fetch artifacts from Windows
+        if host.auth_method == "password" and host._password:
+            scp_prefix = ["sshpass", "-p", host._password, "scp", "-r"]
+        else:
+            scp_prefix = ["scp", "-r"]
+        
+        # For Windows, fetch the msi and nsis subdirectories
+        for subdir in ["msi", "nsis"]:
+            win_path = f"{host.project_path}/src-tauri/target/{target.rust_target}/release/bundle/{subdir}"
+            cmd = scp_prefix + [f"{host.host}:{win_path}/*", str(target_output) + "/"]
+            subprocess.run(cmd, capture_output=True)
+    else:
+        remote_bundle = f"{host.project_path}/src-tauri/target/{target.rust_target}/release/bundle/"
+        
+        # Fetch artifacts using host's rsync method
+        cmd = host.get_rsync_cmd(f"{host.host}:{remote_bundle}", str(target_output) + "/")
+        subprocess.run(cmd, capture_output=True)
     
-    # Collect what we got
-    for f in target_output.iterdir():
-        if f.is_file():
-            size = f.stat().st_size / 1024 / 1024
-            print(f"   📄 {f.name} ({size:.1f} MB)")
-            artifacts.append(f)
+    # Collect what we got (recursively search for artifacts)
+    for pattern in target.artifact_patterns:
+        for f in target_output.rglob(pattern):
+            if f.is_file():
+                size = f.stat().st_size / 1024 / 1024
+                print(f"   📄 {f.name} ({size:.1f} MB)")
+                artifacts.append(f)
     
     return artifacts
 
@@ -1513,7 +1582,7 @@ class S3Uploader:
         return self.upload_file(manifest_path, "latest.json", "application/json")
 
 
-def generate_manifest(output_dir: Path, version: str, platforms: dict) -> Path:
+def generate_manifest(output_dir: Path, version: str, platforms: dict, base_url: str = None) -> Path:
     if not platforms:
         for target_name, target in TARGETS.items():
             target_dir = output_dir / target_name
@@ -1523,9 +1592,11 @@ def generate_manifest(output_dir: Path, version: str, platforms: dict) -> Path:
             for sig_file in target_dir.glob("*.sig"):
                 signature = sig_file.read_text().strip()
                 artifact_name = sig_file.stem
+                # Use provided base_url or fallback to placeholder
+                url_base = base_url or "https://YOUR_BUCKET.s3.amazonaws.com/releases"
                 platforms[target.platform_key] = {
                     "signature": signature,
-                    "url": f"https://YOUR_BUCKET.s3.amazonaws.com/releases/{version}/{target.os}/{target.arch}/{artifact_name}",
+                    "url": f"{url_base}/{version}/{target.os}/{target.arch}/{artifact_name}",
                 }
     
     manifest = {
@@ -1666,7 +1737,9 @@ def main():
         print_step("Uploading to S3/MinIO")
         uploader = S3Uploader(**s3_config)
         platforms = uploader.upload_artifacts(output_dir, version)
-        manifest = generate_manifest(output_dir, version, platforms)
+        # Pass uploader's base_url for correct URL generation
+        base_url = f"{uploader.base_url}/{s3_config.get('prefix', 'releases')}"
+        manifest = generate_manifest(output_dir, version, platforms, base_url)
         uploader.upload_manifest(manifest)
         
         print_success("Upload complete!")
@@ -1841,9 +1914,11 @@ def main():
     if upload_s3 and succeeded:
         print_step("Uploading to S3")
         try:
-            uploader = S3Uploader(s3_config["bucket"], s3_config["prefix"], s3_config["region"])
+            uploader = S3Uploader(**s3_config)
             platforms = uploader.upload_artifacts(output_dir, version)
-            manifest = generate_manifest(output_dir, version, platforms)
+            # Pass uploader's base_url for correct URL generation
+            base_url = f"{uploader.base_url}/{s3_config.get('prefix', 'releases')}"
+            manifest = generate_manifest(output_dir, version, platforms, base_url)
             uploader.upload_manifest(manifest)
             print_success("Upload complete!")
         except Exception as e:

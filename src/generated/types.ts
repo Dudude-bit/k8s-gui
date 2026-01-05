@@ -251,15 +251,6 @@ export interface InvolvedObjectInfo {
   uid: string | null;
 }
 
-export interface LogLine {
-  timestamp: string | null;
-  message: string;
-  level: LogLevel | null;
-  pod: string;
-  container: string;
-  namespace: string;
-}
-
 export interface StatefulSetReplicaInfo {
   desired: number;
   ready: number;
@@ -301,6 +292,118 @@ export interface CronJobInfo {
   active: number;
   lastSchedule: string | null;
   createdAt: string | null;
+}
+
+export interface DeploymentCondition {
+  conditionType: string;
+  status: string;
+  reason: string | null;
+  message: string | null;
+}
+
+export interface RolloutStatus {
+  replicas: number;
+  readyReplicas: number;
+  updatedReplicas: number;
+  availableReplicas: number;
+  conditions: DeploymentCondition[];
+}
+
+export interface PersistentVolumeInfo {
+  name: string;
+  capacity: string;
+  accessModes: string[];
+  reclaimPolicy: string;
+  status: string;
+  claim: string | null;
+  storageClass: string;
+  reason: string | null;
+  age: string;
+}
+
+export interface PersistentVolumeClaimInfo {
+  name: string;
+  namespace: string;
+  status: string;
+  volume: string | null;
+  capacity: string;
+  accessModes: string[];
+  storageClass: string;
+  age: string;
+}
+
+export interface StorageClassInfo {
+  name: string;
+  provisioner: string;
+  reclaimPolicy: string;
+  volumeBindingMode: string;
+  allowVolumeExpansion: boolean;
+  isDefault: boolean;
+  parameters: Record<string, string>;
+  age: string;
+}
+
+export interface IngressPath {
+  path: string;
+  pathType: string;
+  backendService: string;
+  backendPort: string;
+}
+
+export interface IngressRule {
+  host: string;
+  paths: IngressPath[];
+}
+
+export interface IngressInfo {
+  name: string;
+  namespace: string;
+  className: string | null;
+  rules: IngressRule[];
+  loadBalancerIps: string[];
+  tlsHosts: string[];
+  age: string;
+}
+
+export interface EndpointTargetRef {
+  kind: string;
+  name: string;
+  namespace: string;
+}
+
+export interface EndpointAddress {
+  ip: string;
+  hostname: string | null;
+  nodeName: string | null;
+  targetRef: EndpointTargetRef | null;
+}
+
+export interface EndpointPort {
+  name: string | null;
+  port: number;
+  protocol: string;
+}
+
+export interface EndpointSubset {
+  addresses: EndpointAddress[];
+  notReadyAddresses: EndpointAddress[];
+  ports: EndpointPort[];
+}
+
+export interface EndpointsInfo {
+  name: string;
+  namespace: string;
+  subsets: EndpointSubset[];
+  age: string;
+}
+
+export interface LogLine {
+  timestamp: string | null;
+  message: string;
+  level: LogLevel | null;
+  pod: string;
+  container: string;
+  namespace: string;
 }
 
 export interface EventFilters {
@@ -391,14 +494,6 @@ export interface HelmRelease {
   updated: string;
 }
 
-export interface SecretFilters {
-  namespace: string | null;
-  labelSelector: string | null;
-  fieldSelector: string | null;
-  secretType: string | null;
-  limit: number | null;
-}
-
 export interface ResourceFilters {
   namespace: string | null;
   labelSelector: string | null;
@@ -406,68 +501,23 @@ export interface ResourceFilters {
   limit: number | null;
 }
 
-export interface PodFilters {
-  namespace: string | null;
-  labelSelector: string | null;
-  fieldSelector: string | null;
-  limit: number | null;
+export type PodFilters = {
   statusFilter: string | null;
-}
+} & ResourceFilters;
 
-export interface DeploymentFilters {
-  namespace: string | null;
-  labelSelector: string | null;
-  fieldSelector: string | null;
-  limit: number | null;
-}
-
-export interface ServiceFilters {
-  namespace: string | null;
-  labelSelector: string | null;
-  fieldSelector: string | null;
-  limit: number | null;
+export type ServiceFilters = {
   serviceType: string | null;
-}
+} & ResourceFilters;
+
+export type SecretFilters = {
+  secretType: string | null;
+} & ResourceFilters;
 
 export interface NodeFilters {
   labelSelector: string | null;
   fieldSelector: string | null;
   limit: number | null;
   readyOnly: boolean | null;
-}
-
-export interface PersistentVolumeInfo {
-  name: string;
-  capacity: string;
-  accessModes: string[];
-  reclaimPolicy: string;
-  status: string;
-  claim: string | null;
-  storageClass: string;
-  reason: string | null;
-  age: string;
-}
-
-export interface PersistentVolumeClaimInfo {
-  name: string;
-  namespace: string;
-  status: string;
-  volume: string | null;
-  capacity: string;
-  accessModes: string[];
-  storageClass: string;
-  age: string;
-}
-
-export interface StorageClassInfo {
-  name: string;
-  provisioner: string;
-  reclaimPolicy: string;
-  volumeBindingMode: string;
-  allowVolumeExpansion: boolean;
-  isDefault: boolean;
-  parameters: Record<string, string>;
-  age: string;
 }
 
 export interface PodStats {
@@ -518,79 +568,10 @@ export interface ResourceListItem {
   metadata: ResourceMetadata;
 }
 
-export interface RolloutStatus {
-  replicas: number;
-  readyReplicas: number;
-  updatedReplicas: number;
-  availableReplicas: number;
-  conditions: DeploymentCondition[];
-}
-
-export interface DeploymentCondition {
-  conditionType: string;
-  status: string;
-  reason: string | null;
-  message: string | null;
-}
-
 export interface AppInfo {
   version: string;
   name: string;
   tauriVersion: string;
-}
-
-export interface IngressPath {
-  path: string;
-  pathType: string;
-  backendService: string;
-  backendPort: string;
-}
-
-export interface IngressRule {
-  host: string;
-  paths: IngressPath[];
-}
-
-export interface IngressInfo {
-  name: string;
-  namespace: string;
-  className: string | null;
-  rules: IngressRule[];
-  loadBalancerIps: string[];
-  tlsHosts: string[];
-  age: string;
-}
-
-export interface EndpointTargetRef {
-  kind: string;
-  name: string;
-  namespace: string;
-}
-
-export interface EndpointAddress {
-  ip: string;
-  hostname: string | null;
-  nodeName: string | null;
-  targetRef: EndpointTargetRef | null;
-}
-
-export interface EndpointPort {
-  name: string | null;
-  port: number;
-  protocol: string;
-}
-
-export interface EndpointSubset {
-  addresses: EndpointAddress[];
-  notReadyAddresses: EndpointAddress[];
-  ports: EndpointPort[];
-}
-
-export interface EndpointsInfo {
-  name: string;
-  namespace: string;
-  subsets: EndpointSubset[];
-  age: string;
 }
 
 export interface StreamLogConfig {

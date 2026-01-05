@@ -1,20 +1,19 @@
 //! Deployment-specific commands
 
-use crate::commands::filters::DeploymentFilters;
+use crate::commands::filters::ResourceFilters;
 use crate::commands::helpers::ResourceContext;
 use crate::error::Result;
-use crate::resources::{DeploymentInfo, PodInfo};
+use crate::resources::{DeploymentCondition, DeploymentInfo, PodInfo, RolloutStatus};
 use crate::state::AppState;
 use k8s_openapi::api::apps::v1::Deployment;
 use k8s_openapi::api::core::v1::Pod;
 use kube::api::{Patch, PatchParams};
-use serde::{Deserialize, Serialize};
 use tauri::State;
 
 /// List deployments with optional filters
 #[tauri::command]
 pub async fn list_deployments(
-    filters: Option<DeploymentFilters>,
+    filters: Option<ResourceFilters>,
     state: State<'_, AppState>,
 ) -> Result<Vec<DeploymentInfo>> {
     let filters = filters.unwrap_or_default();
@@ -191,27 +190,6 @@ pub async fn get_deployment_pods(
     let pod_infos: Vec<PodInfo> = pods.items.iter().map(PodInfo::from).collect();
 
     Ok(pod_infos)
-}
-
-/// Rollout status
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RolloutStatus {
-    pub replicas: i32,
-    pub ready_replicas: i32,
-    pub updated_replicas: i32,
-    pub available_replicas: i32,
-    pub conditions: Vec<DeploymentCondition>,
-}
-
-/// Deployment condition
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DeploymentCondition {
-    pub condition_type: String,
-    pub status: String,
-    pub reason: Option<String>,
-    pub message: Option<String>,
 }
 
 /// Get deployment rollout status

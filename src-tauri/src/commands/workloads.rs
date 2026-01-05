@@ -1,30 +1,15 @@
 //! Workload resource commands (`StatefulSets`, `DaemonSets`, Jobs, `CronJobs`)
 
 use crate::error::Result;
+use crate::resources::{CronJobInfo, DaemonSetInfo, JobInfo, StatefulSetInfo, StatefulSetReplicaInfo};
 use crate::state::AppState;
 use k8s_openapi::api::apps::v1::{DaemonSet, StatefulSet};
 use k8s_openapi::api::batch::v1::{CronJob, Job};
-use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::commands::filters::ResourceFilters;
 
 // ============= StatefulSet =============
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StatefulSetReplicaInfo {
-    pub desired: i32,
-    pub ready: i32,
-    pub current: i32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StatefulSetInfo {
-    pub name: String,
-    pub namespace: String,
-    pub replicas: StatefulSetReplicaInfo,
-    pub created_at: Option<String>,
-}
 
 #[tauri::command]
 pub async fn list_statefulsets(
@@ -66,16 +51,6 @@ pub async fn list_statefulsets(
 
 // ============= DaemonSet =============
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DaemonSetInfo {
-    pub name: String,
-    pub namespace: String,
-    pub desired: i32,
-    pub current: i32,
-    pub ready: i32,
-    pub created_at: Option<String>,
-}
-
 #[tauri::command]
 pub async fn list_daemonsets(
     filters: Option<ResourceFilters>,
@@ -112,18 +87,6 @@ pub async fn list_daemonsets(
 }
 
 // ============= Job =============
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct JobInfo {
-    pub name: String,
-    pub namespace: String,
-    pub completions: Option<i32>,
-    pub succeeded: i32,
-    pub failed: i32,
-    pub active: i32,
-    pub status: String,
-    pub created_at: Option<String>,
-}
 
 #[tauri::command]
 pub async fn list_jobs(
@@ -175,17 +138,6 @@ pub async fn list_jobs(
 }
 
 // ============= CronJob =============
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CronJobInfo {
-    pub name: String,
-    pub namespace: String,
-    pub schedule: String,
-    pub suspend: bool,
-    pub active: i32,
-    pub last_schedule: Option<String>,
-    pub created_at: Option<String>,
-}
 
 #[tauri::command]
 pub async fn list_cronjobs(

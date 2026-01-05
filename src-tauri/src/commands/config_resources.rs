@@ -5,11 +5,10 @@ use crate::error::Result;
 use crate::resources::{ConfigMapInfo, SecretInfo};
 use crate::state::AppState;
 use k8s_openapi::api::core::v1::ConfigMap;
-use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use tauri::State;
 
-use crate::commands::filters::ResourceFilters;
+use crate::commands::filters::{ResourceFilters, SecretFilters};
 
 // ============================================================================
 // ConfigMap Commands
@@ -74,17 +73,6 @@ pub async fn delete_configmap(
 // ============================================================================
 
 use k8s_openapi::api::core::v1::Secret;
-
-/// Secret filters
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SecretFilters {
-    pub namespace: Option<String>,
-    pub label_selector: Option<String>,
-    pub field_selector: Option<String>,
-    pub secret_type: Option<String>,
-    pub limit: Option<i64>,
-}
 
 /// List Secrets
 #[tauri::command]
