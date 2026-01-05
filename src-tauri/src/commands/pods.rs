@@ -17,7 +17,7 @@ pub async fn list_pods(
     let filters = filters.unwrap_or_default();
 
     let list = crate::commands::helpers::list_resources::<Pod>(
-        filters.namespace,
+        filters.namespace.clone(),
         state,
         filters.label_selector.as_deref(),
         filters.field_selector.as_deref(),

@@ -23,7 +23,7 @@ pub async fn list_configmaps(
     let filters = filters.unwrap_or_default();
 
     let list = crate::commands::helpers::list_resources::<ConfigMap>(
-        filters.namespace,
+        filters.namespace.clone(),
         state,
         filters.label_selector.as_deref(),
         filters.field_selector.as_deref(),
@@ -83,7 +83,7 @@ pub async fn list_secrets(
     let filters = filters.unwrap_or_default();
 
     let list = crate::commands::helpers::list_resources::<Secret>(
-        filters.namespace,
+        filters.namespace.clone(),
         state,
         filters.label_selector.as_deref(),
         filters.field_selector.as_deref(),
