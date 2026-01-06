@@ -475,7 +475,7 @@ def create_git_tag(version: str, push: bool = False):
     result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
     if result.stdout.strip():
         print("   📝 Committing version changes...")
-        subprocess.run(["git", "add", "src-tauri/tauri.conf.json", "src-tauri/Cargo.toml", "src-tauri/Cargo.lock"], check=True)
+        subprocess.run(["git", "add", "src-tauri/tauri.conf.json", "src-tauri/Cargo.toml", "Cargo.lock"], check=True)
         subprocess.run(["git", "commit", "-m", f"chore: bump version to {version}"], check=True)
     
     print(f"   🏷️  Creating tag: {tag}")
