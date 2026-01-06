@@ -460,6 +460,14 @@ def update_version_in_files(new_version: str):
         cargo_toml_path.write_text(new_content)
         print(f"   📝 {cargo_toml_path}")
 
+    # Update Cargo.lock
+    print("   🔄 Updating Cargo.lock...")
+    subprocess.run(
+        ["cargo", "check", "--manifest-path", "src-tauri/Cargo.toml"],
+        capture_output=True,
+        check=False  # Don't fail if check fails (e.g. missing network), though it usually succeeds
+    )
+
 
 def create_git_tag(version: str, push: bool = False):
     tag = f"v{version}"
@@ -467,7 +475,7 @@ def create_git_tag(version: str, push: bool = False):
     result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
     if result.stdout.strip():
         print("   📝 Committing version changes...")
-        subprocess.run(["git", "add", "src-tauri/tauri.conf.json", "src-tauri/Cargo.toml"], check=True)
+        subprocess.run(["git", "add", "src-tauri/tauri.conf.json", "src-tauri/Cargo.toml", "src-tauri/Cargo.lock"], check=True)
         subprocess.run(["git", "commit", "-m", f"chore: bump version to {version}"], check=True)
     
     print(f"   🏷️  Creating tag: {tag}")
