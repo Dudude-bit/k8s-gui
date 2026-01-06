@@ -244,12 +244,22 @@ fn main() {
 
             // Storage commands
             commands::storage::list_persistent_volumes,
+            commands::storage::get_persistent_volume,
+            commands::storage::delete_persistent_volume,
             commands::storage::list_persistent_volume_claims,
+            commands::storage::get_persistent_volume_claim,
+            commands::storage::delete_persistent_volume_claim,
             commands::storage::list_storage_classes,
+            commands::storage::get_storage_class,
+            commands::storage::delete_storage_class,
 
             // Network commands
             commands::network::list_ingresses,
+            commands::network::get_ingress,
+            commands::network::delete_ingress,
             commands::network::list_endpoints,
+            commands::network::get_endpoints,
+            commands::network::delete_endpoints,
 
             // Stats commands
             commands::stats::get_cluster_stats,

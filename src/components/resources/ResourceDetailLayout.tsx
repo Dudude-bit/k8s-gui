@@ -332,6 +332,9 @@ export function ResourceDetailLayout({
         icon={icon}
       />
 
+      {/* Additional children (Info Cards, etc.) */}
+      {children}
+
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={onTabChange}>
         <TabsList>
@@ -366,9 +369,6 @@ export function ResourceDetailLayout({
       {activeTab === "overview" && conditions && conditions.length > 0 && (
         <ConditionsDisplay conditions={conditions} />
       )}
-
-      {/* Additional children */}
-      {children}
     </div>
   );
 }

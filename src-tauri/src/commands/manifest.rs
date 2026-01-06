@@ -2,7 +2,7 @@
 //!
 //! Provides Kubernetes API-based manifest operations for applying and validating YAML manifests.
 
-use crate::commands::helpers::{get_k8s_client, ResourceContext};
+use crate::commands::helpers::ResourceContext;
 use crate::error::{Error, Result};
 use crate::state::AppState;
 use kube::api::{DeleteParams, Patch, PatchParams};
@@ -248,7 +248,7 @@ pub async fn apply_manifest(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<ManifestResult> {
-    let client = get_k8s_client(&state)?;
+
 
     let parsed_docs = match parse_all_documents(&manifest) {
         Ok(docs) => docs,
@@ -261,7 +261,7 @@ pub async fn apply_manifest(
     for parsed in parsed_docs {
         let ns = parsed.effective_namespace(&namespace);
         let name = parsed.name();
-        let ctx = ResourceContext::from_client(client.clone(), ns.clone());
+        let ctx = ResourceContext::for_command(&state, Some(ns.clone()))?;
         let api = ctx.dynamic_api_for_resource(
             &parsed.api_resource,
             is_cluster_scoped(&parsed.api_resource.kind),
@@ -292,7 +292,7 @@ pub async fn delete_manifest(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<ManifestResult> {
-    let client = get_k8s_client(&state)?;
+
 
     let parsed_docs = match parse_all_documents(&manifest) {
         Ok(docs) => docs,
@@ -307,7 +307,7 @@ pub async fn delete_manifest(
             Ok(n) => n,
             Err(e) => return Ok(ManifestResult::error(e.to_string())),
         };
-        let ctx = ResourceContext::from_client(client.clone(), ns.clone());
+        let ctx = ResourceContext::for_command(&state, Some(ns.clone()))?;
         let api = ctx.dynamic_api_for_resource(
             &parsed.api_resource,
             is_cluster_scoped(&parsed.api_resource.kind),
@@ -361,7 +361,7 @@ pub async fn get_manifest(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String> {
-    let client = get_k8s_client(&state)?;
+
 
     // Parse group and version from apiVersion
     let (group, version) = if api_version.contains('/') {
@@ -380,7 +380,7 @@ pub async fn get_manifest(
     };
 
     let ns = namespace.unwrap_or_else(|| "default".to_string());
-    let ctx = ResourceContext::from_client(client.clone(), ns.clone());
+    let ctx = ResourceContext::for_command(&state, Some(ns.clone()))?;
     let api = ctx.dynamic_api_for_resource(&api_resource, is_cluster_scoped(&api_resource.kind));
 
     let resource = api.get(&name).await?;

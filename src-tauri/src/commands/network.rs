@@ -58,3 +58,46 @@ pub async fn list_endpoints(
         .map(EndpointsInfo::from)
         .collect())
 }
+
+/// Get a single Ingress by name
+#[tauri::command]
+pub async fn get_ingress(
+    name: String,
+    namespace: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<IngressInfo> {
+    let ingress: Ingress = crate::commands::helpers::get_resource(name, namespace, state).await?;
+    Ok(IngressInfo::from(&ingress))
+}
+
+/// Delete an Ingress
+#[tauri::command]
+pub async fn delete_ingress(
+    name: String,
+    namespace: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<()> {
+    crate::commands::helpers::delete_resource::<Ingress>(name, namespace, state, None).await
+}
+
+/// Get a single Endpoints resource by name
+#[tauri::command]
+pub async fn get_endpoints(
+    name: String,
+    namespace: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<EndpointsInfo> {
+    let endpoints: Endpoints = crate::commands::helpers::get_resource(name, namespace, state).await?;
+    Ok(EndpointsInfo::from(&endpoints))
+}
+
+/// Delete an Endpoints resource
+#[tauri::command]
+pub async fn delete_endpoints(
+    name: String,
+    namespace: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<()> {
+    crate::commands::helpers::delete_resource::<Endpoints>(name, namespace, state, None).await
+}
+

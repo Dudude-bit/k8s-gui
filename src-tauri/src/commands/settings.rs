@@ -74,10 +74,11 @@ pub struct AppInfo {
 
 /// Get application version and build info
 #[tauri::command]
-pub fn get_app_info() -> AppInfo {
+pub fn get_app_info(app: tauri::AppHandle) -> AppInfo {
+    let package_info = app.package_info();
     AppInfo {
-        version: env!("GIT_VERSION").to_string(),
-        name: env!("CARGO_PKG_NAME").to_string(),
+        version: package_info.version.to_string(),
+        name: package_info.name.to_string(),
         tauri_version: tauri::VERSION.to_string(),
     }
 }

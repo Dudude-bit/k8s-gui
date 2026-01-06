@@ -24,6 +24,8 @@ import { useResourceYaml } from "./useResourceYaml";
 export interface UseResourceDetailOptions<T> {
   /** Resource kind for YAML command (e.g., "Pod", "Deployment") */
   resourceKind: string;
+  /** Whether this is a cluster-scoped resource (no namespace) */
+  isClusterScoped?: boolean;
   /** Function for fetching resource */
   fetchResource: (name: string, namespace: string | null) => Promise<T>;
   /** Function for deleting resource */
@@ -82,6 +84,7 @@ export function useResourceDetail<T>(
 ): UseResourceDetailResult<T> {
   const {
     resourceKind,
+    isClusterScoped = false,
     fetchResource,
     deleteResource,
     onResourceFetched,
@@ -90,7 +93,9 @@ export function useResourceDetail<T>(
     defaultTab = "overview",
   } = options;
 
-  const { namespace, name } = useParams<{ namespace: string; name: string }>();
+  // For cluster-scoped resources, namespace won't be in the URL
+  const { namespace: nsParam, name } = useParams<{ namespace?: string; name: string }>();
+  const namespace = isClusterScoped ? undefined : nsParam;
   const navigate = useNavigate();
   const { toast } = useToast();
   const copyToClipboard = useCopyToClipboard();
@@ -137,31 +142,29 @@ export function useResourceDetail<T>(
   }, [navigate]);
 
   // Delete mutation
-  const deleteMutation = deleteResource
-    ? useMutation({
-        mutationFn: async () => {
-          if (!name) return;
-          await deleteResource(name, namespace || null);
-        },
-        onSuccess: () => {
-          toast({
-            title: `${resourceKind} deleted`,
-            description: `${resourceKind} ${name} has been deleted.`,
-          });
-          queryClient.invalidateQueries({
-            queryKey: [resourceKind.toLowerCase()],
-          });
-          onDeleted?.() ?? goBack();
-        },
-        onError: (err) => {
-          toast({
-            title: "Error",
-            description: `Failed to delete ${resourceKind.toLowerCase()}: ${err}`,
-            variant: "destructive",
-          });
-        },
-      })
-    : null;
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (!name || !deleteResource) return;
+      await deleteResource(name, namespace || null);
+    },
+    onSuccess: () => {
+      toast({
+        title: `${resourceKind} deleted`,
+        description: `${resourceKind} ${name} has been deleted.`,
+      });
+      queryClient.invalidateQueries({
+        queryKey: [resourceKind.toLowerCase()],
+      });
+      onDeleted?.() ?? goBack();
+    },
+    onError: (err) => {
+      toast({
+        title: "Error",
+        description: `Failed to delete ${resourceKind.toLowerCase()}: ${err}`,
+        variant: "destructive",
+      });
+    },
+  });
 
   return {
     name,

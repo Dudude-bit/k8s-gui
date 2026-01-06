@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
+import { Link } from "react-router-dom";
 import { Eye, Trash2, Database } from "lucide-react";
 import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import {
@@ -88,11 +89,13 @@ const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
   },
   {
     id: "actions",
-    cell: () => (
+    cell: ({ row }) => (
       <ActionMenu>
-        <DropdownMenuItem>
-          <Eye className="mr-2 h-4 w-4" />
-          View Details
+        <DropdownMenuItem asChild>
+          <Link to={`/${toPlural(ResourceType.PersistentVolumeClaim)}/${row.original.namespace}/${row.original.name}`}>
+            <Eye className="mr-2 h-4 w-4" />
+            View Details
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem className="text-destructive">

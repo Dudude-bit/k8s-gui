@@ -81,3 +81,63 @@ pub async fn list_storage_classes(
         .map(StorageClassInfo::from)
         .collect())
 }
+
+/// Get a single PersistentVolume by name
+#[tauri::command]
+pub async fn get_persistent_volume(
+    name: String,
+    state: State<'_, AppState>,
+) -> Result<PersistentVolumeInfo> {
+    let pv: PersistentVolume = crate::commands::helpers::get_cluster_resource(name, state).await?;
+    Ok(PersistentVolumeInfo::from(&pv))
+}
+
+/// Delete a PersistentVolume
+#[tauri::command]
+pub async fn delete_persistent_volume(
+    name: String,
+    state: State<'_, AppState>,
+) -> Result<()> {
+    crate::commands::helpers::delete_cluster_resource::<PersistentVolume>(name, state, None).await
+}
+
+/// Get a single PersistentVolumeClaim by name
+#[tauri::command]
+pub async fn get_persistent_volume_claim(
+    name: String,
+    namespace: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<PersistentVolumeClaimInfo> {
+    let pvc: PersistentVolumeClaim = crate::commands::helpers::get_resource(name, namespace, state).await?;
+    Ok(PersistentVolumeClaimInfo::from(&pvc))
+}
+
+/// Delete a PersistentVolumeClaim
+#[tauri::command]
+pub async fn delete_persistent_volume_claim(
+    name: String,
+    namespace: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<()> {
+    crate::commands::helpers::delete_resource::<PersistentVolumeClaim>(name, namespace, state, None).await
+}
+
+/// Get a single StorageClass by name
+#[tauri::command]
+pub async fn get_storage_class(
+    name: String,
+    state: State<'_, AppState>,
+) -> Result<StorageClassInfo> {
+    let sc: StorageClass = crate::commands::helpers::get_cluster_resource(name, state).await?;
+    Ok(StorageClassInfo::from(&sc))
+}
+
+/// Delete a StorageClass
+#[tauri::command]
+pub async fn delete_storage_class(
+    name: String,
+    state: State<'_, AppState>,
+) -> Result<()> {
+    crate::commands::helpers::delete_cluster_resource::<StorageClass>(name, state, None).await
+}
+

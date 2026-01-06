@@ -1,19 +1,18 @@
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import * as commands from "@/generated/commands";
 import { useState, useEffect, useMemo } from "react";
 import {
   useResourceMutation,
-  useResourceYaml,
-  useCopyToClipboard,
+
   usePodMetrics,
+  useResourceDetail,
 } from "@/hooks";
+import type { DeploymentInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DetailTabsSkeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -32,21 +31,21 @@ import {
 } from "@/components/ui/dialog";
 import { formatAge } from "@/lib/utils";
 import {
-  ArrowLeft,
   Trash2,
   RefreshCw,
   Scale,
   ImageIcon,
   RotateCcw,
   FileText,
+  Rocket,
 } from "lucide-react";
 import { LogViewer } from "@/components/logs/LogViewer";
 import { LicenseErrorBanner } from "@/components/license/LicenseErrorBanner";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
-import { ResourceDetailHeader } from "@/components/resources/ResourceDetailHeader";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { MetricPair } from "@/components/ui/metric-card";
+import { ResourceDetailLayout } from "@/components/resources/ResourceDetailLayout";
 import {
   aggregatePodMetrics,
   parseCPU as parseKubernetesCPU,
@@ -58,10 +57,7 @@ import { normalizeTauriError } from "@/lib/error-utils";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 
 export function DeploymentDetail() {
-  const { namespace, name } = useParams<{ namespace: string; name: string }>();
-  const navigate = useNavigate();
-  const copyToClipboard = useCopyToClipboard();
-  const [activeTab, setActiveTab] = useState("overview");
+
   const [scaleDialogOpen, setScaleDialogOpen] = useState(false);
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
   const [newReplicas, setNewReplicas] = useState(1);
@@ -71,29 +67,37 @@ export function DeploymentDetail() {
   const { hasAccess } = usePremiumFeature();
 
   const {
-    data: deployment,
+    name,
+    namespace,
+    resource: deployment,
     isLoading,
+    isFetching,
     error,
-  } = useQuery({
-    queryKey: ["deployment", namespace, name],
-    queryFn: async () => {
+    refetch,
+    yaml: deploymentYaml,
+    copyYaml,
+    activeTab,
+    setActiveTab,
+    goBack,
+    deleteMutation,
+  } = useResourceDetail<DeploymentInfo>({
+    resourceKind: ResourceType.Deployment,
+    fetchResource: async (name, ns) => {
       try {
-        if (!name) throw new Error("Deployment name is required");
-        const result = await commands.getDeployment(name, namespace || null);
-        return result;
+        return await commands.getDeployment(name, ns);
       } catch (err) {
         throw new Error(normalizeTauriError(err));
       }
     },
-    enabled: !!namespace && !!name,
+    deleteResource: async (name, ns) => {
+      try {
+        await commands.deleteDeployment(name, ns);
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
+    },
+    defaultTab: "overview",
   });
-
-  const { data: deploymentYaml } = useResourceYaml(
-    ResourceType.Deployment,
-    name,
-    namespace,
-    activeTab
-  );
 
   const { data: pods = [] } = useQuery({
     queryKey: ["deployment-pods", namespace, name],
@@ -265,29 +269,6 @@ export function DeploymentDetail() {
     }
   );
 
-  const deleteMutation = useResourceMutation(
-    async () => {
-      if (!name || !namespace) return;
-      await commands.deleteDeployment(name, namespace);
-    },
-    {
-      toast: {
-        successTitle: "Deployment deleted",
-        successDescription: `Deployment ${name} has been deleted.`,
-        errorPrefix: "Failed to delete deployment",
-      },
-      onSuccess: () => {
-        navigate(-1);
-      },
-    }
-  );
-
-  const copyYaml = () => {
-    if (deploymentYaml) {
-      copyToClipboard(deploymentYaml, "YAML copied to clipboard.");
-    }
-  };
-
   const openScaleDialog = () => {
     if (deployment) {
       setNewReplicas(deployment.replicas.desired);
@@ -301,29 +282,17 @@ export function DeploymentDetail() {
     setImageDialogOpen(true);
   };
 
-  if (isLoading) {
-    return <DetailTabsSkeleton tabCount={6} rows={4} />;
+  if (!deployment && !isLoading && !error) {
+    return null;
   }
 
-  if (error || !deployment) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <p className="text-destructive">Failed to load deployment details</p>
-        <Button variant="outline" onClick={() => navigate(-1)}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Go Back
-        </Button>
-      </div>
-    );
-  }
-
-  const rolloutDesired = rolloutStatus?.replicas ?? deployment.replicas.desired;
+  const rolloutDesired = rolloutStatus?.replicas ?? deployment?.replicas.desired ?? 0;
   const rolloutReady =
-    rolloutStatus?.readyReplicas ?? deployment.replicas.ready;
+    rolloutStatus?.readyReplicas ?? deployment?.replicas.ready ?? 0;
   const rolloutUpdated =
-    rolloutStatus?.updatedReplicas ?? deployment.replicas.updated;
+    rolloutStatus?.updatedReplicas ?? deployment?.replicas.updated ?? 0;
   const rolloutAvailable =
-    rolloutStatus?.availableReplicas ?? deployment.replicas.available;
+    rolloutStatus?.availableReplicas ?? deployment?.replicas.available ?? 0;
   const isRolloutInProgress =
     rolloutStatus !== undefined &&
     !(
@@ -343,18 +312,6 @@ export function DeploymentDetail() {
       (c) => c.conditionType === "Available"
     );
     if (isRolloutInProgress) {
-      // Assuming 'metrics' and 'setTotalResources' are defined elsewhere in the component scope
-      // and this is an intended side effect within the rolloutMessage calculation.
-      // If 'metrics' is not defined, this will cause a runtime error.
-      // The instruction "Update property access to camelCase for aggregated metrics"
-      // seems to refer to the properties within the `metrics` object here.
-      // However, without more context, it's hard to tell if `metrics.cpuUsage`
-      // and `metrics.memoryUsage` are the camelCase versions or if they need to be changed.
-      // Sticking to the provided code edit faithfully.
-      // setTotalResources({
-      //   cpu: metrics.cpuUsage || "0m",
-      //   memory: metrics.memoryUsage || "0Mi",
-      // });
       return (
         progressing?.message ||
         progressing?.reason ||
@@ -364,87 +321,12 @@ export function DeploymentDetail() {
     return available?.message || "Deployment is available";
   })();
 
-  return (
-    <div className="space-y-4">
-      {/* Header */}
-      <ResourceDetailHeader
-        title={deployment.name}
-        namespace={deployment.namespace}
-        badges={
-          <>
-            <Badge
-              variant={
-                deployment.replicas.ready === deployment.replicas.desired
-                  ? "success"
-                  : "warning"
-              }
-            >
-              {deployment.replicas.ready}/{deployment.replicas.desired} pods
-              ready
-            </Badge>
-            {isRolloutInProgress && (
-              <Badge variant="secondary" className="animate-pulse">
-                <RotateCcw className="mr-1 h-3 w-3 animate-spin" />
-                Rolling out...
-              </Badge>
-            )}
-          </>
-        }
-        actions={
-          <>
-            <Button variant="outline" size="sm" onClick={openScaleDialog}>
-              <Scale className="mr-2 h-4 w-4" />
-              Scale
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => restartMutation.mutate()}
-              disabled={restartMutation.isPending}
-            >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Restart
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => deleteMutation.mutate()}
-              disabled={deleteMutation.isPending}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </Button>
-          </>
-        }
-        onBack={() => navigate(-1)}
-      />
-
-      {/* Rollout Progress */}
-      {isRolloutInProgress && rolloutStatus && (
-        <Card className="border-blue-500/50 bg-blue-500/10">
-          <CardContent className="py-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm">{rolloutMessage}</span>
-              <span className="text-sm text-muted-foreground">
-                {rolloutReady}/{rolloutDesired} pods ready
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="containers">Containers</TabsTrigger>
-          <TabsTrigger value={toPlural(ResourceType.Pod)}>Pods</TabsTrigger>
-          <TabsTrigger value="logs">Logs</TabsTrigger>
-          <TabsTrigger value="yaml">YAML</TabsTrigger>
-          <TabsTrigger value="conditions">Conditions</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-4">
+  const tabs = [
+    {
+      id: "overview",
+      label: "Overview",
+      content: (
+        <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardHeader>
@@ -453,28 +335,28 @@ export function DeploymentDetail() {
               <CardContent className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Strategy</span>
-                  <span>{deployment.strategy || "RollingUpdate"}</span>
+                  <span>{deployment?.strategy || "RollingUpdate"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Replicas</span>
-                  <span>{deployment.replicas.desired}</span>
+                  <span>{deployment?.replicas.desired}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Ready</span>
-                  <span>{deployment.replicas.ready}</span>
+                  <span>{deployment?.replicas.ready}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Available</span>
-                  <span>{deployment.replicas.available}</span>
+                  <span>{deployment?.replicas.available}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Created</span>
-                  <span>{deployment.createdAt || "-"}</span>
+                  <span>{deployment?.createdAt || "-"}</span>
                 </div>
               </CardContent>
             </Card>
 
-            <LabelsDisplay labels={deployment.labels} title="Labels" />
+            <LabelsDisplay labels={deployment?.labels || {}} title="Labels" />
           </div>
 
           {/* Resource Usage Metrics */}
@@ -503,204 +385,298 @@ export function DeploymentDetail() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="containers">
-          <div className="space-y-4">
-            {(deployment.containers || []).map((container) => (
-              <Card key={container.name}>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-lg">{container.name}</CardTitle>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      openImageDialog(container.name, container.image)
-                    }
-                  >
-                    <ImageIcon className="mr-2 h-4 w-4" />
-                    Update Image
-                  </Button>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
+        </div>
+      ),
+    },
+    {
+      id: "containers",
+      label: "Containers",
+      content: (
+        <div className="space-y-4">
+          {(deployment?.containers || []).map((container) => (
+            <Card key={container.name}>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-lg">{container.name}</CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    openImageDialog(container.name, container.image)
+                  }
+                >
+                  <ImageIcon className="mr-2 h-4 w-4" />
+                  Update Image
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Image</span>
+                  <span className="font-mono text-xs">{container.image}</span>
+                </div>
+                {container.ports.length > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Image</span>
-                    <span className="font-mono text-xs">{container.image}</span>
+                    <span className="text-muted-foreground">Ports</span>
+                    <span>{container.ports.join(", ")}</span>
                   </div>
-                  {container.ports.length > 0 && (
+                )}
+                {container.resources.requests &&
+                  Object.keys(container.resources.requests).length > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Ports</span>
-                      <span>{container.ports.join(", ")}</span>
+                      <span className="text-muted-foreground">Requests</span>
+                      <span>
+                        {Object.entries(container.resources.requests)
+                          .map(([k, v]) => `${k}: ${v}`)
+                          .join(", ")}
+                      </span>
                     </div>
                   )}
-                  {container.resources.requests &&
-                    Object.keys(container.resources.requests).length > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Requests</span>
-                        <span>
-                          {Object.entries(container.resources.requests)
-                            .map(([k, v]) => `${k}: ${v}`)
-                            .join(", ")}
-                        </span>
-                      </div>
-                    )}
-                  {container.resources.limits &&
-                    Object.keys(container.resources.limits).length > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Limits</span>
-                        <span>
-                          {Object.entries(container.resources.limits)
-                            .map(([k, v]) => `${k}: ${v}`)
-                            .join(", ")}
-                        </span>
-                      </div>
-                    )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value={toPlural(ResourceType.Pod)}>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-2">
-                {pods.map((pod) => {
-                  const readyCount =
-                    pod.containers?.filter((c) => c.ready).length ?? 0;
-                  const totalCount = pod.containers?.length ?? 0;
-                  const readyText = `${readyCount}/${totalCount}`;
-                  const status = pod.status?.phase || "Unknown";
-                  const age = formatAge(pod.createdAt);
-
-                  return (
-                    <Link
-                      key={pod.name}
-                      to={`/${toPlural(ResourceType.Pod)}/${pod.namespace}/${pod.name}`}
-                      className="flex items-center justify-between p-3 rounded-md hover:bg-muted transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Badge
-                          variant={
-                            status === "Running"
-                              ? "success"
-                              : status === "Pending"
-                                ? "warning"
-                                : "destructive"
-                          }
-                        >
-                          {status}
-                        </Badge>
-                        <span className="font-medium">{pod.name}</span>
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span>Ready: {readyText}</span>
-                        <span>Restarts: {pod.restartCount ?? 0}</span>
-                        <span>{age}</span>
-                      </div>
-                    </Link>
-                  );
-                })}
-                {pods.length === 0 && (
-                  <p className="text-center text-muted-foreground py-4">
-                    No pods found
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="logs">
-          {hasAccess ? (
-            <Card className="h-[600px]">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Pod Logs
-                  </CardTitle>
-                  <Select
-                    value={selectedLogPod || ""}
-                    onValueChange={setSelectedLogPod}
-                  >
-                    <SelectTrigger className="w-64">
-                      <SelectValue placeholder="Select pod" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {pods.map((pod) => {
-                        const status = pod.status?.phase || "Unknown";
-                        return (
-                          <SelectItem key={pod.name} value={pod.name}>
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`h-2 w-2 rounded-full ${status === "Running"
-                                  ? "bg-green-500"
-                                  : status === "Pending"
-                                    ? "bg-yellow-500"
-                                    : "bg-red-500"
-                                  }`}
-                              />
-                              {pod.name}
-                            </div>
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0 h-[calc(100%-4rem)]">
-                {logPod ? (
-                  <LogViewer
-                    key={`${logPod.namespace}:${logPod.name}`}
-                    podName={logPod.name}
-                    namespace={logPod.namespace}
-                    // logPod is generated PodInfo where containers is ContainerInfo[]
-                    // ContainerInfo has name.
-                    containers={logPod.containers?.map((c) => c.name) || []}
-                    initialContainer={logPod.containers?.[0]?.name}
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full text-muted-foreground">
-                    {pods.length === 0
-                      ? "No pods available for this deployment"
-                      : "Select a pod to view logs"}
-                  </div>
-                )}
+                {container.resources.limits &&
+                  Object.keys(container.resources.limits).length > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Limits</span>
+                      <span>
+                        {Object.entries(container.resources.limits)
+                          .map(([k, v]) => `${k}: ${v}`)
+                          .join(", ")}
+                      </span>
+                    </div>
+                  )}
               </CardContent>
             </Card>
-          ) : (
-            <LicenseErrorBanner message="Logs viewer is available for premium users only." />
-          )}
-        </TabsContent>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: toPlural(ResourceType.Pod),
+      label: "Pods",
+      content: (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="space-y-2">
+              {pods.map((pod) => {
+                const readyCount =
+                  pod.containers?.filter((c) => c.ready).length ?? 0;
+                const totalCount = pod.containers?.length ?? 0;
+                const readyText = `${readyCount}/${totalCount}`;
+                const status = pod.status?.phase || "Unknown";
+                const age = formatAge(pod.createdAt);
 
-        <TabsContent value="yaml">
-          <YamlTabContent
-            title="Deployment YAML"
-            yaml={deploymentYaml}
-            resourceKind={ResourceType.Deployment}
-            resourceName={name || ""}
-            namespace={namespace}
-            onCopy={copyYaml}
-          />
-        </TabsContent>
+                return (
+                  <Link
+                    key={pod.name}
+                    to={`/${toPlural(ResourceType.Pod)}/${pod.namespace}/${pod.name}`}
+                    className="flex items-center justify-between p-3 rounded-md hover:bg-muted transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Badge
+                        variant={
+                          status === "Running"
+                            ? "success"
+                            : status === "Pending"
+                              ? "warning"
+                              : "destructive"
+                        }
+                      >
+                        {status}
+                      </Badge>
+                      <span className="font-medium">{pod.name}</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <span>Ready: {readyText}</span>
+                      <span>Restarts: {pod.restartCount ?? 0}</span>
+                      <span>{age}</span>
+                    </div>
+                  </Link>
+                );
+              })}
+              {pods.length === 0 && (
+                <p className="text-center text-muted-foreground py-4">
+                  No pods found
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ),
+    },
+    {
+      id: "logs",
+      label: "Logs",
+      content: hasAccess ? (
+        <Card className="h-[600px]">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Pod Logs
+              </CardTitle>
+              <Select
+                value={selectedLogPod || ""}
+                onValueChange={setSelectedLogPod}
+              >
+                <SelectTrigger className="w-64">
+                  <SelectValue placeholder="Select pod" />
+                </SelectTrigger>
+                <SelectContent>
+                  {pods.map((pod) => {
+                    const status = pod.status?.phase || "Unknown";
+                    return (
+                      <SelectItem key={pod.name} value={pod.name}>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`h-2 w-2 rounded-full ${status === "Running"
+                              ? "bg-green-500"
+                              : status === "Pending"
+                                ? "bg-yellow-500"
+                                : "bg-red-500"
+                              }`}
+                          />
+                          {pod.name}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0 h-[calc(100%-4rem)]">
+            {logPod ? (
+              <LogViewer
+                key={`${logPod.namespace}:${logPod.name}`}
+                podName={logPod.name}
+                namespace={logPod.namespace}
+                containers={logPod.containers?.map((c) => c.name) || []}
+                initialContainer={logPod.containers?.[0]?.name}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                {pods.length === 0
+                  ? "No pods available for this deployment"
+                  : "Select a pod to view logs"}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <LicenseErrorBanner message="Logs viewer is available for premium users only." />
+      ),
+    },
+    {
+      id: "yaml",
+      label: "YAML",
+      content: (
+        <YamlTabContent
+          title="Deployment YAML"
+          yaml={deploymentYaml}
+          resourceKind={ResourceType.Deployment}
+          resourceName={name || ""}
+          namespace={namespace}
+          onCopy={copyYaml}
+        />
+      ),
+    },
+    {
+      id: "conditions",
+      label: "Conditions",
+      content: (
+        <ConditionsDisplay
+          conditions={(deployment?.conditions || []).map((c) => ({
+            type: c.type,
+            status: c.status,
+            reason: c.reason,
+            message: c.message,
+            lastTransitionTime: c.lastTransitionTime,
+          }))}
+          title="Deployment Conditions"
+        />
+      ),
+    },
+  ];
 
-        <TabsContent value="conditions">
-          <ConditionsDisplay
-            conditions={deployment.conditions.map((c) => ({
-              type_: c.type,
-              status: c.status,
-              reason: c.reason,
-              message: c.message,
-              last_transition_time: c.lastTransitionTime,
-            }))}
-            title="Deployment Conditions"
-          />
-        </TabsContent>
-      </Tabs>
+  return (
+    <ResourceDetailLayout
+      resource={deployment}
+      isLoading={isLoading}
+      isFetching={isFetching}
+      error={error}
+      resourceKind={ResourceType.Deployment}
+      title={deployment?.name || ""}
+      namespace={deployment?.namespace}
+      badges={
+        deployment && (
+          <>
+            <Badge
+              variant={
+                deployment.replicas.ready === deployment.replicas.desired
+                  ? "success"
+                  : "warning"
+              }
+            >
+              {deployment.replicas.ready}/{deployment.replicas.desired} pods
+              ready
+            </Badge>
+            {isRolloutInProgress && (
+              <Badge variant="secondary" className="animate-pulse">
+                <RotateCcw className="mr-1 h-3 w-3 animate-spin" />
+                Rolling out...
+              </Badge>
+            )}
+          </>
+        )
+      }
+      icon={<Rocket className="h-8 w-8 text-muted-foreground" />}
+      onBack={goBack}
+      onRefresh={refetch}
+      actions={
+        <>
+          <Button variant="outline" size="sm" onClick={openScaleDialog}>
+            <Scale className="mr-2 h-4 w-4" />
+            Scale
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => restartMutation.mutate()}
+            disabled={restartMutation.isPending}
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Restart
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => deleteMutation && deleteMutation.mutate()}
+            disabled={deleteMutation?.isPending}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete
+          </Button>
+        </>
+      }
+      tabs={tabs}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+    >
+      {/* Rollout Progress Card */}
+      {isRolloutInProgress && rolloutStatus && (
+        <Card className="border-blue-500/50 bg-blue-500/10 mb-4">
+          <CardContent className="py-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm">{rolloutMessage}</span>
+              <span className="text-sm text-muted-foreground">
+                {rolloutReady}/{rolloutDesired} pods ready
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Scale Dialog - mostly the same */}
+      {/* Info Cards (Optional, current deployment view has mostly overview tab info) */}
+      {/* If there were specific high-level metrics cards they would go here */}
+
+      {/* Scale Dialog */}
       <Dialog open={scaleDialogOpen} onOpenChange={setScaleDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -732,7 +708,7 @@ export function DeploymentDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Update Image Dialog - mostly the same */}
+      {/* Update Image Dialog */}
       <Dialog open={imageDialogOpen} onOpenChange={setImageDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -766,6 +742,6 @@ export function DeploymentDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </ResourceDetailLayout>
   );
 }

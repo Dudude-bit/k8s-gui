@@ -224,6 +224,30 @@ export async function listStorageClasses(filters: ResourceFilters | null): Promi
   return invoke<StorageClassInfo[]>("list_storage_classes", { filters });
 }
 
+export async function getPersistentVolume(name: string): Promise<PersistentVolumeInfo> {
+  return invoke<PersistentVolumeInfo>("get_persistent_volume", { name });
+}
+
+export async function deletePersistentVolume(name: string): Promise<void> {
+  return invoke<void>("delete_persistent_volume", { name });
+}
+
+export async function getPersistentVolumeClaim(name: string, namespace: string | null): Promise<PersistentVolumeClaimInfo> {
+  return invoke<PersistentVolumeClaimInfo>("get_persistent_volume_claim", { name, namespace });
+}
+
+export async function deletePersistentVolumeClaim(name: string, namespace: string | null): Promise<void> {
+  return invoke<void>("delete_persistent_volume_claim", { name, namespace });
+}
+
+export async function getStorageClass(name: string): Promise<StorageClassInfo> {
+  return invoke<StorageClassInfo>("get_storage_class", { name });
+}
+
+export async function deleteStorageClass(name: string): Promise<void> {
+  return invoke<void>("delete_storage_class", { name });
+}
+
 export async function getClusterStats(namespace: string | null): Promise<ClusterStats> {
   return invoke<ClusterStats>("get_cluster_stats", { namespace });
 }
@@ -314,6 +338,22 @@ export async function listIngresses(filters: ResourceFilters | null): Promise<In
 
 export async function listEndpoints(filters: ResourceFilters | null): Promise<EndpointsInfo[]> {
   return invoke<EndpointsInfo[]>("list_endpoints", { filters });
+}
+
+export async function getIngress(name: string, namespace: string | null): Promise<IngressInfo> {
+  return invoke<IngressInfo>("get_ingress", { name, namespace });
+}
+
+export async function deleteIngress(name: string, namespace: string | null): Promise<void> {
+  return invoke<void>("delete_ingress", { name, namespace });
+}
+
+export async function getEndpoints(name: string, namespace: string | null): Promise<EndpointsInfo> {
+  return invoke<EndpointsInfo>("get_endpoints", { name, namespace });
+}
+
+export async function deleteEndpoints(name: string, namespace: string | null): Promise<void> {
+  return invoke<void>("delete_endpoints", { name, namespace });
 }
 
 export async function listContexts(): Promise<ContextInfo[]> {

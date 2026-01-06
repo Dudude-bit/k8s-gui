@@ -70,13 +70,14 @@ export function useUpdater() {
                     case 'Started':
                         contentLength = event.data.contentLength ?? 0;
                         break;
-                    case 'Progress':
+                    case 'Progress': {
                         downloaded += event.data.chunkLength;
                         const progress = contentLength > 0
                             ? Math.round((downloaded / contentLength) * 100)
                             : 0;
                         setStatus(prev => ({ ...prev, progress }));
                         break;
+                    }
                     case 'Finished':
                         setStatus(prev => ({ ...prev, downloading: false, progress: 100 }));
                         break;

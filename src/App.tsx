@@ -63,6 +63,21 @@ const ServiceDetail = lazy(() =>
 const NodeDetail = lazy(() =>
   import("@/pages/NodeDetail").then((m) => ({ default: m.NodeDetail }))
 );
+const IngressDetail = lazy(() =>
+  import("@/pages/IngressDetail").then((m) => ({ default: m.IngressDetail }))
+);
+const PersistentVolumeDetail = lazy(() =>
+  import("@/pages/PersistentVolumeDetail").then((m) => ({ default: m.PersistentVolumeDetail }))
+);
+const PersistentVolumeClaimDetail = lazy(() =>
+  import("@/pages/PersistentVolumeClaimDetail").then((m) => ({ default: m.PersistentVolumeClaimDetail }))
+);
+const StorageClassDetail = lazy(() =>
+  import("@/pages/StorageClassDetail").then((m) => ({ default: m.StorageClassDetail }))
+);
+const EndpointsDetail = lazy(() =>
+  import("@/pages/EndpointsDetail").then((m) => ({ default: m.EndpointsDetail }))
+);
 const Login = lazy(() =>
   import("@/pages/Login").then((m) => ({ default: m.Login }))
 );
@@ -161,6 +176,11 @@ export default function App() {
             element={<DeploymentDetail />}
           />
           <Route path={`${toPlural(ResourceType.Service)}/:namespace/:name`} element={<ServiceDetail />} />
+          <Route path={`${toPlural(ResourceType.Ingress)}/:namespace/:name`} element={<IngressDetail />} />
+          <Route path={`${toPlural(ResourceType.PersistentVolume)}/:name`} element={<PersistentVolumeDetail />} />
+          <Route path={`${toPlural(ResourceType.PersistentVolumeClaim)}/:namespace/:name`} element={<PersistentVolumeClaimDetail />} />
+          <Route path={`${toPlural(ResourceType.StorageClass)}/:name`} element={<StorageClassDetail />} />
+          <Route path={`${toPlural(ResourceType.Endpoints)}/:namespace/:name`} element={<EndpointsDetail />} />
         </Route>
       </Routes>
     </ErrorBoundary>

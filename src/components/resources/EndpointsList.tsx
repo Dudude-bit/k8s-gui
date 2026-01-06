@@ -5,6 +5,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
+import { Link } from "react-router-dom";
 import { Eye, Network, CircleDot } from "lucide-react";
 import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
@@ -154,11 +155,13 @@ const columns: ColumnDef<EndpointsInfo>[] = [
   },
   {
     id: "actions",
-    cell: () => (
+    cell: ({ row }) => (
       <ActionMenu>
-        <DropdownMenuItem>
-          <Eye className="mr-2 h-4 w-4" />
-          View Details
+        <DropdownMenuItem asChild>
+          <Link to={`/${toPlural(ResourceType.Endpoints)}/${row.original.namespace}/${row.original.name}`}>
+            <Eye className="mr-2 h-4 w-4" />
+            View Details
+          </Link>
         </DropdownMenuItem>
       </ActionMenu>
     ),

@@ -143,7 +143,8 @@ pub async fn drain_node(
         }
 
         // Evict the pod
-        let pod_api: kube::Api<Pod> = ctx.namespaced_api_for(&namespace);
+        let pod_ctx = ResourceContext::for_command(&state, Some(namespace))?;
+        let pod_api: kube::Api<Pod> = pod_ctx.namespaced_api();
         let evict_params = kube::api::EvictParams::default();
         let _ = pod_api.evict(&pod_name, &evict_params).await;
     }

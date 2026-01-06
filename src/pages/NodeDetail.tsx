@@ -1,44 +1,46 @@
-import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { HeaderStatsSkeleton } from "@/components/ui/skeleton";
 import { Server, Cpu, HardDrive, MemoryStick, Lock } from "lucide-react";
 import { formatKubernetesBytes } from "@/lib/k8s-quantity";
 import { useNodeMetrics } from "@/hooks/useNodeMetrics";
 import { MetricCard } from "@/components/ui/metric-card";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
-import { ResourceDetailHeader } from "@/components/resources/ResourceDetailHeader";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { useMemo } from "react";
 import * as commands from "@/generated/commands";
 import { normalizeTauriError } from "@/lib/error-utils";
+import { useResourceDetail } from "@/hooks";
+import { ResourceType } from "@/lib/resource-types";
+import { InfoRow, ResourceDetailLayout } from "@/components/resources/ResourceDetailLayout";
+import type { NodeInfo } from "@/generated/types";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 
 export function NodeDetail() {
-  const { name } = useParams<{ name: string }>();
-  const navigate = useNavigate();
   const { hasAccess } = usePremiumFeature();
 
   const {
-    data: node,
+    name,
+    resource: node,
     isLoading,
     isFetching,
+    error,
     refetch,
-  } = useQuery({
-    queryKey: ["node", name],
-    queryFn: async () => {
+    activeTab,
+    setActiveTab,
+    goBack,
+  } = useResourceDetail<NodeInfo>({
+    resourceKind: ResourceType.Node,
+    isClusterScoped: true,
+    fetchResource: async (name) => {
       try {
-        if (!name) throw new Error("Name is required");
         return await commands.getNode(name);
       } catch (err) {
         throw new Error(normalizeTauriError(err));
       }
     },
-    enabled: !!name,
-    placeholderData: keepPreviousData,
+    defaultTab: "info",
   });
 
   const { data: podCount } = useQuery({
@@ -68,25 +70,17 @@ export function NodeDetail() {
     };
   }, [node, nodeMetrics]);
 
-  if (isLoading) {
-    return <HeaderStatsSkeleton stats={4} />;
-  }
-
-  if (!node) {
-    return (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
-        Node not found
-      </div>
-    );
+  if (!node && !isLoading && !error) {
+    return null;
   }
 
   const getInternalIP = () => {
-    const internal = node.status.addresses.find((a) => a.type === "InternalIP");
+    const internal = node?.status.addresses.find((a) => a.type === "InternalIP");
     return internal?.address || "-";
   };
 
   const getExternalIP = () => {
-    const external = node.status.addresses.find((a) => a.type === "ExternalIP");
+    const external = node?.status.addresses.find((a) => a.type === "ExternalIP");
     return external?.address || "-";
   };
 
@@ -102,12 +96,63 @@ export function NodeDetail() {
     </Card>
   );
 
+  const tabs = [
+    {
+      id: "info",
+      label: "Info",
+      content: (
+        <Card>
+          <CardHeader>
+            <CardTitle>Node Information</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <InfoRow label="Internal IP" value={<span className="font-mono">{getInternalIP()}</span>} />
+            <InfoRow label="External IP" value={<span className="font-mono">{getExternalIP()}</span>} />
+            <InfoRow label="Kubernetes Version" value={node?.version} />
+            <InfoRow label="Container Runtime" value={node?.containerRuntime} />
+            <InfoRow label="OS" value={node?.os} />
+            <InfoRow label="Architecture" value={node?.arch} />
+            <InfoRow
+              label="Created"
+              value={node?.createdAt ? new Date(node.createdAt).toLocaleString() : "-"}
+            />
+          </CardContent>
+        </Card>
+      ),
+    },
+    {
+      id: "conditions",
+      label: "Conditions",
+      content: (
+        <ConditionsDisplay
+          conditions={(node?.status.conditions || []).map((c) => ({
+            type: c.type,
+            status: c.status,
+            reason: c.reason,
+            message: c.message,
+            lastTransitionTime: c.lastTransitionTime,
+          }))}
+          title="Conditions"
+        />
+      ),
+    },
+    {
+      id: "labels",
+      label: "Labels",
+      content: <LabelsDisplay labels={node?.labels || {}} title="Labels" />,
+    },
+  ];
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      {/* Header */}
-      <ResourceDetailHeader
-        title={node.name}
-        badges={
+    <ResourceDetailLayout
+      resource={node}
+      isLoading={isLoading}
+      isFetching={isFetching}
+      error={error}
+      resourceKind={ResourceType.Node}
+      title={node?.name || ""}
+      badges={
+        node && (
           <>
             {node.roles.map((role) => (
               <Badge key={role} variant="outline">
@@ -116,25 +161,26 @@ export function NodeDetail() {
             ))}
             <StatusBadge status={node.status.ready ? "Ready" : "NotReady"} />
           </>
-        }
-        icon={<Server className="h-8 w-8 text-muted-foreground" />}
-        onBack={() => navigate(-1)}
-        onRefresh={() => refetch()}
-        isRefreshing={isFetching}
-      />
-
-      {/* Resource Cards */}
+        )
+      }
+      icon={<Server className="h-8 w-8 text-muted-foreground" />}
+      onBack={goBack}
+      onRefresh={refetch}
+      tabs={tabs}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+    >
       <div className="grid gap-4 md:grid-cols-4">
         {hasAccess ? (
           <MetricCard
             title="CPU Usage"
             used={nodeWithMetrics?.cpuUsage ?? null}
-            total={node.capacity.cpu ?? null}
+            total={node?.capacity.cpu ?? null}
             type="cpu"
             icon={<Cpu className="h-4 w-4" />}
             showProgressBar={true}
             description={
-              node.allocatable.cpu
+              node?.allocatable.cpu
                 ? `Allocatable: ${node.allocatable.cpu}`
                 : undefined
             }
@@ -147,12 +193,12 @@ export function NodeDetail() {
           <MetricCard
             title="Memory Usage"
             used={nodeWithMetrics?.memoryUsage ?? null}
-            total={node.capacity.memory ?? null}
+            total={node?.capacity.memory ?? null}
             type="memory"
             icon={<MemoryStick className="h-4 w-4" />}
             showProgressBar={true}
             description={
-              node.allocatable.memory
+              node?.allocatable.memory
                 ? `Allocatable: ${formatKubernetesBytes(node.allocatable.memory)}`
                 : undefined
             }
@@ -171,7 +217,8 @@ export function NodeDetail() {
           <CardContent>
             <div className="text-2xl font-bold">{podCount ?? "-"}</div>
             <p className="text-xs text-muted-foreground">
-              Allocatable: {node.allocatable.pods || node.capacity.pods || "-"}
+              Allocatable:{" "}
+              {node?.allocatable.pods || node?.capacity.pods || "-"}
             </p>
           </CardContent>
         </Card>
@@ -183,95 +230,15 @@ export function NodeDetail() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold truncate text-lg">
-              {formatKubernetesBytes(node.capacity.ephemeralStorage)}
+              {node && formatKubernetesBytes(node.capacity.ephemeralStorage)}
             </div>
             <p className="text-xs text-muted-foreground truncate">
               Allocatable:{" "}
-              {formatKubernetesBytes(node.allocatable.ephemeralStorage)}
+              {node && formatKubernetesBytes(node.allocatable.ephemeralStorage)}
             </p>
           </CardContent>
         </Card>
       </div>
-
-      {/* Tabs */}
-      <Tabs defaultValue="info" className="w-full">
-        <TabsList>
-          <TabsTrigger value="info">Info</TabsTrigger>
-          <TabsTrigger value="conditions">Conditions</TabsTrigger>
-          <TabsTrigger value="labels">Labels</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="info" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Node Information</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Internal IP
-                </p>
-                <p className="font-mono">{getInternalIP()}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  External IP
-                </p>
-                <p className="font-mono">{getExternalIP()}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Kubernetes Version
-                </p>
-                <p>{node.version}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Container Runtime
-                </p>
-                <p>{node.containerRuntime}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">OS</p>
-                <p>{node.os}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Architecture
-                </p>
-                <p>{node.arch}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Created
-                </p>
-                <p>
-                  {node.createdAt
-                    ? new Date(node.createdAt).toLocaleString()
-                    : "-"}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="conditions" className="space-y-4">
-          <ConditionsDisplay
-            conditions={node.status.conditions.map((c) => ({
-              type_: c.type,
-              status: c.status,
-              reason: c.reason,
-              message: c.message,
-              last_transition_time: c.lastTransitionTime,
-            }))}
-            title="Conditions"
-          />
-        </TabsContent>
-
-        <TabsContent value="labels" className="space-y-4">
-          <LabelsDisplay labels={node.labels} title="Labels" />
-        </TabsContent>
-      </Tabs>
-    </div>
+    </ResourceDetailLayout>
   );
 }

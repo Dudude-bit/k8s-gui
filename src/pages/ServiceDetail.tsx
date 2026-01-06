@@ -1,14 +1,11 @@
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
-import { ResourceDetailHeader } from "@/components/resources/ResourceDetailHeader";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
-import { DetailSkeleton } from "@/components/ui/skeleton";
 import {
-  DetailError,
   InfoCard,
+  ResourceDetailLayout,
 } from "@/components/resources/ResourceDetailLayout";
 import { useResourceDetail } from "@/hooks";
 import { ResourceType } from "@/lib/resource-types";
@@ -50,124 +47,70 @@ export function ServiceDetail() {
     defaultTab: "ports",
   });
 
-  if (isLoading) {
-    return <DetailSkeleton />;
+  if (!service && !isLoading && !error) {
+    return null;
   }
 
-  if (error || !service) {
-    return <DetailError error={error} resourceKind={ResourceType.Service} onBack={goBack} />;
-  }
+  const ports = service?.ports ?? [];
+  const externalIps = service?.externalIps ?? [];
+  const selector = service?.selector ?? {};
+  const labels = service?.labels ?? {};
+  const annotations = service?.annotations ?? {};
 
-  const ports = service.ports ?? [];
-  const externalIps = service.externalIps ?? [];
-  const selector = service.selector ?? {};
-  const labels = service.labels ?? {};
-  const annotations = service.annotations ?? {};
-
-  // 'type' is a reserved keyword in some contexts but fine as property
-  // Generated type uses 'type' (camelCase) usually, but 'type_' might be used in Rust if it's a keyword.
-  // Checking previous files, 'type_' was common in manually defined types.
-  // In generated types, it's often 'type' unless it conflicts.
-  // Let's assume 'type' based on NodeInfo changes, but might be 'type_' if binding generation preserved it.
-  // Wait, I saw 'type' in container state.
-  // For Service, let's check generated types if 'type' or 'type_' is used.
-  // Actually I cannot verify without reading types.ts. I will assume 'type' first, if error, I fix.
-  // Re-reading my previous viewing of types.ts or grep...
-  // I will check types.ts for ServiceInfo definition to be sure.
-
-  return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      {/* Header */}
-      <ResourceDetailHeader
-        title={service.name}
-        namespace={service.namespace}
-        badges={<StatusBadge status={service.type} />}
-        icon={<Network className="h-8 w-8 text-muted-foreground" />}
-        onBack={goBack}
-        onRefresh={() => refetch()}
-        isRefreshing={isFetching}
-      />
-
-      {/* Info Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <InfoCard
-          title="Cluster IP"
-          icon={<Server className="h-4 w-4 text-muted-foreground" />}
-        >
-          <div className="text-xl font-bold font-mono">
-            {service.clusterIp || "None"}
-          </div>
-        </InfoCard>
-
-        <InfoCard
-          title="External IPs"
-          icon={<Globe className="h-4 w-4 text-muted-foreground" />}
-        >
-          <div className="text-xl font-bold font-mono">
-            {externalIps.length > 0 ? externalIps.join(", ") : "None"}
-          </div>
-        </InfoCard>
-
-        <InfoCard
-          title="Ports"
-          icon={<Network className="h-4 w-4 text-muted-foreground" />}
-        >
-          <div className="text-xl font-bold">{ports.length}</div>
-        </InfoCard>
-      </div>
-
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList>
-          <TabsTrigger value="ports">Ports</TabsTrigger>
-          <TabsTrigger value="selector">Selector</TabsTrigger>
-          <TabsTrigger value="labels">Labels</TabsTrigger>
-          <TabsTrigger value="yaml">YAML</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="ports" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Service Ports</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {ports.map((port, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between rounded-lg border p-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Badge variant="outline">{port.protocol}</Badge>
-                      <span className="font-mono">
-                        {port.name ? `${port.name}: ` : ""}
-                        {port.port} → {port.targetPort}
-                      </span>
-                    </div>
-                    {port.nodePort && (
-                      <Badge variant="secondary">
-                        NodePort: {port.nodePort}
-                      </Badge>
-                    )}
+  const tabs = [
+    {
+      id: "ports",
+      label: "Ports",
+      content: (
+        <Card>
+          <CardHeader>
+            <CardTitle>Service Ports</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {ports.map((port, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between rounded-lg border p-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <Badge variant="outline">{port.protocol}</Badge>
+                    <span className="font-mono">
+                      {port.name ? `${port.name}: ` : ""}
+                      {port.port} → {port.targetPort}
+                    </span>
                   </div>
-                ))}
-                {ports.length === 0 && (
-                  <p className="text-muted-foreground">No ports defined</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="selector" className="space-y-4">
-          <LabelsDisplay
-            labels={selector}
-            title="Pod Selector"
-            emptyMessage="No selector defined"
-          />
-        </TabsContent>
-
-        <TabsContent value="labels" className="space-y-4">
+                  {port.nodePort && (
+                    <Badge variant="secondary">
+                      NodePort: {port.nodePort}
+                    </Badge>
+                  )}
+                </div>
+              ))}
+              {ports.length === 0 && (
+                <p className="text-muted-foreground">No ports defined</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ),
+    },
+    {
+      id: "selector",
+      label: "Selector",
+      content: (
+        <LabelsDisplay
+          labels={selector}
+          title="Pod Selector"
+          emptyMessage="No selector defined"
+        />
+      ),
+    },
+    {
+      id: "labels",
+      label: "Labels",
+      content: (
+        <div className="space-y-4">
           <LabelsDisplay labels={labels} title="Labels" />
 
           <Card>
@@ -190,19 +133,68 @@ export function ServiceDetail() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
+      ),
+    },
+    {
+      id: "yaml",
+      label: "YAML",
+      content: (
+        <YamlTabContent
+          title="Service YAML"
+          yaml={serviceYaml}
+          resourceKind={ResourceType.Service}
+          resourceName={name || ""}
+          namespace={namespace}
+          onCopy={copyYaml}
+        />
+      ),
+    },
+  ];
 
-        <TabsContent value="yaml">
-          <YamlTabContent
-            title="Service YAML"
-            yaml={serviceYaml}
-            resourceKind={ResourceType.Service}
-            resourceName={name || ""}
-            namespace={namespace}
-            onCopy={copyYaml}
-          />
-        </TabsContent>
-      </Tabs>
-    </div>
+  return (
+    <ResourceDetailLayout
+      resource={service}
+      isLoading={isLoading}
+      isFetching={isFetching}
+      error={error}
+      resourceKind={ResourceType.Service}
+      title={service?.name || ""}
+      namespace={service?.namespace}
+      statusBadge={service && <StatusBadge status={service.type} />}
+      icon={<Network className="h-8 w-8 text-muted-foreground" />}
+      onBack={goBack}
+      onRefresh={refetch}
+      tabs={tabs}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+    >
+      <div className="grid gap-4 md:grid-cols-3">
+        <InfoCard
+          title="Cluster IP"
+          icon={<Server className="h-4 w-4 text-muted-foreground" />}
+        >
+          <div className="text-xl font-bold font-mono">
+            {service?.clusterIp || "None"}
+          </div>
+        </InfoCard>
+
+        <InfoCard
+          title="External IPs"
+          icon={<Globe className="h-4 w-4 text-muted-foreground" />}
+        >
+          <div className="text-xl font-bold font-mono">
+            {externalIps.length > 0 ? externalIps.join(", ") : "None"}
+          </div>
+        </InfoCard>
+
+        <InfoCard
+          title="Ports"
+          icon={<Network className="h-4 w-4 text-muted-foreground" />}
+        >
+          <div className="text-xl font-bold">{ports.length}</div>
+        </InfoCard>
+      </div>
+    </ResourceDetailLayout>
   );
 }

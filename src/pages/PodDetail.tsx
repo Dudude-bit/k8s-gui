@@ -1,12 +1,13 @@
-import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as commands from "@/generated/commands";
-import { useState, useCallback, useMemo } from "react";
-import { useResourceYaml, useCopyToClipboard, usePodMetrics } from "@/hooks";
+import { useState, useCallback, useMemo, useEffect } from "react";
+import { usePodMetrics, useResourceDetail } from "@/hooks";
 import { ResourceType, toPlural } from "@/lib/resource-types";
 import { useClusterStore } from "@/stores/clusterStore";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { LicenseErrorBanner } from "@/components/license/LicenseErrorBanner";
+import type { PodInfo } from "@/generated/types";
 import {
   Tooltip,
   TooltipContent,
@@ -27,25 +28,21 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DetailTabsSkeleton } from "@/components/ui/skeleton";
 import { LogViewer } from "@/components/logs/LogViewer";
 import { Terminal } from "@/components/terminal/Terminal";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
-import { ResourceDetailHeader } from "@/components/resources/ResourceDetailHeader";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
+import { ResourceDetailLayout, InfoCard, InfoRow } from "@/components/resources/ResourceDetailLayout";
 import { useToast } from "@/components/ui/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { usePortForwardStore } from "@/stores/portForwardStore";
 import {
-  ArrowLeft,
   Terminal as TerminalIcon,
-  Trash2,
   RefreshCw,
   Activity,
-  AlertCircle,
-  Search,
+  Trash2,
+  Server,
 } from "lucide-react";
 import { MetricCard } from "@/components/ui/metric-card";
 import { normalizeTauriError } from "@/lib/error-utils";
@@ -67,10 +64,8 @@ interface PortForwardFormState {
 }
 
 export function PodDetail() {
-  const { namespace, name } = useParams<{ namespace: string; name: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const copyToClipboard = useCopyToClipboard();
   const { currentContext } = useClusterStore();
   const { hasAccess: hasLicenseAccess, checkLicense } = usePremiumFeature();
   const queryClient = useQueryClient();
@@ -88,7 +83,6 @@ export function PodDetail() {
   const portForwardStatusBySession = usePortForwardStore(
     (state) => state.statusBySession
   );
-  const [activeTab, setActiveTab] = useState("overview");
   const [showTerminal, setShowTerminal] = useState(false);
   const [selectedContainer, setSelectedContainer] = useState<string | null>(
     null
@@ -108,40 +102,35 @@ export function PodDetail() {
   });
 
   const {
-    data: pod,
+    resource: pod,
     isLoading,
+    isFetching,
     error,
+    name,
+    namespace,
+    yaml,
+    activeTab,
+    setActiveTab,
     refetch,
-  } = useQuery({
-    queryKey: ["pod", namespace, name],
-    queryFn: async () => {
-      try {
-        if (!name) throw new Error("Pod name is required");
-        const result = await commands.getPod(name, namespace || null);
-        // Save labels for replacement search
-        if (result.labels && Object.keys(result.labels).length > 0) {
-          setSavedLabels(result.labels);
-        }
-        return result;
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
-    enabled: !!namespace && !!name,
-    retry: (failureCount, error) => {
-      // Don't retry if pod not found (404)
-      const errorStr = String(error);
-      if (errorStr.includes("not found") || errorStr.includes("NotFound")) {
-        return false;
-      }
-      return failureCount < 3;
-    },
+    copyYaml,
+    deleteMutation
+  } = useResourceDetail<PodInfo>({
+    resourceKind: ResourceType.Pod,
+    fetchResource: (name, namespace) => commands.getPod(name, namespace),
+    deleteResource: (name, namespace) => commands.deletePod(name, namespace, null),
   });
+
+  useEffect(() => {
+    if (pod?.labels && Object.keys(pod.labels).length > 0) {
+      setSavedLabels(pod.labels);
+    }
+  }, [pod]);
 
   // Get pod metrics for real-time updates (only if user has premium access)
   const { data: podMetrics } = usePodMetrics(namespace || undefined, {
-    enabled: hasLicenseAccess,
+    enabled: hasLicenseAccess && !!pod,
   });
+
   const podWithMetrics = useMemo(() => {
     if (!pod) return null;
     const metrics = podMetrics?.find(
@@ -158,15 +147,8 @@ export function PodDetail() {
   const findReplacementPod = useCallback(
     async (labelsToUse?: Record<string, string>) => {
       const labels = labelsToUse || savedLabels;
-      console.log(
-        "findReplacementPod called with labels:",
-        labels,
-        "namespace:",
-        namespace
-      );
 
       if (!labels || !namespace) {
-        console.log("No labels or namespace, returning null");
         return null;
       }
 
@@ -191,13 +173,11 @@ export function PodDetail() {
         }
 
         if (labelParts.length === 0) {
-          console.log("No matching labels found, returning null");
           setIsSearchingReplacement(false);
           return null;
         }
 
         const labelSelector = labelParts.join(",");
-        console.log("Label selector:", labelSelector);
 
         const pods = await commands.listPods({
           namespace,
@@ -207,15 +187,11 @@ export function PodDetail() {
           statusFilter: null,
         });
 
-        console.log("Found pods:", pods);
-
         // Find a running pod that's not the current one
         // status.phase is the phase string (Running, Pending, etc.)
         const replacement = pods.find(
           (p) => p.name !== name && p.status.phase === "Running"
         );
-
-        console.log("Replacement pod:", replacement);
 
         return replacement || null;
       } catch (err) {
@@ -227,33 +203,6 @@ export function PodDetail() {
     },
     [savedLabels, namespace, name]
   );
-
-  const { data: podYaml } = useResourceYaml(ResourceType.Pod, name, namespace, activeTab);
-
-  const deleteMutation = useMutation({
-    mutationFn: async () => {
-      if (!name) return;
-      try {
-        await commands.deletePod(name, namespace || null, null);
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
-    onSuccess: () => {
-      toast({
-        title: "Pod deleted",
-        description: `Pod ${name} has been deleted.`,
-      });
-      navigate(-1);
-    },
-    onError: (err) => {
-      toast({
-        title: "Error",
-        description: `Failed to delete pod: ${err}`,
-        variant: "destructive",
-      });
-    },
-  });
 
   const restartMutation = useMutation({
     mutationFn: async () => {
@@ -270,6 +219,7 @@ export function PodDetail() {
         description: `Pod ${name} is being restarted.`,
       });
       queryClient.invalidateQueries({ queryKey: ["pod", namespace, name] });
+      refetch();
     },
     onError: (err) => {
       toast({
@@ -279,12 +229,6 @@ export function PodDetail() {
       });
     },
   });
-
-  const copyYaml = () => {
-    if (podYaml) {
-      copyToClipboard(podYaml, "YAML copied to clipboard.");
-    }
-  };
 
   const openTerminal = async (containerName: string) => {
     if (!hasLicenseAccess) {
@@ -400,342 +344,260 @@ export function PodDetail() {
     }
   };
 
-  if (isLoading) {
-    return <DetailTabsSkeleton tabCount={5} rows={4} />;
-  }
-
-  if (error || !pod) {
-    const errorStr = String(error || "");
-    const isPodNotFound =
-      errorStr.includes("not found") || errorStr.includes("NotFound");
-
-    return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <AlertCircle className="h-12 w-12 text-destructive" />
-        <p className="text-destructive text-lg font-medium">
-          {isPodNotFound ? "Pod not found" : "Failed to load pod details"}
-        </p>
-        {isPodNotFound && (
-          <p className="text-muted-foreground text-sm">
-            The pod may have been deleted or restarted with a new name
-          </p>
-        )}
-        {isSearchingReplacement && (
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <RefreshCw className="h-4 w-4 animate-spin" />
-            <span>Looking for replacement...</span>
-          </div>
-        )}
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate(-1)}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Go Back
-          </Button>
-          {isPodNotFound && savedLabels && (
-            <Button
-              onClick={() =>
-                findReplacementPod().then((replacement) => {
-                  if (replacement) {
-                    toast({
-                      title: "Found replacement pod",
-                      description: `Switching to ${replacement.name}`,
-                    });
-                    navigate(
-                      `/${toPlural(ResourceType.Pod)}/${replacement.namespace}/${replacement.name}`,
-                      { replace: true }
-                    );
-                  } else {
-                    toast({
-                      title: "No replacement found",
-                      description: "No other running pods with matching labels",
-                      variant: "destructive",
-                    });
-                  }
-                })
-              }
-              disabled={isSearchingReplacement}
-            >
-              <Search className="mr-2 h-4 w-4" />
-              {isSearchingReplacement ? "Searching..." : "Find Replacement"}
-            </Button>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  const activePortForwards = portForwardSessions.filter(
-    (session) =>
-      session.context === currentContext &&
-      session.pod === pod.name &&
-      session.namespace === pod.namespace
-  );
+  const activePortForwards =
+    pod && portForwardSessions
+      ? portForwardSessions.filter(
+        (session) =>
+          session.context === currentContext &&
+          session.pod === pod.name &&
+          session.namespace === pod.namespace
+      )
+      : [];
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <ResourceDetailHeader
-        title={pod.name}
-        namespace={pod.namespace}
-        badges={<StatusBadge status={pod.status.phase} />}
-        actions={
-          <>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={openPortForwardDialog}
-                    disabled={!currentContext || !hasLicenseAccess}
-                  >
-                    {!hasLicenseAccess && <Lock className="mr-2 h-4 w-4" />}
-                    Port Forward
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              {!hasLicenseAccess && (
-                <TooltipContent>
-                  Premium feature - requires license
-                </TooltipContent>
-              )}
-            </Tooltip>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => restartMutation.mutate()}
-              disabled={restartMutation.isPending}
-            >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Restart
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => deleteMutation.mutate()}
-              disabled={deleteMutation.isPending}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </Button>
-          </>
-        }
-        onBack={() => navigate(-1)}
-      />
+    <ResourceDetailLayout
+      resource={pod}
+      isLoading={isLoading}
+      isFetching={isFetching}
+      error={error}
+      resourceKind={ResourceType.Pod}
+      title={pod?.name || name || "Pod"}
+      namespace={pod?.namespace || namespace}
+      onBack={() => navigate(-1)}
+      onRefresh={refetch}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      badges={pod?.status.phase ? <StatusBadge status={pod.status.phase} /> : null}
 
-      <Dialog open={portForwardOpen} onOpenChange={setPortForwardOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Port forward</DialogTitle>
-            <DialogDescription>
-              Forward traffic from your machine to this pod.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="rounded-md border p-3 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Target</span>
-                <span className="font-medium">
-                  {pod.namespace}/{pod.name}
-                </span>
-              </div>
+      // Replacement Pod Logic
+      onFindReplacement={savedLabels ? () =>
+        findReplacementPod().then((replacement) => {
+          if (replacement) {
+            toast({
+              title: "Found replacement pod",
+              description: `Switching to ${replacement.name}`,
+            });
+            navigate(
+              `/${toPlural(ResourceType.Pod)}/${replacement.namespace}/${replacement.name}`,
+              { replace: true }
+            );
+          } else {
+            toast({
+              title: "No replacement found",
+              description: "No other running pods with matching labels",
+              variant: "destructive",
+            });
+          }
+        })
+        : undefined
+      }
+      isSearchingReplacement={isSearchingReplacement}
+
+      actions={
+        <>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={openPortForwardDialog}
+                  disabled={!currentContext || !hasLicenseAccess || !pod}
+                >
+                  {!hasLicenseAccess && <Lock className="mr-2 h-4 w-4" />}
+                  Port Forward
+                </Button>
+              </span>
+            </TooltipTrigger>
+            {!hasLicenseAccess && (
+              <TooltipContent>
+                Premium feature - requires license
+              </TooltipContent>
+            )}
+          </Tooltip>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => restartMutation.mutate()}
+            disabled={restartMutation.isPending || !pod}
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Restart
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => deleteMutation?.mutate()}
+            disabled={deleteMutation?.isPending || !pod}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete
+          </Button>
+        </>
+      }
+      tabs={[
+        {
+          id: "overview",
+          label: "Overview",
+          content: (
+            <div className="space-y-4">
+              {/* Labels and Annotations */}
+              {pod && <LabelsDisplay labels={pod.labels} className="col-span-full" />}
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label htmlFor="pf-local-port">Local port</Label>
-                <Input
-                  id="pf-local-port"
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={65535}
-                  value={portForwardForm.localPort}
-                  onChange={(event) =>
-                    setPortForwardForm((prev) => ({
-                      ...prev,
-                      localPort: event.target.value,
-                    }))
-                  }
-                  placeholder="8080"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="pf-remote-port">Remote port</Label>
-                <Input
-                  id="pf-remote-port"
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={65535}
-                  value={portForwardForm.remotePort}
-                  onChange={(event) =>
-                    setPortForwardForm((prev) => ({
-                      ...prev,
-                      remotePort: event.target.value,
-                    }))
-                  }
-                  placeholder="80"
-                />
-              </div>
-            </div>
-            <div className="rounded-md border p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Auto reconnect</p>
-                  <p className="text-xs text-muted-foreground">
-                    Retry when the pod or connection drops
-                  </p>
-                </div>
-                <Switch
-                  checked={portForwardForm.autoReconnect}
-                  onCheckedChange={(checked) =>
-                    setPortForwardForm((prev) => ({
-                      ...prev,
-                      autoReconnect: checked,
-                    }))
-                  }
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Save as config</p>
-                  <p className="text-xs text-muted-foreground">
-                    Keep this port-forward for quick reuse
-                  </p>
-                </div>
-                <Switch
-                  checked={portForwardForm.saveConfig}
-                  onCheckedChange={(checked) =>
-                    setPortForwardForm((prev) => ({
-                      ...prev,
-                      saveConfig: checked,
-                    }))
-                  }
-                />
-              </div>
-              {portForwardForm.saveConfig && (
-                <div className="grid gap-2">
-                  <Label htmlFor="pf-config-name">Config name</Label>
-                  <Input
-                    id="pf-config-name"
-                    value={portForwardForm.name}
-                    onChange={(event) =>
-                      setPortForwardForm((prev) => ({
-                        ...prev,
-                        name: event.target.value,
-                      }))
-                    }
-                    placeholder={pod.name}
-                  />
-                </div>
-              )}
-            </div>
-            {activePortForwards.length > 0 && (
-              <div className="space-y-2">
-                <Label>Active port-forwards</Label>
-                {activePortForwards.map((session) => (
-                  <div
-                    key={session.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 text-sm"
-                  >
-                    <div>
-                      <div className="font-medium">
-                        {session.localPort} → {session.pod}:{session.remotePort}
+          )
+        },
+        {
+          id: "containers",
+          label: "Containers",
+          content: pod ? (
+            <div className="space-y-4">
+              {pod.containers.map((container) => (
+                <Card key={container.name}>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Activity className="h-4 w-4" />
+                      {container.name}
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant={container.ready ? "success" : "destructive"}
+                      >
+                        {container.ready ? "Ready" : "Not Ready"}
+                      </Badge>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openTerminal(container.name)}
+                              disabled={!hasLicenseAccess}
+                            >
+                              {!hasLicenseAccess && (
+                                <Lock className="mr-2 h-4 w-4" />
+                              )}
+                              <TerminalIcon className="mr-2 h-4 w-4" />
+                              Shell
+                            </Button>
+                          </div>
+                        </TooltipTrigger>
+                        {!hasLicenseAccess && (
+                          <TooltipContent>
+                            Premium feature - requires license
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="font-semibold block">Image:</span>
+                        <span className="break-all">{container.image}</span>
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        {portForwardStatusBySession[session.id]?.message ||
-                          portForwardStatusBySession[session.id]?.status ||
-                          "Active"}
+                      <div>
+                        <span className="font-semibold block">Restart Count:</span>
+                        <span>{container.restartCount}</span>
                       </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleStopPortForward(session.id)}
-                    >
-                      Stop
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPortForwardOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handlePortForward} disabled={portForwardBusy}>
-              {portForwardBusy ? "Starting..." : "Start port-forward"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Terminal Panel */}
-      {showTerminal && selectedContainer && (
-        <Card className="overflow-hidden">
-          <CardContent className="p-0 h-80 overflow-hidden">
-            <Terminal
+                    {container.ports && container.ports.length > 0 && (
+                      <div>
+                        <span className="font-semibold block mb-1">Ports:</span>
+                        <div className="flex flex-wrap gap-2">
+                          {container.ports.map((port, i) => (
+                            <Badge key={i} variant="secondary">
+                              {port.containerPort}
+                              {port.protocol ? `/${port.protocol}` : ""}
+                              {port.name ? ` (${port.name})` : ""}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* State details */}
+                    <div>
+                      <span className="font-semibold block mb-1">State:</span>
+                      {container.state && (
+                        <div className="text-muted-foreground">
+                          {Object.entries(container.state).map(([status, details]) => (
+                            <div key={status}>
+                              <span className="capitalize">{status}</span>
+                              {/* @ts-expect-error details is unknown */}
+                              {details.reason && <span>: {details.reason}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : null
+        },
+        {
+          id: "logs",
+          label: "Logs",
+          content: pod ? (hasLicenseAccess ? (
+            <LogViewer
               podName={pod.name}
               namespace={pod.namespace}
-              containerName={selectedContainer}
-              onClose={() => setShowTerminal(false)}
+              containers={pod.containers.map((c) => c.name)}
             />
-          </CardContent>
-        </Card>
-      )}
+          ) : (
+            <LicenseErrorBanner message="Logs are available for premium users only." />
+          )) : null
+        },
+        {
+          id: "yaml",
+          label: "YAML",
+          content: <YamlTabContent
+            yaml={yaml}
+            onCopy={copyYaml}
+            title={pod?.name || "Pod YAML"}
+            resourceKind={ResourceType.Pod}
+            resourceName={pod?.name || name || ""}
+            namespace={pod?.namespace || namespace}
+          />
+        },
+        {
+          id: "conditions",
+          label: "Conditions",
+          content: <ConditionsDisplay
+            conditions={(pod?.status.conditions || []).map(c => ({
+              type_: c.type,
+              status: c.status,
+              reason: c.reason,
+              message: c.message,
+              last_transition_time: c.lastTransitionTime
+            }))}
+          />
+        }
+      ]}
+    >
+      {/* Top Content: Info Cards and Metrics */}
+      {pod && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Pod Info */}
+          <InfoCard title="Info" icon={<Server className="h-4 w-4" />}>
+            <InfoRow label="Node" value={pod.nodeName || "-"} />
+            <InfoRow label="Pod IP" value={pod.podIp || "-"} />
+            <InfoRow label="Host IP" value={pod.hostIp || "-"} />
+          </InfoCard>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="containers">Containers</TabsTrigger>
-          <TabsTrigger value="logs">Logs</TabsTrigger>
-          <TabsTrigger value="yaml">YAML</TabsTrigger>
-          <TabsTrigger value="conditions">Conditions</TabsTrigger>
-        </TabsList>
+          <InfoCard title="Status" icon={<Activity className="h-4 w-4" />}>
+            <InfoRow label="Phase" value={pod.status.phase} />
+            <InfoRow
+              label="Started"
+              value={pod.createdAt ? new Date(pod.createdAt).toLocaleString() : "-"}
+            />
+            <InfoRow label="Restart Count" value={pod.restartCount} />
+          </InfoCard>
 
-        <TabsContent value="overview" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Pod Info</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Phase</span>
-                  <span>{pod.status.phase}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Node</span>
-                  <span>{pod.nodeName || "-"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Pod IP</span>
-                  <span>{pod.podIp || "-"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Host IP</span>
-                  <span>{pod.hostIp || "-"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Started</span>
-                  <span>
-                    {pod.createdAt
-                      ? new Date(pod.createdAt).toLocaleString()
-                      : "-"}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <LabelsDisplay labels={pod.labels} className="col-span-full" />
-          </div>
-
-          {/* Resource Usage Metrics */}
+          {/* Metrics */}
           {hasLicenseAccess ? (
             podWithMetrics && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <>
                 <MetricCard
                   title="CPU Usage"
                   used={podWithMetrics.cpuUsage}
@@ -753,144 +615,197 @@ export function PodDetail() {
                   type="memory"
                   showProgressBar
                 />
-              </div>
+              </>
             )
           ) : (
-            <LicenseErrorBanner message="Metrics are available for premium users only." />
-          )}
-        </TabsContent>
-
-        <TabsContent value="containers">
-          <div className="space-y-4">
-            {pod.containers.map((container) => (
-              <Card key={container.name}>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Activity className="h-4 w-4" />
-                    {container.name}
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant={container.ready ? "success" : "destructive"}
-                    >
-                      {container.ready ? "Ready" : "Not Ready"}
-                    </Badge>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openTerminal(container.name)}
-                            disabled={!hasLicenseAccess}
-                          >
-                            {!hasLicenseAccess && (
-                              <Lock className="mr-2 h-4 w-4" />
-                            )}
-                            <TerminalIcon className="mr-2 h-4 w-4" />
-                            Shell
-                          </Button>
-                        </div>
-                      </TooltipTrigger>
-                      {!hasLicenseAccess && (
-                        <TooltipContent>
-                          Premium feature - requires license
-                        </TooltipContent>
-                      )}
-                    </Tooltip>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Image</span>
-                    <span className="font-mono text-xs max-w-md truncate">
-                      {container.image}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">State</span>
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant={
-                          container.state.type === "running"
-                            ? "success"
-                            : container.state.type === "waiting"
-                              ? "warning"
-                              : "secondary"
-                        }
-                      >
-                        {container.state.type}
-                      </Badge>
-                      {"reason" in container.state &&
-                        container.state.reason && (
-                          <span className="text-xs text-muted-foreground">
-                            ({container.state.reason})
-                          </span>
-                        )}
-                    </div>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Restarts</span>
-                    <span
-                      className={
-                        container.restartCount > 5 ? "text-yellow-500" : ""
-                      }
-                    >
-                      {container.restartCount}
-                    </span>
-                  </div>
-                </CardContent>
+            <div className="col-span-2">
+              {/* We could show a banner here or just skip metrics in top cards */}
+              <Card className="h-full flex items-center justify-center p-4 bg-muted/20 border-dashed">
+                <div className="text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
+                  <Lock className="h-4 w-4" />
+                  <span>Metrics available with Premium</span>
+                </div>
               </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="logs">
-          {hasLicenseAccess ? (
-            <Card className="h-[500px]">
-              <CardContent className="p-0 h-full">
-                <LogViewer
-                  key={`${pod.namespace}:${pod.name}`}
-                  podName={pod.name}
-                  namespace={pod.namespace}
-                  containers={pod.containers.map((c) => c.name)}
-                  initialContainer={pod.containers[0]?.name}
-                  onPodNotFound={() => {
-                    // Refetch to check if pod still exists
-                    refetch();
-                  }}
-                />
-              </CardContent>
-            </Card>
-          ) : (
-            <LicenseErrorBanner message="Logs viewer is available for premium users only." />
+            </div>
           )}
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="yaml">
-          <YamlTabContent
-            title="Pod YAML"
-            yaml={podYaml}
-            resourceKind={ResourceType.Pod}
-            resourceName={name || ""}
-            namespace={namespace}
-            onCopy={copyYaml}
-          />
-        </TabsContent>
+      {/* Port Forward & Terminal Dialogs/Panels */}
+      <Dialog open={portForwardOpen} onOpenChange={setPortForwardOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Port forward</DialogTitle>
+            <DialogDescription>
+              Forward traffic from your machine to this pod.
+            </DialogDescription>
+          </DialogHeader>
+          {pod && (
+            <div className="space-y-4">
+              <div className="rounded-md border p-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Target</span>
+                  <span className="font-medium">
+                    {pod.namespace}/{pod.name}
+                  </span>
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="pf-local-port">Local port</Label>
+                  <Input
+                    id="pf-local-port"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={65535}
+                    value={portForwardForm.localPort}
+                    onChange={(event) =>
+                      setPortForwardForm((prev) => ({
+                        ...prev,
+                        localPort: event.target.value,
+                      }))
+                    }
+                    placeholder="8080"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="pf-remote-port">Remote port</Label>
+                  <Input
+                    id="pf-remote-port"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={65535}
+                    value={portForwardForm.remotePort}
+                    onChange={(event) =>
+                      setPortForwardForm((prev) => ({
+                        ...prev,
+                        remotePort: event.target.value,
+                      }))
+                    }
+                    placeholder="80"
+                  />
+                </div>
+              </div>
+              <div className="rounded-md border p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Auto reconnect</p>
+                    <p className="text-xs text-muted-foreground">
+                      Retry when the pod or connection drops
+                    </p>
+                  </div>
+                  <Switch
+                    checked={portForwardForm.autoReconnect}
+                    onCheckedChange={(checked) =>
+                      setPortForwardForm((prev) => ({
+                        ...prev,
+                        autoReconnect: checked,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Save as config</p>
+                    <p className="text-xs text-muted-foreground">
+                      Keep this port-forward for quick reuse
+                    </p>
+                  </div>
+                  <Switch
+                    checked={portForwardForm.saveConfig}
+                    onCheckedChange={(checked) =>
+                      setPortForwardForm((prev) => ({
+                        ...prev,
+                        saveConfig: checked,
+                      }))
+                    }
+                  />
+                </div>
+                {portForwardForm.saveConfig && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="pf-config-name">Config name</Label>
+                    <Input
+                      id="pf-config-name"
+                      value={portForwardForm.name}
+                      onChange={(event) =>
+                        setPortForwardForm((prev) => ({
+                          ...prev,
+                          name: event.target.value,
+                        }))
+                      }
+                      placeholder={pod.name}
+                    />
+                  </div>
+                )}
+              </div>
+              {activePortForwards.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Active port-forwards</Label>
+                  {activePortForwards.map((session) => (
+                    <div
+                      key={session.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 text-sm"
+                    >
+                      <div>
+                        <div className="font-medium">
+                          {session.localPort} → {session.pod}:{session.remotePort}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {portForwardStatusBySession[session.id]?.message ||
+                            portForwardStatusBySession[session.id]?.status ||
+                            "Active"}
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleStopPortForward(session.id)}
+                      >
+                        Stop
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPortForwardOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handlePortForward} disabled={portForwardBusy}>
+              {portForwardBusy ? "Starting..." : "Start port-forward"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        <TabsContent value="conditions">
-          <ConditionsDisplay
-            conditions={pod.status.conditions.map((c) => ({
-              type_: c.type,
-              status: c.status,
-              reason: c.reason,
-              message: c.message,
-              last_transition_time: c.lastTransitionTime,
-            }))}
-            title="Pod Conditions"
-          />
-        </TabsContent>
-      </Tabs>
-    </div>
+      {/* Terminal Panel */}
+      {showTerminal && selectedContainer && pod && (
+        <Card className="my-4 overflow-hidden border-2 border-muted">
+          <CardHeader className="flex flex-row items-center justify-between py-2 px-4 bg-muted">
+            <div className="flex items-center gap-2">
+              <TerminalIcon className="h-4 w-4" />
+              <span className="font-mono text-sm font-semibold">{pod.name}</span>
+              <span className="text-muted-foreground">/</span>
+              <span className="font-mono text-sm text-blue-500">{selectedContainer}</span>
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => setShowTerminal(false)} className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </CardHeader>
+          <CardContent className="p-0 h-[500px] overflow-hidden relative bg-black">
+            <Terminal
+              podName={pod.name}
+              namespace={pod.namespace}
+              containerName={selectedContainer}
+              onClose={() => setShowTerminal(false)}
+            />
+          </CardContent>
+        </Card>
+      )}
+    </ResourceDetailLayout>
   );
 }

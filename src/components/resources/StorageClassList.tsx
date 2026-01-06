@@ -3,6 +3,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
+import { Link } from "react-router-dom";
 import { Eye, Trash2, Layers, Star } from "lucide-react";
 import { useResourceList } from "@/hooks/useResource";
 import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
@@ -105,11 +106,13 @@ const columns: ColumnDef<StorageClassInfo>[] = [
   },
   {
     id: "actions",
-    cell: () => (
+    cell: ({ row }) => (
       <ActionMenu>
-        <DropdownMenuItem>
-          <Eye className="mr-2 h-4 w-4" />
-          View Details
+        <DropdownMenuItem asChild>
+          <Link to={`/${toPlural(ResourceType.StorageClass)}/${row.original.name}`}>
+            <Eye className="mr-2 h-4 w-4" />
+            View Details
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem className="text-destructive">
