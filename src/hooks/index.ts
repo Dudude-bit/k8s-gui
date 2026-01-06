@@ -31,4 +31,8 @@ export { usePremiumFeature } from "./usePremiumFeature";
 export { useUserProfile } from "./useUserProfile";
 
 // Navigation hooks
+// Navigation hooks
 export { useLoginRedirect } from "./useLoginRedirect";
+
+// Terminal
+export { useTerminalSession } from "./useTerminalSession";

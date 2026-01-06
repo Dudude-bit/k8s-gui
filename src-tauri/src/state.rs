@@ -9,6 +9,7 @@ use crate::client::K8sClientManager;
 use crate::config::AppConfig;
 use crate::error::Result;
 use crate::plugins::PluginManager;
+use crate::terminal::TerminalManager;
 use dashmap::DashMap;
 use parking_lot::RwLock;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -98,15 +99,6 @@ pub struct Session {
     pub connected_at: chrono::DateTime<chrono::Utc>,
 }
 
-/// Terminal session information
-#[derive(Debug, Clone)]
-pub struct TerminalSession {
-    pub id: String,
-    pub pod: String,
-    pub container: String,
-    pub namespace: String,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-}
 
 /// Port-forward session information
 #[derive(Debug, Clone)]
@@ -162,11 +154,8 @@ pub struct AppState {
     /// Current active context
     pub current_context: Arc<RwLock<Option<String>>>,
 
-    /// Active terminal sessions
-    pub terminal_sessions: DashMap<String, TerminalSession>,
-
-    /// Terminal input channels
-    pub terminal_inputs: DashMap<String, tokio::sync::mpsc::Sender<String>>,
+    /// Terminal session manager
+    pub terminal_manager: Arc<TerminalManager>,
 
     /// Active port-forward sessions
     pub port_forward_sessions: Arc<DashMap<String, PortForwardSession>>,
@@ -206,8 +195,7 @@ impl AppState {
             cache,
             sessions: DashMap::new(),
             current_context: Arc::new(RwLock::new(None)),
-            terminal_sessions: DashMap::new(),
-            terminal_inputs: DashMap::new(),
+            terminal_manager: Arc::new(TerminalManager::new(event_tx.clone())),
             port_forward_sessions: Arc::new(DashMap::new()),
             port_forward_controls: Arc::new(DashMap::new()),
             log_streams: DashMap::new(),
@@ -334,7 +322,7 @@ impl AppState {
     pub fn stats(&self) -> AppStats {
         AppStats {
             active_sessions: self.sessions.len(),
-            active_terminal_sessions: self.terminal_sessions.len(),
+            active_terminal_sessions: self.terminal_manager.session_count(),
             active_log_streams: self.log_streams.len(),
             cache_entries: self.cache.len(),
         }

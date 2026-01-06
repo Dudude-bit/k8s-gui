@@ -4,13 +4,12 @@ import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
-import { listen } from "@tauri-apps/api/event";
 import { useThemeStore } from "@/stores/themeStore";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import * as commands from "@/generated/commands";
-import { normalizeTauriError } from "@/lib/error-utils";
+import { useTerminalSession } from "@/hooks/useTerminalSession";
 
 interface TerminalProps {
   podName: string;
@@ -20,198 +19,86 @@ interface TerminalProps {
   onClose?: () => void;
 }
 
-type SessionStatus =
-  | "idle"
-  | "connecting"
-  | "connected"
-  | "closed"
-  | "unavailable"
-  | "error";
-
 export function Terminal({
   podName,
   namespace,
   containerName,
-  sessionId,
   onClose,
 }: TerminalProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
-  const isClosedRef = useRef(false);
-  const cleanupRef = useRef<null | (() => void)>(null);
-  const activeSessionIdRef = useRef<string | null>(null);
-  const [sessionStatus, setSessionStatus] = useState<SessionStatus>("idle");
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const { theme } = useThemeStore();
+  const [unavailableReason, setUnavailableReason] = useState<string | null>(null);
+
+  const onOutput = useCallback((data: string) => {
+    xtermRef.current?.write(data);
+  }, []);
+
+  const onSessionClose = useCallback((status?: string | null) => {
+    if (xtermRef.current && status) {
+      xtermRef.current.writeln(`\r\n\x1b[33mSession ended: ${status}\x1b[0m`);
+    }
+  }, []);
+
+  const { status, error, connect, disconnect, send, resize } = useTerminalSession({
+    podName,
+    namespace,
+    containerName,
+    onOutput,
+    onClose: onSessionClose,
+  });
 
   const isDark = theme === "dark";
   const terminalTheme = useMemo(
     () =>
       isDark
         ? {
-            background: "#1a1a2e",
-            foreground: "#e4e4e7",
-            cursor: "#3b82f6",
-            selectionBackground: "#3b82f680",
-            black: "#09090b",
-            red: "#ef4444",
-            green: "#22c55e",
-            yellow: "#eab308",
-            blue: "#3b82f6",
-            magenta: "#a855f7",
-            cyan: "#06b6d4",
-            white: "#fafafa",
-            brightBlack: "#52525b",
-            brightRed: "#f87171",
-            brightGreen: "#4ade80",
-            brightYellow: "#facc15",
-            brightBlue: "#60a5fa",
-            brightMagenta: "#c084fc",
-            brightCyan: "#22d3ee",
-            brightWhite: "#ffffff",
-          }
+          background: "#1a1a2e",
+          foreground: "#e4e4e7",
+          cursor: "#3b82f6",
+          selectionBackground: "#3b82f680",
+          black: "#09090b",
+          red: "#ef4444",
+          green: "#22c55e",
+          yellow: "#eab308",
+          blue: "#3b82f6",
+          magenta: "#a855f7",
+          cyan: "#06b6d4",
+          white: "#fafafa",
+          brightBlack: "#52525b",
+          brightRed: "#f87171",
+          brightGreen: "#4ade80",
+          brightYellow: "#facc15",
+          brightBlue: "#60a5fa",
+          brightMagenta: "#c084fc",
+          brightCyan: "#22d3ee",
+          brightWhite: "#ffffff",
+        }
         : {
-            background: "#fafafa",
-            foreground: "#18181b",
-            cursor: "#2563eb",
-            selectionBackground: "#3b82f640",
-            black: "#09090b",
-            red: "#dc2626",
-            green: "#16a34a",
-            yellow: "#ca8a04",
-            blue: "#2563eb",
-            magenta: "#9333ea",
-            cyan: "#0891b2",
-            white: "#f4f4f5",
-            brightBlack: "#71717a",
-            brightRed: "#ef4444",
-            brightGreen: "#22c55e",
-            brightYellow: "#eab308",
-            brightBlue: "#3b82f6",
-            brightMagenta: "#a855f7",
-            brightCyan: "#06b6d4",
-            brightWhite: "#ffffff",
-          },
+          background: "#fafafa",
+          foreground: "#18181b",
+          cursor: "#2563eb",
+          selectionBackground: "#3b82f640",
+          black: "#09090b",
+          red: "#dc2626",
+          green: "#16a34a",
+          yellow: "#ca8a04",
+          blue: "#2563eb",
+          magenta: "#9333ea",
+          cyan: "#0891b2",
+          white: "#f4f4f5",
+          brightBlack: "#71717a",
+          brightRed: "#ef4444",
+          brightGreen: "#22c55e",
+          brightYellow: "#eab308",
+          brightBlue: "#3b82f6",
+          brightMagenta: "#a855f7",
+          brightCyan: "#06b6d4",
+          brightWhite: "#ffffff",
+        },
     [isDark]
   );
-
-  const clearSession = useCallback(() => {
-    const cleanup = cleanupRef.current;
-    cleanupRef.current = null;
-    if (cleanup) {
-      cleanup();
-    }
-    activeSessionIdRef.current = null;
-  }, []);
-
-  const markSessionEnded = useCallback(
-    (
-      status: SessionStatus,
-      message: string,
-      color: "yellow" | "red" = "yellow",
-      autoClose = false
-    ) => {
-      if (isClosedRef.current) {
-        return;
-      }
-      isClosedRef.current = true;
-      setSessionStatus(status);
-      setStatusMessage(message);
-      if (xtermRef.current) {
-        const colorCode = color === "red" ? "31" : "33";
-        xtermRef.current.writeln(`\r\n\x1b[${colorCode}m${message}\x1b[0m`);
-      }
-      clearSession();
-      if (autoClose && onClose) {
-        setTimeout(() => onClose(), 300);
-      }
-    },
-    [clearSession, onClose]
-  );
-
-  const startSession = useCallback(async () => {
-    const xterm = xtermRef.current;
-    if (!xterm) {
-      return;
-    }
-
-    if (cleanupRef.current) {
-      clearSession();
-    }
-
-    isClosedRef.current = false;
-    setSessionStatus("connecting");
-    setStatusMessage(null);
-
-    xterm.clear();
-    xterm.writeln(
-      `\x1b[33mConnecting to ${podName}/${containerName}...\x1b[0m\r\n`
-    );
-
-    try {
-      const newSessionId = await commands.openShell(
-        namespace,
-        podName,
-        containerName,
-        null
-      );
-
-      activeSessionIdRef.current = newSessionId;
-      setSessionStatus("connected");
-
-      xterm.writeln(
-        `\x1b[32mConnected to ${podName}/${containerName}\x1b[0m\r\n`
-      );
-
-      const unlistenOutput = await listen<{ session_id: string; data: string }>(
-        "terminal-output",
-        (event) => {
-          if (event.payload.session_id === newSessionId) {
-            xterm.write(event.payload.data);
-          }
-        }
-      );
-
-      const unlistenClosed = await listen<{
-        session_id: string;
-        status?: string | null;
-      }>("terminal-closed", (event) => {
-        if (event.payload.session_id !== newSessionId || isClosedRef.current) {
-          return;
-        }
-        const statusText = event.payload.status
-          ? `Session ended (${event.payload.status})`
-          : "Session ended";
-        markSessionEnded("closed", statusText, "yellow");
-      });
-
-      const disposeData = xterm.onData((data) => {
-        if (isClosedRef.current) {
-          return;
-        }
-        commands.terminalInput(newSessionId, data).catch((err) => {
-          console.error("Failed to send input:", err);
-          xterm.writeln(`\x1b[31mInput error: ${err}\x1b[0m`);
-        });
-      });
-
-      cleanupRef.current = () => {
-        isClosedRef.current = true;
-        disposeData.dispose();
-        unlistenOutput();
-        unlistenClosed();
-        commands.closeTerminal(newSessionId).catch(console.error);
-      };
-    } catch (error) {
-      console.error("Failed to open shell:", error);
-      markSessionEnded(
-        "error",
-        `Failed to connect: ${normalizeTauriError(error)}`,
-        "red"
-      );
-    }
-  }, [clearSession, containerName, markSessionEnded, namespace, podName]);
 
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -238,40 +125,40 @@ export function Terminal({
     xtermRef.current = xterm;
     fitAddonRef.current = fitAddon;
 
+    xterm.onData((data) => {
+      send(data);
+    });
+
     // Handle resize
     const handleResize = () => {
       fitAddon.fit();
-      const activeSessionId = activeSessionIdRef.current || sessionId;
-      if (activeSessionId) {
-        commands
-          .terminalResize(activeSessionId, xterm.cols, xterm.rows)
-          .catch(console.error);
+      if (status === "connected") {
+        resize(xterm.cols, xterm.rows);
       }
     };
 
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(terminalRef.current);
 
-    startSession();
+    connect();
 
     return () => {
-      clearSession();
       resizeObserver.disconnect();
       xterm.dispose();
+      disconnect(); // Ensure session is closed
     };
-  }, [clearSession, sessionId, startSession, terminalTheme]);
+  }, [connect, disconnect, resize, send, status, terminalTheme]);
 
+  // Polling logic for Pod status
   useEffect(() => {
-    if (sessionStatus !== "connected") {
+    if (status !== "connected") {
       return;
     }
 
     let cancelled = false;
 
     const checkPodState = async () => {
-      if (cancelled || isClosedRef.current) {
-        return;
-      }
+      if (cancelled) return;
 
       try {
         const pod = await commands.getPod(podName, namespace);
@@ -280,45 +167,30 @@ export function Terminal({
         );
 
         if (!container) {
-          markSessionEnded(
-            "unavailable",
-            "Container not found",
-            "yellow",
-            true
-          );
+          setUnavailableReason("Container not found");
+          disconnect();
           return;
         }
 
         if (container.state.type === "terminated") {
-          // Access 'reason' only if type is terminated or waiting.
-          // ContainerState is discriminated union.
-          // TypeScript should narrow it, but we might need explicit check or cast if accessing directly.
-          // In generated type: | { type: "terminated"; exitCode: number; reason: string | null }
           const reason = container.state.reason
             ? `: ${container.state.reason}`
             : "";
-          markSessionEnded(
-            "unavailable",
-            `Container terminated${reason}`,
-            "yellow",
-            true
-          );
+          setUnavailableReason(`Container terminated${reason}`);
+          disconnect();
           return;
         }
 
         const phase = pod.status.phase.toLowerCase();
         if (phase === "failed" || phase === "succeeded") {
-          markSessionEnded(
-            "unavailable",
-            `Pod ${pod.status.phase}`,
-            "yellow",
-            true
-          );
+          setUnavailableReason(`Pod ${pod.status.phase}`);
+          disconnect();
         }
       } catch (error) {
         const errorText = String(error);
         if (errorText.includes("not found") || errorText.includes("NotFound")) {
-          markSessionEnded("unavailable", "Pod not found", "yellow", true);
+          setUnavailableReason("Pod not found");
+          disconnect();
         }
       }
     };
@@ -330,15 +202,25 @@ export function Terminal({
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [containerName, markSessionEnded, namespace, podName, sessionStatus]);
+  }, [containerName, disconnect, namespace, podName, status]);
+
+  // Clear unavailable reason when connecting
+  useEffect(() => {
+    if (status === 'connecting') {
+      setUnavailableReason(null);
+    }
+  }, [status]);
 
   const terminalBackground = terminalTheme.background;
   const showReopen =
-    sessionStatus === "closed" ||
-    sessionStatus === "unavailable" ||
-    sessionStatus === "error";
+    status === "closed" ||
+    status === "unavailable" ||
+    status === "error" ||
+    !!unavailableReason;
+
   const statusLabel = (() => {
-    switch (sessionStatus) {
+    if (unavailableReason) return "Unavailable";
+    switch (status) {
       case "connecting":
         return "Connecting";
       case "connected":
@@ -353,8 +235,10 @@ export function Terminal({
         return "Idle";
     }
   })();
+
   const statusVariant: ComponentProps<typeof Badge>["variant"] = (() => {
-    switch (sessionStatus) {
+    if (unavailableReason) return "warning";
+    switch (status) {
       case "connected":
         return "success";
       case "error":
@@ -381,13 +265,13 @@ export function Terminal({
         </div>
         <div className="flex items-center gap-2">
           <Badge variant={statusVariant}>{statusLabel}</Badge>
-          {statusMessage && sessionStatus !== "connected" && (
+          {(error || unavailableReason) && status !== "connected" && (
             <span className="text-xs text-muted-foreground max-w-[240px] truncate">
-              {statusMessage}
+              {error || unavailableReason}
             </span>
           )}
           {showReopen && (
-            <Button variant="outline" size="sm" onClick={startSession}>
+            <Button variant="outline" size="sm" onClick={connect}>
               <RefreshCw className="mr-2 h-3.5 w-3.5" />
               Reopen
             </Button>

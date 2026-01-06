@@ -2,8 +2,9 @@
 
 use crate::auth::license_client::LicenseClient;
 use crate::commands::helpers::ResourceContext;
-use crate::error::{Error, Result};
+use crate::error::Result;
 use crate::state::AppState;
+use crate::terminal::TerminalConfig;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -18,7 +19,6 @@ pub struct TerminalSessionInfo {
     pub created_at: String,
 }
 
-
 /// Send input to terminal session
 #[tauri::command]
 pub async fn terminal_input(
@@ -26,48 +26,24 @@ pub async fn terminal_input(
     data: String,
     state: State<'_, AppState>,
 ) -> Result<()> {
-    if let Some(input_tx) = state.terminal_inputs.get(&session_id) {
-        input_tx
-            .send(data)
-            .await
-            .map_err(|e| Error::Terminal(format!("Failed to send input: {e}")))?;
-    } else {
-        tracing::warn!("No input channel found for session {}", session_id);
-    }
-    Ok(())
+    state.terminal_manager.send_input(&session_id, &data).await
 }
 
 /// Resize terminal session
 #[tauri::command]
-pub fn terminal_resize(
+pub async fn terminal_resize(
     session_id: String,
     cols: u16,
     rows: u16,
-    _state: State<'_, AppState>,
+    state: State<'_, AppState>,
 ) -> Result<()> {
-    // Note: Terminal resize requires PTY (pseudo-terminal) support.
-    // Currently, terminal sessions use exec attach which doesn't support resize.
-    // When PTY support is added, this will send SIGWINCH signal or use resize API.
-    tracing::debug!(
-        "Terminal resize requested for session {}: {}x{} (PTY resize not yet implemented)",
-        session_id,
-        cols,
-        rows
-    );
-    Ok(())
+    state.terminal_manager.resize_session(&session_id, cols, rows).await
 }
 
 /// Close terminal session
 #[tauri::command]
 pub fn close_terminal(session_id: String, state: State<'_, AppState>) -> Result<()> {
-    // Remove input channel (this will cause the stdin writer task to exit)
-    state.terminal_inputs.remove(&session_id);
-
-    // Remove session info
-    state.terminal_sessions.remove(&session_id);
-
-    tracing::info!("Terminal session {} closed", session_id);
-    Ok(())
+    state.terminal_manager.close_session(&session_id)
 }
 
 /// Open a shell in a pod
@@ -80,121 +56,43 @@ pub async fn open_shell(
     state: State<'_, AppState>,
     license: State<'_, LicenseClient>,
 ) -> Result<String> {
-    use crate::state::AppEvent;
-    use kube::api::AttachParams;
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
-
     license.require_premium_license().await?;
 
     let ctx = ResourceContext::for_command(&state, Some(namespace.clone()))?;
-    let api: kube::Api<k8s_openapi::api::core::v1::Pod> = ctx.namespaced_api();
+    let client = ctx.client.clone(); 
 
-    // Get first container if not specified
+    // Get container name if not provided
     let container_name = if let Some(c) = container {
         c
     } else {
-        let pod_obj = api.get(&pod).await?;
+        let pod_obj: k8s_openapi::api::core::v1::Pod = ctx.namespaced_api().get(&pod).await?;
         pod_obj
             .spec
             .and_then(|s| s.containers.first().map(|c| c.name.clone()))
             .unwrap_or_else(String::new)
     };
 
-    let shell_cmd = shell.unwrap_or_else(|| "/bin/sh".to_string());
     let session_id = format!("shell-{}-{}-{}", namespace, pod, uuid::Uuid::new_v4());
 
-    let params = AttachParams::default()
-        .container(&container_name)
-        .stdin(true)
-        .stdout(true)
-        .stderr(false)
-        .tty(true);
-
-    let mut attached = api
-        .exec(&pod, vec![&shell_cmd], &params)
-        .await
-        .map_err(|e| Error::Terminal(format!("Failed to exec into pod: {e}")))?;
-
-    let event_tx = state.event_tx.clone();
-    let session_id_clone = session_id.clone();
-
-    // Handle stdout
-    if let Some(mut stdout) = attached.stdout() {
-        let event_tx = event_tx.clone();
-        let session_id = session_id_clone.clone();
-
-        tokio::spawn(async move {
-            let mut buf = vec![0u8; crate::terminal::TERMINAL_BUFFER_SIZE];
-            loop {
-                match stdout.read(&mut buf).await {
-                    Ok(0) => break,
-                    Ok(n) => {
-                        let data = String::from_utf8_lossy(&buf[..n]).to_string();
-                        let _ = event_tx.send(AppEvent::TerminalOutput {
-                            session_id: session_id.clone(),
-                            data,
-                        });
-                    }
-                    Err(e) => {
-                        tracing::error!("Stdout read error: {}", e);
-                        break;
-                    }
-                }
-            }
-        });
-    }
-
-    // Store stdin for later input
-    let stdin = attached.stdin();
-    if let Some(stdin_writer) = stdin {
-        let (input_tx, mut input_rx) = tokio::sync::mpsc::channel::<String>(100);
-
-        // Store the input channel
-        state.terminal_inputs.insert(session_id.clone(), input_tx);
-
-        // Spawn task to handle stdin
-        tokio::spawn(async move {
-            let mut stdin_writer = stdin_writer;
-            while let Some(data) = input_rx.recv().await {
-                if let Err(e) = stdin_writer.write_all(data.as_bytes()).await {
-                    tracing::error!("Failed to write to stdin: {}", e);
-                    break;
-                }
-                let _ = stdin_writer.flush().await;
-            }
-        });
-    }
-
-    // Store session info
-    let terminal_session = crate::state::TerminalSession {
-        id: session_id.clone(),
-        pod: pod.clone(),
-        container: container_name,
-        namespace: namespace.clone(),
-        created_at: chrono::Utc::now(),
+    let mut config = if let Some(sh) = shell {
+         TerminalConfig {
+            command: vec![sh],
+            ..TerminalConfig::default()
+        }
+    } else {
+        TerminalConfig::smart_default(&pod, &namespace)
     };
-    state
-        .terminal_sessions
-        .insert(session_id.clone(), terminal_session);
+    
+    config.pod = pod;
+    config.namespace = namespace;
+    config.container = Some(container_name);
+    // Explicitly ensure defaults for interactive shell
+    config.tty = true;
+    config.stdin = true;
+    config.stdout = true;
+    config.stderr = false; // TTY implies stderr merged
 
-    // Watch for session close
-    let terminal_inputs = state.terminal_inputs.clone();
-    let terminal_sessions = state.terminal_sessions.clone();
-    let close_event_tx = state.event_tx.clone();
-    let session_id_for_close = session_id.clone();
-    if let Some(status_future) = attached.take_status() {
-        tokio::spawn(async move {
-            let status_text = status_future.await.and_then(|status| status.status);
-
-            terminal_inputs.remove(&session_id_for_close);
-            terminal_sessions.remove(&session_id_for_close);
-
-            let _ = close_event_tx.send(AppEvent::TerminalClosed {
-                session_id: session_id_for_close,
-                status: status_text,
-            });
-        });
-    }
+    state.terminal_manager.start_session(client, session_id.clone(), config).await?;
 
     Ok(session_id)
 }
