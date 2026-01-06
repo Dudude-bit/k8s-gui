@@ -4,6 +4,7 @@ import * as commands from "@/generated/commands";
 import { useState, useCallback, useMemo } from "react";
 import { useResourceYaml, useCopyToClipboard, usePodMetrics } from "@/hooks";
 import { useResourceWatch, ResourceType } from "@/hooks/useResourceWatch";
+import { toPlural } from "@/lib/resource-types";
 import { useClusterStore } from "@/stores/clusterStore";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { LicenseErrorBanner } from "@/components/license/LicenseErrorBanner";
@@ -449,7 +450,7 @@ export function PodDetail() {
                       description: `Switching to ${replacement.name}`,
                     });
                     navigate(
-                      `/pod/${replacement.namespace}/${replacement.name}`,
+                      `/${toPlural(ResourceType.Pod)}/${replacement.namespace}/${replacement.name}`,
                       { replace: true }
                     );
                   } else {

@@ -45,6 +45,8 @@ export interface ResourceListProps<
   headerActions?: ReactNode;
   /** Resource type for real-time watch */
   watchResourceType?: ResourceKind;
+  /** Additional keys to invalidate on watch events */
+  watchQueryKeysToInvalidate?: string[][];
 }
 
 export function ResourceList<T extends { name: string; namespace: string }>({
@@ -58,6 +60,7 @@ export function ResourceList<T extends { name: string; namespace: string }>({
   refetchInterval,
   headerActions,
   watchResourceType,
+  watchQueryKeysToInvalidate,
 }: ResourceListProps<T>) {
   const { isConnected, currentNamespace } = useClusterStore();
   const { toast } = useToast();
@@ -79,7 +82,11 @@ export function ResourceList<T extends { name: string; namespace: string }>({
     resourceType: watchResourceType ?? "",
     namespace: currentNamespace,
     enabled: isConnected && !!watchResourceType,
-    queryKeysToInvalidate: deleteConfig?.invalidateQueryKeys ?? [queryKey],
+    queryKeysToInvalidate: [
+      ...(deleteConfig?.invalidateQueryKeys ?? []),
+      ...(watchQueryKeysToInvalidate ?? []),
+      queryKey,
+    ],
   });
 
   // Delete mutation

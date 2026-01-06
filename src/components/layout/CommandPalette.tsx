@@ -172,25 +172,26 @@ export function CommandPalette() {
             kind: toPlural(ResourceType.Pod),
             label: "Pod",
             namespaced: true,
-            path: (name: string, ns?: string) => `/pod/${ns}/${name}`,
+            path: (name: string, ns?: string) => `/${toPlural(ResourceType.Pod)}/${ns}/${name}`,
           },
           {
             kind: toPlural(ResourceType.Deployment),
             label: "Deployment",
             namespaced: true,
-            path: (name: string, ns?: string) => `/deployment/${ns}/${name}`,
+            path: (name: string, ns?: string) =>
+              `/${toPlural(ResourceType.Deployment)}/${ns}/${name}`,
           },
           {
             kind: toPlural(ResourceType.Service),
             label: "Service",
             namespaced: true,
-            path: (name: string, ns?: string) => `/service/${ns}/${name}`,
+            path: (name: string, ns?: string) => `/${toPlural(ResourceType.Service)}/${ns}/${name}`,
           },
           {
             kind: toPlural(ResourceType.Node),
             label: "Node",
             namespaced: false,
-            path: (name: string) => `/nodes/${name}`,
+            path: (name: string) => `/${toPlural(ResourceType.Node)}/${name}`,
           },
         ];
 

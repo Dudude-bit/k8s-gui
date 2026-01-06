@@ -161,6 +161,7 @@ export function PodList() {
       }}
       staleTime={10000}
       watchResourceType={ResourceType.Pod}
+      watchQueryKeysToInvalidate={[[toPlural(ResourceType.Pod), currentNamespace]]}
     />
   );
 }
