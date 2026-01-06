@@ -338,10 +338,6 @@ export function CommandPalette() {
               placeholder="Search resources, actions, or navigate..."
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
               className="h-11 pl-9"
             />
           </div>
