@@ -137,7 +137,6 @@ export function ServiceList() {
         resourceType: ResourceType.Service,
       }}
       staleTime={10000}
-      watchResourceType={ResourceType.Service}
     />
   );
 }

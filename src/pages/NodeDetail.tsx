@@ -13,8 +13,6 @@ import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { ResourceDetailHeader } from "@/components/resources/ResourceDetailHeader";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
-import { useResourceWatch, ResourceType } from "@/hooks/useResourceWatch";
-import { useClusterStore } from "@/stores/clusterStore";
 import { useMemo } from "react";
 import * as commands from "@/generated/commands";
 import { normalizeTauriError } from "@/lib/error-utils";
@@ -23,15 +21,6 @@ export function NodeDetail() {
   const { name } = useParams<{ name: string }>();
   const navigate = useNavigate();
   const { hasAccess } = usePremiumFeature();
-  const { isConnected } = useClusterStore();
-
-  // Real-time watch for automatic updates
-  const { isWatching } = useResourceWatch({
-    resourceType: ResourceType.Node,
-    namespace: null,
-    enabled: isConnected && !!name,
-    queryKeysToInvalidate: [["node", name ?? ""], ["node-pods", name ?? ""]],
-  });
 
   const {
     data: node,
@@ -132,7 +121,6 @@ export function NodeDetail() {
         onBack={() => navigate(-1)}
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
-        isWatching={isWatching}
       />
 
       {/* Resource Cards */}

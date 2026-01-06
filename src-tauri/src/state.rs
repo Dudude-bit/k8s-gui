@@ -88,12 +88,6 @@ pub enum AppEvent {
     },
     /// Error occurred
     Error { code: String, message: String },
-    /// Watch event
-    WatchEvent {
-        watch_id: String,
-        event_type: String,
-        resource: serde_json::Value,
-    },
 }
 
 /// Session information for active connections
@@ -132,15 +126,6 @@ pub struct PortForwardSession {
 pub struct AuthSessionControl {
     pub context: String,
     pub flow: String,
-    pub cancel_tx: tokio::sync::oneshot::Sender<()>,
-}
-
-/// Watch subscription information
-#[derive(Debug)]
-pub struct WatchSubscription {
-    pub id: String,
-    pub resource_type: String,
-    pub namespace: Option<String>,
     pub cancel_tx: tokio::sync::oneshot::Sender<()>,
 }
 
@@ -189,9 +174,6 @@ pub struct AppState {
     /// Port-forward cancel controls
     pub port_forward_controls: Arc<DashMap<String, tokio::sync::oneshot::Sender<()>>>,
 
-    /// Active watch subscriptions
-    pub watch_subscriptions: DashMap<String, WatchSubscription>,
-
     /// Active log streams
     pub log_streams: DashMap<String, LogStream>,
 
@@ -228,7 +210,6 @@ impl AppState {
             terminal_inputs: DashMap::new(),
             port_forward_sessions: Arc::new(DashMap::new()),
             port_forward_controls: Arc::new(DashMap::new()),
-            watch_subscriptions: DashMap::new(),
             log_streams: DashMap::new(),
             event_tx,
             auth_sessions: DashMap::new(),
@@ -332,29 +313,12 @@ impl AppState {
         Uuid::new_v4().to_string()
     }
 
-    /// Generate a new watch ID
-    pub fn new_watch_id(&self) -> String {
-        Uuid::new_v4().to_string()
-    }
 
     /// Generate a new log stream ID
     pub fn new_log_stream_id(&self) -> String {
         Uuid::new_v4().to_string()
     }
 
-    /// Cancel all active watches
-    pub fn cancel_all_watches(&self) {
-        let keys: Vec<_> = self
-            .watch_subscriptions
-            .iter()
-            .map(|r| r.key().clone())
-            .collect();
-        for key in keys {
-            if let Some((_, sub)) = self.watch_subscriptions.remove(&key) {
-                let _ = sub.cancel_tx.send(());
-            }
-        }
-    }
 
     /// Cancel all log streams
     pub fn cancel_all_log_streams(&self) {
@@ -371,7 +335,6 @@ impl AppState {
         AppStats {
             active_sessions: self.sessions.len(),
             active_terminal_sessions: self.terminal_sessions.len(),
-            active_watches: self.watch_subscriptions.len(),
             active_log_streams: self.log_streams.len(),
             cache_entries: self.cache.len(),
         }
@@ -383,7 +346,6 @@ impl AppState {
 pub struct AppStats {
     pub active_sessions: usize,
     pub active_terminal_sessions: usize,
-    pub active_watches: usize,
     pub active_log_streams: usize,
     pub cache_entries: usize,
 }

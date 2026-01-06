@@ -5,21 +5,10 @@
 use crate::error::Result;
 use crate::resources::{PersistentVolumeClaimInfo, PersistentVolumeInfo, StorageClassInfo};
 use crate::state::AppState;
-use crate::utils::format_k8s_age;
+
 use k8s_openapi::api::core::v1::{PersistentVolume, PersistentVolumeClaim};
 use k8s_openapi::api::storage::v1::StorageClass;
-use kube::ResourceExt;
 use tauri::State;
-
-fn format_access_mode(mode: &str) -> String {
-    match mode {
-        "ReadWriteOnce" => "RWO".to_string(),
-        "ReadOnlyMany" => "ROX".to_string(),
-        "ReadWriteMany" => "RWX".to_string(),
-        "ReadWriteOncePod" => "RWOP".to_string(),
-        _ => mode.to_string(),
-    }
-}
 
 use crate::commands::filters::ResourceFilters;
 
@@ -40,47 +29,9 @@ pub async fn list_persistent_volumes(
     .await?;
 
     Ok(list
-        .into_iter()
-        .map(|pv| {
-            let spec = pv.spec.as_ref();
-            let status = pv.status.as_ref();
-
-            let capacity = spec
-                .and_then(|s| s.capacity.as_ref())
-                .and_then(|c| c.get("storage"))
-                .map_or_else(|| "Unknown".to_string(), |q| q.0.clone());
-
-            let access_modes = spec
-                .and_then(|s| s.access_modes.as_ref())
-                .map(|modes| modes.iter().map(|m| format_access_mode(m)).collect())
-                .unwrap_or_default();
-
-            let claim = spec.and_then(|s| s.claim_ref.as_ref()).map(|c| {
-                format!(
-                    "{}/{}",
-                    c.namespace.as_deref().unwrap_or(""),
-                    c.name.as_deref().unwrap_or("")
-                )
-            });
-
-            PersistentVolumeInfo {
-                name: pv.name_any(),
-                capacity,
-                access_modes,
-                reclaim_policy: spec
-                    .and_then(|s| s.persistent_volume_reclaim_policy.clone())
-                    .unwrap_or_else(|| "Unknown".to_string()),
-                status: status
-                    .and_then(|s| s.phase.clone())
-                    .unwrap_or_else(|| "Unknown".to_string()),
-                claim,
-                storage_class: spec
-                    .and_then(|s| s.storage_class_name.clone())
-                    .unwrap_or_default(),
-                reason: status.and_then(|s| s.reason.clone()),
-                age: format_k8s_age(pv.metadata.creation_timestamp.as_ref()),
-            }
-        })
+        .items
+        .iter()
+        .map(PersistentVolumeInfo::from)
         .collect())
 }
 
@@ -102,44 +53,9 @@ pub async fn list_persistent_volume_claims(
     .await?;
 
     Ok(list
-        .into_iter()
-        .map(|pvc| {
-            let spec = pvc.spec.as_ref();
-            let status = pvc.status.as_ref();
-
-            let capacity = status
-                .and_then(|s| s.capacity.as_ref())
-                .and_then(|c| c.get("storage"))
-                .map(|q| q.0.clone())
-                .or_else(|| {
-                    spec.and_then(|s| s.resources.as_ref())
-                        .and_then(|r| r.requests.as_ref())
-                        .and_then(|r| r.get("storage"))
-                        .map(|q| q.0.clone())
-                })
-                .unwrap_or_else(|| "Unknown".to_string());
-
-            let access_modes = status
-                .and_then(|s| s.access_modes.as_ref())
-                .or_else(|| spec.and_then(|s| s.access_modes.as_ref()))
-                .map(|modes| modes.iter().map(|m| format_access_mode(m)).collect())
-                .unwrap_or_default();
-
-            PersistentVolumeClaimInfo {
-                name: pvc.name_any(),
-                namespace: pvc.namespace().unwrap_or_default(),
-                status: status
-                    .and_then(|s| s.phase.clone())
-                    .unwrap_or_else(|| "Unknown".to_string()),
-                volume: spec.and_then(|s| s.volume_name.clone()),
-                capacity,
-                access_modes,
-                storage_class: spec
-                    .and_then(|s| s.storage_class_name.clone())
-                    .unwrap_or_default(),
-                age: format_k8s_age(pvc.metadata.creation_timestamp.as_ref()),
-            }
-        })
+        .items
+        .iter()
+        .map(PersistentVolumeClaimInfo::from)
         .collect())
 }
 
@@ -160,26 +76,8 @@ pub async fn list_storage_classes(
     .await?;
 
     Ok(list
-        .into_iter()
-        .map(|sc| {
-            let is_default = sc.metadata.annotations.as_ref().is_some_and(|ann| {
-                ann.get("storageclass.kubernetes.io/is-default-class")
-                    .or_else(|| ann.get("storageclass.beta.kubernetes.io/is-default-class"))
-                    .is_some_and(|v| v == "true")
-            });
-
-            StorageClassInfo {
-                name: sc.name_any(),
-                provisioner: sc.provisioner,
-                reclaim_policy: sc.reclaim_policy.unwrap_or_else(|| "Delete".to_string()),
-                volume_binding_mode: sc
-                    .volume_binding_mode
-                    .unwrap_or_else(|| "Immediate".to_string()),
-                allow_volume_expansion: sc.allow_volume_expansion.unwrap_or(false),
-                is_default,
-                parameters: sc.parameters.unwrap_or_default(),
-                age: format_k8s_age(sc.metadata.creation_timestamp.as_ref()),
-            }
-        })
+        .items
+        .iter()
+        .map(StorageClassInfo::from)
         .collect())
 }

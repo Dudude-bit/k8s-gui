@@ -63,7 +63,6 @@ fn main() {
                         AppEvent::ResourceUpdated { .. } => "resource-updated",
                         AppEvent::ResourceDeleted { .. } => "resource-deleted",
                         AppEvent::Error { .. } => "app-error",
-                        AppEvent::WatchEvent { .. } => "watch-event",
                     };
 
                     // Transform event payload for frontend
@@ -123,13 +122,6 @@ fn main() {
                                 "session_id": session_id,
                                 "context": context,
                                 "message": message
-                            })
-                        },
-                        AppEvent::WatchEvent { watch_id, event_type, resource } => {
-                            serde_json::json!({
-                                "watch_id": watch_id,
-                                "event_type": event_type,
-                                "resource": resource
                             })
                         },
                         _ => serde_json::to_value(&event).unwrap_or_default(),
@@ -272,11 +264,6 @@ fn main() {
             commands::workloads::list_daemonsets,
             commands::workloads::list_jobs,
             commands::workloads::list_cronjobs,
-
-            // Watch commands (real-time resource updates)
-            commands::watch::start_watch,
-            commands::watch::stop_watch,
-            commands::watch::list_active_watches,
 
             // Validation commands
             commands::validation::validate_email_command,

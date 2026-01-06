@@ -2,7 +2,6 @@ import { useClusterStore } from "@/stores/clusterStore";
 import { ColumnDef } from "@tanstack/react-table";
 import { useMemo } from "react";
 import { ResourceList } from "./ResourceList";
-import { ResourceType } from "@/hooks/useResourceWatch";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
 import { matchJobPods } from "@/hooks/useResourceWithMetrics";
 import { MetricBadge } from "@/components/ui/metric-card";
@@ -111,7 +110,6 @@ export function JobList() {
       emptyStateLabel="jobs"
       staleTime={10000}
       refetchInterval={15000}
-      watchResourceType={ResourceType.Job}
     />
   );
 }

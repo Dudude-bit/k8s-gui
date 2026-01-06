@@ -148,7 +148,6 @@ export function SecretList() {
         resourceType: ResourceType.Secret,
       }}
       staleTime={10000}
-      watchResourceType={ResourceType.Secret}
     />
   );
 }

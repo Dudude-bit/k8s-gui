@@ -32,12 +32,3 @@ export { useUserProfile } from "./useUserProfile";
 
 // Navigation hooks
 export { useLoginRedirect } from "./useLoginRedirect";
-
-// Real-time watch hooks
-export {
-  useResourceWatch,
-  listActiveWatches,
-  type UseResourceWatchOptions,
-  type UseResourceWatchReturn,
-  type WatchEventPayload,
-} from "./useResourceWatch";

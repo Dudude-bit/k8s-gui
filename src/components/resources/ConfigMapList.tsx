@@ -125,7 +125,6 @@ export function ConfigMapList() {
         resourceType: ResourceType.ConfigMap,
       }}
       staleTime={10000}
-      watchResourceType={ResourceType.ConfigMap}
     />
   );
 }

@@ -80,7 +80,7 @@ const pluralToKind: Record<string, ResourceKind> = {
 };
 
 /**
- * Convert resource type to lowercase plural form (for API paths and watch)
+ * Convert resource type to lowercase plural form (for API paths)
  * @example toPlural("Pod") → "pods"
  */
 export function toPlural(resourceType: ResourceKind): string {

@@ -20,7 +20,6 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { useNodeMetrics } from "@/hooks/useNodeMetrics";
-import { useResourceWatch } from "@/hooks/useResourceWatch";
 import { ResourceType, toPlural } from "@/lib/resource-types";
 import { MetricBadge } from "@/components/ui/metric-card";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
@@ -65,13 +64,6 @@ export function NodeList() {
 
   // Get node metrics separately for real-time updates
   const { data: nodeMetrics = [] } = useNodeMetrics();
-
-  // Real-time watch for automatic updates
-  const { isWatching } = useResourceWatch({
-    resourceType: ResourceType.Node,
-    enabled: isConnected,
-    queryKeysToInvalidate: [[toPlural(ResourceType.Node)]],
-  });
 
   // Merge nodes with metrics
   const nodesWithMetrics = useMemo(() => {
@@ -316,7 +308,6 @@ export function NodeList() {
         isFetching={isFetching}
         isLoading={isLoading}
         onRefresh={() => refetch()}
-        isWatching={isWatching}
       />
       <DataTable
         columns={columns}

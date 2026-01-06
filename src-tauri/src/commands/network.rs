@@ -3,15 +3,10 @@
 //! Commands for managing Ingresses and Endpoints.
 
 use crate::error::Result;
-use crate::resources::{
-    EndpointAddress, EndpointPort, EndpointSubset, EndpointTargetRef, EndpointsInfo, IngressInfo,
-    IngressPath, IngressRule,
-};
+use crate::resources::{EndpointsInfo, IngressInfo};
 use crate::state::AppState;
-use crate::utils::format_k8s_age;
 use k8s_openapi::api::core::v1::Endpoints;
 use k8s_openapi::api::networking::v1::Ingress;
-use kube::ResourceExt;
 use tauri::State;
 
 use crate::commands::filters::ResourceFilters;
@@ -34,98 +29,9 @@ pub async fn list_ingresses(
     .await?;
 
     Ok(list
-        .into_iter()
-        .map(|ingress| {
-            let spec = ingress.spec.as_ref();
-            let status = ingress.status.as_ref();
-
-            // Parse rules
-            let rules = spec
-                .and_then(|s| s.rules.as_ref())
-                .map(|spec_rules| {
-                    spec_rules
-                        .iter()
-                        .map(|rule| {
-                            let host = rule.host.clone().unwrap_or_else(|| "*".to_string());
-                            let paths = rule
-                                .http
-                                .as_ref()
-                                .map(|http| {
-                                    http.paths
-                                        .iter()
-                                        .map(|path| {
-                                            let backend_service =
-                                                path.backend.service.as_ref().map_or_else(
-                                                    || "unknown".to_string(),
-                                                    |s| s.name.clone(),
-                                                );
-
-                                            let backend_port = path
-                                                .backend
-                                                .service
-                                                .as_ref()
-                                                .and_then(|s| s.port.as_ref())
-                                                .map(|p| {
-                                                    p.name.clone().unwrap_or_else(|| {
-                                                        p.number.map_or_else(
-                                                            || "?".to_string(),
-                                                            |n| n.to_string(),
-                                                        )
-                                                    })
-                                                })
-                                                .unwrap_or_else(|| "?".to_string());
-
-                                            IngressPath {
-                                                path: path
-                                                    .path
-                                                    .clone()
-                                                    .unwrap_or_else(|| "/".to_string()),
-                                                path_type: path.path_type.clone(),
-                                                backend_service,
-                                                backend_port,
-                                            }
-                                        })
-                                        .collect()
-                                })
-                                .unwrap_or_default();
-
-                            IngressRule { host, paths }
-                        })
-                        .collect()
-                })
-                .unwrap_or_default();
-
-            let load_balancer_ips = status
-                .and_then(|s| s.load_balancer.as_ref())
-                .and_then(|lb| lb.ingress.as_ref())
-                .map(|ingresses| {
-                    ingresses
-                        .iter()
-                        .filter_map(|i| i.ip.clone().or_else(|| i.hostname.clone()))
-                        .collect()
-                })
-                .unwrap_or_default();
-
-            let tls_hosts = spec
-                .and_then(|s| s.tls.as_ref())
-                .map(|tls_list| {
-                    tls_list
-                        .iter()
-                        .flat_map(|tls| tls.hosts.clone().unwrap_or_default())
-                        .collect()
-                })
-                .unwrap_or_default();
-
-            IngressInfo {
-                name: ingress.name_any(),
-                namespace: ingress.namespace().unwrap_or_default(),
-                class_name: spec.and_then(|s| s.ingress_class_name.clone()),
-                rules,
-                load_balancer_ips,
-                tls_hosts,
-                age: format_k8s_age(ingress.metadata.creation_timestamp.as_ref()),
-            }
-        })
+        .items
+        .iter()
+        .map(IngressInfo::from)
         .collect())
 }
 
@@ -147,74 +53,8 @@ pub async fn list_endpoints(
     .await?;
 
     Ok(list
-        .into_iter()
-        .map(|ep| {
-            let name = ep.name_any();
-            let ns = ep.namespace().unwrap_or_default();
-            let age = format_k8s_age(ep.metadata.creation_timestamp.as_ref());
-
-            let subsets = ep
-                .subsets
-                .unwrap_or_default()
-                .into_iter()
-                .map(|subset| {
-                    let addresses = subset
-                        .addresses
-                        .unwrap_or_default()
-                        .iter()
-                        .map(|addr| EndpointAddress {
-                            ip: addr.ip.clone(),
-                            hostname: addr.hostname.clone(),
-                            node_name: addr.node_name.clone(),
-                            target_ref: addr.target_ref.as_ref().map(|tr| EndpointTargetRef {
-                                kind: tr.kind.clone().unwrap_or_default(),
-                                name: tr.name.clone().unwrap_or_default(),
-                                namespace: tr.namespace.clone().unwrap_or_default(),
-                            }),
-                        })
-                        .collect();
-
-                    let not_ready_addresses = subset
-                        .not_ready_addresses
-                        .unwrap_or_default()
-                        .iter()
-                        .map(|addr| EndpointAddress {
-                            ip: addr.ip.clone(),
-                            hostname: addr.hostname.clone(),
-                            node_name: addr.node_name.clone(),
-                            target_ref: addr.target_ref.as_ref().map(|tr| EndpointTargetRef {
-                                kind: tr.kind.clone().unwrap_or_default(),
-                                name: tr.name.clone().unwrap_or_default(),
-                                namespace: tr.namespace.clone().unwrap_or_default(),
-                            }),
-                        })
-                        .collect();
-
-                    let ports = subset
-                        .ports
-                        .unwrap_or_default()
-                        .iter()
-                        .map(|port| EndpointPort {
-                            name: port.name.clone(),
-                            port: port.port,
-                            protocol: port.protocol.clone().unwrap_or_else(|| "TCP".to_string()),
-                        })
-                        .collect();
-
-                    EndpointSubset {
-                        addresses,
-                        not_ready_addresses,
-                        ports,
-                    }
-                })
-                .collect();
-
-            EndpointsInfo {
-                name,
-                namespace: ns,
-                subsets,
-                age,
-            }
-        })
+        .items
+        .iter()
+        .map(EndpointsInfo::from)
         .collect())
 }

@@ -174,12 +174,6 @@ export function DeploymentList() {
       }}
       staleTime={10000}
       refetchInterval={15000}
-      watchResourceType={ResourceType.Deployment}
-      // Also invalidate pods since deployments depend on them for metrics
-      watchQueryKeysToInvalidate={[
-        [toPlural(ResourceType.Deployment), currentNamespace],
-        [toPlural(ResourceType.Pod), currentNamespace],
-      ]}
     />
   );
 }

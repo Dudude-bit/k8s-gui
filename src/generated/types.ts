@@ -513,12 +513,6 @@ export type SecretFilters = {
   secretType: string | null;
 } & ResourceFilters;
 
-export interface WatchInfo {
-  id: string;
-  resourceType: string;
-  namespace: string | null;
-}
-
 export interface NodeFilters {
   labelSelector: string | null;
   fieldSelector: string | null;

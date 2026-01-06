@@ -2,7 +2,6 @@ import { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { RefreshButton } from "@/components/ui/refresh-button";
-import { LiveIndicator } from "@/components/ui/live-indicator";
 
 interface ResourceDetailHeaderProps {
   title: string;
@@ -13,8 +12,6 @@ interface ResourceDetailHeaderProps {
   onRefresh?: () => void;
   isRefreshing?: boolean;
   icon?: ReactNode;
-  /** Whether real-time watch is active */
-  isWatching?: boolean;
 }
 
 export function ResourceDetailHeader({
@@ -26,7 +23,6 @@ export function ResourceDetailHeader({
   onRefresh,
   isRefreshing,
   icon,
-  isWatching,
 }: ResourceDetailHeaderProps) {
   return (
     <div className="flex items-center justify-between">
@@ -36,10 +32,7 @@ export function ResourceDetailHeader({
         </Button>
         {icon && <div className="h-8 w-8 text-muted-foreground">{icon}</div>}
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">{title}</h1>
-            <LiveIndicator isActive={isWatching ?? false} size="sm" />
-          </div>
+          <h1 className="text-2xl font-bold">{title}</h1>
           {namespace && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>{namespace}</span>

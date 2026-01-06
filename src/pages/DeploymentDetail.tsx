@@ -8,8 +8,7 @@ import {
   useCopyToClipboard,
   usePodMetrics,
 } from "@/hooks";
-import { useResourceWatch, ResourceType, toPlural } from "@/hooks/useResourceWatch";
-import { useClusterStore } from "@/stores/clusterStore";
+import { ResourceType, toPlural } from "@/lib/resource-types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,7 +61,6 @@ export function DeploymentDetail() {
   const { namespace, name } = useParams<{ namespace: string; name: string }>();
   const navigate = useNavigate();
   const copyToClipboard = useCopyToClipboard();
-  const { isConnected } = useClusterStore();
   const [activeTab, setActiveTab] = useState("overview");
   const [scaleDialogOpen, setScaleDialogOpen] = useState(false);
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
@@ -71,17 +69,6 @@ export function DeploymentDetail() {
   const [selectedContainer, setSelectedContainer] = useState("");
   const [selectedLogPod, setSelectedLogPod] = useState<string | null>(null);
   const { hasAccess } = usePremiumFeature();
-
-  // Real-time watch for automatic updates
-  const { isWatching } = useResourceWatch({
-    resourceType: ResourceType.Deployment,
-    namespace: namespace,
-    enabled: isConnected && !!namespace && !!name,
-    queryKeysToInvalidate: [
-      ["deployment", namespace ?? "", name ?? ""],
-      ["deployment-pods", namespace ?? "", name ?? ""],
-    ],
-  });
 
   const {
     data: deployment,
@@ -403,7 +390,6 @@ export function DeploymentDetail() {
             )}
           </>
         }
-        isWatching={isWatching}
         actions={
           <>
             <Button variant="outline" size="sm" onClick={openScaleDialog}>
