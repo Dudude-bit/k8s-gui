@@ -18,5 +18,5 @@ export * from "./ResourceDetailLayout";
 export { ResourceDetailHeader } from "./ResourceDetailHeader";
 export { MetadataCard, type MetadataCardProps } from "./MetadataCard";
 export { LabelsDisplay } from "./LabelsDisplay";
-export { ConditionsDisplay, type Condition } from "./ConditionsDisplay";
+export { ConditionsDisplay } from "./ConditionsDisplay";
 export { YamlTabContent } from "./YamlTabContent";

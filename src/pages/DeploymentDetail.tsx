@@ -582,13 +582,7 @@ export function DeploymentDetail() {
       label: "Conditions",
       content: (
         <ConditionsDisplay
-          conditions={(deployment?.conditions || []).map((c) => ({
-            type: c.type,
-            status: c.status,
-            reason: c.reason,
-            message: c.message,
-            lastTransitionTime: c.lastTransitionTime,
-          }))}
+          conditions={deployment?.conditions || []}
           title="Deployment Conditions"
         />
       ),

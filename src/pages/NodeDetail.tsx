@@ -125,13 +125,7 @@ export function NodeDetail() {
       label: "Conditions",
       content: (
         <ConditionsDisplay
-          conditions={(node?.status.conditions || []).map((c) => ({
-            type: c.type,
-            status: c.status,
-            reason: c.reason,
-            message: c.message,
-            lastTransitionTime: c.lastTransitionTime,
-          }))}
+          conditions={node?.status.conditions || []}
           title="Conditions"
         />
       ),

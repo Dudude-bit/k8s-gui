@@ -1,16 +1,9 @@
 import { ConditionBadge } from "@/components/ui/status-badge";
 import { MetadataCard } from "./MetadataCard";
-
-export interface Condition {
-  type_: string;
-  status: string;
-  reason?: string | null;
-  message?: string | null;
-  last_transition_time?: string | null;
-}
+import type { ConditionInfo } from "@/generated/types";
 
 interface ConditionsDisplayProps {
-  conditions: Condition[];
+  conditions: ConditionInfo[];
   title?: string;
   className?: string;
 }
@@ -35,15 +28,15 @@ export function ConditionsDisplay({
           <div className="flex items-center gap-3">
             <ConditionBadge
               conditionStatus={condition.status}
-              conditionType={condition.type_}
+              conditionType={condition.type}
             />
             <span className="text-sm text-muted-foreground">
               {condition.message || condition.reason || "-"}
             </span>
           </div>
           <span className="text-xs text-muted-foreground">
-            {condition.last_transition_time
-              ? new Date(condition.last_transition_time).toLocaleString()
+            {condition.lastTransitionTime
+              ? new Date(condition.lastTransitionTime).toLocaleString()
               : "-"}
           </span>
         </div>

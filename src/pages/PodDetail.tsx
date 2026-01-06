@@ -564,13 +564,7 @@ export function PodDetail() {
           id: "conditions",
           label: "Conditions",
           content: <ConditionsDisplay
-            conditions={(pod?.status.conditions || []).map(c => ({
-              type_: c.type,
-              status: c.status,
-              reason: c.reason,
-              message: c.message,
-              last_transition_time: c.lastTransitionTime
-            }))}
+            conditions={pod?.status.conditions || []}
           />
         }
       ]}
