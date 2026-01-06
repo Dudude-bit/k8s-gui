@@ -20,6 +20,7 @@ import {
 import { ActionMenu } from "@/components/ui/action-menu";
 
 import type { PersistentVolumeInfo } from "@/generated/types";
+import { ResourceType, toPlural } from "@/lib/resource-types";
 
 const columns: ColumnDef<PersistentVolumeInfo>[] = [
   {
@@ -113,7 +114,7 @@ export function PersistentVolumeList() {
     isFetching,
     refetch,
   } = useResourceList(
-    ["persistent-volumes"],
+    [toPlural(ResourceType.PersistentVolume)],
     async () => {
       return await commands.listPersistentVolumes(null);
     },
@@ -121,7 +122,7 @@ export function PersistentVolumeList() {
   );
 
   if (!isConnected) {
-    return <ConnectClusterEmptyState resourceLabel="persistent volumes" />;
+    return <ConnectClusterEmptyState resourceLabel={toPlural(ResourceType.PersistentVolume)} />;
   }
 
   return (

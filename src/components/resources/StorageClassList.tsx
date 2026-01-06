@@ -19,6 +19,7 @@ import { ActionMenu } from "@/components/ui/action-menu";
 import * as commands from "@/generated/commands";
 import type { StorageClassInfo } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
+import { ResourceType, toPlural } from "@/lib/resource-types";
 
 const columns: ColumnDef<StorageClassInfo>[] = [
   {
@@ -129,7 +130,7 @@ export function StorageClassList() {
     isFetching,
     refetch,
   } = useResourceList(
-    ["storage-classes"],
+    [toPlural(ResourceType.StorageClass)],
     async () => {
       try {
         return await commands.listStorageClasses(null);
@@ -141,7 +142,7 @@ export function StorageClassList() {
   );
 
   if (!isConnected) {
-    return <ConnectClusterEmptyState resourceLabel="storage classes" />;
+    return <ConnectClusterEmptyState resourceLabel={toPlural(ResourceType.StorageClass)} />;
   }
 
   return (

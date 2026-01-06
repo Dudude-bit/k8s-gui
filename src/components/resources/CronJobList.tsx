@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { ColumnDef } from "@tanstack/react-table";
 import { useMemo, useCallback } from "react";
 import { ResourceList } from "./ResourceList";
+import { ResourceType } from "@/hooks/useResourceWatch";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
 import { MetricBadge } from "@/components/ui/metric-card";
 import { aggregatePodMetrics } from "@/lib/k8s-quantity";
@@ -134,6 +135,7 @@ export function CronJobList() {
       emptyStateLabel="cronjobs"
       staleTime={10000}
       refetchInterval={15000}
+      watchResourceType={ResourceType.CronJob}
     />
   );
 }

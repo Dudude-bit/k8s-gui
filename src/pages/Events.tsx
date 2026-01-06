@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import * as commands from "@/generated/commands";
 import type { EventInfo, EventFilters } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
+import { ResourceType, toPlural } from "@/lib/resource-types";
 
 export function Events() {
   const { isConnected, currentNamespace } = useClusterStore();
@@ -37,7 +38,7 @@ export function Events() {
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ["events", currentNamespace, eventType, eventLimit],
+    queryKey: [toPlural(ResourceType.Event), currentNamespace, eventType, eventLimit],
     queryFn: async () => {
       const limit = eventLimit === "all" ? null : Number(eventLimit);
       const filters: EventFilters = {
@@ -62,7 +63,7 @@ export function Events() {
   });
 
   if (!isConnected) {
-    return <ConnectClusterEmptyState resourceLabel="events" />;
+    return <ConnectClusterEmptyState resourceLabel={toPlural(ResourceType.Event)} />;
   }
 
   const warningCount = events.filter((e) => e.type === "Warning").length;

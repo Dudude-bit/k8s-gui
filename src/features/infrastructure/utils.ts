@@ -11,23 +11,24 @@ import {
   ConfigMapResourceData,
   SecretResourceData,
 } from "./types";
+import { ResourceType } from "@/lib/resource-types";
 
 export const RESOURCE_KINDS: ResourceKind[] = [
-  "Pod",
-  "Deployment",
-  "Service",
-  "Ingress",
-  "ConfigMap",
-  "Secret",
+  ResourceType.Pod,
+  ResourceType.Deployment,
+  ResourceType.Service,
+  ResourceType.Ingress,
+  ResourceType.ConfigMap,
+  ResourceType.Secret,
 ];
 
 const DEFAULT_API_VERSION: Record<ResourceKind, string> = {
-  Pod: "v1",
-  Deployment: "apps/v1",
-  Service: "v1",
-  Ingress: "networking.k8s.io/v1",
-  ConfigMap: "v1",
-  Secret: "v1",
+  [ResourceType.Pod]: "v1",
+  [ResourceType.Deployment]: "apps/v1",
+  [ResourceType.Service]: "v1",
+  [ResourceType.Ingress]: "networking.k8s.io/v1",
+  [ResourceType.ConfigMap]: "v1",
+  [ResourceType.Secret]: "v1",
 };
 
 const DEFAULT_NAMESPACE = "default";
@@ -150,7 +151,7 @@ export const createDefaultResourceData = (
 ): ResourceNodeData => {
   const ns = namespace || DEFAULT_NAMESPACE;
   switch (kind) {
-    case "Pod":
+    case ResourceType.Pod:
       return {
         kind,
         name,
@@ -160,7 +161,7 @@ export const createDefaultResourceData = (
         image: "nginx:latest",
         ports: [80],
       } satisfies PodResourceData;
-    case "Deployment":
+    case ResourceType.Deployment:
       return {
         kind,
         name,
@@ -171,7 +172,7 @@ export const createDefaultResourceData = (
         image: "nginx:latest",
         ports: [80],
       } satisfies DeploymentResourceData;
-    case "Service":
+    case ResourceType.Service:
       return {
         kind,
         name,
@@ -183,7 +184,7 @@ export const createDefaultResourceData = (
         ports: [80],
         selectors: { app: name },
       } satisfies ServiceResourceData;
-    case "Ingress":
+    case ResourceType.Ingress:
       return {
         kind,
         name,
@@ -196,7 +197,7 @@ export const createDefaultResourceData = (
         serviceName: "",
         servicePort: 80,
       } satisfies IngressResourceData;
-    case "ConfigMap":
+    case ResourceType.ConfigMap:
       return {
         kind,
         name,
@@ -205,7 +206,7 @@ export const createDefaultResourceData = (
         origin: "builder",
         data: { "app.config": "" },
       } satisfies ConfigMapResourceData;
-    case "Secret":
+    case ResourceType.Secret:
       return {
         kind,
         name,
@@ -261,7 +262,7 @@ export const parseManifestYaml = (text: string): ManifestParseResult => {
       const rawManifest = doc as Record<string, unknown>;
 
       switch (kind) {
-        case "Pod": {
+        case ResourceType.Pod: {
           const spec = isRecord(doc.spec) ? doc.spec : {};
           const containers = Array.isArray(spec.containers)
             ? spec.containers
@@ -269,10 +270,10 @@ export const parseManifestYaml = (text: string): ManifestParseResult => {
           const primary = isRecord(containers[0]) ? containers[0] : {};
           const ports = Array.isArray(primary.ports)
             ? primary.ports
-                .map((port) =>
-                  toNumber(isRecord(port) ? port.containerPort : undefined, NaN)
-                )
-                .filter((port) => Number.isFinite(port))
+              .map((port) =>
+                toNumber(isRecord(port) ? port.containerPort : undefined, NaN)
+              )
+              .filter((port) => Number.isFinite(port))
             : [];
           resources.push({
             kind,
@@ -293,7 +294,7 @@ export const parseManifestYaml = (text: string): ManifestParseResult => {
           });
           break;
         }
-        case "Deployment": {
+        case ResourceType.Deployment: {
           const spec = isRecord(doc.spec) ? doc.spec : {};
           const template = isRecord(spec.template) ? spec.template : {};
           const templateMeta = isRecord(template.metadata)
@@ -307,10 +308,10 @@ export const parseManifestYaml = (text: string): ManifestParseResult => {
           const primary = isRecord(containers[0]) ? containers[0] : {};
           const ports = Array.isArray(primary.ports)
             ? primary.ports
-                .map((port) =>
-                  toNumber(isRecord(port) ? port.containerPort : undefined, NaN)
-                )
-                .filter((port) => Number.isFinite(port))
+              .map((port) =>
+                toNumber(isRecord(port) ? port.containerPort : undefined, NaN)
+              )
+              .filter((port) => Number.isFinite(port))
             : [];
           const status = isRecord(doc.status) ? doc.status : {};
           const desired = toNumber(spec.replicas, 1);
@@ -335,14 +336,14 @@ export const parseManifestYaml = (text: string): ManifestParseResult => {
           });
           break;
         }
-        case "Service": {
+        case ResourceType.Service: {
           const spec = isRecord(doc.spec) ? doc.spec : {};
           const ports = Array.isArray(spec.ports)
             ? spec.ports
-                .map((port) =>
-                  toNumber(isRecord(port) ? port.port : undefined, NaN)
-                )
-                .filter((port) => Number.isFinite(port))
+              .map((port) =>
+                toNumber(isRecord(port) ? port.port : undefined, NaN)
+              )
+              .filter((port) => Number.isFinite(port))
             : [];
           resources.push({
             kind,
@@ -364,7 +365,7 @@ export const parseManifestYaml = (text: string): ManifestParseResult => {
           });
           break;
         }
-        case "Ingress": {
+        case ResourceType.Ingress: {
           const spec = isRecord(doc.spec) ? doc.spec : {};
           const rules = Array.isArray(spec.rules) ? spec.rules : [];
           const rule = isRecord(rules[0]) ? rules[0] : {};
@@ -394,7 +395,7 @@ export const parseManifestYaml = (text: string): ManifestParseResult => {
           });
           break;
         }
-        case "ConfigMap": {
+        case ResourceType.ConfigMap: {
           const data = toStringRecord(doc.data);
           resources.push({
             kind,
@@ -407,7 +408,7 @@ export const parseManifestYaml = (text: string): ManifestParseResult => {
           });
           break;
         }
-        case "Secret": {
+        case ResourceType.Secret: {
           const data = toStringRecord(doc.data);
           resources.push({
             kind,
@@ -455,7 +456,7 @@ const withMetadata = (
 const buildPodManifest = (data: PodResourceData) => {
   const base = clone(data.rawManifest ?? {});
   base.apiVersion = base.apiVersion ?? DEFAULT_API_VERSION.Pod;
-  base.kind = "Pod";
+  base.kind = ResourceType.Pod;
   withMetadata(base, data);
   const spec = isRecord(base.spec) ? { ...base.spec } : {};
   const containers = Array.isArray(spec.containers) ? [...spec.containers] : [];
@@ -477,7 +478,7 @@ const buildPodManifest = (data: PodResourceData) => {
 const buildDeploymentManifest = (data: DeploymentResourceData) => {
   const base = clone(data.rawManifest ?? {});
   base.apiVersion = base.apiVersion ?? DEFAULT_API_VERSION.Deployment;
-  base.kind = "Deployment";
+  base.kind = ResourceType.Deployment;
   withMetadata(base, data);
   const spec = isRecord(base.spec) ? { ...base.spec } : {};
   spec.replicas = data.replicas;
@@ -516,7 +517,7 @@ const buildDeploymentManifest = (data: DeploymentResourceData) => {
 const buildServiceManifest = (data: ServiceResourceData) => {
   const base = clone(data.rawManifest ?? {});
   base.apiVersion = base.apiVersion ?? DEFAULT_API_VERSION.Service;
-  base.kind = "Service";
+  base.kind = ResourceType.Service;
   withMetadata(base, data);
   const spec = isRecord(base.spec) ? { ...base.spec } : {};
   spec.type = data.serviceType;
@@ -535,7 +536,7 @@ const buildServiceManifest = (data: ServiceResourceData) => {
 const buildIngressManifest = (data: IngressResourceData) => {
   const base = clone(data.rawManifest ?? {});
   base.apiVersion = base.apiVersion ?? DEFAULT_API_VERSION.Ingress;
-  base.kind = "Ingress";
+  base.kind = ResourceType.Ingress;
   withMetadata(base, data);
   const spec = isRecord(base.spec) ? { ...base.spec } : {};
   const backendServiceName = data.serviceName || "service";
@@ -567,7 +568,7 @@ const buildIngressManifest = (data: IngressResourceData) => {
 const buildConfigMapManifest = (data: ConfigMapResourceData) => {
   const base = clone(data.rawManifest ?? {});
   base.apiVersion = base.apiVersion ?? DEFAULT_API_VERSION.ConfigMap;
-  base.kind = "ConfigMap";
+  base.kind = ResourceType.ConfigMap;
   withMetadata(base, data);
   base.data = data.data;
   return base;
@@ -576,7 +577,7 @@ const buildConfigMapManifest = (data: ConfigMapResourceData) => {
 const buildSecretManifest = (data: SecretResourceData) => {
   const base = clone(data.rawManifest ?? {});
   base.apiVersion = base.apiVersion ?? DEFAULT_API_VERSION.Secret;
-  base.kind = "Secret";
+  base.kind = ResourceType.Secret;
   withMetadata(base, data);
   base.type = data.secretType || "Opaque";
   base.data = data.data;
@@ -589,17 +590,17 @@ export const buildManifestYaml = (
 ) => {
   const manifests = resources.map((resource) => {
     switch (resource.kind) {
-      case "Pod":
+      case ResourceType.Pod:
         return buildPodManifest(resource);
-      case "Deployment":
+      case ResourceType.Deployment:
         return buildDeploymentManifest(resource);
-      case "Service":
+      case ResourceType.Service:
         return buildServiceManifest(resource);
-      case "Ingress":
+      case ResourceType.Ingress:
         return buildIngressManifest(resource);
-      case "ConfigMap":
+      case ResourceType.ConfigMap:
         return buildConfigMapManifest(resource);
-      case "Secret":
+      case ResourceType.Secret:
         return buildSecretManifest(resource);
       default:
         return null;
@@ -630,7 +631,7 @@ export const buildEdgesFromResources = (nodes: Node<ResourceNodeData>[]) => {
   const edges: Edge[] = [];
 
   nodes.forEach((node) => {
-    if (node.data.kind !== "Ingress") {
+    if (node.data.kind !== ResourceType.Ingress) {
       return;
     }
     const serviceName = node.data.serviceName;
@@ -639,7 +640,7 @@ export const buildEdgesFromResources = (nodes: Node<ResourceNodeData>[]) => {
     }
     const target = nodes.find(
       (candidate) =>
-        candidate.data.kind === "Service" &&
+        candidate.data.kind === ResourceType.Service &&
         candidate.data.name === serviceName &&
         candidate.data.namespace === node.data.namespace
     );
@@ -654,7 +655,7 @@ export const buildEdgesFromResources = (nodes: Node<ResourceNodeData>[]) => {
   });
 
   nodes.forEach((node) => {
-    if (node.data.kind !== "Service") {
+    if (node.data.kind !== ResourceType.Service) {
       return;
     }
     const selectors = node.data.selectors;
@@ -663,8 +664,8 @@ export const buildEdgesFromResources = (nodes: Node<ResourceNodeData>[]) => {
     }
     nodes.forEach((candidate) => {
       if (
-        candidate.data.kind !== "Pod" &&
-        candidate.data.kind !== "Deployment"
+        candidate.data.kind !== ResourceType.Pod &&
+        candidate.data.kind !== ResourceType.Deployment
       ) {
         return;
       }

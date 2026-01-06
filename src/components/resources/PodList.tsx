@@ -23,6 +23,7 @@ import type { ContainerInfo } from "@/generated/types";
 import * as commands from "@/generated/commands";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { ResourceList } from "./ResourceList";
+import { ResourceType, toPlural } from "@/lib/resource-types";
 
 // Helper to format ready containers count
 function formatReady(containers: ContainerInfo[]): string {
@@ -41,7 +42,7 @@ export function PodList() {
 
   const columns = useMemo<ColumnDef<PodWithMetrics>[]>(
     () => [
-      createNameColumn<PodWithMetrics>("/pod"),
+      createNameColumn<PodWithMetrics>(`/${toPlural(ResourceType.Pod)}`),
       createNamespaceColumn<PodWithMetrics>(),
       {
         id: "status",
@@ -107,7 +108,7 @@ export function PodList() {
       // We use the same query key structure but include podsWithMetrics length/content hash to force update
       // when the hook updates.
       queryKey={[
-        "pods-list-view",
+        `${toPlural(ResourceType.Pod)}-list-view`,
         currentNamespace,
         JSON.stringify(podsWithMetrics.map((p) => p.name)),
       ]}
@@ -120,7 +121,7 @@ export function PodList() {
             <ActionMenu>
               <DropdownMenuItem asChild>
                 <Link
-                  to={`/pod/${row.original.namespace}/${row.original.name}`}
+                  to={`/${toPlural(ResourceType.Pod)}/${row.original.namespace}/${row.original.name}`}
                 >
                   <Eye className="mr-2 h-4 w-4" />
                   View Details
@@ -146,7 +147,7 @@ export function PodList() {
           ),
         },
       ]}
-      emptyStateLabel="pods"
+      emptyStateLabel={toPlural(ResourceType.Pod)}
       deleteConfig={{
         mutationFn: async (item) => {
           try {
@@ -155,10 +156,11 @@ export function PodList() {
             throw new Error(normalizeTauriError(err));
           }
         },
-        invalidateQueryKeys: [["pods"]],
-        resourceType: "Pod",
+        invalidateQueryKeys: [[toPlural(ResourceType.Pod)]],
+        resourceType: ResourceType.Pod,
       }}
       staleTime={10000}
+      watchResourceType={ResourceType.Pod}
     />
   );
 }

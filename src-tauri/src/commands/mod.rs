@@ -28,6 +28,7 @@ pub mod stats;
 pub mod storage;
 pub mod terminal;
 pub mod validation;
+pub mod watch;
 pub mod workloads;
 pub mod logging;
 
@@ -56,5 +57,6 @@ pub use stats::*;
 pub use storage::*;
 pub use terminal::*;
 pub use validation::*;
+pub use watch::*;
 pub use workloads::*;
 pub use logging::*;

@@ -1,10 +1,12 @@
+import { ResourceType } from "@/lib/resource-types";
+
 export type ResourceKind =
-  | "Pod"
-  | "Deployment"
-  | "Service"
-  | "Ingress"
-  | "ConfigMap"
-  | "Secret";
+  | typeof ResourceType.Pod
+  | typeof ResourceType.Deployment
+  | typeof ResourceType.Service
+  | typeof ResourceType.Ingress
+  | typeof ResourceType.ConfigMap
+  | typeof ResourceType.Secret;
 
 export interface BaseResourceData {
   kind: ResourceKind;
@@ -17,20 +19,20 @@ export interface BaseResourceData {
 }
 
 export interface PodResourceData extends BaseResourceData {
-  kind: "Pod";
+  kind: typeof ResourceType.Pod;
   image: string;
   ports: number[];
 }
 
 export interface DeploymentResourceData extends BaseResourceData {
-  kind: "Deployment";
+  kind: typeof ResourceType.Deployment;
   replicas: number;
   image: string;
   ports: number[];
 }
 
 export interface ServiceResourceData extends BaseResourceData {
-  kind: "Service";
+  kind: typeof ResourceType.Service;
   serviceType: "ClusterIP" | "NodePort" | "LoadBalancer";
   sessionAffinity: "None" | "ClientIP";
   ports: number[];
@@ -38,7 +40,7 @@ export interface ServiceResourceData extends BaseResourceData {
 }
 
 export interface IngressResourceData extends BaseResourceData {
-  kind: "Ingress";
+  kind: typeof ResourceType.Ingress;
   host: string;
   path: string;
   pathType: "Prefix" | "Exact" | "ImplementationSpecific";
@@ -47,12 +49,12 @@ export interface IngressResourceData extends BaseResourceData {
 }
 
 export interface ConfigMapResourceData extends BaseResourceData {
-  kind: "ConfigMap";
+  kind: typeof ResourceType.ConfigMap;
   data: Record<string, string>;
 }
 
 export interface SecretResourceData extends BaseResourceData {
-  kind: "Secret";
+  kind: typeof ResourceType.Secret;
   secretType: string;
   data: Record<string, string>;
 }

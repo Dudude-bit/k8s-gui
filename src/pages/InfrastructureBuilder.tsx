@@ -60,6 +60,7 @@ import {
 } from "lucide-react";
 import * as commands from "@/generated/commands";
 import { normalizeTauriError } from "@/lib/error-utils";
+import { ResourceType } from "@/lib/resource-types";
 
 const LOCAL_CONTEXT = "__local__";
 const GRID_SPACING_X = 260;
@@ -71,10 +72,10 @@ const layoutPosition = (index: number) => ({
 });
 
 const isValidConnection = (source: ResourceKind, target: ResourceKind) => {
-  if (source === "Ingress" && target === "Service") {
+  if (source === ResourceType.Ingress && target === ResourceType.Service) {
     return true;
   }
-  if (source === "Service" && (target === "Pod" || target === "Deployment")) {
+  if (source === ResourceType.Service && (target === ResourceType.Pod || target === ResourceType.Deployment)) {
     return true;
   }
   return false;
@@ -471,8 +472,8 @@ export function InfrastructureBuilder() {
       }
       onConnect(connection);
       if (
-        sourceNode.data.kind === "Ingress" &&
-        targetNode.data.kind === "Service"
+        sourceNode.data.kind === ResourceType.Ingress &&
+        targetNode.data.kind === ResourceType.Service
       ) {
         updateNode(sourceNode.id, {
           serviceName: targetNode.data.name,
@@ -480,8 +481,8 @@ export function InfrastructureBuilder() {
         });
       }
       if (
-        sourceNode.data.kind === "Service" &&
-        targetNode.data.kind !== "Service"
+        sourceNode.data.kind === ResourceType.Service &&
+        targetNode.data.kind !== ResourceType.Service
       ) {
         const selectors = sourceNode.data.selectors;
         if (
@@ -703,7 +704,7 @@ export function InfrastructureBuilder() {
       pods.forEach((pod) => {
         const container = pod.containers?.[0];
         resources.push({
-          kind: "Pod",
+          kind: ResourceType.Pod,
           name: pod.name,
           namespace: pod.namespace,
           labels: pod.labels || {},
@@ -716,7 +717,7 @@ export function InfrastructureBuilder() {
       deployments.forEach((deployment) => {
         const container = deployment.containers?.[0];
         resources.push({
-          kind: "Deployment",
+          kind: ResourceType.Deployment,
           name: deployment.name,
           namespace: deployment.namespace,
           labels: deployment.labels || {},
@@ -726,14 +727,14 @@ export function InfrastructureBuilder() {
           ports: container?.ports || [],
           status:
             deployment.replicas?.available >=
-            (deployment.replicas?.desired ?? 1)
+              (deployment.replicas?.desired ?? 1)
               ? "Available"
               : "Progressing",
         });
       });
       services.forEach((service) => {
         resources.push({
-          kind: "Service",
+          kind: ResourceType.Service,
           name: service.name,
           namespace: service.namespace,
           labels: service.labels || {},
@@ -757,7 +758,7 @@ export function InfrastructureBuilder() {
             ? portValue
             : Number.parseInt(String(portValue), 10) || 80;
         resources.push({
-          kind: "Ingress",
+          kind: ResourceType.Ingress,
           name: ingress.name,
           namespace: ingress.namespace,
           labels: {},
@@ -781,7 +782,7 @@ export function InfrastructureBuilder() {
           {}
         );
         resources.push({
-          kind: "ConfigMap",
+          kind: ResourceType.ConfigMap,
           name: configmap.name,
           namespace: configmap.namespace,
           labels: configmap.labels || {},
@@ -798,7 +799,7 @@ export function InfrastructureBuilder() {
           {}
         );
         resources.push({
-          kind: "Secret",
+          kind: ResourceType.Secret,
           name: secret.name,
           namespace: secret.namespace,
           labels: secret.labels || {},
@@ -850,7 +851,7 @@ export function InfrastructureBuilder() {
         const suffix = crypto.randomUUID().slice(0, 4);
         const appLabel = `web-${suffix}`;
         const deployment = addResource(
-          "Deployment",
+          ResourceType.Deployment,
           makePosition(0),
           namespace
         );
@@ -860,14 +861,14 @@ export function InfrastructureBuilder() {
           replicas: 2,
           image: "nginx:latest",
         });
-        const service = addResource("Service", makePosition(1), namespace);
+        const service = addResource(ResourceType.Service, makePosition(1), namespace);
         updateNode(service.id, {
           name: `${appLabel}-svc`,
           labels: { app: appLabel },
           selectors: { app: appLabel },
           ports: [80],
         });
-        const ingress = addResource("Ingress", makePosition(2), namespace);
+        const ingress = addResource(ResourceType.Ingress, makePosition(2), namespace);
         updateNode(ingress.id, {
           name: `${appLabel}-ing`,
           serviceName: `${appLabel}-svc`,
@@ -892,14 +893,14 @@ export function InfrastructureBuilder() {
       if (templateId === "config-backed-app") {
         const suffix = crypto.randomUUID().slice(0, 4);
         const appLabel = `cfg-${suffix}`;
-        const config = addResource("ConfigMap", makePosition(0), namespace);
+        const config = addResource(ResourceType.ConfigMap, makePosition(0), namespace);
         updateNode(config.id, {
           name: `${appLabel}-config`,
           labels: { app: appLabel },
           data: { "app.config": "" },
         });
         const deployment = addResource(
-          "Deployment",
+          ResourceType.Deployment,
           makePosition(1),
           namespace
         );
@@ -909,7 +910,7 @@ export function InfrastructureBuilder() {
           image: "nginx:latest",
           ports: [80],
         });
-        const service = addResource("Service", makePosition(2), namespace);
+        const service = addResource(ResourceType.Service, makePosition(2), namespace);
         updateNode(service.id, {
           name: `${appLabel}-svc`,
           selectors: { app: appLabel },
@@ -1088,11 +1089,11 @@ export function InfrastructureBuilder() {
                   <MiniMap
                     nodeColor={(node) => {
                       const kind = (node.data as ResourceNodeData).kind;
-                      if (kind === "Service") return "#22c55e";
-                      if (kind === "Deployment") return "#a855f7";
-                      if (kind === "Pod") return "#3b82f6";
-                      if (kind === "Ingress") return "#06b6d4";
-                      if (kind === "ConfigMap") return "#f59e0b";
+                      if (kind === ResourceType.Service) return "#22c55e";
+                      if (kind === ResourceType.Deployment) return "#a855f7";
+                      if (kind === ResourceType.Pod) return "#3b82f6";
+                      if (kind === ResourceType.Ingress) return "#06b6d4";
+                      if (kind === ResourceType.ConfigMap) return "#f59e0b";
                       return "#ef4444";
                     }}
                   />
@@ -1107,11 +1108,10 @@ export function InfrastructureBuilder() {
               </div>
               {lastResult && (
                 <div
-                  className={`rounded-lg border border-border p-3 text-xs ${
-                    lastResult.success
-                      ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
-                      : "bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-200"
-                  }`}
+                  className={`rounded-lg border border-border p-3 text-xs ${lastResult.success
+                    ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
+                    : "bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-200"
+                    }`}
                 >
                   <div className="font-semibold">{lastResult.title}</div>
                   <pre className="mt-2 whitespace-pre-wrap">
@@ -1143,11 +1143,10 @@ export function InfrastructureBuilder() {
               </div>
               {lastResult && (
                 <div
-                  className={`rounded-lg border border-border p-3 text-xs ${
-                    lastResult.success
-                      ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
-                      : "bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-200"
-                  }`}
+                  className={`rounded-lg border border-border p-3 text-xs ${lastResult.success
+                    ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
+                    : "bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-200"
+                    }`}
                 >
                   <div className="font-semibold">{lastResult.title}</div>
                   <pre className="mt-2 whitespace-pre-wrap">

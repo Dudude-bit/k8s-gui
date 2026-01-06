@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import * as commands from "@/generated/commands";
 import { useEffect, useState } from "react";
+import { ResourceType, toPlural } from "@/lib/resource-types";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Overview", path: "/" },
@@ -23,12 +24,12 @@ const navItems = [
     label: "Workloads",
     path: "/workloads",
     children: [
-      { label: "Pods", path: "/workloads/pods" },
-      { label: "Deployments", path: "/workloads/deployments" },
-      { label: "StatefulSets", path: "/workloads/statefulsets" },
-      { label: "DaemonSets", path: "/workloads/daemonsets" },
-      { label: "Jobs", path: "/workloads/jobs" },
-      { label: "CronJobs", path: "/workloads/cronjobs" },
+      { label: "Pods", path: `/workloads/${toPlural(ResourceType.Pod)}` },
+      { label: "Deployments", path: `/workloads/${toPlural(ResourceType.Deployment)}` },
+      { label: "StatefulSets", path: `/workloads/${toPlural(ResourceType.StatefulSet)}` },
+      { label: "DaemonSets", path: `/workloads/${toPlural(ResourceType.DaemonSet)}` },
+      { label: "Jobs", path: `/workloads/${toPlural(ResourceType.Job)}` },
+      { label: "CronJobs", path: `/workloads/${toPlural(ResourceType.CronJob)}` },
     ],
   },
   {
@@ -36,9 +37,9 @@ const navItems = [
     label: "Network",
     path: "/network",
     children: [
-      { label: "Services", path: "/network/services" },
-      { label: "Ingresses", path: "/network/ingresses" },
-      { label: "Endpoints", path: "/network/endpoints" },
+      { label: "Services", path: `/network/${toPlural(ResourceType.Service)}` },
+      { label: "Ingresses", path: `/network/${toPlural(ResourceType.Ingress)}` },
+      { label: "Endpoints", path: `/network/${toPlural(ResourceType.Endpoints)}` },
     ],
   },
   {
@@ -46,9 +47,9 @@ const navItems = [
     label: "Storage",
     path: "/storage",
     children: [
-      { label: "PersistentVolumes", path: "/storage/pvs" },
-      { label: "PersistentVolumeClaims", path: "/storage/pvcs" },
-      { label: "StorageClasses", path: "/storage/classes" },
+      { label: "PersistentVolumes", path: `/storage/${toPlural(ResourceType.PersistentVolume)}` },
+      { label: "PersistentVolumeClaims", path: `/storage/${toPlural(ResourceType.PersistentVolumeClaim)}` },
+      { label: "StorageClasses", path: `/storage/${toPlural(ResourceType.StorageClass)}` },
     ],
   },
   {
@@ -56,12 +57,12 @@ const navItems = [
     label: "Configuration",
     path: "/configuration",
     children: [
-      { label: "ConfigMaps", path: "/configuration/configmaps" },
-      { label: "Secrets", path: "/configuration/secrets" },
+      { label: "ConfigMaps", path: `/configuration/${toPlural(ResourceType.ConfigMap)}` },
+      { label: "Secrets", path: `/configuration/${toPlural(ResourceType.Secret)}` },
       { label: "Builder", path: "/configuration/builder" },
     ],
   },
-  { icon: Server, label: "Nodes", path: "/nodes" },
+  { icon: Server, label: "Nodes", path: `/${toPlural(ResourceType.Node)}` },
   { icon: Activity, label: "Events", path: "/events" },
   { icon: Package, label: "Helm", path: "/helm" },
   { icon: Settings, label: "Settings", path: "/settings" },

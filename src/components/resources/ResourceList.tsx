@@ -8,6 +8,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { useToast } from "@/components/ui/use-toast";
 import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import { useResource } from "@/hooks/useResource";
+import { useResourceWatch, type ResourceKind } from "@/hooks/useResourceWatch";
 import { useClusterStore } from "@/stores/clusterStore";
 
 export interface ResourceDeleteConfig<T> {
@@ -30,8 +31,8 @@ export interface ResourceListProps<
   queryFn: () => Promise<T[]>;
   /** Table column definitions - can use setDeleteTarget from useResourceListDelete hook */
   columns:
-    | ColumnDef<T>[]
-    | ((setDeleteTarget: (item: T) => void) => ColumnDef<T>[]);
+  | ColumnDef<T>[]
+  | ((setDeleteTarget: (item: T) => void) => ColumnDef<T>[]);
   /** Label for empty state (e.g., "pods", "services") */
   emptyStateLabel: string;
   /** Delete configuration */
@@ -42,6 +43,8 @@ export interface ResourceListProps<
   refetchInterval?: number;
   /** Optional custom header actions */
   headerActions?: ReactNode;
+  /** Resource type for real-time watch */
+  watchResourceType?: ResourceKind;
 }
 
 export function ResourceList<T extends { name: string; namespace: string }>({
@@ -54,8 +57,9 @@ export function ResourceList<T extends { name: string; namespace: string }>({
   staleTime,
   refetchInterval,
   headerActions,
+  watchResourceType,
 }: ResourceListProps<T>) {
-  const { isConnected } = useClusterStore();
+  const { isConnected, currentNamespace } = useClusterStore();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [deleteTarget, setDeleteTarget] = useState<T | null>(null);
@@ -68,6 +72,14 @@ export function ResourceList<T extends { name: string; namespace: string }>({
   } = useResource(queryKey, queryFn, {
     staleTime: staleTime ?? 5000,
     refetchInterval,
+  });
+
+  // Real-time watch for automatic updates
+  const { isWatching } = useResourceWatch({
+    resourceType: watchResourceType ?? "",
+    namespace: currentNamespace,
+    enabled: isConnected && !!watchResourceType,
+    queryKeysToInvalidate: deleteConfig?.invalidateQueryKeys ?? [queryKey],
   });
 
   // Delete mutation
@@ -119,6 +131,7 @@ export function ResourceList<T extends { name: string; namespace: string }>({
         isLoading={isLoading}
         onRefresh={() => refetch()}
         actions={headerActions}
+        isWatching={isWatching}
       />
       <DataTable
         columns={resolvedColumns}

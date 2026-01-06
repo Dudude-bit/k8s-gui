@@ -11,12 +11,16 @@ import {
   InfoCard,
 } from "@/components/resources/ResourceDetailLayout";
 import { useResourceDetail } from "@/hooks";
+import { useResourceWatch, ResourceType } from "@/hooks/useResourceWatch";
+import { useClusterStore } from "@/stores/clusterStore";
 import { Network, Globe, Server } from "lucide-react";
 import * as commands from "@/generated/commands";
 import type { ServiceInfo } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
 
 export function ServiceDetail() {
+  const { isConnected } = useClusterStore();
+
   const {
     name,
     namespace,
@@ -31,7 +35,7 @@ export function ServiceDetail() {
     setActiveTab,
     goBack,
   } = useResourceDetail<ServiceInfo>({
-    resourceKind: "Service",
+    resourceKind: ResourceType.Service,
     fetchResource: async (name, ns) => {
       try {
         return await commands.getService(name, ns);
@@ -49,12 +53,20 @@ export function ServiceDetail() {
     defaultTab: "ports",
   });
 
+  // Real-time watch for automatic updates
+  const { isWatching } = useResourceWatch({
+    resourceType: ResourceType.Service,
+    namespace: namespace,
+    enabled: isConnected && !!namespace && !!name,
+    queryKeysToInvalidate: [["service", namespace ?? "", name ?? ""]],
+  });
+
   if (isLoading) {
     return <DetailSkeleton />;
   }
 
   if (error || !service) {
-    return <DetailError error={error} resourceKind="Service" onBack={goBack} />;
+    return <DetailError error={error} resourceKind={ResourceType.Service} onBack={goBack} />;
   }
 
   const ports = service.ports ?? [];
@@ -85,6 +97,7 @@ export function ServiceDetail() {
         onBack={goBack}
         onRefresh={() => refetch()}
         isRefreshing={isFetching}
+        isWatching={isWatching}
       />
 
       {/* Info Cards */}
@@ -195,7 +208,7 @@ export function ServiceDetail() {
           <YamlTabContent
             title="Service YAML"
             yaml={serviceYaml}
-            resourceKind="Service"
+            resourceKind={ResourceType.Service}
             resourceName={name || ""}
             namespace={namespace}
             onCopy={copyYaml}

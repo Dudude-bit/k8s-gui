@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect } from "react";
 import { Route, Routes, useLocation } from "react-router-dom";
+import { ResourceType, toPlural } from "@/lib/resource-types";
 
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { PageSkeleton } from "@/components/ui/skeleton";
@@ -33,8 +34,8 @@ const Storage = lazy(() =>
 const Configuration = lazy(() =>
   import("@/pages/Configuration").then((m) => ({ default: m.Configuration }))
 );
-const Nodes = lazy(() =>
-  import("@/pages/Nodes").then((m) => ({ default: m.Nodes }))
+const NodeList = lazy(() =>
+  import("@/components/resources/NodeList").then((m) => ({ default: m.NodeList }))
 );
 const Events = lazy(() =>
   import("@/pages/Events").then((m) => ({ default: m.Events }))
@@ -141,8 +142,8 @@ export default function App() {
           <Route path="network/*" element={<Network />} />
           <Route path="storage/*" element={<Storage />} />
           <Route path="configuration/*" element={<Configuration />} />
-          <Route path="nodes" element={<Nodes />} />
-          <Route path="nodes/:name" element={<NodeDetail />} />
+          <Route path={toPlural(ResourceType.Node)} element={<NodeList />} />
+          <Route path={`${toPlural(ResourceType.Node)}/:name`} element={<NodeDetail />} />
           <Route path="events" element={<Events />} />
           <Route path="helm" element={<Helm />} />
           <Route path="settings" element={<Settings />} />
@@ -154,12 +155,12 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="pod/:namespace/:name" element={<PodDetail />} />
+          <Route path={`${toPlural(ResourceType.Pod)}/:namespace/:name`} element={<PodDetail />} />
           <Route
-            path="deployment/:namespace/:name"
+            path={`${toPlural(ResourceType.Deployment)}/:namespace/:name`}
             element={<DeploymentDetail />}
           />
-          <Route path="service/:namespace/:name" element={<ServiceDetail />} />
+          <Route path={`${toPlural(ResourceType.Service)}/:namespace/:name`} element={<ServiceDetail />} />
         </Route>
       </Routes>
     </ErrorBoundary>

@@ -1,4 +1,5 @@
 import { Routes, Route } from "react-router-dom";
+import { ResourceType, toPlural } from "@/lib/resource-types";
 import { ServiceList } from "@/components/resources/ServiceList";
 import { IngressList } from "@/components/resources/IngressList";
 import { EndpointsList } from "@/components/resources/EndpointsList";
@@ -6,8 +7,8 @@ import { EndpointsList } from "@/components/resources/EndpointsList";
 export function Network() {
   return (
     <Routes>
-      <Route path="services" element={<ServiceList />} />
-      <Route path="ingresses" element={<IngressList />} />
+      <Route path={toPlural(ResourceType.Service)} element={<ServiceList />} />
+      <Route path={toPlural(ResourceType.Ingress)} element={<IngressList />} />
       <Route path="endpoints" element={<EndpointsList />} />
       <Route index element={<ServiceList />} />
     </Routes>

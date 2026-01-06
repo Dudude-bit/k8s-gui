@@ -9,6 +9,7 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
+
 const statusBadgeVariants = cva(
   "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors",
   {
@@ -90,8 +91,8 @@ const statusBadgeVariants = cva(
 
 export interface StatusBadgeProps
   extends
-    React.HTMLAttributes<HTMLSpanElement>,
-    VariantProps<typeof statusBadgeVariants> {
+  React.HTMLAttributes<HTMLSpanElement>,
+  VariantProps<typeof statusBadgeVariants> {
   /** Status string - will be normalized to match variants */
   status?: string;
   /** Optional dot indicator */
@@ -273,82 +274,5 @@ export function ConditionBadge({
   );
 }
 
-/**
- * ResourceTypeBadge - Badge for Kubernetes resource types
- */
-export type ResourceType =
-  | "pod"
-  | "deployment"
-  | "service"
-  | "configmap"
-  | "secret"
-  | "node"
-  | "namespace"
-  | "ingress"
-  | "pv"
-  | "pvc"
-  | "statefulset"
-  | "daemonset"
-  | "job"
-  | "cronjob";
-
-const resourceTypeColors: Record<ResourceType, string> = {
-  pod: "bg-resource-pod-bg text-resource-pod dark:bg-blue-900/30 dark:text-blue-400",
-  deployment:
-    "bg-resource-deployment-bg text-resource-deployment dark:bg-purple-900/30 dark:text-purple-400",
-  service:
-    "bg-resource-service-bg text-resource-service dark:bg-green-900/30 dark:text-green-400",
-  configmap:
-    "bg-resource-configmap-bg text-resource-configmap dark:bg-yellow-900/30 dark:text-yellow-400",
-  secret:
-    "bg-resource-secret-bg text-resource-secret dark:bg-red-900/30 dark:text-red-400",
-  node: "bg-resource-node-bg text-resource-node dark:bg-gray-900/30 dark:text-gray-400",
-  namespace:
-    "bg-resource-namespace-bg text-resource-namespace dark:bg-cyan-900/30 dark:text-cyan-400",
-  ingress:
-    "bg-resource-ingress-bg text-resource-ingress dark:bg-pink-900/30 dark:text-pink-400",
-  pv: "bg-resource-pv-bg text-resource-pv dark:bg-emerald-900/30 dark:text-emerald-400",
-  pvc: "bg-resource-pvc-bg text-resource-pvc dark:bg-teal-900/30 dark:text-teal-400",
-  statefulset:
-    "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
-  daemonset:
-    "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400",
-  job: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
-  cronjob:
-    "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
-};
-
-export interface ResourceTypeBadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  resourceType: ResourceType;
-  size?: "sm" | "md" | "lg";
-}
-
-export function ResourceTypeBadge({
-  resourceType,
-  size = "md",
-  className,
-  children,
-  ...props
-}: ResourceTypeBadgeProps) {
-  const sizeClasses = {
-    sm: "px-2 py-0.5 text-xs",
-    md: "px-2.5 py-0.5 text-xs",
-    lg: "px-3 py-1 text-sm",
-  };
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full font-medium transition-colors",
-        sizeClasses[size],
-        resourceTypeColors[resourceType],
-        className
-      )}
-      {...props}
-    >
-      {children ?? resourceType.charAt(0).toUpperCase() + resourceType.slice(1)}
-    </span>
-  );
-}
 
 export { statusBadgeVariants };

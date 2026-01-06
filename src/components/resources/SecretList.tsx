@@ -14,6 +14,7 @@ import { YamlViewerAction } from "@/components/ui/yaml-viewer";
 import { YamlEditorMenuAction } from "@/components/ui/yaml-editor";
 import type { SecretInfo } from "@/generated/types";
 import { ResourceList } from "./ResourceList";
+import { ResourceType, toPlural } from "@/lib/resource-types";
 import { useCopyToClipboard } from "@/hooks";
 import {
   createNamespaceColumn,
@@ -79,7 +80,7 @@ export function SecretList() {
   return (
     <ResourceList<SecretInfo>
       title="Secrets"
-      queryKey={["secrets", currentNamespace]}
+      queryKey={[toPlural(ResourceType.Secret), currentNamespace]}
       queryFn={async () => {
         const result = await commands.listSecrets({
           namespace: currentNamespace,
@@ -101,7 +102,7 @@ export function SecretList() {
                 description={`${row.original.namespace}/${row.original.name}`}
                 fetchYaml={() =>
                   fetchResourceYaml(
-                    "Secret",
+                    ResourceType.Secret,
                     row.original.name,
                     row.original.namespace
                   )
@@ -110,13 +111,13 @@ export function SecretList() {
               <YamlEditorMenuAction
                 title={`Edit Secret: ${row.original.name}`}
                 resourceKey={{
-                  kind: "Secret",
+                  kind: ResourceType.Secret,
                   name: row.original.name,
                   namespace: row.original.namespace,
                 }}
                 fetchYaml={() =>
                   fetchResourceYaml(
-                    "Secret",
+                    ResourceType.Secret,
                     row.original.name,
                     row.original.namespace
                   )
@@ -143,10 +144,11 @@ export function SecretList() {
         mutationFn: async (item) => {
           await commands.deleteSecret(item.name, item.namespace);
         },
-        invalidateQueryKeys: [["secrets"]],
-        resourceType: "Secret",
+        invalidateQueryKeys: [[toPlural(ResourceType.Secret)]],
+        resourceType: ResourceType.Secret,
       }}
       staleTime={10000}
+      watchResourceType={ResourceType.Secret}
     />
   );
 }

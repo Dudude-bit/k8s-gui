@@ -11,6 +11,7 @@ import {
 import { useMemo } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceList } from "./ResourceList";
+import { ResourceType, toPlural } from "@/lib/resource-types";
 import type { ServiceInfo, ServicePortInfo } from "@/generated/types";
 import {
   createNameColumn,
@@ -37,7 +38,7 @@ export function ServiceList() {
 
   const columns = useMemo<ColumnDef<ServiceInfo>[]>(
     () => [
-      createNameColumn<ServiceInfo>("/services"),
+      createNameColumn<ServiceInfo>(`/${toPlural(ResourceType.Service)}`),
       createNamespaceColumn<ServiceInfo>(),
       createTypeBadgeColumn<ServiceInfo>(),
       {
@@ -90,7 +91,7 @@ export function ServiceList() {
   return (
     <ResourceList<ServiceInfo>
       title="Services"
-      queryKey={["services", currentNamespace]}
+      queryKey={[toPlural(ResourceType.Service), currentNamespace]}
       queryFn={async () => {
         const result = await commands.listServices({
           namespace: currentNamespace,
@@ -109,7 +110,7 @@ export function ServiceList() {
             <ActionMenu>
               <DropdownMenuItem asChild>
                 <Link
-                  to={`/service/${row.original.namespace}/${row.original.name}`}
+                  to={`/${toPlural(ResourceType.Service)}/${row.original.namespace}/${row.original.name}`}
                 >
                   <Eye className="mr-2 h-4 w-4" />
                   View Details
@@ -127,15 +128,16 @@ export function ServiceList() {
           ),
         },
       ]}
-      emptyStateLabel="services"
+      emptyStateLabel={toPlural(ResourceType.Service)}
       deleteConfig={{
         mutationFn: async (item) => {
           await commands.deleteService(item.name, item.namespace);
         },
-        invalidateQueryKeys: [["services"]],
-        resourceType: "Service",
+        invalidateQueryKeys: [[toPlural(ResourceType.Service)]],
+        resourceType: ResourceType.Service,
       }}
       staleTime={10000}
+      watchResourceType={ResourceType.Service}
     />
   );
 }

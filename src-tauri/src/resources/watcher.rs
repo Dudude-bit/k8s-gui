@@ -81,36 +81,21 @@ where
         K: ResourceExt + Serialize,
     {
         let app_event = match event {
-            WatchEvent::Added(resource) => {
-                let _name = resource.name_any();
-                let _namespace = resource.namespace().unwrap_or_default();
-
-                AppEvent::WatchEvent {
-                    watch_id: watch_id.to_string(),
-                    event_type: "ADDED".to_string(),
-                    resource: serde_json::to_value(&resource)?,
-                }
-            }
-            WatchEvent::Modified(resource) => {
-                let _name = resource.name_any();
-                let _namespace = resource.namespace().unwrap_or_default();
-
-                AppEvent::WatchEvent {
-                    watch_id: watch_id.to_string(),
-                    event_type: "MODIFIED".to_string(),
-                    resource: serde_json::to_value(&resource)?,
-                }
-            }
-            WatchEvent::Deleted(resource) => {
-                let _name = resource.name_any();
-                let _namespace = resource.namespace().unwrap_or_default();
-
-                AppEvent::WatchEvent {
-                    watch_id: watch_id.to_string(),
-                    event_type: "DELETED".to_string(),
-                    resource: serde_json::to_value(&resource)?,
-                }
-            }
+            WatchEvent::Added(resource) => AppEvent::WatchEvent {
+                watch_id: watch_id.to_string(),
+                event_type: "ADDED".to_string(),
+                resource: serde_json::to_value(&resource)?,
+            },
+            WatchEvent::Modified(resource) => AppEvent::WatchEvent {
+                watch_id: watch_id.to_string(),
+                event_type: "MODIFIED".to_string(),
+                resource: serde_json::to_value(&resource)?,
+            },
+            WatchEvent::Deleted(resource) => AppEvent::WatchEvent {
+                watch_id: watch_id.to_string(),
+                event_type: "DELETED".to_string(),
+                resource: serde_json::to_value(&resource)?,
+            },
             WatchEvent::Bookmark(_) => {
                 return Ok(());
             }

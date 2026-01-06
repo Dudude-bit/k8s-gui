@@ -10,6 +10,7 @@ import {
 import { useMemo } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceList } from "./ResourceList";
+import { ResourceType, toPlural } from "@/lib/resource-types";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { MetricBadge } from "@/components/ui/metric-card";
@@ -75,7 +76,7 @@ export function DeploymentList() {
 
   const columns = useMemo<ColumnDef<DeploymentInfoWithMetrics>[]>(
     () => [
-      createNameColumn<DeploymentInfoWithMetrics>("/deployment"),
+      createNameColumn<DeploymentInfoWithMetrics>(`/${toPlural(ResourceType.Deployment)}`),
       createNamespaceColumn<DeploymentInfoWithMetrics>(),
       {
         id: "cpu",
@@ -120,7 +121,7 @@ export function DeploymentList() {
     <ResourceList<DeploymentInfoWithMetrics>
       title="Deployments"
       queryKey={[
-        "deployments",
+        toPlural(ResourceType.Deployment),
         currentNamespace,
         JSON.stringify(podsWithMetrics.map((p) => p.name)),
       ]}
@@ -133,7 +134,7 @@ export function DeploymentList() {
             <ActionMenu>
               <DropdownMenuItem asChild>
                 <Link
-                  to={`/deployment/${row.original.namespace}/${row.original.name}`}
+                  to={`/${toPlural(ResourceType.Deployment)}/${row.original.namespace}/${row.original.name}`}
                 >
                   <Eye className="mr-2 h-4 w-4" />
                   View Details
@@ -159,7 +160,7 @@ export function DeploymentList() {
           ),
         },
       ]}
-      emptyStateLabel="deployments"
+      emptyStateLabel={toPlural(ResourceType.Deployment)}
       deleteConfig={{
         mutationFn: async (item) => {
           try {
@@ -168,11 +169,12 @@ export function DeploymentList() {
             throw new Error(normalizeTauriError(err));
           }
         },
-        invalidateQueryKeys: [["deployments"]],
-        resourceType: "Deployment",
+        invalidateQueryKeys: [[toPlural(ResourceType.Deployment)]],
+        resourceType: ResourceType.Deployment,
       }}
       staleTime={10000}
       refetchInterval={15000}
+      watchResourceType={ResourceType.Deployment}
     />
   );
 }

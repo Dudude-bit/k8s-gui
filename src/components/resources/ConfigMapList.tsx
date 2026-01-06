@@ -13,6 +13,7 @@ import { YamlViewerAction } from "@/components/ui/yaml-viewer";
 import { YamlEditorMenuAction } from "@/components/ui/yaml-editor";
 import type { ConfigMapInfo } from "@/generated/types";
 import { ResourceList } from "./ResourceList";
+import { ResourceType, toPlural } from "@/lib/resource-types";
 import { useCopyToClipboard } from "@/hooks";
 import {
   createSimpleNameColumn,
@@ -53,7 +54,7 @@ export function ConfigMapList() {
   return (
     <ResourceList<ConfigMapInfo>
       title="ConfigMaps"
-      queryKey={["configmaps", currentNamespace]}
+      queryKey={[toPlural(ResourceType.ConfigMap), currentNamespace]}
       queryFn={async () => {
         const result = await commands.listConfigmaps({
           namespace: currentNamespace,
@@ -74,7 +75,7 @@ export function ConfigMapList() {
                 description={`${row.original.namespace}/${row.original.name}`}
                 fetchYaml={() =>
                   fetchResourceYaml(
-                    "ConfigMap",
+                    ResourceType.ConfigMap,
                     row.original.name,
                     row.original.namespace
                   )
@@ -83,13 +84,13 @@ export function ConfigMapList() {
               <YamlEditorMenuAction
                 title={`Edit ConfigMap: ${row.original.name}`}
                 resourceKey={{
-                  kind: "ConfigMap",
+                  kind: ResourceType.ConfigMap,
                   name: row.original.name,
                   namespace: row.original.namespace,
                 }}
                 fetchYaml={() =>
                   fetchResourceYaml(
-                    "ConfigMap",
+                    ResourceType.ConfigMap,
                     row.original.name,
                     row.original.namespace
                   )
@@ -120,10 +121,11 @@ export function ConfigMapList() {
         mutationFn: async (item) => {
           await commands.deleteConfigmap(item.name, item.namespace);
         },
-        invalidateQueryKeys: [["configmaps"]],
-        resourceType: "ConfigMap",
+        invalidateQueryKeys: [[toPlural(ResourceType.ConfigMap)]],
+        resourceType: ResourceType.ConfigMap,
       }}
       staleTime={10000}
+      watchResourceType={ResourceType.ConfigMap}
     />
   );
 }

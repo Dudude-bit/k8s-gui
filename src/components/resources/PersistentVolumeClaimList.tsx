@@ -20,6 +20,7 @@ import { ActionMenu } from "@/components/ui/action-menu";
 import * as commands from "@/generated/commands";
 import type { PersistentVolumeClaimInfo } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
+import { ResourceType, toPlural } from "@/lib/resource-types";
 
 const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
   {
@@ -112,7 +113,7 @@ export function PersistentVolumeClaimList() {
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ["persistent-volume-claims", currentNamespace],
+    queryKey: [toPlural(ResourceType.PersistentVolumeClaim), currentNamespace],
     queryFn: async () => {
       try {
         return await commands.listPersistentVolumeClaims({
@@ -133,7 +134,7 @@ export function PersistentVolumeClaimList() {
 
   if (!isConnected) {
     return (
-      <ConnectClusterEmptyState resourceLabel="persistent volume claims" />
+      <ConnectClusterEmptyState resourceLabel={toPlural(ResourceType.PersistentVolumeClaim)} />
     );
   }
 

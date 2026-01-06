@@ -32,6 +32,7 @@ import type {
   RegistrySearchRequest,
 } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
+import { ResourceType } from "@/lib/resource-types";
 
 const SERVICE_TYPE_OPTIONS = ["ClusterIP", "NodePort", "LoadBalancer"] as const;
 const SERVICE_SESSION_AFFINITY_OPTIONS = ["None", "ClientIP"] as const;
@@ -332,18 +333,18 @@ export function InspectorPanel({
     }
     setLabelRows(recordToRows(node.data.labels));
     setSelectorRows(
-      node.data.kind === "Service" ? recordToRows(node.data.selectors) : []
+      node.data.kind === ResourceType.Service ? recordToRows(node.data.selectors) : []
     );
     setConfigMapRows(
-      node.data.kind === "ConfigMap" ? recordToRows(node.data.data) : []
+      node.data.kind === ResourceType.ConfigMap ? recordToRows(node.data.data) : []
     );
     setSecretRows(
-      node.data.kind === "Secret" ? recordToRows(node.data.data) : []
+      node.data.kind === ResourceType.Secret ? recordToRows(node.data.data) : []
     );
     if (
-      node.data.kind === "Service" ||
-      node.data.kind === "Pod" ||
-      node.data.kind === "Deployment"
+      node.data.kind === ResourceType.Service ||
+      node.data.kind === ResourceType.Pod ||
+      node.data.kind === ResourceType.Deployment
     ) {
       setPortsText(formatPorts(node.data.ports));
     } else {
@@ -360,12 +361,12 @@ export function InspectorPanel({
   }
 
   const isPresetSecretType = SECRET_TYPE_OPTIONS.includes(
-    node.data.kind === "Secret"
+    node.data.kind === ResourceType.Secret
       ? (node.data.secretType as (typeof SECRET_TYPE_OPTIONS)[number])
       : "Opaque"
   );
   const secretTypeValue =
-    node.data.kind === "Secret" && isPresetSecretType
+    node.data.kind === ResourceType.Secret && isPresetSecretType
       ? node.data.secretType
       : "custom";
   const namespaceValue = node.data.namespace.trim();
@@ -534,7 +535,7 @@ export function InspectorPanel({
         </div>
       </div>
 
-      {node.data.kind === "Pod" && (
+      {node.data.kind === ResourceType.Pod && (
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="pod-image">Container Image</Label>
@@ -561,7 +562,7 @@ export function InspectorPanel({
         </div>
       )}
 
-      {node.data.kind === "Deployment" && (
+      {node.data.kind === ResourceType.Deployment && (
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="deployment-replicas">Replicas</Label>
@@ -602,7 +603,7 @@ export function InspectorPanel({
         </div>
       )}
 
-      {node.data.kind === "Service" && (
+      {node.data.kind === ResourceType.Service && (
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label>Service Type</Label>
@@ -741,7 +742,7 @@ export function InspectorPanel({
         </div>
       )}
 
-      {node.data.kind === "Ingress" && (
+      {node.data.kind === ResourceType.Ingress && (
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="ingress-host">Host</Label>
@@ -828,7 +829,7 @@ export function InspectorPanel({
         </div>
       )}
 
-      {node.data.kind === "ConfigMap" && (
+      {node.data.kind === ResourceType.ConfigMap && (
         <div className="space-y-1.5">
           <Label>Data</Label>
           <div className="space-y-2">
@@ -894,7 +895,7 @@ export function InspectorPanel({
         </div>
       )}
 
-      {node.data.kind === "Secret" && (
+      {node.data.kind === ResourceType.Secret && (
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="secret-type">Secret Type</Label>

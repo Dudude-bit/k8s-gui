@@ -16,6 +16,7 @@ import {
 import { ActionMenu } from "@/components/ui/action-menu";
 
 import type { EndpointsInfo } from "@/generated/types";
+import { ResourceType, toPlural } from "@/lib/resource-types";
 
 const columns: ColumnDef<EndpointsInfo>[] = [
   {
@@ -173,7 +174,7 @@ export function EndpointsList() {
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ["endpoints", currentNamespace],
+    queryKey: [toPlural(ResourceType.Endpoints), currentNamespace],
     queryFn: async () => {
       return await commands.listEndpoints({
         namespace: currentNamespace || null,
@@ -189,7 +190,7 @@ export function EndpointsList() {
   });
 
   if (!isConnected) {
-    return <ConnectClusterEmptyState resourceLabel="endpoints" />;
+    return <ConnectClusterEmptyState resourceLabel={toPlural(ResourceType.Endpoints)} />;
   }
 
   return (

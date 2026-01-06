@@ -8,6 +8,8 @@ import {
   useCopyToClipboard,
   usePodMetrics,
 } from "@/hooks";
+import { useResourceWatch, ResourceType, toPlural } from "@/hooks/useResourceWatch";
+import { useClusterStore } from "@/stores/clusterStore";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,6 +62,7 @@ export function DeploymentDetail() {
   const { namespace, name } = useParams<{ namespace: string; name: string }>();
   const navigate = useNavigate();
   const copyToClipboard = useCopyToClipboard();
+  const { isConnected } = useClusterStore();
   const [activeTab, setActiveTab] = useState("overview");
   const [scaleDialogOpen, setScaleDialogOpen] = useState(false);
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
@@ -68,6 +71,17 @@ export function DeploymentDetail() {
   const [selectedContainer, setSelectedContainer] = useState("");
   const [selectedLogPod, setSelectedLogPod] = useState<string | null>(null);
   const { hasAccess } = usePremiumFeature();
+
+  // Real-time watch for automatic updates
+  const { isWatching } = useResourceWatch({
+    resourceType: ResourceType.Deployment,
+    namespace: namespace,
+    enabled: isConnected && !!namespace && !!name,
+    queryKeysToInvalidate: [
+      ["deployment", namespace ?? "", name ?? ""],
+      ["deployment-pods", namespace ?? "", name ?? ""],
+    ],
+  });
 
   const {
     data: deployment,
@@ -88,7 +102,7 @@ export function DeploymentDetail() {
   });
 
   const { data: deploymentYaml } = useResourceYaml(
-    "Deployment",
+    ResourceType.Deployment,
     name,
     namespace,
     activeTab
@@ -389,6 +403,7 @@ export function DeploymentDetail() {
             )}
           </>
         }
+        isWatching={isWatching}
         actions={
           <>
             <Button variant="outline" size="sm" onClick={openScaleDialog}>
@@ -437,7 +452,7 @@ export function DeploymentDetail() {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="containers">Containers</TabsTrigger>
-          <TabsTrigger value="pods">Pods</TabsTrigger>
+          <TabsTrigger value={toPlural(ResourceType.Pod)}>Pods</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
           <TabsTrigger value="yaml">YAML</TabsTrigger>
           <TabsTrigger value="conditions">Conditions</TabsTrigger>
@@ -560,7 +575,7 @@ export function DeploymentDetail() {
           </div>
         </TabsContent>
 
-        <TabsContent value="pods">
+        <TabsContent value={toPlural(ResourceType.Pod)}>
           <Card>
             <CardContent className="pt-6">
               <div className="space-y-2">
@@ -633,13 +648,12 @@ export function DeploymentDetail() {
                           <SelectItem key={pod.name} value={pod.name}>
                             <div className="flex items-center gap-2">
                               <span
-                                className={`h-2 w-2 rounded-full ${
-                                  status === "Running"
-                                    ? "bg-green-500"
-                                    : status === "Pending"
-                                      ? "bg-yellow-500"
-                                      : "bg-red-500"
-                                }`}
+                                className={`h-2 w-2 rounded-full ${status === "Running"
+                                  ? "bg-green-500"
+                                  : status === "Pending"
+                                    ? "bg-yellow-500"
+                                    : "bg-red-500"
+                                  }`}
                               />
                               {pod.name}
                             </div>
@@ -679,7 +693,7 @@ export function DeploymentDetail() {
           <YamlTabContent
             title="Deployment YAML"
             yaml={deploymentYaml}
-            resourceKind="Deployment"
+            resourceKind={ResourceType.Deployment}
             resourceName={name || ""}
             namespace={namespace}
             onCopy={copyYaml}

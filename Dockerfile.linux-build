@@ -37,6 +37,8 @@ RUN apt-get update && apt-get install -y \
     file \
     patchelf \
     squashfs-tools \
+    # Desktop integration (xdg-open for URL handling)
+    xdg-utils \
     # Protobuf compiler
     protobuf-compiler \
     # Node.js
@@ -48,12 +50,9 @@ RUN apt-get update && apt-get install -y \
 # Install Tauri CLI
 RUN cargo install tauri-cli --locked
 
-# Install appropriate Rust target
-RUN if [ "$TARGETARCH" = "arm64" ]; then \
-    rustup target add aarch64-unknown-linux-gnu; \
-    else \
-    rustup target add x86_64-unknown-linux-gnu; \
-    fi
+# Install Rust targets for cross-compilation
+# Both targets are installed to allow building for either architecture
+RUN rustup target add x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
 
 # Install AppImage tools (architecture-aware)
 RUN ARCH=$(dpkg --print-architecture) && \

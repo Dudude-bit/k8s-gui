@@ -20,6 +20,8 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { useNodeMetrics } from "@/hooks/useNodeMetrics";
+import { useResourceWatch } from "@/hooks/useResourceWatch";
+import { ResourceType, toPlural } from "@/lib/resource-types";
 import { MetricBadge } from "@/components/ui/metric-card";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { useMemo } from "react";
@@ -46,7 +48,7 @@ export function NodeList() {
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ["nodes"],
+    queryKey: [toPlural(ResourceType.Node)],
     queryFn: async () => {
       try {
         return await commands.listNodes(null);
@@ -63,6 +65,13 @@ export function NodeList() {
 
   // Get node metrics separately for real-time updates
   const { data: nodeMetrics = [] } = useNodeMetrics();
+
+  // Real-time watch for automatic updates
+  const { isWatching } = useResourceWatch({
+    resourceType: ResourceType.Node,
+    enabled: isConnected,
+    queryKeysToInvalidate: [[toPlural(ResourceType.Node)]],
+  });
 
   // Merge nodes with metrics
   const nodesWithMetrics = useMemo(() => {
@@ -85,7 +94,7 @@ export function NodeList() {
       }
     },
     onSuccess: (_, nodeName) => {
-      queryClient.invalidateQueries({ queryKey: ["nodes"] });
+      queryClient.invalidateQueries({ queryKey: [toPlural(ResourceType.Node)] });
       toast({
         title: "Node cordoned",
         description: `Node ${nodeName} has been cordoned.`,
@@ -109,7 +118,7 @@ export function NodeList() {
       }
     },
     onSuccess: (_, nodeName) => {
-      queryClient.invalidateQueries({ queryKey: ["nodes"] });
+      queryClient.invalidateQueries({ queryKey: [toPlural(ResourceType.Node)] });
       toast({
         title: "Node uncordoned",
         description: `Node ${nodeName} has been uncordoned.`,
@@ -133,7 +142,7 @@ export function NodeList() {
       }
     },
     onSuccess: (_, nodeName) => {
-      queryClient.invalidateQueries({ queryKey: ["nodes"] });
+      queryClient.invalidateQueries({ queryKey: [toPlural(ResourceType.Node)] });
       toast({
         title: "Node drained",
         description: `Node ${nodeName} has been drained.`,
@@ -155,7 +164,7 @@ export function NodeList() {
         header: "Name",
         cell: ({ row }) => (
           <Link
-            to={`/node/${row.original.name}`}
+            to={`/${toPlural(ResourceType.Node)}/${row.original.name}`}
             className="font-medium hover:underline flex items-center gap-2"
           >
             {row.original.name}
@@ -260,7 +269,7 @@ export function NodeList() {
         cell: ({ row }) => (
           <ActionMenu>
             <DropdownMenuItem asChild>
-              <Link to={`/node/${row.original.name}`}>
+              <Link to={`/${toPlural(ResourceType.Node)}/${row.original.name}`}>
                 <Eye className="mr-2 h-4 w-4" />
                 View Details
               </Link>
@@ -297,16 +306,17 @@ export function NodeList() {
   );
 
   if (!isConnected) {
-    return <ConnectClusterEmptyState resourceLabel="nodes" />;
+    return <ConnectClusterEmptyState resourceLabel={toPlural(ResourceType.Node)} />;
   }
 
   return (
-    <div className="space-y-4">
+    <div className="h-full space-y-4">
       <ResourceListHeader
         title="Nodes"
         isFetching={isFetching}
         isLoading={isLoading}
         onRefresh={() => refetch()}
+        isWatching={isWatching}
       />
       <DataTable
         columns={columns}

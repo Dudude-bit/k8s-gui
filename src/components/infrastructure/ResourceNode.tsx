@@ -7,22 +7,23 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ResourceNodeData } from "@/features/infrastructure/types";
+import { ResourceType } from "@/lib/resource-types";
 
 const KIND_BADGE_CLASS: Record<ResourceNodeData["kind"], string> = {
-  Pod: "badge-pod",
-  Deployment: "badge-deployment",
-  Service: "badge-service",
-  Ingress: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200",
-  ConfigMap: "badge-configmap",
-  Secret: "badge-secret",
+  [ResourceType.Pod]: "badge-pod",
+  [ResourceType.Deployment]: "badge-deployment",
+  [ResourceType.Service]: "badge-service",
+  [ResourceType.Ingress]: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200",
+  [ResourceType.ConfigMap]: "badge-configmap",
+  [ResourceType.Secret]: "badge-secret",
 };
 
 export function ResourceNode({ data, selected }: NodeProps<ResourceNodeData>) {
-  const showSourceHandle = data.kind === "Ingress" || data.kind === "Service";
+  const showSourceHandle = data.kind === ResourceType.Ingress || data.kind === ResourceType.Service;
   const showTargetHandle =
-    data.kind === "Service" ||
-    data.kind === "Pod" ||
-    data.kind === "Deployment";
+    data.kind === ResourceType.Service ||
+    data.kind === ResourceType.Pod ||
+    data.kind === ResourceType.Deployment;
 
   return (
     <div

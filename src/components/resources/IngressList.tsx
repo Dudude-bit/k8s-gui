@@ -6,6 +6,8 @@ import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-
 import { ColumnDef } from "@tanstack/react-table";
 import { Eye, Trash2, Globe, ExternalLink } from "lucide-react";
 import { useResourceList } from "@/hooks/useResource";
+import { useResourceWatch } from "@/hooks/useResourceWatch";
+import { ResourceType, toPlural } from "@/lib/resource-types";
 import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import {
   DropdownMenuItem,
@@ -201,10 +203,10 @@ export function IngressList() {
     isFetching,
     refetch,
   } = useResourceList(
-    ["ingresses", currentNamespace],
+    [toPlural(ResourceType.Ingress), currentNamespace],
     async () => {
       return await commands.listIngresses({
-        namespace: currentNamespace || null,
+        namespace: currentNamespace ?? null,
         labelSelector: null,
         fieldSelector: null,
         limit: null,
@@ -213,8 +215,16 @@ export function IngressList() {
     { enabled: isConnected }
   );
 
+  // Real-time watch for automatic updates
+  const { isWatching } = useResourceWatch({
+    resourceType: ResourceType.Ingress,
+    namespace: currentNamespace,
+    enabled: isConnected,
+    queryKeysToInvalidate: [[toPlural(ResourceType.Ingress)]],
+  });
+
   if (!isConnected) {
-    return <ConnectClusterEmptyState resourceLabel="ingresses" />;
+    return <ConnectClusterEmptyState resourceLabel={toPlural(ResourceType.Ingress)} />;
   }
 
   return (
@@ -225,6 +235,7 @@ export function IngressList() {
         isFetching={isFetching}
         isLoading={isLoading}
         onRefresh={() => refetch()}
+        isWatching={isWatching}
       />
       <DataTable
         columns={columns}

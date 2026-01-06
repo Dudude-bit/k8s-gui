@@ -7,6 +7,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useClusterStore } from "@/stores/clusterStore";
 import * as commands from "@/generated/commands";
 import type { ResourceListItem, ResourceQuery } from "@/generated/types";
+import { ResourceType, toPlural } from "@/lib/resource-types";
 import {
   Box,
   Network,
@@ -29,37 +30,37 @@ const quickActions = [
   {
     icon: Box,
     label: "Go to Pods",
-    path: "/workloads/pods",
+    path: `/workloads/${toPlural(ResourceType.Pod)}`,
     category: "Navigation",
   },
   {
     icon: Box,
     label: "Go to Deployments",
-    path: "/workloads/deployments",
+    path: `/workloads/${toPlural(ResourceType.Deployment)}`,
     category: "Navigation",
   },
   {
     icon: Network,
     label: "Go to Services",
-    path: "/network/services",
+    path: `/network/${toPlural(ResourceType.Service)}`,
     category: "Navigation",
   },
   {
     icon: Server,
     label: "Go to Nodes",
-    path: "/nodes",
+    path: `/${toPlural(ResourceType.Node)}`,
     category: "Navigation",
   },
   {
     icon: FileText,
     label: "Go to ConfigMaps",
-    path: "/configuration/configmaps",
+    path: `/configuration/${toPlural(ResourceType.ConfigMap)}`,
     category: "Navigation",
   },
   {
     icon: FileText,
     label: "Go to Secrets",
-    path: "/configuration/secrets",
+    path: `/configuration/${toPlural(ResourceType.Secret)}`,
     category: "Navigation",
   },
   {
@@ -168,25 +169,25 @@ export function CommandPalette() {
         const namespace = currentNamespace || null;
         const kinds = [
           {
-            kind: "pods",
+            kind: toPlural(ResourceType.Pod),
             label: "Pod",
             namespaced: true,
             path: (name: string, ns?: string) => `/pod/${ns}/${name}`,
           },
           {
-            kind: "deployments",
+            kind: toPlural(ResourceType.Deployment),
             label: "Deployment",
             namespaced: true,
             path: (name: string, ns?: string) => `/deployment/${ns}/${name}`,
           },
           {
-            kind: "services",
+            kind: toPlural(ResourceType.Service),
             label: "Service",
             namespaced: true,
             path: (name: string, ns?: string) => `/service/${ns}/${name}`,
           },
           {
-            kind: "nodes",
+            kind: toPlural(ResourceType.Node),
             label: "Node",
             namespaced: false,
             path: (name: string) => `/nodes/${name}`,
@@ -397,8 +398,8 @@ export function CommandPalette() {
 
           {(filteredNavigation.length > 0 ||
             filteredQuickCommands.length > 0) && (
-            <div className="my-2 h-px bg-border" />
-          )}
+              <div className="my-2 h-px bg-border" />
+            )}
 
           <div className="space-y-1">
             <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">

@@ -1,4 +1,5 @@
 import { ResourceKind } from "@/features/infrastructure/types";
+import { ResourceType } from "@/lib/resource-types";
 import { Button } from "@/components/ui/button";
 
 interface ResourcePaletteProps {
@@ -11,12 +12,12 @@ interface ResourcePaletteProps {
 }
 
 const RESOURCE_ITEMS: Array<{ kind: ResourceKind; description: string }> = [
-  { kind: "Pod", description: "Single container workload" },
-  { kind: "Deployment", description: "Replicated workload" },
-  { kind: "Service", description: "Stable network endpoint" },
-  { kind: "Ingress", description: "HTTP routing rules" },
-  { kind: "ConfigMap", description: "Configuration data" },
-  { kind: "Secret", description: "Sensitive data" },
+  { kind: ResourceType.Pod, description: "Single container workload" },
+  { kind: ResourceType.Deployment, description: "Replicated workload" },
+  { kind: ResourceType.Service, description: "Stable network endpoint" },
+  { kind: ResourceType.Ingress, description: "HTTP routing rules" },
+  { kind: ResourceType.ConfigMap, description: "Configuration data" },
+  { kind: ResourceType.Secret, description: "Sensitive data" },
 ];
 
 const TEMPLATE_ITEMS = [

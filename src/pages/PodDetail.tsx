@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as commands from "@/generated/commands";
 import { useState, useCallback, useMemo } from "react";
 import { useResourceYaml, useCopyToClipboard, usePodMetrics } from "@/hooks";
+import { useResourceWatch, ResourceType } from "@/hooks/useResourceWatch";
+import { useClusterStore } from "@/stores/clusterStore";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { LicenseErrorBanner } from "@/components/license/LicenseErrorBanner";
 import {
@@ -35,7 +37,6 @@ import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { useToast } from "@/components/ui/use-toast";
 import { Switch } from "@/components/ui/switch";
-import { useClusterStore } from "@/stores/clusterStore";
 import { usePortForwardStore } from "@/stores/portForwardStore";
 import {
   ArrowLeft,
@@ -70,7 +71,7 @@ export function PodDetail() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const copyToClipboard = useCopyToClipboard();
-  const currentContext = useClusterStore((state) => state.currentContext);
+  const { currentContext, isConnected } = useClusterStore();
   const { hasAccess: hasLicenseAccess, checkLicense } = usePremiumFeature();
   const queryClient = useQueryClient();
   const addPortForwardConfig = usePortForwardStore((state) => state.addConfig);
@@ -104,6 +105,14 @@ export function PodDetail() {
     remotePort: "",
     autoReconnect: true,
     saveConfig: true,
+  });
+
+  // Real-time watch for automatic updates
+  const { isWatching } = useResourceWatch({
+    resourceType: ResourceType.Pod,
+    namespace: namespace,
+    enabled: isConnected && !!namespace && !!name,
+    queryKeysToInvalidate: [["pod", namespace ?? "", name ?? ""]],
   });
 
   const {
@@ -227,7 +236,7 @@ export function PodDetail() {
     [savedLabels, namespace, name]
   );
 
-  const { data: podYaml } = useResourceYaml("Pod", name, namespace, activeTab);
+  const { data: podYaml } = useResourceYaml(ResourceType.Pod, name, namespace, activeTab);
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
@@ -477,6 +486,7 @@ export function PodDetail() {
         title={pod.name}
         namespace={pod.namespace}
         badges={<StatusBadge status={pod.status.phase} />}
+        isWatching={isWatching}
         actions={
           <>
             <Tooltip>
@@ -870,7 +880,7 @@ export function PodDetail() {
           <YamlTabContent
             title="Pod YAML"
             yaml={podYaml}
-            resourceKind="Pod"
+            resourceKind={ResourceType.Pod}
             resourceName={name || ""}
             namespace={namespace}
             onCopy={copyYaml}

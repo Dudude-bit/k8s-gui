@@ -30,6 +30,7 @@ import { LicenseErrorBanner } from "@/components/license/LicenseErrorBanner";
 import { getTopPodsByCPU, getTopPodsByMemory } from "@/lib/k8s-quantity";
 import { useMemo } from "react";
 import { normalizeTauriError } from "@/lib/error-utils";
+import { ResourceType, toPlural } from "@/lib/resource-types";
 
 export function ClusterOverview() {
   const { isConnected, currentContext, currentNamespace } = useClusterStore();
@@ -82,7 +83,7 @@ export function ClusterOverview() {
 
   // Get all pods
   const { data: allPods = [] } = useQuery({
-    queryKey: ["pods", undefined],
+    queryKey: [toPlural(ResourceType.Pod), undefined],
     queryFn: async () => {
       try {
         const result = await commands.listPods({
@@ -337,7 +338,7 @@ export function ClusterOverview() {
                     return (
                       <Link
                         key={pod.name}
-                        to={`/pod/${podInfo?.namespace || "default"}/${pod.name}`}
+                        to={`/${toPlural(ResourceType.Pod)}/${podInfo?.namespace || "default"}/${pod.name}`}
                         className="flex items-center justify-between p-2 rounded-md hover:bg-muted transition-colors"
                       >
                         <div className="flex items-center gap-2">
@@ -378,7 +379,7 @@ export function ClusterOverview() {
                     return (
                       <Link
                         key={pod.name}
-                        to={`/pod/${podInfo?.namespace || "default"}/${pod.name}`}
+                        to={`/${toPlural(ResourceType.Pod)}/${podInfo?.namespace || "default"}/${pod.name}`}
                         className="flex items-center justify-between p-2 rounded-md hover:bg-muted transition-colors"
                       >
                         <div className="flex items-center gap-2">
@@ -414,12 +415,12 @@ export function ClusterOverview() {
           <QuickActionButton
             icon={Box}
             label="View Pods"
-            href="/workloads/pods"
+            href={`/workloads/${toPlural(ResourceType.Pod)}`}
           />
           <QuickActionButton
             icon={Box}
             label="View Deployments"
-            href="/workloads/deployments"
+            href={`/workloads/${toPlural(ResourceType.Deployment)}`}
           />
           <QuickActionButton
             icon={Activity}
