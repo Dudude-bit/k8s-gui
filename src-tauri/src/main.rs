@@ -288,6 +288,7 @@ fn main() {
 
             // Logging commands
             commands::logging::log_frontend_event,
+            commands::logging::log_frontend_events_batch,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

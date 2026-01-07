@@ -1,4 +1,13 @@
+/**
+ * Frontend console logger integration
+ *
+ * Intercepts console.* calls and forwards them to the backend logging system.
+ * This allows all frontend logs (including from third-party libraries) to be
+ * captured in the unified backend logging.
+ */
+
 import { logEvent, type LogLevel } from "@/lib/logger";
+import { flushLogs, recoverPendingLogs } from "@/lib/log-queue";
 
 type Cleanup = () => void;
 
@@ -52,7 +61,7 @@ const formatMessage = (args: unknown[]) =>
 
 const formatData = (args: unknown[]) => {
   if (args.length === 0) {
-    return null;
+    return undefined;
   }
   if (args.length === 1) {
     return serializeValue(args[0]);
@@ -66,6 +75,12 @@ function logFrontend(level: LogLevel, args: unknown[], context?: string) {
   logEvent(level, message, { context, data });
 }
 
+/**
+ * Setup frontend logger to intercept console.* calls
+ *
+ * Call this once during app initialization. Returns a cleanup function
+ * that should be called when the app unmounts.
+ */
 export function setupFrontendLogger(): Cleanup | undefined {
   if (typeof window === "undefined") {
     return;
@@ -81,6 +96,13 @@ export function setupFrontendLogger(): Cleanup | undefined {
 
   globalWindow[LOGGER_FLAG] = true;
 
+  // Recover any logs from previous session that may have been lost
+  recoverPendingLogs().then((count) => {
+    if (count > 0) {
+      console.info(`[LogQueue] Recovered ${count} pending log entries`);
+    }
+  });
+
   const original = {
     log: console.log,
     debug: console.debug,
@@ -93,21 +115,21 @@ export function setupFrontendLogger(): Cleanup | undefined {
 
   const wrap =
     (level: LogLevel, fn: (...args: unknown[]) => void) =>
-    (...args: unknown[]) => {
-      fn(...args);
+      (...args: unknown[]) => {
+        fn(...args);
 
-      if (isForwarding) {
-        return;
-      }
+        if (isForwarding) {
+          return;
+        }
 
-      isForwarding = true;
-      const context = window.location?.pathname || "frontend";
-      try {
-        logFrontend(level, args, context);
-      } finally {
-        isForwarding = false;
-      }
-    };
+        isForwarding = true;
+        const context = window.location?.pathname || "frontend";
+        try {
+          logFrontend(level, args, context);
+        } finally {
+          isForwarding = false;
+        }
+      };
 
   console.log = wrap("info", original.log);
   console.debug = wrap("debug", original.debug);
@@ -115,11 +137,18 @@ export function setupFrontendLogger(): Cleanup | undefined {
   console.warn = wrap("warn", original.warn);
   console.error = wrap("error", original.error);
 
+  // Flush logs before page unload
+  const handleBeforeUnload = () => {
+    flushLogs().catch(() => { });
+  };
+  window.addEventListener("beforeunload", handleBeforeUnload);
+
   return () => {
     console.log = original.log;
     console.debug = original.debug;
     console.info = original.info;
     console.warn = original.warn;
     console.error = original.error;
+    window.removeEventListener("beforeunload", handleBeforeUnload);
   };
 }

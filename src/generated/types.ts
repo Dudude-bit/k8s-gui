@@ -484,6 +484,19 @@ export interface ManifestResult {
   exitCode: number;
 }
 
+export interface FrontendLogEntry {
+  level: string;
+  message: string;
+  context: string | null;
+  data: unknown | null;
+  timestamp: number | null;
+}
+
+export interface BatchLogResult {
+  processed: number;
+  failed: number;
+}
+
 export interface HelmRelease {
   name: string;
   namespace: string;

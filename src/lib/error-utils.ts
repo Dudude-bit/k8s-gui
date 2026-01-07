@@ -1,6 +1,176 @@
 /**
- * Utility functions for handling Tauri errors
+ * Utility functions for handling errors with structured normalization
  */
+
+import { logError } from "@/lib/logger";
+
+/**
+ * Normalized error structure for consistent error handling
+ */
+export interface NormalizedError {
+  code: string;
+  message: string;
+  details?: unknown;
+  timestamp: number;
+  context?: string;
+  isRetryable: boolean;
+}
+
+/**
+ * Error codes for categorization
+ */
+export const ERROR_CODES = {
+  UNKNOWN: "UNKNOWN_ERROR",
+  NETWORK: "NETWORK_ERROR",
+  TIMEOUT: "TIMEOUT_ERROR",
+  AUTH: "AUTH_ERROR",
+  PERMISSION: "PERMISSION_DENIED",
+  NOT_FOUND: "NOT_FOUND",
+  VALIDATION: "VALIDATION_ERROR",
+  KUBE_API: "KUBE_API_ERROR",
+  LICENSE: "LICENSE_ERROR",
+  INTERNAL: "INTERNAL_ERROR",
+} as const;
+
+type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
+
+/**
+ * Determine if an error message indicates a retryable error
+ */
+function isRetryableError(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+  return (
+    lowerMessage.includes("timeout") ||
+    lowerMessage.includes("connection") ||
+    lowerMessage.includes("network") ||
+    lowerMessage.includes("token expired")
+  );
+}
+
+/**
+ * Extract error code from error message or structure
+ */
+function extractErrorCode(error: unknown): ErrorCode {
+  if (error && typeof error === "object") {
+    const err = error as Record<string, unknown>;
+
+    // Check for explicit error_code or code field
+    if (typeof err.error_code === "string") {
+      return err.error_code as ErrorCode;
+    }
+    if (typeof err.code === "string") {
+      return err.code as ErrorCode;
+    }
+  }
+
+  const message =
+    typeof error === "string"
+      ? error
+      : error instanceof Error
+        ? error.message
+        : String(error);
+
+  const lowerMessage = message.toLowerCase();
+
+  if (
+    lowerMessage.includes("not authenticated") ||
+    lowerMessage.includes("auth")
+  ) {
+    return ERROR_CODES.AUTH;
+  }
+  if (
+    lowerMessage.includes("permission denied") ||
+    lowerMessage.includes("forbidden")
+  ) {
+    return ERROR_CODES.PERMISSION;
+  }
+  if (lowerMessage.includes("not found")) {
+    return ERROR_CODES.NOT_FOUND;
+  }
+  if (lowerMessage.includes("timeout")) {
+    return ERROR_CODES.TIMEOUT;
+  }
+  if (
+    lowerMessage.includes("network") ||
+    lowerMessage.includes("connection")
+  ) {
+    return ERROR_CODES.NETWORK;
+  }
+  if (
+    lowerMessage.includes("license") ||
+    lowerMessage.includes("premium") ||
+    lowerMessage.includes("subscription")
+  ) {
+    return ERROR_CODES.LICENSE;
+  }
+  if (lowerMessage.includes("kube") || lowerMessage.includes("kubernetes")) {
+    return ERROR_CODES.KUBE_API;
+  }
+  if (
+    lowerMessage.includes("invalid") ||
+    lowerMessage.includes("validation")
+  ) {
+    return ERROR_CODES.VALIDATION;
+  }
+
+  return ERROR_CODES.UNKNOWN;
+}
+
+/**
+ * Normalize any error into a consistent NormalizedError structure
+ *
+ * @param error - Error to normalize (can be any type)
+ * @param context - Optional context string for where the error occurred
+ * @returns Normalized error structure
+ */
+export function normalizeError(
+  error: unknown,
+  context?: string
+): NormalizedError {
+  const message = normalizeTauriError(error);
+  const code = extractErrorCode(error);
+
+  let details: unknown = undefined;
+  if (error && typeof error === "object" && !(error instanceof Error)) {
+    details = error;
+  } else if (error instanceof Error && error.stack) {
+    details = { stack: error.stack };
+  }
+
+  return {
+    code,
+    message,
+    details,
+    timestamp: Date.now(),
+    context,
+    isRetryable: isRetryableError(message),
+  };
+}
+
+/**
+ * Report an error - logs it and returns the normalized form
+ *
+ * @param error - Error to report
+ * @param context - Optional context string
+ * @returns Normalized error
+ */
+export function reportError(
+  error: unknown,
+  context?: string
+): NormalizedError {
+  const normalized = normalizeError(error, context);
+
+  logError(normalized.message, {
+    context: context ?? "error",
+    data: {
+      code: normalized.code,
+      details: normalized.details,
+      isRetryable: normalized.isRetryable,
+    },
+  });
+
+  return normalized;
+}
 
 /**
  * Normalize Tauri error to a readable string message
@@ -78,6 +248,18 @@ export function isPremiumFeatureError(errorMessage: string): boolean {
 }
 
 /**
+ * Check if an error is a license-related error
+ */
+export function isLicenseError(errorMessage: string): boolean {
+  const lowerMessage = errorMessage.toLowerCase();
+  return (
+    lowerMessage.includes("license") ||
+    lowerMessage.includes("premium") ||
+    lowerMessage.includes("subscription")
+  );
+}
+
+/**
  * Handle errors from premium feature queries gracefully
  *
  * For premium features that are optional (like metrics), we want to:
@@ -88,15 +270,6 @@ export function isPremiumFeatureError(errorMessage: string): boolean {
  * @param fallback - Fallback value to return for premium/auth errors
  * @returns The fallback value if it's a premium error
  * @throws The original error if it's not a premium-related error
- *
- * @example
- * ```ts
- * try {
- *   return await commands.getPodsMetrics(namespace);
- * } catch (err) {
- *   return handlePremiumQueryError(err, []);
- * }
- * ```
  */
 export function handlePremiumQueryError<T>(error: unknown, fallback: T): T {
   const errorMessage = normalizeTauriError(error);

@@ -1,6 +1,30 @@
 //! Logging commands
 use crate::error::Result;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+/// Log entry from frontend
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FrontendLogEntry {
+    pub level: String,
+    pub message: String,
+    #[serde(default)]
+    pub context: Option<String>,
+    #[serde(default)]
+    pub data: Option<Value>,
+    /// Timestamp in milliseconds since epoch
+    #[serde(default)]
+    pub timestamp: Option<i64>,
+}
+
+/// Result of batch logging operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchLogResult {
+    pub processed: usize,
+    pub failed: usize,
+}
 
 fn log_frontend(level: &str, message: &str, context: Option<&str>, data: Option<Value>) {
     let message = match context {
@@ -53,4 +77,29 @@ pub fn log_frontend_event(
 ) -> Result<()> {
     log_frontend(&level, &message, context.as_deref(), data);
     Ok(())
+}
+
+/// Log multiple frontend events in a single batch
+///
+/// This is more efficient than calling log_frontend_event multiple times,
+/// especially when the frontend has queued up multiple log entries.
+#[tauri::command]
+pub fn log_frontend_events_batch(entries: Vec<FrontendLogEntry>) -> Result<BatchLogResult> {
+    let total = entries.len();
+    let failed = 0;
+
+    for entry in entries {
+        // We don't actually fail on individual entries, just log them all
+        log_frontend(
+            &entry.level,
+            &entry.message,
+            entry.context.as_deref(),
+            entry.data,
+        );
+    }
+
+    Ok(BatchLogResult {
+        processed: total - failed,
+        failed,
+    })
 }

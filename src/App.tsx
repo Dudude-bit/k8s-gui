@@ -7,14 +7,13 @@ import { PageSkeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/use-toast";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Layout } from "@/components/layout/Layout";
+import { ErrorProvider } from "@/contexts/error-context";
 import { useAuthFlowEvents } from "@/hooks/useAuthFlowEvents";
-import { useClusterErrorToasts } from "@/hooks/useClusterErrorToasts";
-import { useGlobalErrorToasts } from "@/hooks/useGlobalErrorToasts";
 import { usePortForwardEvents } from "@/hooks/usePortForwardEvents";
 import { usePortForwardStore } from "@/stores/portForwardStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { setupFrontendLogger } from "@/lib/frontend-logger";
-import { logInfo } from "@/lib/logger";
+import { logInfo, flushLogs } from "@/lib/logger";
 
 // Lazy load all pages for code splitting
 const ClusterOverview = lazy(() =>
@@ -89,8 +88,7 @@ export default function App() {
   const { toast } = useToast();
   const hydratePortForwards = usePortForwardStore((state) => state.hydrate);
 
-  useGlobalErrorToasts();
-  useClusterErrorToasts();
+  // Global event hooks (ErrorProvider now handles error toasts)
   useAuthFlowEvents();
   usePortForwardEvents();
   // Initialize license check on app start
@@ -99,6 +97,8 @@ export default function App() {
   useEffect(() => {
     const cleanup = setupFrontendLogger();
     return () => {
+      // Flush any pending logs before cleanup
+      flushLogs().catch(() => { });
       cleanup?.();
     };
   }, []);
@@ -141,48 +141,50 @@ export default function App() {
   );
 
   return (
-    <ErrorBoundary resetKey={location.pathname} onError={handleError}>
-      <Routes>
-        <Route
-          path="/login"
-          element={
-            <Suspense fallback={<PageSkeleton />}>
-              <Login />
-            </Suspense>
-          }
-        />
-        <Route path="/" element={<Layout />}>
-          <Route index element={<ClusterOverview />} />
-          <Route path="workloads/*" element={<Workloads />} />
-          <Route path="network/*" element={<Network />} />
-          <Route path="storage/*" element={<Storage />} />
-          <Route path="configuration/*" element={<Configuration />} />
-          <Route path={toPlural(ResourceType.Node)} element={<NodeList />} />
-          <Route path={`${toPlural(ResourceType.Node)}/:name`} element={<NodeDetail />} />
-          <Route path="events" element={<Events />} />
-          <Route path="helm" element={<Helm />} />
-          <Route path="settings" element={<Settings />} />
+    <ErrorProvider>
+      <ErrorBoundary resetKey={location.pathname} onError={handleError}>
+        <Routes>
           <Route
-            path="profile"
+            path="/login"
             element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
+              <Suspense fallback={<PageSkeleton />}>
+                <Login />
+              </Suspense>
             }
           />
-          <Route path={`${toPlural(ResourceType.Pod)}/:namespace/:name`} element={<PodDetail />} />
-          <Route
-            path={`${toPlural(ResourceType.Deployment)}/:namespace/:name`}
-            element={<DeploymentDetail />}
-          />
-          <Route path={`${toPlural(ResourceType.Service)}/:namespace/:name`} element={<ServiceDetail />} />
-          <Route path={`${toPlural(ResourceType.Ingress)}/:namespace/:name`} element={<IngressDetail />} />
-          <Route path={`${toPlural(ResourceType.PersistentVolume)}/:name`} element={<PersistentVolumeDetail />} />
-          <Route path={`${toPlural(ResourceType.PersistentVolumeClaim)}/:namespace/:name`} element={<PersistentVolumeClaimDetail />} />
-          <Route path={`${toPlural(ResourceType.StorageClass)}/:name`} element={<StorageClassDetail />} />
-          <Route path={`${toPlural(ResourceType.Endpoints)}/:namespace/:name`} element={<EndpointsDetail />} />
-        </Route>
-      </Routes>
-    </ErrorBoundary>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<ClusterOverview />} />
+            <Route path="workloads/*" element={<Workloads />} />
+            <Route path="network/*" element={<Network />} />
+            <Route path="storage/*" element={<Storage />} />
+            <Route path="configuration/*" element={<Configuration />} />
+            <Route path={toPlural(ResourceType.Node)} element={<NodeList />} />
+            <Route path={`${toPlural(ResourceType.Node)}/:name`} element={<NodeDetail />} />
+            <Route path="events" element={<Events />} />
+            <Route path="helm" element={<Helm />} />
+            <Route path="settings" element={<Settings />} />
+            <Route
+              path="profile"
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route path={`${toPlural(ResourceType.Pod)}/:namespace/:name`} element={<PodDetail />} />
+            <Route
+              path={`${toPlural(ResourceType.Deployment)}/:namespace/:name`}
+              element={<DeploymentDetail />}
+            />
+            <Route path={`${toPlural(ResourceType.Service)}/:namespace/:name`} element={<ServiceDetail />} />
+            <Route path={`${toPlural(ResourceType.Ingress)}/:namespace/:name`} element={<IngressDetail />} />
+            <Route path={`${toPlural(ResourceType.PersistentVolume)}/:name`} element={<PersistentVolumeDetail />} />
+            <Route path={`${toPlural(ResourceType.PersistentVolumeClaim)}/:namespace/:name`} element={<PersistentVolumeClaimDetail />} />
+            <Route path={`${toPlural(ResourceType.StorageClass)}/:name`} element={<StorageClassDetail />} />
+            <Route path={`${toPlural(ResourceType.Endpoints)}/:namespace/:name`} element={<EndpointsDetail />} />
+          </Route>
+        </Routes>
+      </ErrorBoundary>
+    </ErrorProvider>
   );
 }
