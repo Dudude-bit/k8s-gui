@@ -14,6 +14,8 @@ pub struct IngressPath {
     pub path_type: String,
     pub backend_service: String,
     pub backend_port: String,
+    /// Resource backend (e.g., "StorageBucket/my-bucket") if service backend is not used
+    pub resource_backend: Option<String>,
 }
 
 /// Information about an Ingress rule
@@ -22,6 +24,14 @@ pub struct IngressPath {
 pub struct IngressRule {
     pub host: String,
     pub paths: Vec<IngressPath>,
+}
+
+/// Information about an Ingress TLS configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IngressTlsConfig {
+    pub hosts: Vec<String>,
+    pub secret_name: Option<String>,
 }
 
 /// Information about an Ingress
@@ -34,6 +44,9 @@ pub struct IngressInfo {
     pub rules: Vec<IngressRule>,
     pub load_balancer_ips: Vec<String>,
     pub tls_hosts: Vec<String>,
+    pub tls_configs: Vec<IngressTlsConfig>,
+    pub labels: std::collections::BTreeMap<String, String>,
+    pub annotations: std::collections::BTreeMap<String, String>,
     pub age: String,
 }
 
@@ -57,11 +70,15 @@ impl From<&Ingress> for IngressInfo {
                                 http.paths
                                     .iter()
                                     .map(|path| {
-                                        let backend_service =
-                                            path.backend.service.as_ref().map_or_else(
-                                                || "unknown".to_string(),
-                                                |s| s.name.clone(),
-                                            );
+                                        // Check for resource backend first
+                                        let resource_backend = path.backend.resource.as_ref().map(|r| {
+                                            format!("{}/{}", r.kind, r.name)
+                                        });
+
+                                        let backend_service = path.backend.service.as_ref().map_or_else(
+                                            || String::new(),
+                                            |s| s.name.clone(),
+                                        );
 
                                         let backend_port = path
                                             .backend
@@ -86,6 +103,7 @@ impl From<&Ingress> for IngressInfo {
                                             path_type: path.path_type.clone(),
                                             backend_service,
                                             backend_port,
+                                            resource_backend,
                                         }
                                     })
                                     .collect()
@@ -119,6 +137,32 @@ impl From<&Ingress> for IngressInfo {
             })
             .unwrap_or_default();
 
+        // Parse TLS configs with secret names
+        let tls_configs = spec
+            .and_then(|s| s.tls.as_ref())
+            .map(|tls_list| {
+                tls_list
+                    .iter()
+                    .map(|tls| IngressTlsConfig {
+                        hosts: tls.hosts.clone().unwrap_or_default(),
+                        secret_name: tls.secret_name.clone(),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        // Extract labels and annotations
+        let labels = ingress
+            .metadata
+            .labels
+            .clone()
+            .unwrap_or_default();
+        let annotations = ingress
+            .metadata
+            .annotations
+            .clone()
+            .unwrap_or_default();
+
         Self {
             name: ingress.name_any(),
             namespace: ingress.namespace().unwrap_or_default(),
@@ -126,6 +170,9 @@ impl From<&Ingress> for IngressInfo {
             rules,
             load_balancer_ips,
             tls_hosts,
+            tls_configs,
+            labels,
+            annotations,
             age: format_k8s_age(ingress.metadata.creation_timestamp.as_ref()),
         }
     }

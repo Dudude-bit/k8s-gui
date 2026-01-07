@@ -348,11 +348,17 @@ export interface IngressPath {
   pathType: string;
   backendService: string;
   backendPort: string;
+  resourceBackend: string | null;
 }
 
 export interface IngressRule {
   host: string;
   paths: IngressPath[];
+}
+
+export interface IngressTlsConfig {
+  hosts: string[];
+  secretName: string | null;
 }
 
 export interface IngressInfo {
@@ -362,6 +368,9 @@ export interface IngressInfo {
   rules: IngressRule[];
   loadBalancerIps: string[];
   tlsHosts: string[];
+  tlsConfigs: IngressTlsConfig[];
+  labels: Record<string, string>;
+  annotations: Record<string, string>;
   age: string;
 }
 
