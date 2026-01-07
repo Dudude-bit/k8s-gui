@@ -21,6 +21,29 @@ export interface ClusterMetrics {
   totalMemoryCapacity: string | null;
 }
 
+export interface ContextBinding {
+  gcpProfile: string | null;
+  azureProfile: string | null;
+}
+
+export interface GcpProfile {
+  description: string | null;
+  serviceAccountKeyPath: string | null;
+  gcloudPath: string | null;
+  defaultProject: string | null;
+  preferNativeAuth: boolean;
+}
+
+export interface AzureProfile {
+  description: string | null;
+  azPath: string | null;
+  kubeloginPath: string | null;
+  defaultSubscription: string | null;
+  tenantId: string | null;
+  useCliFallback: boolean;
+  preferNativeAuth: boolean;
+}
+
 export interface LicenseStatus {
   hasLicense: boolean;
   licenseKey: string | null;
@@ -696,25 +719,20 @@ export interface AppInfo {
   tauriVersion: string;
 }
 
-export interface GcpCloudConfig {
-  serviceAccountKeyPath: string | null;
-  gcloudPath: string | null;
-  defaultProject: string | null;
-  preferNativeAuth: boolean;
+export interface GcpProfileInfo {
+  name: string;
+  profile: GcpProfile;
 }
 
-export interface AzureCloudConfig {
-  azPath: string | null;
-  kubeloginPath: string | null;
-  defaultSubscription: string | null;
-  tenantId: string | null;
-  useCliFallback: boolean;
-  preferNativeAuth: boolean;
+export interface AzureProfileInfo {
+  name: string;
+  profile: AzureProfile;
 }
 
-export interface CloudConfig {
-  gcp: GcpCloudConfig;
-  azure: AzureCloudConfig;
+export interface ContextBindingInfo {
+  contextName: string;
+  gcpProfile: string | null;
+  azureProfile: string | null;
 }
 
 export interface StreamLogConfig {

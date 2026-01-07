@@ -308,7 +308,18 @@ pub fn clean_yaml_for_editor(yaml: &str) -> Result<String> {
         // Remove server-managed metadata fields
         if let Some(metadata) = mapping.get_mut("metadata") {
             if let Some(meta_map) = metadata.as_mapping_mut() {
-                for field in ["resourceVersion", "uid", "generation", "creationTimestamp", "selfLink", "managedFields"] {
+                for field in [
+                    "resourceVersion",
+                    "uid",
+                    "generation",
+                    "creationTimestamp",
+                    "selfLink",
+                    "managedFields",
+                    "ownerReferences",
+                    "finalizers",
+                    "deletionTimestamp",
+                    "deletionGracePeriodSeconds",
+                ] {
                     meta_map.remove(field);
                 }
             }

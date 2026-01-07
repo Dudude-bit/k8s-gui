@@ -406,7 +406,7 @@ impl From<&CronJob> for CronJobInfo {
             namespace: meta.namespace.clone().unwrap_or_default(),
             schedule: spec
                 .map(|s| s.schedule.clone())
-                .unwrap_or_else(|| "".to_string()),
+                .unwrap_or_else(String::new),
             suspend: spec.and_then(|s| s.suspend).unwrap_or(false),
             active: status
                 .and_then(|s| s.active.as_ref())
@@ -465,7 +465,7 @@ impl From<&CronJob> for CronJobDetailInfo {
             uid: cj.uid().unwrap_or_default(),
             schedule: spec
                 .map(|s| s.schedule.clone())
-                .unwrap_or_else(|| "".to_string()),
+                .unwrap_or_else(String::new),
             timezone: spec.and_then(|s| s.time_zone.clone()),
             suspend: spec.and_then(|s| s.suspend).unwrap_or(false),
             concurrency_policy: spec.and_then(|s| s.concurrency_policy.clone()),

@@ -190,7 +190,7 @@ mod tests {
         assert_eq!(parse_memory("1Ki"), 1024);
         assert_eq!(parse_memory("1Mi"), 1024 * 1024);
         assert_eq!(parse_memory("1Gi"), 1024 * 1024 * 1024);
-        assert_eq!(parse_memory("1M"), 1000000);
+        assert_eq!(parse_memory("1M"), 1_000_000);
         assert_eq!(parse_memory("1024"), 1024);
     }
 

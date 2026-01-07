@@ -220,10 +220,23 @@ fn main() {
             // Settings commands
             commands::settings::get_app_info,
             commands::settings::clear_cache,
-            commands::settings::get_cloud_config,
-            commands::settings::save_cloud_config,
-            commands::settings::test_gcp_auth,
-            commands::settings::test_azure_auth,
+            // GCP profiles
+            commands::settings::list_gcp_profiles,
+            commands::settings::get_gcp_profile,
+            commands::settings::save_gcp_profile,
+            commands::settings::delete_gcp_profile,
+            commands::settings::test_gcp_profile,
+            // Azure profiles
+            commands::settings::list_azure_profiles,
+            commands::settings::get_azure_profile,
+            commands::settings::save_azure_profile,
+            commands::settings::delete_azure_profile,
+            commands::settings::test_azure_profile,
+            // Context bindings
+            commands::settings::list_context_bindings,
+            commands::settings::get_context_binding,
+            commands::settings::save_context_binding,
+            commands::settings::delete_context_binding,
 
             // Registry commands
             commands::registry::set_registry_credentials,

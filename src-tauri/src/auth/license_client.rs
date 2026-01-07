@@ -1,5 +1,6 @@
 //! License client for connecting to auth-server via gRPC
 
+use crate::config::AppConfig;
 use crate::error::{Error, Result};
 use crate::proto::auth::auth_service_client::AuthServiceClient;
 use crate::proto::auth::{
@@ -16,7 +17,6 @@ use crate::proto::user::user_service_client::UserServiceClient;
 use crate::proto::user::{
     GetProfileRequest, ProfileResponse, UpdateProfileRequest as GrpcUpdateProfileRequest,
 };
-use super::CredentialStore;
 use chrono::TimeZone;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -24,9 +24,6 @@ use tonic::metadata::MetadataValue;
 use tonic::transport::{Channel, ClientTlsConfig};
 
 type CachedLicenseStatus = Arc<RwLock<Option<(LicenseStatus, chrono::DateTime<chrono::Utc>)>>>;
-
-const ACCESS_TOKEN_KEY: &str = "access_token";
-const REFRESH_TOKEN_KEY: &str = "refresh_token";
 
 /// Auth response with tokens
 #[derive(Debug, Clone)]
@@ -169,7 +166,7 @@ pub struct LicenseClient {
 impl LicenseClient {
     #[must_use]
     pub fn new(endpoint: String) -> Self {
-        let (access_token, refresh_token) = Self::load_tokens_from_store();
+        let (access_token, refresh_token) = Self::load_tokens_from_config();
 
         Self {
             endpoint,
@@ -179,45 +176,53 @@ impl LicenseClient {
         }
     }
 
-    fn load_tokens_from_store() -> (Option<String>, Option<String>) {
-        let store = CredentialStore::new();
-        let access_token = match store.get(ACCESS_TOKEN_KEY) {
-            Ok(token) => token,
-            Err(e) => {
-                tracing::error!("Failed to read access token from credential store: {}", e);
-                None
+    fn load_tokens_from_config() -> (Option<String>, Option<String>) {
+        match AppConfig::load() {
+            Ok(config) => {
+                let access_token = config.auth_tokens.access_token;
+                let refresh_token = config.auth_tokens.refresh_token;
+                if access_token.is_some() {
+                    tracing::info!("Restored access token from config");
+                }
+                (access_token, refresh_token)
             }
-        };
-        let refresh_token = match store.get(REFRESH_TOKEN_KEY) {
-            Ok(token) => token,
             Err(e) => {
-                tracing::error!("Failed to read refresh token from credential store: {}", e);
-                None
+                tracing::error!("Failed to load config for auth tokens: {}", e);
+                (None, None)
             }
-        };
-
-        if access_token.is_some() {
-            tracing::info!("Restored access token from credential store");
         }
-
-        (access_token, refresh_token)
     }
 
-    fn save_tokens_to_store(access_token: &str, refresh_token: &str) {
-        let store = CredentialStore::new();
-        if let Err(e) = store.store(ACCESS_TOKEN_KEY, access_token) {
-            tracing::error!("Failed to save access token: {}", e);
+    fn save_tokens_to_config(access_token: &str, refresh_token: &str) {
+        match AppConfig::load() {
+            Ok(mut config) => {
+                config.auth_tokens.access_token = Some(access_token.to_string());
+                config.auth_tokens.refresh_token = Some(refresh_token.to_string());
+                if let Err(e) = crate::commands::settings::save_config(&config) {
+                    tracing::error!("Failed to save auth tokens to config: {}", e);
+                } else {
+                    tracing::info!("Tokens saved to config");
+                }
+            }
+            Err(e) => {
+                tracing::error!("Failed to load config for saving tokens: {}", e);
+            }
         }
-        if let Err(e) = store.store(REFRESH_TOKEN_KEY, refresh_token) {
-            tracing::error!("Failed to save refresh token: {}", e);
-        }
-        tracing::info!("Tokens saved to credential store");
     }
 
-    fn clear_tokens_from_store() {
-        let store = CredentialStore::new();
-        let _ = store.delete(ACCESS_TOKEN_KEY);
-        let _ = store.delete(REFRESH_TOKEN_KEY);
+    fn clear_tokens_from_config() {
+        match AppConfig::load() {
+            Ok(mut config) => {
+                config.auth_tokens.access_token = None;
+                config.auth_tokens.refresh_token = None;
+                if let Err(e) = crate::commands::settings::save_config(&config) {
+                    tracing::error!("Failed to clear auth tokens from config: {}", e);
+                }
+            }
+            Err(e) => {
+                tracing::error!("Failed to load config for clearing tokens: {}", e);
+            }
+        }
     }
 
     async fn connect(&self) -> Result<Channel> {
@@ -270,7 +275,7 @@ impl LicenseClient {
 
         *self.access_token.write().await = Some(tokens.access_token.clone());
         *self.refresh_token.write().await = Some(tokens.refresh_token.clone());
-        Self::save_tokens_to_store(&tokens.access_token, &tokens.refresh_token);
+        Self::save_tokens_to_config(&tokens.access_token, &tokens.refresh_token);
 
         Ok(tokens)
     }
@@ -305,13 +310,13 @@ impl LicenseClient {
 
         *self.access_token.write().await = Some(tokens.access_token.clone());
         *self.refresh_token.write().await = Some(tokens.refresh_token.clone());
-        Self::save_tokens_to_store(&tokens.access_token, &tokens.refresh_token);
+        Self::save_tokens_to_config(&tokens.access_token, &tokens.refresh_token);
 
         Ok(tokens)
     }
 
     pub async fn set_tokens(&self, access_token: String, refresh_token: String) {
-        Self::save_tokens_to_store(&access_token, &refresh_token);
+        Self::save_tokens_to_config(&access_token, &refresh_token);
         *self.access_token.write().await = Some(access_token);
         *self.refresh_token.write().await = Some(refresh_token);
     }
@@ -349,7 +354,7 @@ impl LicenseClient {
 
         *self.access_token.write().await = Some(tokens.access_token.clone());
         *self.refresh_token.write().await = Some(tokens.refresh_token.clone());
-        Self::save_tokens_to_store(&tokens.access_token, &tokens.refresh_token);
+        Self::save_tokens_to_config(&tokens.access_token, &tokens.refresh_token);
 
         Ok(())
     }
@@ -473,7 +478,7 @@ impl LicenseClient {
         let cached_status = Arc::clone(&self.cached_status);
 
         tokio::spawn(async move {
-            Self::clear_tokens_from_store();
+            Self::clear_tokens_from_config();
             *access_token.write().await = None;
             *refresh_token.write().await = None;
             *cached_status.write().await = None;

@@ -1,6 +1,6 @@
 //! Registry search and credential storage commands.
 
-use crate::auth::CredentialStore;
+use crate::config::{AppConfig, RegistryCredential};
 use crate::error::{Error, Result};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use dirs::home_dir;
@@ -10,7 +10,6 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
-const REGISTRY_KEY_PREFIX: &str = "registry:";
 const SEARCH_LIMIT: usize = 200;
 const RESULT_LIMIT: usize = 12;
 
@@ -81,10 +80,6 @@ struct DockerAuthEntry {
     auth: Option<String>,
     #[serde(rename = "identitytoken")]
     identity_token: Option<String>,
-}
-
-fn registry_key(registry_id: &str) -> String {
-    format!("{REGISTRY_KEY_PREFIX}{registry_id}")
 }
 
 fn build_auth_header(auth: &RegistryAuth) -> Option<String> {
@@ -168,14 +163,37 @@ fn decode_basic_auth(encoded: &str) -> Option<(String, String)> {
 }
 
 fn load_saved_auth(registry_id: &str) -> Result<Option<RegistryAuth>> {
-    let store = CredentialStore::new();
-    let key = registry_key(registry_id);
-    let raw = store.get(&key)?;
-    if let Some(value) = raw {
-        serde_json::from_str(&value).map(Some).map_err(Error::from)
+    let config = AppConfig::load()?;
+    if let Some(cred) = config.registry_credentials.registries.get(registry_id) {
+        Ok(Some(RegistryAuth {
+            auth_type: cred.auth_type.clone(),
+            username: cred.username.clone(),
+            password: cred.password.clone(),
+            token: cred.token.clone(),
+        }))
     } else {
         Ok(None)
     }
+}
+
+fn save_registry_auth(registry_id: &str, auth: &RegistryAuth) -> Result<()> {
+    let mut config = AppConfig::load()?;
+    config.registry_credentials.registries.insert(
+        registry_id.to_string(),
+        RegistryCredential {
+            auth_type: auth.auth_type.clone(),
+            username: auth.username.clone(),
+            password: auth.password.clone(),
+            token: auth.token.clone(),
+        },
+    );
+    super::settings::save_config(&config)
+}
+
+fn delete_registry_auth(registry_id: &str) -> Result<()> {
+    let mut config = AppConfig::load()?;
+    config.registry_credentials.registries.remove(registry_id);
+    super::settings::save_config(&config)
 }
 
 #[tauri::command]
@@ -442,22 +460,17 @@ pub fn set_registry_credentials(
     registry_id: String,
     auth: RegistryAuth,
 ) -> Result<()> {
-    let store = CredentialStore::new();
-    let key = registry_key(&registry_id);
     if auth.auth_type == "none" {
-        store.delete(&key)?;
+        delete_registry_auth(&registry_id)?;
         return Ok(());
     }
-    let value = serde_json::to_string(&auth).map_err(Error::from)?;
-    store.store(&key, &value)?;
+    save_registry_auth(&registry_id, &auth)?;
     Ok(())
 }
 
 #[tauri::command]
 pub fn delete_registry_credentials(registry_id: String) -> Result<()> {
-    let store = CredentialStore::new();
-    let key = registry_key(&registry_id);
-    store.delete(&key)?;
+    delete_registry_auth(&registry_id)?;
     Ok(())
 }
 

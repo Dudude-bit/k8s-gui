@@ -11,7 +11,6 @@
 mod aws_eks;
 mod azure_aks;
 mod bearer;
-mod credentials;
 mod gcp_gke;
 mod interactive;
 mod kubeconfig;
@@ -22,7 +21,6 @@ mod oidc;
 pub use aws_eks::AwsEksAuth;
 pub use azure_aks::{is_aks_exec_command, parse_aks_exec_args, AksClusterInfo, AzureAksAuth};
 pub use bearer::BearerTokenAuth;
-pub use credentials::CredentialStore;
 pub use gcp_gke::{is_gke_exec_command, parse_gke_exec_args, GcpGkeAuth, GkeClusterInfo};
 pub use interactive::prepare_kubeconfig_for_context;
 pub use kubeconfig::KubeconfigAuth;

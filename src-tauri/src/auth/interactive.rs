@@ -174,54 +174,69 @@ async fn try_native_cloud_auth(
     let config = AppConfig::load().ok()?;
     
     // Try GKE native auth
-    if is_gke_exec_command(command) && config.cloud.gcp.prefer_native_auth {
-        tracing::info!("Attempting native GCP authentication for context: {}", context);
+    if is_gke_exec_command(command) {
+        // Get profile for this context, or use defaults (ADC)
+        let gcp_profile = config.cloud.get_gcp_profile_for_context(context);
+        let prefer_native = gcp_profile.map(|p| p.prefer_native_auth).unwrap_or(true);
         
-        let service_account_path = config.cloud.gcp.service_account_key_path.clone();
-        let auth = GcpGkeAuth::new(service_account_path);
-        
-        match auth.authenticate().await {
-            Ok(result) => {
-                tracing::info!("Native GCP authentication successful");
-                return Some(Ok(ExecCredentialStatus {
-                    expiration_timestamp: result.expires_at.map(|t| t.to_rfc3339()),
-                    token: Some(result.token),
-                    client_certificate_data: None,
-                    client_key_data: None,
-                }));
-            }
-            Err(e) => {
-                tracing::warn!("Native GCP authentication failed, will try exec fallback: {}", e);
-                // Continue to exec fallback
+        if prefer_native {
+            tracing::info!("Attempting native GCP authentication for context: {}", context);
+            
+            let service_account_path = gcp_profile
+                .and_then(|p| p.service_account_key_path.clone())
+                .map(std::path::PathBuf::from);
+            let auth = GcpGkeAuth::new(service_account_path);
+            
+            match auth.authenticate().await {
+                Ok(result) => {
+                    tracing::info!("Native GCP authentication successful");
+                    return Some(Ok(ExecCredentialStatus {
+                        expiration_timestamp: result.expires_at.map(|t| t.to_rfc3339()),
+                        token: Some(result.token),
+                        client_certificate_data: None,
+                        client_key_data: None,
+                    }));
+                }
+                Err(e) => {
+                    tracing::warn!("Native GCP authentication failed, will try exec fallback: {}", e);
+                    // Continue to exec fallback
+                }
             }
         }
     }
     
     // Try AKS native auth
-    if is_aks_exec_command(command) && config.cloud.azure.prefer_native_auth {
-        tracing::info!("Attempting native Azure authentication for context: {}", context);
+    if is_aks_exec_command(command) {
+        // Get profile for this context, or use defaults
+        let azure_profile = config.cloud.get_azure_profile_for_context(context);
+        let prefer_native = azure_profile.map(|p| p.prefer_native_auth).unwrap_or(true);
         
-        let aks_info = exec.args.as_ref().and_then(|args| parse_aks_exec_args(args));
-        let tenant_id = aks_info
-            .as_ref()
-            .and_then(|i| i.tenant_id.clone())
-            .or_else(|| config.cloud.azure.tenant_id.clone());
-        
-        let auth = AzureAksAuth::new(config.cloud.azure.use_cli_fallback, tenant_id);
-        
-        match auth.authenticate().await {
-            Ok(result) => {
-                tracing::info!("Native Azure authentication successful");
-                return Some(Ok(ExecCredentialStatus {
-                    expiration_timestamp: result.expires_at.map(|t| t.to_rfc3339()),
-                    token: Some(result.token),
-                    client_certificate_data: None,
-                    client_key_data: None,
-                }));
-            }
-            Err(e) => {
-                tracing::warn!("Native Azure authentication failed, will try exec fallback: {}", e);
-                // Continue to exec fallback
+        if prefer_native {
+            tracing::info!("Attempting native Azure authentication for context: {}", context);
+            
+            let aks_info = exec.args.as_ref().and_then(|args| parse_aks_exec_args(args));
+            let tenant_id = aks_info
+                .as_ref()
+                .and_then(|i| i.tenant_id.clone())
+                .or_else(|| azure_profile.and_then(|p| p.tenant_id.clone()));
+            
+            let use_cli_fallback = azure_profile.map(|p| p.use_cli_fallback).unwrap_or(false);
+            let auth = AzureAksAuth::new(use_cli_fallback, tenant_id);
+            
+            match auth.authenticate().await {
+                Ok(result) => {
+                    tracing::info!("Native Azure authentication successful");
+                    return Some(Ok(ExecCredentialStatus {
+                        expiration_timestamp: result.expires_at.map(|t| t.to_rfc3339()),
+                        token: Some(result.token),
+                        client_certificate_data: None,
+                        client_key_data: None,
+                    }));
+                }
+                Err(e) => {
+                    tracing::warn!("Native Azure authentication failed, will try exec fallback: {}", e);
+                    // Continue to exec fallback
+                }
             }
         }
     }
@@ -229,36 +244,12 @@ async fn try_native_cloud_auth(
     None
 }
 
-/// Resolve cloud CLI binary path, checking config and common locations
+/// Resolve cloud CLI binary path, checking common locations
 fn resolve_cloud_cli_path(command: &str) -> Option<PathBuf> {
-    let config = AppConfig::load().ok()?;
-    
     // Check if command is already an absolute path
     let cmd_path = PathBuf::from(command);
     if cmd_path.is_absolute() && cmd_path.exists() {
         return Some(cmd_path);
-    }
-    
-    // Check configured paths
-    if is_gke_exec_command(command) {
-        if let Some(path) = &config.cloud.gcp.gcloud_path {
-            if path.exists() {
-                return Some(path.clone());
-            }
-        }
-    }
-    
-    if is_aks_exec_command(command) {
-        if let Some(path) = &config.cloud.azure.kubelogin_path {
-            if path.exists() {
-                return Some(path.clone());
-            }
-        }
-        if let Some(path) = &config.cloud.azure.az_path {
-            if path.exists() {
-                return Some(path.clone());
-            }
-        }
     }
     
     // Check common installation locations

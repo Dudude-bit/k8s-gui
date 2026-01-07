@@ -407,32 +407,32 @@ mod tests {
 
     #[test]
     fn test_split_yaml_documents() {
-        let yaml = r#"
+                let yaml = r"
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: test1
+    name: test1
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: test2
-"#;
+    name: test2
+";
         let docs = split_yaml_documents(yaml);
         assert_eq!(docs.len(), 2);
     }
 
     #[test]
     fn test_parse_manifest_document() {
-        let yaml = r#"
+                let yaml = r"
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: test-config
-  namespace: default
+    name: test-config
+    namespace: default
 data:
-  key: value
-"#;
+    key: value
+";
         let parsed = parse_manifest_document(yaml).unwrap();
         assert_eq!(parsed.api_resource.kind, "ConfigMap");
         assert_eq!(parsed.api_resource.version, "v1");
@@ -441,12 +441,12 @@ data:
 
     #[test]
     fn test_parse_apps_api() {
-        let yaml = r#"
+                let yaml = r"
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: test-deploy
-"#;
+    name: test-deploy
+";
         let parsed = parse_manifest_document(yaml).unwrap();
         assert_eq!(parsed.api_resource.kind, "Deployment");
         assert_eq!(parsed.api_resource.group, "apps");

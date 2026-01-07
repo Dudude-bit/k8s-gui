@@ -16,7 +16,7 @@ import * as commands from "@/generated/commands";
 import { useToast } from "@/components/ui/use-toast";
 import { PortForwardManager } from "@/components/port-forward/PortForwardManager";
 import { RegistrySettings } from "@/components/registry/RegistrySettings";
-import { CloudProviderSettings } from "@/components/settings/CloudProviderSettings";
+import { CloudProfiles } from "@/components/settings/CloudProfiles";
 import { LicenseSection } from "@/components/profile/LicenseSection";
 import { PremiumFeatureGuard } from "@/components/license/PremiumFeatureGuard";
 import { Link } from "react-router-dom";
@@ -187,8 +187,8 @@ export function Settings() {
         </CardContent>
       </Card>
 
-      {/* Cloud Provider Settings */}
-      <CloudProviderSettings />
+      {/* Cloud Profiles */}
+      <CloudProfiles />
 
       <RegistrySettings />
 

@@ -11,7 +11,7 @@ use azure_core::auth::TokenCredential;
 /// Azure AKS authentication provider
 ///
 /// Uses `azure_identity` to obtain access tokens through:
-/// - DefaultAzureCredential chain (environment, managed identity, CLI, etc.)
+/// - `DefaultAzureCredential` chain (environment, managed identity, CLI, etc.)
 /// - Azure CLI credentials (fallback option)
 pub struct AzureAksAuth {
     /// Whether to use Azure CLI credentials as fallback
@@ -49,7 +49,7 @@ impl AzureAksAuth {
         }
     }
 
-    /// Get an access token using azure_identity
+    /// Get an access token using `azure_identity`
     async fn get_token(&self) -> Result<(String, Option<chrono::DateTime<chrono::Utc>>)> {
         // Try DefaultAzureCredential first
         let credential = self.create_credential()?;
@@ -67,7 +67,7 @@ impl AzureAksAuth {
         }
     }
 
-    /// Create the DefaultAzureCredential
+    /// Create the `DefaultAzureCredential`
     fn create_credential(&self) -> Result<azure_identity::DefaultAzureCredential> {
         // Set AZURE_TENANT_ID environment variable if tenant_id is provided
         // This is used by EnvironmentCredential in the DefaultAzureCredential chain
@@ -165,6 +165,7 @@ impl AuthProvider for AzureAksAuth {
 /// Detect if an exec command is for AKS authentication
 ///
 /// Returns true if the command appears to be an AKS auth plugin (kubelogin)
+#[must_use]
 pub fn is_aks_exec_command(command: &str) -> bool {
     let cmd_lower = command.to_lowercase();
     cmd_lower.contains("kubelogin")
@@ -182,13 +183,13 @@ pub fn parse_aks_exec_args(args: &[String]) -> Option<AksClusterInfo> {
     while let Some(arg) = iter.next() {
         match arg.as_str() {
             "--server-id" | "-s" => {
-                server_id = iter.next().map(String::clone);
+                server_id = iter.next().cloned();
             }
             "--tenant-id" | "-t" => {
-                tenant_id = iter.next().map(String::clone);
+                tenant_id = iter.next().cloned();
             }
             "--environment" | "-e" => {
-                environment = iter.next().map(String::clone);
+                environment = iter.next().cloned();
             }
             _ => {
                 // Check for --arg=value format
@@ -219,15 +220,16 @@ pub struct AksClusterInfo {
     pub server_id: Option<String>,
     /// Azure tenant ID
     pub tenant_id: Option<String>,
-    /// Azure environment (e.g., AzurePublicCloud, AzureChinaCloud)
+    /// Azure environment (e.g., `AzurePublicCloud`, `AzureChinaCloud`)
     pub environment: String,
 }
 
 impl AksClusterInfo {
     /// Parse AKS cluster info from a kubeconfig context name
     ///
-    /// AKS contexts typically follow the format: CLUSTER_NAME or RESOURCE_GROUP_CLUSTER
+    /// AKS contexts typically follow the format: `CLUSTER_NAME` or `RESOURCE_GROUP_CLUSTER`
     /// Unlike GKE, AKS doesn't encode as much info in the context name
+    #[must_use]
     pub fn from_context_name(context: &str) -> Option<Self> {
         // AKS context names don't have a standard format with embedded info
         // We can only detect if it might be an AKS cluster

@@ -46,8 +46,7 @@ impl PaymentService {
             Some("monthly") => Ok(SubscriptionType::Monthly),
             Some("lifetime") => Ok(SubscriptionType::Lifetime),
             Some(value) => Err(Error::Validation(format!(
-                "Unsupported subscription_type: {}",
-                value
+                "Unsupported subscription_type: {value}"
             ))),
         }
     }

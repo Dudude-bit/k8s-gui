@@ -26,6 +26,12 @@ pub struct AppConfig {
     /// Cloud provider configuration
     #[serde(default)]
     pub cloud: CloudConfig,
+    /// Registry credentials
+    #[serde(default)]
+    pub registry_credentials: RegistryCredentialsConfig,
+    /// Authentication tokens (license server)
+    #[serde(default)]
+    pub auth_tokens: AuthTokensConfig,
 }
 
 /// Theme configuration
@@ -206,35 +212,98 @@ impl Default for LoggingConfig {
 
 /// Cloud provider configuration
 ///
-/// Settings for GCP, Azure, and other cloud provider authentication.
+/// Settings for GCP, Azure, and other cloud provider authentication using profiles.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct CloudConfig {
-    /// GCP/GKE configuration
-    #[serde(default)]
-    pub gcp: GcpConfig,
-    /// Azure/AKS configuration
-    #[serde(default)]
-    pub azure: AzureConfig,
+    /// GCP profiles (key = profile name)
+    #[serde(default, alias = "gcp_profiles")]
+    pub gcp_profiles: std::collections::HashMap<String, GcpProfile>,
+    /// Azure profiles (key = profile name)
+    #[serde(default, alias = "azure_profiles")]
+    pub azure_profiles: std::collections::HashMap<String, AzureProfile>,
+    /// Context to profile bindings (key = kubeconfig context name)
+    #[serde(default, alias = "context_bindings")]
+    pub context_bindings: std::collections::HashMap<String, ContextBinding>,
 }
 
-/// GCP configuration
+/// Registry credentials configuration
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RegistryCredentialsConfig {
+    /// Registry credentials (key = registry ID)
+    #[serde(default)]
+    pub registries: std::collections::HashMap<String, RegistryCredential>,
+}
+
+/// Stored registry credential
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GcpConfig {
+#[serde(rename_all = "camelCase")]
+pub struct RegistryCredential {
+    /// Auth type (basic, token, none)
+    #[serde(alias = "auth_type")]
+    pub auth_type: String,
+    /// Username for basic auth
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
+    /// Password for basic auth (stored in plain text - consider using keyring for sensitive data)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub password: Option<String>,
+    /// Token for token auth
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
+}
+
+/// Authentication tokens configuration
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthTokensConfig {
+    /// Access token for license server
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "access_token")]
+    pub access_token: Option<String>,
+    /// Refresh token for license server
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "refresh_token")]
+    pub refresh_token: Option<String>,
+}
+
+/// Binding of a kubeconfig context to cloud profiles
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextBinding {
+    /// GCP profile name for this context (None = use ADC)
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "gcp_profile")]
+    pub gcp_profile: Option<String>,
+    /// Azure profile name for this context (None = use default az login)
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "azure_profile")]
+    pub azure_profile: Option<String>,
+}
+
+/// GCP authentication profile
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GcpProfile {
+    /// Human-readable description
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
     /// Path to service account JSON key file (optional)
     /// If not set, uses Application Default Credentials
-    pub service_account_key_path: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "service_account_key_path")]
+    pub service_account_key_path: Option<String>,
     /// Custom path to gcloud CLI binary (for exec fallback)
-    pub gcloud_path: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "gcloud_path")]
+    pub gcloud_path: Option<String>,
     /// Default GCP project ID
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "default_project")]
     pub default_project: Option<String>,
     /// Prefer native SDK auth over exec plugin
-    #[serde(default = "default_true")]
+    #[serde(default = "default_true", alias = "prefer_native_auth")]
     pub prefer_native_auth: bool,
 }
 
-impl Default for GcpConfig {
+impl Default for GcpProfile {
     fn default() -> Self {
         Self {
+            description: None,
             service_account_key_path: None,
             gcloud_path: None,
             default_project: None,
@@ -243,28 +312,37 @@ impl Default for GcpConfig {
     }
 }
 
-/// Azure configuration
+/// Azure authentication profile
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AzureConfig {
+#[serde(rename_all = "camelCase")]
+pub struct AzureProfile {
+    /// Human-readable description
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
     /// Custom path to az CLI binary (for exec fallback)
-    pub az_path: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "az_path")]
+    pub az_path: Option<String>,
     /// Custom path to kubelogin binary (for exec fallback)
-    pub kubelogin_path: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "kubelogin_path")]
+    pub kubelogin_path: Option<String>,
     /// Default Azure subscription ID
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "default_subscription")]
     pub default_subscription: Option<String>,
-    /// Default Azure tenant ID
+    /// Azure tenant ID
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "tenant_id")]
     pub tenant_id: Option<String>,
     /// Use Azure CLI credentials as fallback when SDK auth fails
-    #[serde(default)]
+    #[serde(default, alias = "use_cli_fallback")]
     pub use_cli_fallback: bool,
     /// Prefer native SDK auth over exec plugin
-    #[serde(default = "default_true")]
+    #[serde(default = "default_true", alias = "prefer_native_auth")]
     pub prefer_native_auth: bool,
 }
 
-impl Default for AzureConfig {
+impl Default for AzureProfile {
     fn default() -> Self {
         Self {
+            description: None,
             az_path: None,
             kubelogin_path: None,
             default_subscription: None,
@@ -272,6 +350,26 @@ impl Default for AzureConfig {
             use_cli_fallback: false,
             prefer_native_auth: true,
         }
+    }
+}
+
+impl CloudConfig {
+    /// Get GCP profile for a context
+    /// Returns the profile if bound, or None to use ADC
+    pub fn get_gcp_profile_for_context(&self, context: &str) -> Option<&GcpProfile> {
+        self.context_bindings
+            .get(context)
+            .and_then(|binding| binding.gcp_profile.as_ref())
+            .and_then(|profile_name| self.gcp_profiles.get(profile_name))
+    }
+
+    /// Get Azure profile for a context
+    /// Returns the profile if bound, or None to use default az login
+    pub fn get_azure_profile_for_context(&self, context: &str) -> Option<&AzureProfile> {
+        self.context_bindings
+            .get(context)
+            .and_then(|binding| binding.azure_profile.as_ref())
+            .and_then(|profile_name| self.azure_profiles.get(profile_name))
     }
 }
 

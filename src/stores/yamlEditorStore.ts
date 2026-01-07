@@ -20,6 +20,7 @@ interface YamlEditorState {
   open: boolean;
   title: string;
   resourceKey: ResourceKey | null;
+  readOnly: boolean;
 
   // Content
   originalContent: string;
@@ -43,6 +44,7 @@ interface YamlEditorState {
     title: string;
     resourceKey: ResourceKey;
     fetchYaml: () => Promise<string>;
+    readOnly?: boolean;
   }) => Promise<void>;
   closeEditor: () => void;
   setEditedContent: (content: string) => void;
@@ -72,6 +74,7 @@ export const useYamlEditorStore = create<YamlEditorState>()(
       open: false,
       title: "",
       resourceKey: null,
+      readOnly: false,
       originalContent: "",
       editedContent: "",
       isLoading: false,
@@ -82,11 +85,12 @@ export const useYamlEditorStore = create<YamlEditorState>()(
       applyResult: null,
       history: {},
 
-      openEditor: async ({ title, resourceKey, fetchYaml }) => {
+      openEditor: async ({ title, resourceKey, fetchYaml, readOnly = false }) => {
         set({
           open: true,
           title,
           resourceKey,
+          readOnly,
           originalContent: "",
           editedContent: "",
           isLoading: true,
@@ -116,6 +120,7 @@ export const useYamlEditorStore = create<YamlEditorState>()(
           open: false,
           title: "",
           resourceKey: null,
+          readOnly: false,
           originalContent: "",
           editedContent: "",
           isLoading: false,

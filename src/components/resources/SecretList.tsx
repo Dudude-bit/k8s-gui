@@ -10,8 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useMemo, useCallback } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
-import { YamlViewerAction } from "@/components/ui/yaml-viewer";
-import { YamlEditorMenuAction } from "@/components/ui/yaml-editor";
+import { YamlEditorMenuAction } from "@/components/yaml";
 import type { SecretInfo } from "@/generated/types";
 import { ResourceList } from "./ResourceList";
 import { ResourceType, toPlural } from "@/lib/resource-types";
@@ -97,9 +96,13 @@ export function SecretList() {
           id: "actions",
           cell: ({ row }) => (
             <ActionMenu>
-              <YamlViewerAction
-                title="Secret YAML"
-                description={`${row.original.namespace}/${row.original.name}`}
+              <YamlEditorMenuAction
+                title={`Secret: ${row.original.name}`}
+                resourceKey={{
+                  kind: ResourceType.Secret,
+                  name: row.original.name,
+                  namespace: row.original.namespace,
+                }}
                 fetchYaml={() =>
                   fetchResourceYaml(
                     ResourceType.Secret,
@@ -107,6 +110,8 @@ export function SecretList() {
                     row.original.namespace
                   )
                 }
+                readOnly
+                menuLabel="View YAML"
               />
               <YamlEditorMenuAction
                 title={`Edit Secret: ${row.original.name}`}

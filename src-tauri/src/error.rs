@@ -87,10 +87,6 @@ pub enum Error {
     /// AWS errors
     #[error("AWS error: {0}")]
     Aws(String),
-
-    /// Keyring errors
-    #[error("Keyring error: {0}")]
-    Keyring(String),
 }
 
 /// Authentication-specific errors
@@ -181,7 +177,6 @@ impl ErrorExt for Error {
             Error::WebSocket(_) => "WEBSOCKET_ERROR",
             Error::Internal(_) => "INTERNAL_ERROR",
             Error::Aws(_) => "AWS_ERROR",
-            Error::Keyring(_) => "KEYRING_ERROR",
         }
     }
 
