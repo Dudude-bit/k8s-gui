@@ -212,6 +212,10 @@ export async function getSecret(name: string, namespace: string | null): Promise
   return invoke<SecretInfo>("get_secret", { name, namespace });
 }
 
+export async function getSecretData(name: string, namespace: string | null): Promise<Record<string, string>> {
+  return invoke<Record<string, string>>("get_secret_data", { name, namespace });
+}
+
 export async function getSecretYaml(name: string, namespace: string | null, redact: boolean): Promise<string> {
   return invoke<string>("get_secret_yaml", { name, namespace, redact });
 }

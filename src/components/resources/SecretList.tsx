@@ -3,12 +3,12 @@ import { fetchResourceYaml } from "@/hooks/useResourceYaml";
 import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
 import { ColumnDef } from "@tanstack/react-table";
-import { Trash2, Copy, Lock } from "lucide-react";
+import { Trash2, Copy, Lock, Eye } from "lucide-react";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { YamlEditorMenuAction } from "@/components/yaml";
 import type { SecretInfo } from "@/generated/types";
@@ -20,6 +20,7 @@ import {
   createAgeColumn,
   createDataKeysColumn,
 } from "./columns";
+import { SecretDataDialog } from "./SecretDataDialog";
 
 const getSecretTypeColor = (type: string): string => {
   switch (type) {
@@ -37,6 +38,7 @@ const getSecretTypeColor = (type: string): string => {
 export function SecretList() {
   const { currentNamespace } = useClusterStore();
   const copyToClipboard = useCopyToClipboard();
+  const [viewDataSecret, setViewDataSecret] = useState<SecretInfo | null>(null);
 
   const handleCopyKeys = useCallback(
     async (secret: SecretInfo) => {
@@ -77,6 +79,7 @@ export function SecretList() {
   );
 
   return (
+    <>
     <ResourceList<SecretInfo>
       title="Secrets"
       queryKey={[toPlural(ResourceType.Secret), currentNamespace]}
@@ -128,6 +131,10 @@ export function SecretList() {
                   )
                 }
               />
+              <DropdownMenuItem onClick={() => setViewDataSecret(row.original)}>
+                <Eye className="mr-2 h-4 w-4" />
+                View Data
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleCopyKeys(row.original)}>
                 <Copy className="mr-2 h-4 w-4" />
                 Copy Keys
@@ -154,5 +161,13 @@ export function SecretList() {
       }}
       staleTime={10000}
     />
+
+    <SecretDataDialog
+      open={viewDataSecret !== null}
+      onOpenChange={(open) => !open && setViewDataSecret(null)}
+      secretName={viewDataSecret?.name ?? ""}
+      namespace={viewDataSecret?.namespace ?? ""}
+    />
+  </>
   );
 }

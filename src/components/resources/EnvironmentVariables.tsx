@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -16,14 +16,19 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronRight, Lock, FileKey, Settings, Box } from "lucide-react";
+import { ChevronDown, ChevronRight, Lock, FileKey, Settings, Box, Loader2 } from "lucide-react";
 import type { EnvVarInfo, EnvFromInfo, EnvVarSourceType } from "@/generated/types";
+import * as commands from "@/generated/commands";
 
 interface EnvironmentVariablesProps {
   env: EnvVarInfo[];
   envFrom: EnvFromInfo[];
   containerName?: string;
+  namespace?: string;
 }
+
+// Cache for ConfigMap and Secret data
+type DataCache = Record<string, Record<string, string>>;
 
 function getSourceIcon(sourceType: EnvVarSourceType) {
   switch (sourceType) {
@@ -70,9 +75,14 @@ export function EnvironmentVariables({
   env,
   envFrom,
   containerName,
+  namespace,
 }: EnvironmentVariablesProps) {
   const [showSecrets, setShowSecrets] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
+  const [secretCache, setSecretCache] = useState<DataCache>({});
+  const [configMapCache, setConfigMapCache] = useState<DataCache>({});
+  const [loadingSecrets, setLoadingSecrets] = useState(false);
+  const [loadingConfigMaps, setLoadingConfigMaps] = useState(false);
 
   const hasEnvVars = env.length > 0 || envFrom.length > 0;
 
@@ -80,6 +90,87 @@ export function EnvironmentVariables({
     (e) => e.valueFrom?.sourceType === "secretKeyRef"
   );
   const hasSecrets = secretEnvVars.length > 0 || envFrom.some((ef) => ef.secretRef);
+
+  // Get unique secret and configMap names that need to be fetched
+  const { secretNames, configMapNames } = useMemo(() => {
+    const secrets = new Set<string>();
+    const configMaps = new Set<string>();
+    for (const envVar of env) {
+      if (envVar.valueFrom?.sourceType === "secretKeyRef" && envVar.valueFrom.name) {
+        secrets.add(envVar.valueFrom.name);
+      }
+      if (envVar.valueFrom?.sourceType === "configMapKeyRef" && envVar.valueFrom.name) {
+        configMaps.add(envVar.valueFrom.name);
+      }
+    }
+    return { secretNames: Array.from(secrets), configMapNames: Array.from(configMaps) };
+  }, [env]);
+
+  // Fetch ConfigMap data on mount (not sensitive, load immediately)
+  useEffect(() => {
+    if (!namespace || configMapNames.length === 0) return;
+
+    const configMapsToFetch = configMapNames.filter((name) => !(name in configMapCache));
+    if (configMapsToFetch.length === 0) return;
+
+    setLoadingConfigMaps(true);
+
+    Promise.all(
+      configMapsToFetch.map(async (cmName) => {
+        try {
+          const data = await commands.getConfigmapData(cmName, namespace);
+          return { name: cmName, data };
+        } catch {
+          return { name: cmName, data: {} };
+        }
+      })
+    )
+      .then((results) => {
+        setConfigMapCache((prev: DataCache) => {
+          const newCache = { ...prev };
+          for (const result of results) {
+            newCache[result.name] = result.data;
+          }
+          return newCache;
+        });
+      })
+      .finally(() => {
+        setLoadingConfigMaps(false);
+      });
+  }, [namespace, configMapNames, configMapCache]);
+
+  // Fetch secret data when showSecrets is enabled
+  useEffect(() => {
+    if (!showSecrets || !namespace || secretNames.length === 0) return;
+
+    const secretsToFetch = secretNames.filter((name) => !(name in secretCache));
+    if (secretsToFetch.length === 0) return;
+
+    setLoadingSecrets(true);
+
+    Promise.all(
+      secretsToFetch.map(async (secretName) => {
+        try {
+          const data = await commands.getSecretData(secretName, namespace);
+          return { name: secretName, data };
+        } catch {
+          return { name: secretName, data: {} };
+        }
+      })
+    )
+      .then((results) => {
+        setSecretCache((prev: DataCache) => {
+          const newCache = { ...prev };
+          for (const result of results) {
+            newCache[result.name] = result.data;
+          }
+          return newCache;
+        });
+      })
+      .finally(() => {
+        setLoadingSecrets(false);
+      });
+  }, [showSecrets, namespace, secretNames, secretCache]);
 
   return (
     <Card>
@@ -103,10 +194,14 @@ export function EnvironmentVariables({
             </CollapsibleTrigger>
             {hasSecrets && (
               <div className="flex items-center gap-2">
+                {loadingSecrets && (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                )}
                 <Switch
                   id={`show-secrets-${containerName}`}
                   checked={showSecrets}
                   onCheckedChange={setShowSecrets}
+                  disabled={loadingSecrets}
                 />
                 <Label htmlFor={`show-secrets-${containerName}`} className="text-sm">
                   Show secrets
@@ -177,10 +272,34 @@ export function EnvironmentVariables({
                         {env.map((envVar) => {
                           const isFromSecret =
                             envVar.valueFrom?.sourceType === "secretKeyRef";
+                          const isFromConfigMap =
+                            envVar.valueFrom?.sourceType === "configMapKeyRef";
                           const displayValue = (() => {
                             if (envVar.valueFrom) {
                               if (isFromSecret && !showSecrets) {
                                 return "••••••••";
+                              }
+                              // For secret refs, try to get the actual value from cache
+                              if (isFromSecret && showSecrets && envVar.valueFrom.name && envVar.valueFrom.key) {
+                                const secretData = secretCache[envVar.valueFrom.name];
+                                if (secretData && envVar.valueFrom.key in secretData) {
+                                  return secretData[envVar.valueFrom.key];
+                                }
+                                if (loadingSecrets) {
+                                  return "Loading...";
+                                }
+                                return `(not found: ${envVar.valueFrom.name}:${envVar.valueFrom.key})`;
+                              }
+                              // For ConfigMap refs, try to get the actual value from cache
+                              if (isFromConfigMap && envVar.valueFrom.name && envVar.valueFrom.key) {
+                                const cmData = configMapCache[envVar.valueFrom.name];
+                                if (cmData && envVar.valueFrom.key in cmData) {
+                                  return cmData[envVar.valueFrom.key];
+                                }
+                                if (loadingConfigMaps) {
+                                  return "Loading...";
+                                }
+                                return `(not found: ${envVar.valueFrom.name}:${envVar.valueFrom.key})`;
                               }
                               // For references, show what it references
                               if (envVar.valueFrom.fieldPath) {
@@ -189,7 +308,7 @@ export function EnvironmentVariables({
                               if (envVar.valueFrom.resource) {
                                 return envVar.valueFrom.resource;
                               }
-                              // For ConfigMap/Secret refs, show key reference
+                              // Fallback for other refs
                               return `${envVar.valueFrom.name || ""}:${envVar.valueFrom.key || ""}`;
                             }
                             return envVar.value || "-";

@@ -113,6 +113,36 @@ pub async fn get_secret(
     Ok(SecretInfo::from(&secret))
 }
 
+/// Get decoded Secret data (base64 decoded to UTF-8 strings)
+#[tauri::command]
+pub async fn get_secret_data(
+    name: String,
+    namespace: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<BTreeMap<String, String>> {
+    let secret: Secret =
+        crate::commands::helpers::get_resource(name, namespace, state).await?;
+
+    let mut decoded_data = BTreeMap::new();
+
+    if let Some(data) = secret.data {
+        for (key, value) in data {
+            // Decode base64 bytes to UTF-8 string (lossy for non-UTF8 binary data)
+            let decoded = String::from_utf8_lossy(&value.0).to_string();
+            decoded_data.insert(key, decoded);
+        }
+    }
+
+    // Also include stringData if present (already strings)
+    if let Some(string_data) = secret.string_data {
+        for (key, value) in string_data {
+            decoded_data.insert(key, value);
+        }
+    }
+
+    Ok(decoded_data)
+}
+
 /// Get Secret YAML (with data redacted)
 #[tauri::command]
 pub async fn get_secret_yaml(

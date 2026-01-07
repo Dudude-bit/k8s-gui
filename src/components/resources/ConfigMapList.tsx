@@ -2,12 +2,12 @@ import * as commands from "@/generated/commands";
 import { fetchResourceYaml } from "@/hooks/useResourceYaml";
 import { useClusterStore } from "@/stores/clusterStore";
 import { ColumnDef } from "@tanstack/react-table";
-import { Trash2, Copy } from "lucide-react";
+import { Trash2, Copy, Eye } from "lucide-react";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { YamlEditorMenuAction } from "@/components/yaml";
 import type { ConfigMapInfo } from "@/generated/types";
@@ -20,10 +20,12 @@ import {
   createAgeColumn,
   createDataKeysColumn,
 } from "./columns";
+import { ConfigMapDataDialog } from "./ConfigMapDataDialog";
 
 export function ConfigMapList() {
   const { currentNamespace } = useClusterStore();
   const copyToClipboard = useCopyToClipboard();
+  const [viewDataConfigMap, setViewDataConfigMap] = useState<ConfigMapInfo | null>(null);
 
   const handleCopyData = useCallback(
     async (name: string, namespace: string) => {
@@ -51,6 +53,7 @@ export function ConfigMapList() {
   );
 
   return (
+    <>
     <ResourceList<ConfigMapInfo>
       title="ConfigMaps"
       queryKey={[toPlural(ResourceType.ConfigMap), currentNamespace]}
@@ -101,6 +104,10 @@ export function ConfigMapList() {
                   )
                 }
               />
+              <DropdownMenuItem onClick={() => setViewDataConfigMap(row.original)}>
+                <Eye className="mr-2 h-4 w-4" />
+                View Data
+              </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() =>
                   handleCopyData(row.original.name, row.original.namespace)
@@ -131,5 +138,13 @@ export function ConfigMapList() {
       }}
       staleTime={10000}
     />
+
+    <ConfigMapDataDialog
+      open={viewDataConfigMap !== null}
+      onOpenChange={(open) => !open && setViewDataConfigMap(null)}
+      configMapName={viewDataConfigMap?.name ?? ""}
+      namespace={viewDataConfigMap?.namespace ?? ""}
+    />
+    </>
   );
 }

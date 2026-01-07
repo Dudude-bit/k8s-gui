@@ -189,6 +189,7 @@ fn main() {
             // Secret commands
             commands::config_resources::list_secrets,
             commands::config_resources::get_secret,
+            commands::config_resources::get_secret_data,
             commands::config_resources::get_secret_yaml,
             commands::config_resources::delete_secret,
 

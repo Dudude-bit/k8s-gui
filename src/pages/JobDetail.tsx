@@ -213,6 +213,7 @@ export function JobDetail() {
                     env={container.env}
                     envFrom={container.envFrom}
                     containerName={container.name}
+                    namespace={namespace}
                   />
                 )}
               </CardContent>
