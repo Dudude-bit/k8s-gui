@@ -230,6 +230,14 @@ impl K8sClientManager {
                 tracing::debug!("Using AWS EKS authentication for {}", context);
                 // AWS EKS authentication is handled separately
             }
+            AuthMethod::GcpGke { .. } => {
+                tracing::debug!("Using GCP GKE native authentication for {}", context);
+                // GCP GKE authentication uses native SDK
+            }
+            AuthMethod::AzureAks { .. } => {
+                tracing::debug!("Using Azure AKS native authentication for {}", context);
+                // Azure AKS authentication uses native SDK
+            }
             AuthMethod::Certificate { .. } => {
                 tracing::debug!("Using certificate authentication for {}", context);
             }

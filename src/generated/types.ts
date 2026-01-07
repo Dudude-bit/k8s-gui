@@ -596,6 +596,27 @@ export interface AppInfo {
   tauriVersion: string;
 }
 
+export interface GcpCloudConfig {
+  serviceAccountKeyPath: string | null;
+  gcloudPath: string | null;
+  defaultProject: string | null;
+  preferNativeAuth: boolean;
+}
+
+export interface AzureCloudConfig {
+  azPath: string | null;
+  kubeloginPath: string | null;
+  defaultSubscription: string | null;
+  tenantId: string | null;
+  useCliFallback: boolean;
+  preferNativeAuth: boolean;
+}
+
+export interface CloudConfig {
+  gcp: GcpCloudConfig;
+  azure: AzureCloudConfig;
+}
+
 export interface StreamLogConfig {
   podName: string;
   namespace: string | null;

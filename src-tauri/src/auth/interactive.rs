@@ -1,6 +1,8 @@
 //! Interactive authentication helpers for exec and OIDC flows.
 
 use crate::auth::OidcAuth;
+use crate::auth::{is_aks_exec_command, is_gke_exec_command, parse_aks_exec_args, AzureAksAuth, GcpGkeAuth, AuthProvider};
+use crate::config::AppConfig;
 use crate::error::{AuthError, Error, Result};
 use crate::state::{AppEvent, AppState};
 use kube::config::{
@@ -162,12 +164,172 @@ fn apply_exec_credentials(auth_info: &mut AuthInfo, status: ExecCredentialStatus
     }
 }
 
+/// Try native authentication for cloud providers (GKE, AKS)
+/// Returns None if native auth is not applicable or disabled
+async fn try_native_cloud_auth(
+    exec: &ExecConfig,
+    context: &str,
+) -> Option<Result<ExecCredentialStatus>> {
+    let command = exec.command.as_ref()?;
+    let config = AppConfig::load().ok()?;
+    
+    // Try GKE native auth
+    if is_gke_exec_command(command) && config.cloud.gcp.prefer_native_auth {
+        tracing::info!("Attempting native GCP authentication for context: {}", context);
+        
+        let service_account_path = config.cloud.gcp.service_account_key_path.clone();
+        let auth = GcpGkeAuth::new(service_account_path);
+        
+        match auth.authenticate().await {
+            Ok(result) => {
+                tracing::info!("Native GCP authentication successful");
+                return Some(Ok(ExecCredentialStatus {
+                    expiration_timestamp: result.expires_at.map(|t| t.to_rfc3339()),
+                    token: Some(result.token),
+                    client_certificate_data: None,
+                    client_key_data: None,
+                }));
+            }
+            Err(e) => {
+                tracing::warn!("Native GCP authentication failed, will try exec fallback: {}", e);
+                // Continue to exec fallback
+            }
+        }
+    }
+    
+    // Try AKS native auth
+    if is_aks_exec_command(command) && config.cloud.azure.prefer_native_auth {
+        tracing::info!("Attempting native Azure authentication for context: {}", context);
+        
+        let aks_info = exec.args.as_ref().and_then(|args| parse_aks_exec_args(args));
+        let tenant_id = aks_info
+            .as_ref()
+            .and_then(|i| i.tenant_id.clone())
+            .or_else(|| config.cloud.azure.tenant_id.clone());
+        
+        let auth = AzureAksAuth::new(config.cloud.azure.use_cli_fallback, tenant_id);
+        
+        match auth.authenticate().await {
+            Ok(result) => {
+                tracing::info!("Native Azure authentication successful");
+                return Some(Ok(ExecCredentialStatus {
+                    expiration_timestamp: result.expires_at.map(|t| t.to_rfc3339()),
+                    token: Some(result.token),
+                    client_certificate_data: None,
+                    client_key_data: None,
+                }));
+            }
+            Err(e) => {
+                tracing::warn!("Native Azure authentication failed, will try exec fallback: {}", e);
+                // Continue to exec fallback
+            }
+        }
+    }
+    
+    None
+}
+
+/// Resolve cloud CLI binary path, checking config and common locations
+fn resolve_cloud_cli_path(command: &str) -> Option<PathBuf> {
+    let config = AppConfig::load().ok()?;
+    
+    // Check if command is already an absolute path
+    let cmd_path = PathBuf::from(command);
+    if cmd_path.is_absolute() && cmd_path.exists() {
+        return Some(cmd_path);
+    }
+    
+    // Check configured paths
+    if is_gke_exec_command(command) {
+        if let Some(path) = &config.cloud.gcp.gcloud_path {
+            if path.exists() {
+                return Some(path.clone());
+            }
+        }
+    }
+    
+    if is_aks_exec_command(command) {
+        if let Some(path) = &config.cloud.azure.kubelogin_path {
+            if path.exists() {
+                return Some(path.clone());
+            }
+        }
+        if let Some(path) = &config.cloud.azure.az_path {
+            if path.exists() {
+                return Some(path.clone());
+            }
+        }
+    }
+    
+    // Check common installation locations
+    let common_paths = get_common_cli_paths(command);
+    for path in common_paths {
+        if path.exists() {
+            return Some(path);
+        }
+    }
+    
+    None
+}
+
+/// Get common installation paths for cloud CLIs
+fn get_common_cli_paths(command: &str) -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    let home = dirs::home_dir().unwrap_or_default();
+    
+    if is_gke_exec_command(command) {
+        // gcloud / gke-gcloud-auth-plugin common locations
+        paths.extend([
+            // Homebrew (macOS ARM)
+            PathBuf::from("/opt/homebrew/bin/gke-gcloud-auth-plugin"),
+            PathBuf::from("/opt/homebrew/bin/gcloud"),
+            // Homebrew (macOS Intel)
+            PathBuf::from("/usr/local/bin/gke-gcloud-auth-plugin"),
+            PathBuf::from("/usr/local/bin/gcloud"),
+            // Google Cloud SDK default install
+            home.join("google-cloud-sdk/bin/gke-gcloud-auth-plugin"),
+            home.join("google-cloud-sdk/bin/gcloud"),
+            // Snap (Linux)
+            PathBuf::from("/snap/bin/gke-gcloud-auth-plugin"),
+            PathBuf::from("/snap/bin/gcloud"),
+            // System paths
+            PathBuf::from("/usr/bin/gke-gcloud-auth-plugin"),
+            PathBuf::from("/usr/bin/gcloud"),
+        ]);
+    }
+    
+    if is_aks_exec_command(command) {
+        // kubelogin / az common locations
+        paths.extend([
+            // Homebrew (macOS ARM)
+            PathBuf::from("/opt/homebrew/bin/kubelogin"),
+            PathBuf::from("/opt/homebrew/bin/az"),
+            // Homebrew (macOS Intel)
+            PathBuf::from("/usr/local/bin/kubelogin"),
+            PathBuf::from("/usr/local/bin/az"),
+            // Azure CLI default install
+            home.join(".local/bin/kubelogin"),
+            home.join(".local/bin/az"),
+            // System paths
+            PathBuf::from("/usr/bin/kubelogin"),
+            PathBuf::from("/usr/bin/az"),
+        ]);
+    }
+    
+    paths
+}
+
 async fn run_exec_auth(
     state: &AppState,
     context: &str,
     exec: &ExecConfig,
     exec_cluster: Option<ExecAuthCluster>,
 ) -> Result<ExecCredentialStatus> {
+    // Try native cloud authentication first
+    if let Some(result) = try_native_cloud_auth(exec, context).await {
+        return result;
+    }
+    
     let (session_id, mut cancel_rx) = state.create_auth_session(context, "exec");
     let (browser_script, url_file, bin_dir) = match create_browser_script(&session_id) {
         Ok(paths) => paths,
@@ -441,7 +603,12 @@ fn build_exec_command(
         .as_ref()
         .ok_or_else(|| Error::Auth(AuthError::Kubeconfig("Exec command missing".to_string())))?;
 
-    let mut cmd = Command::new(command);
+    // Try to resolve the command path for cloud CLIs
+    let resolved_command = resolve_cloud_cli_path(command)
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|| command.clone());
+
+    let mut cmd = Command::new(&resolved_command);
     if let Some(args) = &exec.args {
         cmd.args(args);
     }

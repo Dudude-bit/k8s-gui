@@ -23,6 +23,9 @@ pub struct AppConfig {
     pub plugins: PluginsConfig,
     /// Logging configuration
     pub logging: LoggingConfig,
+    /// Cloud provider configuration
+    #[serde(default)]
+    pub cloud: CloudConfig,
 }
 
 /// Theme configuration
@@ -197,6 +200,77 @@ impl Default for LoggingConfig {
             level: default_log_level(),
             file: None,
             max_size_mb: default_log_size(),
+        }
+    }
+}
+
+/// Cloud provider configuration
+///
+/// Settings for GCP, Azure, and other cloud provider authentication.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CloudConfig {
+    /// GCP/GKE configuration
+    #[serde(default)]
+    pub gcp: GcpConfig,
+    /// Azure/AKS configuration
+    #[serde(default)]
+    pub azure: AzureConfig,
+}
+
+/// GCP configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GcpConfig {
+    /// Path to service account JSON key file (optional)
+    /// If not set, uses Application Default Credentials
+    pub service_account_key_path: Option<PathBuf>,
+    /// Custom path to gcloud CLI binary (for exec fallback)
+    pub gcloud_path: Option<PathBuf>,
+    /// Default GCP project ID
+    pub default_project: Option<String>,
+    /// Prefer native SDK auth over exec plugin
+    #[serde(default = "default_true")]
+    pub prefer_native_auth: bool,
+}
+
+impl Default for GcpConfig {
+    fn default() -> Self {
+        Self {
+            service_account_key_path: None,
+            gcloud_path: None,
+            default_project: None,
+            prefer_native_auth: true,
+        }
+    }
+}
+
+/// Azure configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AzureConfig {
+    /// Custom path to az CLI binary (for exec fallback)
+    pub az_path: Option<PathBuf>,
+    /// Custom path to kubelogin binary (for exec fallback)
+    pub kubelogin_path: Option<PathBuf>,
+    /// Default Azure subscription ID
+    pub default_subscription: Option<String>,
+    /// Default Azure tenant ID
+    pub tenant_id: Option<String>,
+    /// Use Azure CLI credentials as fallback when SDK auth fails
+    #[serde(default)]
+    pub use_cli_fallback: bool,
+    /// Prefer native SDK auth over exec plugin
+    #[serde(default = "default_true")]
+    pub prefer_native_auth: bool,
+}
+
+impl Default for AzureConfig {
+    fn default() -> Self {
+        Self {
+            az_path: None,
+            kubelogin_path: None,
+            default_subscription: None,
+            tenant_id: None,
+            use_cli_fallback: false,
+            prefer_native_auth: true,
         }
     }
 }

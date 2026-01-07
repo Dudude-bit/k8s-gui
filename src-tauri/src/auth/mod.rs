@@ -5,10 +5,14 @@
 //! - Bearer token authentication
 //! - OIDC authentication
 //! - AWS EKS authentication
+//! - GCP GKE authentication
+//! - Azure AKS authentication
 
 mod aws_eks;
+mod azure_aks;
 mod bearer;
 mod credentials;
+mod gcp_gke;
 mod interactive;
 mod kubeconfig;
 pub mod license_client;
@@ -16,8 +20,10 @@ mod manager;
 mod oidc;
 
 pub use aws_eks::AwsEksAuth;
+pub use azure_aks::{is_aks_exec_command, parse_aks_exec_args, AksClusterInfo, AzureAksAuth};
 pub use bearer::BearerTokenAuth;
 pub use credentials::CredentialStore;
+pub use gcp_gke::{is_gke_exec_command, parse_gke_exec_args, GcpGkeAuth, GkeClusterInfo};
 pub use interactive::prepare_kubeconfig_for_context;
 pub use kubeconfig::KubeconfigAuth;
 pub use manager::AuthManager;
@@ -57,6 +63,33 @@ pub enum AuthMethod {
         region: String,
         role_arn: Option<String>,
         profile: Option<String>,
+    },
+
+    /// GCP GKE authentication (native SDK)
+    GcpGke {
+        /// Optional project ID (for context)
+        project_id: Option<String>,
+        /// Optional cluster location (zone or region)
+        location: Option<String>,
+        /// Optional cluster name
+        cluster_name: Option<String>,
+        /// Optional path to service account JSON key file
+        service_account_key_path: Option<String>,
+    },
+
+    /// Azure AKS authentication (native SDK)
+    AzureAks {
+        /// Optional subscription ID
+        subscription_id: Option<String>,
+        /// Optional resource group
+        resource_group: Option<String>,
+        /// Optional cluster name
+        cluster_name: Option<String>,
+        /// Optional tenant ID
+        tenant_id: Option<String>,
+        /// Whether to use Azure CLI as fallback when SDK auth fails
+        #[serde(default)]
+        use_cli_fallback: bool,
     },
 }
 

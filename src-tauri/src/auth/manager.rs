@@ -192,6 +192,22 @@ impl AuthManager {
                 role_arn.clone(),
                 profile.clone(),
             )),
+
+            AuthMethod::GcpGke {
+                service_account_key_path,
+                ..
+            } => Arc::new(super::GcpGkeAuth::new(
+                service_account_key_path.as_ref().map(std::path::PathBuf::from),
+            )),
+
+            AuthMethod::AzureAks {
+                tenant_id,
+                use_cli_fallback,
+                ..
+            } => Arc::new(super::AzureAksAuth::new(
+                *use_cli_fallback,
+                tenant_id.clone(),
+            )),
         };
 
         Ok(provider)
@@ -205,6 +221,8 @@ impl AuthManager {
             AuthMethod::Certificate { .. } => "certificate".to_string(),
             AuthMethod::Oidc { .. } => "oidc".to_string(),
             AuthMethod::AwsEks { .. } => "aws_eks".to_string(),
+            AuthMethod::GcpGke { .. } => "gcp_gke".to_string(),
+            AuthMethod::AzureAks { .. } => "azure_aks".to_string(),
         }
     }
 

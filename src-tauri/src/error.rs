@@ -111,6 +111,12 @@ pub enum AuthError {
     #[error("AWS authentication failed: {0}")]
     AwsAuth(String),
 
+    #[error("GCP authentication failed: {0}")]
+    GcpAuth(String),
+
+    #[error("Azure authentication failed: {0}")]
+    AzureAuth(String),
+
     #[error("Kubeconfig error: {0}")]
     Kubeconfig(String),
 

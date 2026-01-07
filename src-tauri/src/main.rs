@@ -220,6 +220,10 @@ fn main() {
             // Settings commands
             commands::settings::get_app_info,
             commands::settings::clear_cache,
+            commands::settings::get_cloud_config,
+            commands::settings::save_cloud_config,
+            commands::settings::test_gcp_auth,
+            commands::settings::test_azure_auth,
 
             // Registry commands
             commands::registry::set_registry_credentials,
