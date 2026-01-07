@@ -3,8 +3,8 @@
 use chrono::{DateTime, Utc};
 use k8s_openapi::api::apps::v1::Deployment;
 use k8s_openapi::api::core::v1::{
-    ConfigMap, Container, Event, Namespace, Node, NodeCondition, Pod, PodCondition, PodStatus,
-    Secret, Service,
+    ConfigMap, Container, EnvVar, EnvVarSource as K8sEnvVarSource, Event, Namespace, Node,
+    NodeCondition, Pod, PodCondition, PodStatus, Secret, Service,
 };
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use kube::ResourceExt;
@@ -12,6 +12,143 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 use crate::utils::{format_cpu, parse_cpu, parse_memory};
+
+// ============= Environment Variable Types =============
+
+/// Environment variable information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EnvVarInfo {
+    pub name: String,
+    pub value: Option<String>,
+    pub value_from: Option<EnvVarSourceInfo>,
+}
+
+/// Environment variable source reference
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EnvVarSourceInfo {
+    pub source_type: EnvVarSourceType,
+    pub name: Option<String>,
+    pub key: Option<String>,
+    pub field_path: Option<String>,
+    pub resource: Option<String>,
+    pub optional: Option<bool>,
+}
+
+/// Environment variable source type
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum EnvVarSourceType {
+    ConfigMapKeyRef,
+    SecretKeyRef,
+    FieldRef,
+    ResourceFieldRef,
+}
+
+/// EnvFrom source reference (bulk import from ConfigMap/Secret)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EnvFromInfo {
+    pub prefix: Option<String>,
+    pub config_map_ref: Option<String>,
+    pub secret_ref: Option<String>,
+    pub optional: Option<bool>,
+}
+
+impl From<&EnvVar> for EnvVarInfo {
+    fn from(env: &EnvVar) -> Self {
+        Self {
+            name: env.name.clone(),
+            value: env.value.clone(),
+            value_from: env.value_from.as_ref().map(EnvVarSourceInfo::from),
+        }
+    }
+}
+
+impl From<&K8sEnvVarSource> for EnvVarSourceInfo {
+    fn from(source: &K8sEnvVarSource) -> Self {
+        if let Some(cm_ref) = &source.config_map_key_ref {
+            return Self {
+                source_type: EnvVarSourceType::ConfigMapKeyRef,
+                name: Some(cm_ref.name.clone()),
+                key: Some(cm_ref.key.clone()),
+                field_path: None,
+                resource: None,
+                optional: cm_ref.optional,
+            };
+        }
+        if let Some(secret_ref) = &source.secret_key_ref {
+            return Self {
+                source_type: EnvVarSourceType::SecretKeyRef,
+                name: Some(secret_ref.name.clone()),
+                key: Some(secret_ref.key.clone()),
+                field_path: None,
+                resource: None,
+                optional: secret_ref.optional,
+            };
+        }
+        if let Some(field_ref) = &source.field_ref {
+            return Self {
+                source_type: EnvVarSourceType::FieldRef,
+                name: None,
+                key: None,
+                field_path: Some(field_ref.field_path.clone()),
+                resource: None,
+                optional: None,
+            };
+        }
+        if let Some(resource_ref) = &source.resource_field_ref {
+            return Self {
+                source_type: EnvVarSourceType::ResourceFieldRef,
+                name: resource_ref.container_name.clone(),
+                key: None,
+                field_path: None,
+                resource: Some(resource_ref.resource.clone()),
+                optional: None,
+            };
+        }
+        // Fallback (shouldn't happen with valid K8s data)
+        Self {
+            source_type: EnvVarSourceType::FieldRef,
+            name: None,
+            key: None,
+            field_path: None,
+            resource: None,
+            optional: None,
+        }
+    }
+}
+
+fn extract_env_vars(container: &Container) -> Vec<EnvVarInfo> {
+    container
+        .env
+        .as_ref()
+        .map(|envs| envs.iter().map(EnvVarInfo::from).collect())
+        .unwrap_or_default()
+}
+
+fn extract_env_from(container: &Container) -> Vec<EnvFromInfo> {
+    container
+        .env_from
+        .as_ref()
+        .map(|env_froms| {
+            env_froms
+                .iter()
+                .map(|ef| EnvFromInfo {
+                    prefix: ef.prefix.clone(),
+                    config_map_ref: ef.config_map_ref.as_ref().map(|r| r.name.clone()),
+                    secret_ref: ef.secret_ref.as_ref().map(|r| r.name.clone()),
+                    optional: ef
+                        .config_map_ref
+                        .as_ref()
+                        .and_then(|r| r.optional)
+                        .or_else(|| ef.secret_ref.as_ref().and_then(|r| r.optional)),
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
 
 /// Simplified pod information for frontend
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -231,10 +368,12 @@ pub struct ContainerInfo {
     pub state: ContainerState,
     pub restart_count: i32,
     pub ports: Vec<ContainerPortInfo>,
+    pub env: Vec<EnvVarInfo>,
+    pub env_from: Vec<EnvFromInfo>,
 }
 
 impl ContainerInfo {
-    fn from_container(container: &Container, pod_status: Option<&PodStatus>) -> Self {
+    pub fn from_container(container: &Container, pod_status: Option<&PodStatus>) -> Self {
         let container_status = pod_status
             .and_then(|s| s.container_statuses.as_ref())
             .and_then(|cs| cs.iter().find(|c| c.name == container.name));
@@ -281,6 +420,8 @@ impl ContainerInfo {
             state,
             restart_count,
             ports,
+            env: extract_env_vars(container),
+            env_from: extract_env_from(container),
         }
     }
 }
@@ -333,6 +474,8 @@ pub struct DeploymentContainerInfo {
     pub image: String,
     pub ports: Vec<i32>,
     pub resources: DeploymentContainerResources,
+    pub env: Vec<EnvVarInfo>,
+    pub env_from: Vec<EnvFromInfo>,
 }
 
 /// Container resource requests/limits
@@ -431,6 +574,8 @@ impl From<&Container> for DeploymentContainerInfo {
             image: container.image.clone().unwrap_or_default(),
             ports,
             resources,
+            env: extract_env_vars(container),
+            env_from: extract_env_from(container),
         }
     }
 }

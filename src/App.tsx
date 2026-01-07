@@ -77,6 +77,18 @@ const StorageClassDetail = lazy(() =>
 const EndpointsDetail = lazy(() =>
   import("@/pages/EndpointsDetail").then((m) => ({ default: m.EndpointsDetail }))
 );
+const StatefulSetDetail = lazy(() =>
+  import("@/pages/StatefulSetDetail").then((m) => ({ default: m.StatefulSetDetail }))
+);
+const DaemonSetDetail = lazy(() =>
+  import("@/pages/DaemonSetDetail").then((m) => ({ default: m.DaemonSetDetail }))
+);
+const JobDetail = lazy(() =>
+  import("@/pages/JobDetail").then((m) => ({ default: m.JobDetail }))
+);
+const CronJobDetail = lazy(() =>
+  import("@/pages/CronJobDetail").then((m) => ({ default: m.CronJobDetail }))
+);
 const Login = lazy(() =>
   import("@/pages/Login").then((m) => ({ default: m.Login }))
 );
@@ -182,6 +194,10 @@ export default function App() {
             <Route path={`${toPlural(ResourceType.PersistentVolumeClaim)}/:namespace/:name`} element={<PersistentVolumeClaimDetail />} />
             <Route path={`${toPlural(ResourceType.StorageClass)}/:name`} element={<StorageClassDetail />} />
             <Route path={`${toPlural(ResourceType.Endpoints)}/:namespace/:name`} element={<EndpointsDetail />} />
+            <Route path={`${toPlural(ResourceType.StatefulSet)}/:namespace/:name`} element={<StatefulSetDetail />} />
+            <Route path={`${toPlural(ResourceType.DaemonSet)}/:namespace/:name`} element={<DaemonSetDetail />} />
+            <Route path={`${toPlural(ResourceType.Job)}/:namespace/:name`} element={<JobDetail />} />
+            <Route path={`${toPlural(ResourceType.CronJob)}/:namespace/:name`} element={<CronJobDetail />} />
           </Route>
         </Routes>
       </ErrorBoundary>

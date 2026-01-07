@@ -275,9 +275,21 @@ fn main() {
 
             // Workloads commands
             commands::workloads::list_statefulsets,
+            commands::workloads::get_statefulset,
+            commands::workloads::get_statefulset_yaml,
+            commands::workloads::delete_statefulset,
             commands::workloads::list_daemonsets,
+            commands::workloads::get_daemonset,
+            commands::workloads::get_daemonset_yaml,
+            commands::workloads::delete_daemonset,
             commands::workloads::list_jobs,
+            commands::workloads::get_job,
+            commands::workloads::get_job_yaml,
+            commands::workloads::delete_job,
             commands::workloads::list_cronjobs,
+            commands::workloads::get_cronjob,
+            commands::workloads::get_cronjob_yaml,
+            commands::workloads::delete_cronjob,
 
             // Validation commands
             commands::validation::validate_email_command,

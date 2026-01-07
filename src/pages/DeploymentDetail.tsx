@@ -44,6 +44,7 @@ import { LicenseErrorBanner } from "@/components/license/LicenseErrorBanner";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
+import { EnvironmentVariables } from "@/components/resources/EnvironmentVariables";
 import { MetricPair } from "@/components/ui/metric-card";
 import { ResourceDetailLayout } from "@/components/resources/ResourceDetailLayout";
 import {
@@ -441,6 +442,12 @@ export function DeploymentDetail() {
                       </span>
                     </div>
                   )}
+                {/* Environment Variables */}
+                <EnvironmentVariables
+                  env={container.env}
+                  envFrom={container.envFrom}
+                  containerName={container.name}
+                />
               </CardContent>
             </Card>
           ))}

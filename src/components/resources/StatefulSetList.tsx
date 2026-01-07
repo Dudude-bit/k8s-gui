@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useClusterStore } from "@/stores/clusterStore";
 import { ColumnDef } from "@tanstack/react-table";
 import { useMemo } from "react";
@@ -7,9 +8,16 @@ import { matchStatefulSetPods } from "@/hooks/useResourceWithMetrics";
 import { MetricBadge } from "@/components/ui/metric-card";
 import { aggregatePodMetrics } from "@/lib/k8s-quantity";
 import { formatAge } from "@/lib/utils";
+import { ResourceType, toPlural } from "@/lib/resource-types";
 import type { StatefulSetInfo } from "@/generated/types";
 import * as commands from "@/generated/commands";
 import { normalizeTauriError } from "@/lib/error-utils";
+import { ActionMenu } from "@/components/ui/action-menu";
+import {
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Eye, Trash2 } from "lucide-react";
 
 // Extended Info with metrics
 type StatefulSetInfoWithMetrics = StatefulSetInfo & {
@@ -58,7 +66,12 @@ export function StatefulSetList() {
         accessorKey: "name",
         header: "Name",
         cell: ({ row }) => (
-          <span className="font-medium">{row.original.name}</span>
+          <Link
+            to={`/${toPlural(ResourceType.StatefulSet)}/${row.original.namespace}/${row.original.name}`}
+            className="font-medium text-primary hover:underline"
+          >
+            {row.original.name}
+          </Link>
         ),
       },
       { accessorKey: "namespace", header: "Namespace" },
@@ -110,7 +123,39 @@ export function StatefulSetList() {
         JSON.stringify(podsWithMetrics.map((p) => p.name)),
       ]}
       queryFn={queryFn}
-      columns={columns}
+      columns={(setDeleteTarget) => [
+        ...columns,
+        {
+          id: "actions",
+          cell: ({ row }) => (
+            <ActionMenu>
+              <DropdownMenuItem asChild>
+                <Link
+                  to={`/${toPlural(ResourceType.StatefulSet)}/${row.original.namespace}/${row.original.name}`}
+                >
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Details
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => setDeleteTarget(row.original)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </ActionMenu>
+          ),
+        },
+      ]}
+      deleteConfig={{
+        mutationFn: async (item) => {
+          await commands.deleteStatefulset(item.name, item.namespace);
+        },
+        invalidateQueryKeys: [["statefulsets"]],
+        resourceType: ResourceType.StatefulSet,
+      }}
       emptyStateLabel="statefulsets"
       staleTime={10000}
       refetchInterval={15000}

@@ -54,6 +54,28 @@ export interface PaymentHistoryResponse {
   total: number;
 }
 
+export interface EnvVarInfo {
+  name: string;
+  value: string | null;
+  valueFrom: EnvVarSourceInfo | null;
+}
+
+export interface EnvVarSourceInfo {
+  sourceType: EnvVarSourceType;
+  name: string | null;
+  key: string | null;
+  fieldPath: string | null;
+  resource: string | null;
+  optional: boolean | null;
+}
+
+export interface EnvFromInfo {
+  prefix: string | null;
+  configMapRef: string | null;
+  secretRef: string | null;
+  optional: boolean | null;
+}
+
 export interface PodInfo {
   name: string;
   namespace: string;
@@ -98,6 +120,8 @@ export interface ContainerInfo {
   state: ContainerState;
   restartCount: number;
   ports: ContainerPortInfo[];
+  env: EnvVarInfo[];
+  envFrom: EnvFromInfo[];
 }
 
 export interface ContainerPortInfo {
@@ -124,6 +148,8 @@ export interface DeploymentContainerInfo {
   image: string;
   ports: number[];
   resources: DeploymentContainerResources;
+  env: EnvVarInfo[];
+  envFrom: EnvFromInfo[];
 }
 
 export interface DeploymentContainerResources {
@@ -264,12 +290,45 @@ export interface StatefulSetInfo {
   createdAt: string | null;
 }
 
+export interface StatefulSetDetailInfo {
+  name: string;
+  namespace: string;
+  uid: string;
+  replicas: StatefulSetReplicaInfo;
+  serviceName: string | null;
+  podManagementPolicy: string | null;
+  updateStrategy: string | null;
+  containers: DeploymentContainerInfo[];
+  labels: Record<string, string>;
+  annotations: Record<string, string>;
+  conditions: ConditionInfo[];
+  createdAt: string | null;
+}
+
 export interface DaemonSetInfo {
   name: string;
   namespace: string;
   desired: number;
   current: number;
   ready: number;
+  createdAt: string | null;
+}
+
+export interface DaemonSetDetailInfo {
+  name: string;
+  namespace: string;
+  uid: string;
+  desired: number;
+  current: number;
+  ready: number;
+  upToDate: number;
+  available: number;
+  updateStrategy: string | null;
+  containers: DeploymentContainerInfo[];
+  labels: Record<string, string>;
+  annotations: Record<string, string>;
+  selector: Record<string, string>;
+  conditions: ConditionInfo[];
   createdAt: string | null;
 }
 
@@ -284,6 +343,27 @@ export interface JobInfo {
   createdAt: string | null;
 }
 
+export interface JobDetailInfo {
+  name: string;
+  namespace: string;
+  uid: string;
+  completions: number | null;
+  parallelism: number | null;
+  backoffLimit: number | null;
+  activeDeadlineSeconds: number | null;
+  succeeded: number;
+  failed: number;
+  active: number;
+  status: string;
+  startTime: string | null;
+  completionTime: string | null;
+  containers: DeploymentContainerInfo[];
+  labels: Record<string, string>;
+  annotations: Record<string, string>;
+  conditions: ConditionInfo[];
+  createdAt: string | null;
+}
+
 export interface CronJobInfo {
   name: string;
   namespace: string;
@@ -291,6 +371,26 @@ export interface CronJobInfo {
   suspend: boolean;
   active: number;
   lastSchedule: string | null;
+  createdAt: string | null;
+}
+
+export interface CronJobDetailInfo {
+  name: string;
+  namespace: string;
+  uid: string;
+  schedule: string;
+  timezone: string | null;
+  suspend: boolean;
+  concurrencyPolicy: string | null;
+  startingDeadlineSeconds: number | null;
+  successfulJobsHistoryLimit: number | null;
+  failedJobsHistoryLimit: number | null;
+  active: number;
+  lastSchedule: string | null;
+  lastSuccessfulTime: string | null;
+  containers: DeploymentContainerInfo[];
+  labels: Record<string, string>;
+  annotations: Record<string, string>;
   createdAt: string | null;
 }
 
@@ -642,6 +742,12 @@ export interface ContextInfo {
   namespace: string | null;
   isCurrent: boolean;
 }
+
+export type EnvVarSourceType =
+  | "configMapKeyRef"
+  | "secretKeyRef"
+  | "fieldRef"
+  | "resourceFieldRef";
 
 export type ContainerState =
   | { type: "running" }

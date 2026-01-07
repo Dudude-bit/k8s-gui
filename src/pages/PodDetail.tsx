@@ -33,6 +33,7 @@ import { Terminal } from "@/components/terminal/Terminal";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
+import { EnvironmentVariables } from "@/components/resources/EnvironmentVariables";
 import { ResourceDetailLayout, InfoCard, InfoRow } from "@/components/resources/ResourceDetailLayout";
 import { useToast } from "@/components/ui/use-toast";
 import { Switch } from "@/components/ui/switch";
@@ -529,6 +530,12 @@ export function PodDetail() {
                         </div>
                       )}
                     </div>
+                    {/* Environment Variables */}
+                    <EnvironmentVariables
+                      env={container.env}
+                      envFrom={container.envFrom}
+                      containerName={container.name}
+                    />
                   </CardContent>
                 </Card>
               ))}
