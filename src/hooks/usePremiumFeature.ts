@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import * as commands from "@/generated/commands";
 import { normalizeTauriError, isPremiumFeatureError } from "@/lib/error-utils";
+import { AUTH_DISABLED } from "@/lib/flags";
 
 interface UsePremiumFeatureResult {
   /** Whether the user has access to premium features */
@@ -31,9 +32,12 @@ export function usePremiumFeature(): UsePremiumFeatureResult {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const hasAccess = licenseStatus?.isValid ?? false;
+  const hasAccess = AUTH_DISABLED ? true : (licenseStatus?.isValid ?? false);
 
   const checkLicense = useCallback(async (): Promise<boolean> => {
+    if (AUTH_DISABLED) {
+      return true;
+    }
     setIsLoading(true);
     setError(null);
 

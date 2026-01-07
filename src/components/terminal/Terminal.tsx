@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import * as commands from "@/generated/commands";
 import { useTerminalSession } from "@/hooks/useTerminalSession";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 interface TerminalProps {
   podName: string;
@@ -187,7 +188,7 @@ export function Terminal({
           disconnect();
         }
       } catch (error) {
-        const errorText = String(error);
+        const errorText = normalizeTauriError(error);
         if (errorText.includes("not found") || errorText.includes("NotFound")) {
           setUnavailableReason("Pod not found");
           disconnect();

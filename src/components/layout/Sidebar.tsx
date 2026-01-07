@@ -10,6 +10,7 @@ import {
   Package,
   Settings,
   ChevronDown,
+  Puzzle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -63,7 +64,8 @@ const navItems = [
     ],
   },
   { icon: Server, label: "Nodes", path: `/${toPlural(ResourceType.Node)}` },
-  { icon: Activity, label: "Events", path: "/events" },
+  { icon: Activity, label: "Events", path: `/${toPlural(ResourceType.Event)}` },
+  { icon: Puzzle, label: "CRDs", path: `/${toPlural(ResourceType.CustomResourceDefinition)}` },
   { icon: Package, label: "Helm", path: "/helm" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];

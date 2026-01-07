@@ -8,10 +8,12 @@ use crate::cache::ResourceCache;
 use crate::client::K8sClientManager;
 use crate::config::AppConfig;
 use crate::error::Result;
+use crate::logs::{LogFormat, LogLevel};
 use crate::plugins::PluginManager;
 use crate::terminal::TerminalManager;
 use dashmap::DashMap;
 use parking_lot::RwLock;
+use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::broadcast;
@@ -48,6 +50,10 @@ pub enum AppEvent {
         container: String,
         message: String,
         timestamp: Option<String>,
+        level: Option<LogLevel>,
+        format: LogFormat,
+        fields: Option<BTreeMap<String, String>>,
+        raw: String,
     },
     /// Terminal output received
     TerminalOutput { session_id: String, data: String },

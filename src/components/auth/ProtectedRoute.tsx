@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "@/stores/authStore";
 import { PageSkeleton } from "@/components/ui/skeleton";
+import { AUTH_DISABLED } from "@/lib/flags";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -14,6 +15,11 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [hasChecked, setHasChecked] = useState(false);
 
   useEffect(() => {
+    if (AUTH_DISABLED) {
+      setIsChecking(false);
+      setHasChecked(true);
+      return;
+    }
     // Wait for initial loading to complete
     if (loading) {
       return;
@@ -47,6 +53,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
     verifyAuth();
   }, [isAuthenticated, loading, checkAuth, hasChecked]);
+
+  if (AUTH_DISABLED) {
+    return <>{children}</>;
+  }
 
   // Show loading state while checking authentication
   if (loading || isChecking) {

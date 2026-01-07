@@ -1900,10 +1900,15 @@ def main():
     # Auth URL
     build_config = load_build_config()
     default_auth = build_config.get("auth_url") or os.environ.get("VITE_AUTH_SERVER_URL", "")
-    auth_url = ask("Auth server URL", default_auth)
-    if not auth_url:
-        print_error("Auth URL is required")
-        sys.exit(1)
+    disable_auth_env = os.environ.get("VITE_DISABLE_AUTH", "")
+    disable_auth = disable_auth_env.lower() in ("1", "true", "yes")
+    if disable_auth:
+        auth_url = ask("Auth server URL (optional with VITE_DISABLE_AUTH)", default_auth)
+    else:
+        auth_url = ask("Auth server URL", default_auth)
+        if not auth_url:
+            print_error("Auth URL is required")
+            sys.exit(1)
     
     # Save auth URL
     if auth_url != build_config.get("auth_url"):
@@ -1950,6 +1955,8 @@ def main():
     
     # Setup env
     env = {"VITE_AUTH_SERVER_URL": auth_url}
+    if disable_auth_env:
+        env["VITE_DISABLE_AUTH"] = disable_auth_env
     if release_mode:
         env["TAURI_SIGNING_PRIVATE_KEY"] = os.environ.get("TAURI_SIGNING_PRIVATE_KEY", "")
         if "TAURI_SIGNING_PRIVATE_KEY_PASSWORD" in os.environ:

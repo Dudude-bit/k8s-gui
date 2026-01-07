@@ -11,9 +11,8 @@ use k8s_gui_common::init_tracing;
 
 /// Auth server URL baked at build time.
 ///
-/// Build will fail if `VITE_AUTH_SERVER_URL` is not set.
-const AUTH_SERVER_URL: &str =
-    env!("VITE_AUTH_SERVER_URL", "VITE_AUTH_SERVER_URL must be set at build time");
+/// Build will fail if `VITE_AUTH_SERVER_URL` is not set and auth is enabled.
+const AUTH_SERVER_URL: Option<&str> = option_env!("VITE_AUTH_SERVER_URL");
 
 fn main() {
     // Install rustls crypto provider before any TLS operations
@@ -27,8 +26,13 @@ fn main() {
     tracing::info!("Starting K8s GUI application");
 
     // Use the baked-in auth server URL
+    let auth_disabled = k8s_gui_lib::auth::auth_disabled();
+    let auth_url = AUTH_SERVER_URL.unwrap_or("");
+    if !auth_disabled && auth_url.is_empty() {
+        panic!("VITE_AUTH_SERVER_URL must be set at build time");
+    }
     let license_client =
-        k8s_gui_lib::auth::license_client::LicenseClient::new(AUTH_SERVER_URL.to_string());
+        k8s_gui_lib::auth::license_client::LicenseClient::new(auth_url.to_string());
 
     tauri::Builder::default()
         .manage(license_client)
@@ -67,14 +71,28 @@ fn main() {
 
                     // Transform event payload for frontend
                     let payload = match &event {
-                        AppEvent::LogMessage { stream_id, pod, container, message, timestamp } => {
+                        AppEvent::LogMessage {
+                            stream_id,
+                            pod,
+                            container,
+                            message,
+                            timestamp,
+                            level,
+                            format,
+                            fields,
+                            raw,
+                        } => {
                             serde_json::json!({
                                 "stream_id": stream_id,
                                 "line": format!("{} {}", timestamp.clone().unwrap_or_default(), message),
                                 "pod": pod,
                                 "container": container,
                                 "message": message,
-                                "timestamp": timestamp
+                                "timestamp": timestamp,
+                                "level": level,
+                                "format": format,
+                                "fields": fields,
+                                "raw": raw
                             })
                         },
                         AppEvent::TerminalOutput { session_id, data } => {
@@ -152,6 +170,17 @@ fn main() {
 
             // Generic resource management
             commands::resources::list_resources,
+
+            // CRD commands
+            commands::crds::list_crds,
+            commands::crds::get_crd,
+            commands::crds::get_crd_yaml,
+            commands::crds::delete_crd,
+            commands::crds::get_crd_schema,
+            commands::crds::list_custom_resources,
+            commands::crds::get_custom_resource,
+            commands::crds::get_custom_resource_yaml,
+            commands::crds::delete_custom_resource,
 
 
             // Pod commands

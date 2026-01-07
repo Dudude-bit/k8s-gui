@@ -39,6 +39,7 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/authStore";
 import { Spinner } from "@/components/ui/spinner";
+import { AUTH_DISABLED } from "@/lib/flags";
 
 export function Header() {
   const {
@@ -237,7 +238,7 @@ export function Header() {
       {/* Right: License, Search, Profile, and theme */}
       <div className="flex items-center gap-2">
         {/* License status badge */}
-        <LicenseStatusBadge />
+        {!AUTH_DISABLED && <LicenseStatusBadge />}
 
         {/* Command palette trigger */}
         <Button
@@ -255,34 +256,35 @@ export function Header() {
         </Button>
 
         {/* Profile menu */}
-        {isAuthenticated ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
+        {!AUTH_DISABLED &&
+          (isAuthenticated ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <User className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link to="/profile">
+                    <User className="mr-2 h-4 w-4" />
+                    Profile
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button variant="ghost" size="icon" asChild>
+              <Link to="/login">
                 <User className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem asChild>
-                <Link to="/profile">
-                  <User className="mr-2 h-4 w-4" />
-                  Profile
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Logout
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : (
-          <Button variant="ghost" size="icon" asChild>
-            <Link to="/login">
-              <User className="h-4 w-4" />
-            </Link>
-          </Button>
-        )}
+              </Link>
+            </Button>
+          ))}
 
         {/* Theme toggle */}
         <DropdownMenu>

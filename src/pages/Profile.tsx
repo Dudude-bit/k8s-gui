@@ -5,13 +5,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, CreditCard, FileText, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/authStore";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
+import { AUTH_DISABLED } from "@/lib/flags";
 
 export function Profile() {
   const { logout } = useAuthStore();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  if (AUTH_DISABLED) {
+    return <Navigate to="/" replace />;
+  }
 
   const handleLogout = async () => {
     try {

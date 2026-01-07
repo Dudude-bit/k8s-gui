@@ -2,9 +2,15 @@ import { LoginForm } from "@/components/auth/LoginForm";
 import { useLoginRedirect } from "@/hooks/useLoginRedirect";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import { Navigate } from "react-router-dom";
+import { AUTH_DISABLED } from "@/lib/flags";
 
 export function Login() {
   const { handleLoginSuccess, handleGoBack } = useLoginRedirect();
+
+  if (AUTH_DISABLED) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">

@@ -45,7 +45,13 @@ pub async fn stream_pod_logs(
 
     let mut log_config = LogConfig::new(&config.pod_name, &namespace)
         .with_follow(config.follow)
-        .with_tail(config.tail_lines.unwrap_or(100));
+        .with_tail(config.tail_lines.unwrap_or(100))
+        .with_timestamps(config.timestamps)
+        .with_previous(config.previous);
+
+    if let Some(since_seconds) = config.since_seconds {
+        log_config = log_config.with_since_seconds(since_seconds);
+    }
 
     if let Some(ref container) = config.container {
         log_config = log_config.with_container(container);
@@ -89,8 +95,8 @@ pub async fn get_pod_logs(
     namespace: Option<String>,
     container: Option<String>,
     tail_lines: Option<i64>,
-    _since_seconds: Option<i64>,
-    _previous: bool,
+    since_seconds: Option<i64>,
+    previous: bool,
     state: State<'_, AppState>,
     license: State<'_, crate::auth::license_client::LicenseClient>,
 ) -> Result<Vec<LogLine>> {
@@ -109,7 +115,12 @@ pub async fn get_pod_logs(
 
     let mut log_config = LogConfig::new(&pod_name, &namespace)
         .with_follow(false)
-        .with_tail(tail_lines.unwrap_or(1000));
+        .with_tail(tail_lines.unwrap_or(1000))
+        .with_previous(previous);
+
+    if let Some(since_seconds) = since_seconds {
+        log_config = log_config.with_since_seconds(since_seconds);
+    }
 
     if let Some(container) = container {
         log_config = log_config.with_container(&container);

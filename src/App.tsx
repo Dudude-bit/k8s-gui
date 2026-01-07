@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect } from "react";
-import { Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { ResourceType, toPlural } from "@/lib/resource-types";
 
 import { ErrorBoundary } from "@/components/ui/error-boundary";
@@ -14,6 +14,7 @@ import { usePortForwardStore } from "@/stores/portForwardStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { setupFrontendLogger } from "@/lib/frontend-logger";
 import { logInfo, flushLogs } from "@/lib/logger";
+import { AUTH_DISABLED } from "@/lib/flags";
 
 // Lazy load all pages for code splitting
 const ClusterOverview = lazy(() =>
@@ -88,6 +89,15 @@ const JobDetail = lazy(() =>
 );
 const CronJobDetail = lazy(() =>
   import("@/pages/CronJobDetail").then((m) => ({ default: m.CronJobDetail }))
+);
+const Crds = lazy(() =>
+  import("@/pages/Crds").then((m) => ({ default: m.Crds }))
+);
+const CrdDetail = lazy(() =>
+  import("@/pages/CrdDetail").then((m) => ({ default: m.CrdDetail }))
+);
+const CustomResourceDetail = lazy(() =>
+  import("@/pages/CustomResourceDetail").then((m) => ({ default: m.CustomResourceDetail }))
 );
 const Login = lazy(() =>
   import("@/pages/Login").then((m) => ({ default: m.Login }))
@@ -178,9 +188,13 @@ export default function App() {
             <Route
               path="profile"
               element={
-                <ProtectedRoute>
-                  <Profile />
-                </ProtectedRoute>
+                AUTH_DISABLED ? (
+                  <Navigate to="/" replace />
+                ) : (
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                )
               }
             />
             <Route path={`${toPlural(ResourceType.Pod)}/:namespace/:name`} element={<PodDetail />} />
@@ -198,6 +212,11 @@ export default function App() {
             <Route path={`${toPlural(ResourceType.DaemonSet)}/:namespace/:name`} element={<DaemonSetDetail />} />
             <Route path={`${toPlural(ResourceType.Job)}/:namespace/:name`} element={<JobDetail />} />
             <Route path={`${toPlural(ResourceType.CronJob)}/:namespace/:name`} element={<CronJobDetail />} />
+            {/* CRD Routes */}
+            <Route path={toPlural(ResourceType.CustomResourceDefinition)} element={<Crds />} />
+            <Route path={`${toPlural(ResourceType.CustomResourceDefinition)}/:name`} element={<CrdDetail />} />
+            <Route path={`${toPlural(ResourceType.CustomResourceDefinition)}/:crdName/instances/:namespace/:name`} element={<CustomResourceDetail />} />
+            <Route path={`${toPlural(ResourceType.CustomResourceDefinition)}/:crdName/instances/:name`} element={<CustomResourceDetail />} />
           </Route>
         </Routes>
       </ErrorBoundary>

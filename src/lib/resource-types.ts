@@ -27,6 +27,7 @@ export const ResourceType = {
     Node: "Node",
     Event: "Event",
     Namespace: "Namespace",
+    CustomResourceDefinition: "CustomResourceDefinition",
 } as const;
 
 export type ResourceKind = (typeof ResourceType)[keyof typeof ResourceType];
@@ -54,6 +55,7 @@ const kindToPlural: Record<ResourceKind, string> = {
     Node: "nodes",
     Event: "events",
     Namespace: "namespaces",
+    CustomResourceDefinition: "customresourcedefinitions",
 };
 
 /**
@@ -77,6 +79,7 @@ const pluralToKind: Record<string, ResourceKind> = {
     nodes: "Node",
     events: "Event",
     namespaces: "Namespace",
+    customresourcedefinitions: "CustomResourceDefinition",
 };
 
 /**

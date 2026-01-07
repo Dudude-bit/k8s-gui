@@ -19,6 +19,7 @@ import { useState, useEffect } from "react";
 import * as commands from "@/generated/commands";
 import type { PaymentInfo } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
+import { AUTH_DISABLED } from "@/lib/flags";
 
 const formatDate = (dateString: string | null) => {
   if (!dateString) {
@@ -61,6 +62,10 @@ export function PaymentHistory() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (AUTH_DISABLED) {
+      setIsLoading(false);
+      return;
+    }
     const loadPayments = async () => {
       try {
         const history = await commands.getPaymentHistory();
@@ -74,6 +79,10 @@ export function PaymentHistory() {
 
     loadPayments();
   }, []);
+
+  if (AUTH_DISABLED) {
+    return null;
+  }
 
   if (isLoading) {
     return (

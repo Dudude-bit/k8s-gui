@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Pencil, Play, Plus, Square, Trash2 } from "lucide-react";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 type PortForwardFormState = {
   name: string;
@@ -226,7 +227,7 @@ export function PortForwardManager() {
     } catch (error) {
       toast({
         title: "Failed to start port-forward",
-        description: String(error),
+        description: normalizeTauriError(error),
         variant: "destructive",
       });
     } finally {
@@ -241,7 +242,7 @@ export function PortForwardManager() {
     } catch (error) {
       toast({
         title: "Failed to stop port-forward",
-        description: String(error),
+        description: normalizeTauriError(error),
         variant: "destructive",
       });
     } finally {
@@ -269,7 +270,7 @@ export function PortForwardManager() {
     } catch (error) {
       toast({
         title: "Failed to start all port-forwards",
-        description: String(error),
+        description: normalizeTauriError(error),
         variant: "destructive",
       });
     } finally {

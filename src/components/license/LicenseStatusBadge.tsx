@@ -4,10 +4,15 @@ import { useLicense } from "@/hooks/useLicense";
 import { LicenseInfoDialog } from "./LicenseInfoDialog";
 import { useState } from "react";
 import { Crown, Clock, XCircle, CheckCircle2 } from "lucide-react";
+import { AUTH_DISABLED } from "@/lib/flags";
 
 export function LicenseStatusBadge() {
   const { licenseStatus, hasValidLicense } = useLicense();
   const [showInfoDialog, setShowInfoDialog] = useState(false);
+
+  if (AUTH_DISABLED) {
+    return null;
+  }
 
   if (!licenseStatus) {
     return (

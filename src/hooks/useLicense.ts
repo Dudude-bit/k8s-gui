@@ -9,6 +9,7 @@
 
 import { useEffect } from "react";
 import { useAuthStore } from "@/stores/authStore";
+import { AUTH_DISABLED } from "@/lib/flags";
 
 /**
  * Hook for managing license status
@@ -33,6 +34,9 @@ export function useLicense() {
   } = useAuthStore();
 
   useEffect(() => {
+    if (AUTH_DISABLED) {
+      return;
+    }
     // Only check license if user is authenticated
     if (!isAuthenticated) {
       return;
@@ -52,8 +56,8 @@ export function useLicense() {
     return () => clearInterval(interval);
   }, [checkLicenseStatus, isAuthenticated]);
 
-  const hasValidLicense = licenseStatus?.isValid ?? false;
-  const hasLicense = licenseStatus?.hasLicense ?? false;
+  const hasValidLicense = AUTH_DISABLED ? true : (licenseStatus?.isValid ?? false);
+  const hasLicense = AUTH_DISABLED ? true : (licenseStatus?.hasLicense ?? false);
 
   return {
     licenseStatus,

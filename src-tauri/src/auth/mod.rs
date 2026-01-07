@@ -29,6 +29,14 @@ pub use oidc::OidcAuth;
 
 use serde::{Deserialize, Serialize};
 
+#[must_use]
+pub fn auth_disabled() -> bool {
+    matches!(
+        option_env!("VITE_DISABLE_AUTH"),
+        Some("1") | Some("true")
+    )
+}
+
 /// Authentication method enumeration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]

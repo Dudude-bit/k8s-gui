@@ -1,5 +1,6 @@
 //! License client for connecting to auth-server via gRPC
 
+use crate::auth::auth_disabled;
 use crate::config::AppConfig;
 use crate::error::{Error, Result};
 use crate::proto::auth::auth_service_client::AuthServiceClient;
@@ -156,6 +157,34 @@ impl From<GrpcPaymentHistoryResponse> for PaymentHistoryResponse {
     }
 }
 
+fn disabled_license_status() -> LicenseStatus {
+    LicenseStatus {
+        has_license: true,
+        license_key: None,
+        subscription_type: Some("lifetime".to_string()),
+        expires_at: None,
+        is_valid: true,
+    }
+}
+
+fn disabled_user_profile() -> UserProfile {
+    UserProfile {
+        user_id: "local".to_string(),
+        email: "offline@local".to_string(),
+        first_name: None,
+        last_name: None,
+        company: None,
+        email_verified: true,
+    }
+}
+
+fn disabled_payment_history() -> PaymentHistoryResponse {
+    PaymentHistoryResponse {
+        payments: Vec::new(),
+        total: 0,
+    }
+}
+
 pub struct LicenseClient {
     endpoint: String,
     access_token: Arc<RwLock<Option<String>>>,
@@ -258,6 +287,14 @@ impl LicenseClient {
     /// Returns an error if connection to the auth server fails, login request fails,
     /// or the response is invalid.
     pub async fn login(&self, email: &str, password: &str) -> Result<AuthTokens> {
+        if auth_disabled() {
+            return Ok(AuthTokens {
+                user_id: "local".to_string(),
+                access_token: "disabled".to_string(),
+                refresh_token: "disabled".to_string(),
+                expires_in: 0,
+            });
+        }
         let channel = self.connect().await?;
         let mut client = AuthServiceClient::new(channel);
 
@@ -293,6 +330,14 @@ impl LicenseClient {
         _first_name: Option<String>,
         _last_name: Option<String>,
     ) -> Result<AuthTokens> {
+        if auth_disabled() {
+            return Ok(AuthTokens {
+                user_id: "local".to_string(),
+                access_token: "disabled".to_string(),
+                refresh_token: "disabled".to_string(),
+                expires_in: 0,
+            });
+        }
         let channel = self.connect().await?;
         let mut client = AuthServiceClient::new(channel);
 
@@ -316,12 +361,18 @@ impl LicenseClient {
     }
 
     pub async fn set_tokens(&self, access_token: String, refresh_token: String) {
+        if auth_disabled() {
+            return;
+        }
         Self::save_tokens_to_config(&access_token, &refresh_token);
         *self.access_token.write().await = Some(access_token);
         *self.refresh_token.write().await = Some(refresh_token);
     }
 
     async fn ensure_token_valid(&self) -> Result<()> {
+        if auth_disabled() {
+            return Ok(());
+        }
         let access_token = self.access_token.read().await.clone();
         if access_token.is_some() {
             return Ok(());
@@ -366,6 +417,11 @@ impl LicenseClient {
     /// Returns an error if connection to the license server fails, the request fails,
     /// or the response is invalid.
     pub async fn get_license_status(&self, force_refresh: bool) -> Result<LicenseStatus> {
+        if auth_disabled() {
+            let status = disabled_license_status();
+            *self.cached_status.write().await = Some((status.clone(), chrono::Utc::now()));
+            return Ok(status);
+        }
         // Check cache first
         if !force_refresh {
             let cache_guard = self.cached_status.read().await;
@@ -404,6 +460,11 @@ impl LicenseClient {
     }
 
     pub async fn activate_license(&self, license_key: &str) -> Result<LicenseStatus> {
+        if auth_disabled() {
+            let status = disabled_license_status();
+            *self.cached_status.write().await = Some((status.clone(), chrono::Utc::now()));
+            return Ok(status);
+        }
         self.ensure_token_valid().await?;
         *self.cached_status.write().await = None;
 
@@ -437,17 +498,26 @@ impl LicenseClient {
     }
 
     pub async fn check_license_valid(&self) -> Result<bool> {
+        if auth_disabled() {
+            return Ok(true);
+        }
         let status = self.get_license_status(false).await?;
         Ok(status.is_valid)
     }
 
     /// Check if user is authenticated
     pub async fn is_authenticated(&self) -> bool {
+        if auth_disabled() {
+            return true;
+        }
         self.access_token.read().await.is_some() || self.refresh_token.read().await.is_some()
     }
 
     /// Require premium license for premium features
     pub async fn require_premium_license(&self) -> Result<()> {
+        if auth_disabled() {
+            return Ok(());
+        }
         // If user is not authenticated, return error without logging
         if !self.is_authenticated().await {
             return Err(Error::Internal(
@@ -473,6 +543,9 @@ impl LicenseClient {
     }
 
     pub fn clear_auth(&self) {
+        if auth_disabled() {
+            return;
+        }
         let access_token = Arc::clone(&self.access_token);
         let refresh_token = Arc::clone(&self.refresh_token);
         let cached_status = Arc::clone(&self.cached_status);
@@ -486,6 +559,9 @@ impl LicenseClient {
     }
 
     pub async fn get_user_profile(&self) -> Result<UserProfile> {
+        if auth_disabled() {
+            return Ok(disabled_user_profile());
+        }
         self.ensure_token_valid().await?;
 
         let access_token = self
@@ -509,6 +585,13 @@ impl LicenseClient {
     }
 
     pub async fn update_user_profile(&self, updates: UpdateProfileRequest) -> Result<UserProfile> {
+        if auth_disabled() {
+            let mut profile = disabled_user_profile();
+            profile.first_name = updates.first_name;
+            profile.last_name = updates.last_name;
+            profile.company = updates.company;
+            return Ok(profile);
+        }
         self.ensure_token_valid().await?;
 
         let access_token = self
@@ -539,6 +622,9 @@ impl LicenseClient {
     }
 
     pub async fn get_payment_history(&self) -> Result<PaymentHistoryResponse> {
+        if auth_disabled() {
+            return Ok(disabled_payment_history());
+        }
         self.ensure_token_valid().await?;
 
         let access_token = self

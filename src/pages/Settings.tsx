@@ -52,7 +52,7 @@ export function Settings() {
     onError: (error) => {
       toast({
         title: "Error",
-        description: String(error),
+        description: normalizeTauriError(error),
         variant: "destructive",
       });
     },

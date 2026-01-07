@@ -34,3 +34,43 @@ export function formatAge(createdAt: string | null): string {
   if (diffMins > 0) return `${diffMins}m`;
   return `${diffSecs}s`;
 }
+
+/**
+ * Format a date value for display
+ *
+ * @param value - Date string or unknown value
+ * @returns Formatted date string or null
+ */
+export function formatDate(value: unknown): string | null {
+  if (!value) return null;
+  if (typeof value !== "string") return null;
+
+  try {
+    const date = new Date(value);
+    if (isNaN(date.getTime())) return null;
+    return date.toLocaleString();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Calculate days until a future date
+ *
+ * @param dateValue - Date string or unknown value
+ * @returns Number of days until the date, or null if invalid
+ */
+export function daysUntil(dateValue: unknown): number | null {
+  if (!dateValue || typeof dateValue !== "string") return null;
+
+  try {
+    const date = new Date(dateValue);
+    if (isNaN(date.getTime())) return null;
+
+    const now = new Date();
+    const diffMs = date.getTime() - now.getTime();
+    return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  } catch {
+    return null;
+  }
+}

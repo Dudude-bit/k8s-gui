@@ -18,6 +18,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useClusterStore } from "@/stores/clusterStore";
 import { useYamlEditorStore, type ResourceKey } from "@/stores/yamlEditorStore";
 import { AlertTriangle, Play, FileCheck, FileJson } from "lucide-react";
+import { normalizeTauriError } from "@/lib/error-utils";
 
 import { YamlEditor } from "./YamlEditor";
 import { YamlEditorToolbar } from "./YamlEditorToolbar";
@@ -165,7 +166,7 @@ export function YamlEditorDialog() {
       setValidationResult({
         success: false,
         stdout: "",
-        stderr: String(error),
+        stderr: normalizeTauriError(error),
         exitCode: 1,
       });
     } finally {
@@ -207,16 +208,17 @@ export function YamlEditorDialog() {
         });
       }
     } catch (error) {
+      const errorMessage = normalizeTauriError(error);
       const errorResult = {
         success: false,
         stdout: "",
-        stderr: String(error),
+        stderr: errorMessage,
         exitCode: 1,
       };
       setApplyResult(errorResult);
       toast({
         title: "Apply Failed",
-        description: String(error),
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

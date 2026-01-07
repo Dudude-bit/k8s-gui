@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,8 +21,19 @@ import {
   ArrowDown,
 } from "lucide-react";
 import * as commands from "@/generated/commands";
-import type { LogLine, StreamLogConfig } from "@/generated/types";
+import type { LogFormat, LogLevel, LogLine, StreamLogConfig } from "@/generated/types";
 import { normalizeTauriError, isPremiumFeatureError } from "@/lib/error-utils";
+
+const MAX_LOG_LINES = 5000;
+const HIDDEN_FIELD_KEYS = new Set([
+  "message",
+  "msg",
+  "log",
+  "event",
+  "level",
+  "lvl",
+  "severity",
+]);
 
 interface LogViewerProps {
   podName: string;
@@ -49,6 +60,7 @@ export function LogViewer({
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [tailLines, setTailLines] = useState(100);
+  const [prettyView, setPrettyView] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -155,19 +167,28 @@ export function LogViewer({
         container: string;
         message: string;
         timestamp: string | null;
+        level: LogLevel | null;
+        format: LogFormat | null;
+        fields: Record<string, string> | null;
+        raw: string;
       }>("log-line", (event) => {
         if (event.payload.stream_id === streamId) {
-          setLogs((prev) => [
-            ...prev,
-            {
-              timestamp: event.payload.timestamp,
-              message: event.payload.message,
-              level: null, // Event doesn't currently provide level
-              pod: event.payload.pod,
-              container: event.payload.container,
-              namespace,
-            },
-          ]);
+          setLogs((prev) =>
+            [
+              ...prev,
+              {
+                timestamp: event.payload.timestamp,
+                message: event.payload.message,
+                level: event.payload.level,
+                format: event.payload.format ?? "plain",
+                fields: event.payload.fields,
+                raw: event.payload.raw || event.payload.line || event.payload.message,
+                pod: event.payload.pod,
+                container: event.payload.container,
+                namespace,
+              },
+            ].slice(-MAX_LOG_LINES)
+          );
         }
       });
 
@@ -260,7 +281,7 @@ export function LogViewer({
       );
 
       const content = logs
-        .map((log) => `${log.timestamp || ""} ${log.message}`)
+        .map((log) => log.raw || `${log.timestamp || ""} ${log.message}`)
         .join("\n");
       const blob = new Blob([content], { type: "text/plain" });
       const url = URL.createObjectURL(blob);
@@ -295,7 +316,7 @@ export function LogViewer({
     } else {
       setLogs([]);
     }
-  }, [selectedContainer]);
+  }, [selectedContainer, tailLines]);
 
   const formatTimestamp = (timestamp: string | null) => {
     if (!timestamp) return "--:--:--";
@@ -306,6 +327,75 @@ export function LogViewer({
       return timestamp;
     }
   };
+
+  const formatLabel = (format: LogFormat | null | undefined) => {
+    if (!format) return "plain";
+    return format;
+  };
+
+  const levelLabel = (level: LogLevel | null | undefined) => {
+    switch (level) {
+      case "fatal":
+        return "FTL";
+      case "error":
+        return "ERR";
+      case "warn":
+        return "WRN";
+      case "info":
+        return "INF";
+      case "debug":
+        return "DBG";
+      case "unknown":
+        return "UNK";
+      default:
+        return "---";
+    }
+  };
+
+  const levelClass = (level: LogLevel | null | undefined) => {
+    switch (level) {
+      case "fatal":
+        return "text-red-700";
+      case "error":
+        return "text-red-500";
+      case "warn":
+        return "text-amber-500";
+      case "info":
+        return "text-sky-500";
+      case "debug":
+        return "text-purple-500";
+      default:
+        return "text-muted-foreground";
+    }
+  };
+
+  const levelBorderClass = (level: LogLevel | null | undefined) => {
+    switch (level) {
+      case "fatal":
+        return "border-red-700";
+      case "error":
+        return "border-red-500";
+      case "warn":
+        return "border-amber-500";
+      case "info":
+        return "border-sky-500";
+      case "debug":
+        return "border-purple-500";
+      default:
+        return "border-transparent";
+    }
+  };
+
+  const detectedFormat = useMemo(() => {
+    if (logs.length === 0) return null;
+    const formats = new Set(
+      logs.map((log) => formatLabel(log.format))
+    );
+    if (formats.size === 1) {
+      return formats.values().next()?.value ?? null;
+    }
+    return "mixed";
+  }, [logs]);
 
   return (
     <div className="flex flex-col h-full">
@@ -348,6 +438,15 @@ export function LogViewer({
             <SelectItem value="5000">5000 lines</SelectItem>
           </SelectContent>
         </Select>
+
+        <Button
+          variant={prettyView ? "secondary" : "ghost"}
+          size="sm"
+          onClick={() => setPrettyView((prev) => !prev)}
+          title="Toggle pretty view"
+        >
+          Pretty
+        </Button>
 
         <div className="flex items-center gap-1 ml-auto">
           <Button
@@ -435,18 +534,46 @@ export function LogViewer({
             filteredLogs.map((log, index) => (
               <div
                 key={index}
-                className="flex gap-3 hover:bg-muted/50 py-0.5 px-1 rounded"
+                className={`flex gap-3 hover:bg-muted/50 py-0.5 px-1 rounded border-l-2 pl-2 ${levelBorderClass(
+                  log.level
+                )}`}
               >
                 <span className="text-muted-foreground shrink-0 w-20">
                   {formatTimestamp(log.timestamp)}
                 </span>
-                <span className="whitespace-pre-wrap break-all">
-                  {searchQuery ? (
-                    <HighlightedText text={log.message} query={searchQuery} />
-                  ) : (
-                    log.message
-                  )}
+                <span
+                  className={`shrink-0 w-8 text-[10px] font-semibold tracking-wide uppercase ${levelClass(
+                    log.level
+                  )}`}
+                >
+                  {levelLabel(log.level)}
                 </span>
+                {log.format !== "plain" && (
+                  <span className="shrink-0 text-[10px] uppercase text-muted-foreground">
+                    {formatLabel(log.format)}
+                  </span>
+                )}
+                <div className="flex flex-col gap-1">
+                  <span className="whitespace-pre-wrap break-all">
+                    {searchQuery ? (
+                      <HighlightedText text={log.message} query={searchQuery} />
+                    ) : (
+                      log.message
+                    )}
+                  </span>
+                  {prettyView && log.fields && (
+                    <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground">
+                      {Object.entries(log.fields)
+                        .filter(([key]) => !HIDDEN_FIELD_KEYS.has(key))
+                        .map(([key, value]) => (
+                          <span key={key} className="flex items-baseline gap-1">
+                            <span className="text-foreground/70">{key}</span>
+                            <span className="break-all">{value}</span>
+                          </span>
+                        ))}
+                    </div>
+                  )}
+                </div>
               </div>
             ))
           )}
@@ -461,12 +588,17 @@ export function LogViewer({
             <span> (filtered from {logs.length})</span>
           )}
         </span>
-        {isStreaming && (
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-            Streaming
-          </span>
-        )}
+        <div className="flex items-center gap-4">
+          {detectedFormat && (
+            <span className="capitalize">format: {detectedFormat}</span>
+          )}
+          {isStreaming && (
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+              Streaming
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

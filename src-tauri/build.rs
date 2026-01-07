@@ -3,6 +3,7 @@ fn main() {
 
     // Ensure we rebuild if the auth server URL changes, as it's baked into the binary
     println!("cargo:rerun-if-env-changed=VITE_AUTH_SERVER_URL");
+    println!("cargo:rerun-if-env-changed=VITE_DISABLE_AUTH");
 
     // Rebuild if any proto definitions change
     println!("cargo:rerun-if-changed=../auth-server/proto");

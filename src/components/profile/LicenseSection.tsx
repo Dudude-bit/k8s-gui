@@ -12,6 +12,7 @@ import { ActivateLicenseDialog } from "@/components/license/ActivateLicenseDialo
 import { PurchaseLicenseDialog } from "@/components/license/PurchaseLicenseDialog";
 import { useState } from "react";
 import { Crown, Clock, Infinity, Calendar, XCircle } from "lucide-react";
+import { AUTH_DISABLED } from "@/lib/flags";
 
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
@@ -26,6 +27,10 @@ export function LicenseSection() {
   const { licenseStatus, hasValidLicense } = useLicense();
   const [showActivate, setShowActivate] = useState(false);
   const [showPurchase, setShowPurchase] = useState(false);
+
+  if (AUTH_DISABLED) {
+    return null;
+  }
 
   return (
     <>

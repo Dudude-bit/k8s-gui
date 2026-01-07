@@ -533,6 +533,9 @@ export interface LogLine {
   timestamp: string | null;
   message: string;
   level: LogLevel | null;
+  format: LogFormat;
+  fields: Record<string, string> | null;
+  raw: string;
   pod: string;
   container: string;
   namespace: string;
@@ -713,6 +716,113 @@ export interface ResourceListItem {
   metadata: ResourceMetadata;
 }
 
+export interface CrdInfo {
+  name: string;
+  group: string;
+  kind: string;
+  plural: string;
+  scope: string;
+  version: string;
+  shortNames: string[];
+  categories: string[];
+  createdAt: string | null;
+}
+
+export interface CrdGroup {
+  group: string;
+  crds: CrdInfo[];
+}
+
+export interface CrdVersionInfo {
+  name: string;
+  served: boolean;
+  storage: boolean;
+  deprecated: boolean;
+  deprecationWarning: string | null;
+  schema: unknown | null;
+  additionalPrinterColumns: PrinterColumn[];
+}
+
+export interface PrinterColumn {
+  name: string;
+  columnType: string;
+  jsonPath: string;
+  description: string | null;
+  priority: number | null;
+}
+
+export interface CrdCondition {
+  conditionType: string;
+  status: string;
+  reason: string | null;
+  message: string | null;
+  lastTransitionTime: string | null;
+}
+
+export interface CrdDetailInfo {
+  name: string;
+  group: string;
+  kind: string;
+  plural: string;
+  singular: string;
+  scope: string;
+  versions: CrdVersionInfo[];
+  shortNames: string[];
+  categories: string[];
+  labels: Record<string, string>;
+  annotations: Record<string, string>;
+  conditions: CrdCondition[];
+  createdAt: string | null;
+  acceptedNames: CrdAcceptedNames;
+}
+
+export interface CrdAcceptedNames {
+  kind: string;
+  plural: string;
+  singular: string | null;
+  shortNames: string[];
+  categories: string[];
+  listKind: string | null;
+}
+
+export interface CustomResourceInfo {
+  name: string;
+  namespace: string | null;
+  uid: string;
+  apiVersion: string;
+  kind: string;
+  spec: unknown;
+  status: unknown | null;
+  labels: Record<string, string>;
+  annotations: Record<string, string>;
+  createdAt: string | null;
+  ownerReferences: OwnerReferenceInfo[];
+}
+
+export interface OwnerReferenceInfo {
+  apiVersion: string;
+  kind: string;
+  name: string;
+  uid: string;
+  controller: boolean | null;
+}
+
+export interface CustomResourceDetailInfo {
+  name: string;
+  namespace: string | null;
+  uid: string;
+  apiVersion: string;
+  kind: string;
+  spec: unknown;
+  status: unknown | null;
+  labels: Record<string, string>;
+  annotations: Record<string, string>;
+  createdAt: string | null;
+  ownerReferences: OwnerReferenceInfo[];
+  finalizers: string[];
+  resourceVersion: string | null;
+}
+
 export interface AppInfo {
   version: string;
   name: string;
@@ -772,6 +882,13 @@ export type ContainerState =
   | { type: "waiting", reason: string | null }
   | { type: "terminated", exitCode: number; reason: string | null }
   | { type: "unknown" };
+
+export type LogFormat =
+  | "plain"
+  | "json"
+  | "logfmt"
+  | "klog"
+  | "logback";
 
 export type LogLevel =
   | "debug"

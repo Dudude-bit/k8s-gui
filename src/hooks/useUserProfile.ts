@@ -3,6 +3,7 @@ import { useAuthStore } from "@/stores/authStore";
 import * as commands from "@/generated/commands";
 import type { UserProfile } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
+import { AUTH_DISABLED } from "@/lib/flags";
 
 /**
  * Hook for managing user profile
@@ -17,6 +18,9 @@ export function useUserProfile() {
   const [error, setError] = useState<string | null>(null);
 
   const loadProfile = useCallback(async () => {
+    if (AUTH_DISABLED) {
+      return;
+    }
     if (!isAuthenticated) {
       return;
     }
@@ -36,6 +40,17 @@ export function useUserProfile() {
 
   const updateProfile = useCallback(
     async (updates: Partial<UserProfile>) => {
+      if (AUTH_DISABLED) {
+        if (userProfile) {
+          setUserProfile({
+            ...userProfile,
+            firstName: updates.firstName ?? userProfile.firstName,
+            lastName: updates.lastName ?? userProfile.lastName,
+            company: updates.company ?? userProfile.company,
+          });
+        }
+        return;
+      }
       setIsLoading(true);
       setError(null);
 
@@ -54,7 +69,7 @@ export function useUserProfile() {
         setIsLoading(false);
       }
     },
-    [setUserProfile]
+    [setUserProfile, userProfile]
   );
 
   return {

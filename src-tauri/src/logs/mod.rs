@@ -12,6 +12,8 @@ use kube::{
     Client,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::{broadcast, oneshot};
@@ -95,6 +97,27 @@ impl LogConfig {
         self
     }
 
+    /// Set timestamps
+    #[must_use]
+    pub fn with_timestamps(mut self, timestamps: bool) -> Self {
+        self.timestamps = timestamps;
+        self
+    }
+
+    /// Set previous
+    #[must_use]
+    pub fn with_previous(mut self, previous: bool) -> Self {
+        self.previous = previous;
+        self
+    }
+
+    /// Set since seconds
+    #[must_use]
+    pub fn with_since_seconds(mut self, since_seconds: i64) -> Self {
+        self.since_seconds = Some(since_seconds);
+        self
+    }
+
     /// Convert to kube `LogParams`
     #[must_use]
     pub fn to_log_params(&self) -> LogParams {
@@ -131,12 +154,29 @@ pub struct LogLine {
     pub message: String,
     /// Log level (if parseable)
     pub level: Option<LogLevel>,
+    /// Log format (json/logfmt/plain)
+    pub format: LogFormat,
+    /// Parsed fields for structured formats
+    pub fields: Option<BTreeMap<String, String>>,
+    /// Raw log line (before parsing)
+    pub raw: String,
     /// Source pod
     pub pod: String,
     /// Source container
     pub container: String,
     /// Namespace
     pub namespace: String,
+}
+
+/// Log format
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LogFormat {
+    Plain,
+    Json,
+    Logfmt,
+    Klog,
+    Logback,
 }
 
 /// Log level
@@ -169,6 +209,29 @@ impl LogLevel {
         } else {
             LogLevel::Unknown
         }
+    }
+
+    /// Parse log level from a structured field value
+    #[must_use]
+    pub fn parse_value(value: &str) -> Option<Self> {
+        let lower = value.trim().to_lowercase();
+        if lower.is_empty() {
+            return None;
+        }
+        let level = if lower.starts_with("fatal") || lower.starts_with("critical") {
+            LogLevel::Fatal
+        } else if lower.starts_with("error") || lower == "err" {
+            LogLevel::Error
+        } else if lower.starts_with("warn") || lower.starts_with("warning") {
+            LogLevel::Warn
+        } else if lower.starts_with("info") {
+            LogLevel::Info
+        } else if lower.starts_with("debug") || lower.starts_with("trace") {
+            LogLevel::Debug
+        } else {
+            LogLevel::Unknown
+        };
+        Some(level)
     }
 }
 
@@ -261,6 +324,10 @@ impl LogStreamer {
                                 container: container.clone(),
                                 message: log_line.message.clone(),
                                 timestamp: log_line.timestamp.map(|t| t.to_rfc3339()),
+                                level: log_line.level,
+                                format: log_line.format,
+                                fields: log_line.fields.clone(),
+                                raw: log_line.raw.clone(),
                             });
                         }
                         Ok(None) => {
@@ -292,6 +359,7 @@ impl LogStreamer {
 
     /// Parse a single log line
     fn parse_log_line(line: &str, pod: &str, container: &str, namespace: &str) -> LogLine {
+        let raw = line.to_string();
         // Try to parse timestamp from the beginning of the line
         // Kubernetes log timestamps are in RFC3339 format
         let (timestamp, message) = if line.len() > 30 {
@@ -312,15 +380,291 @@ impl LogStreamer {
             (None, line.to_string())
         };
 
-        let level = LogLevel::parse(&message);
+        let (format, fields, message, level_override) = Self::parse_structured_message(&message);
+        let level = level_override.unwrap_or_else(|| LogLevel::parse(&message));
 
         LogLine {
             timestamp,
             message,
             level: Some(level),
+            format,
+            fields,
+            raw,
             pod: pod.to_string(),
             container: container.to_string(),
             namespace: namespace.to_string(),
+        }
+    }
+
+    fn parse_structured_message(
+        message: &str,
+    ) -> (
+        LogFormat,
+        Option<BTreeMap<String, String>>,
+        String,
+        Option<LogLevel>,
+    ) {
+        if let Some((fields, level, msg)) = Self::parse_json_message(message) {
+            return (
+                LogFormat::Json,
+                Some(fields),
+                msg.unwrap_or_else(|| message.to_string()),
+                level,
+            );
+        }
+
+        if let Some((fields, level, msg)) = Self::parse_logfmt_message(message) {
+            return (
+                LogFormat::Logfmt,
+                Some(fields),
+                msg.unwrap_or_else(|| message.to_string()),
+                level,
+            );
+        }
+
+        if let Some((msg, level)) = Self::parse_klog_message(message) {
+            return (
+                LogFormat::Klog,
+                None,
+                msg.unwrap_or_else(|| message.to_string()),
+                Some(level),
+            );
+        }
+
+        if let Some((msg, level)) = Self::parse_logback_message(message) {
+            return (
+                LogFormat::Logback,
+                None,
+                msg.unwrap_or_else(|| message.to_string()),
+                Some(level),
+            );
+        }
+
+        (LogFormat::Plain, None, message.to_string(), None)
+    }
+
+    fn parse_json_message(
+        message: &str,
+    ) -> Option<(BTreeMap<String, String>, Option<LogLevel>, Option<String>)> {
+        let trimmed = message.trim_start();
+        if !trimmed.starts_with('{') {
+            return None;
+        }
+
+        let value: Value = serde_json::from_str(trimmed).ok()?;
+        let object = value.as_object()?;
+
+        let mut fields = BTreeMap::new();
+        for (key, value) in object {
+            let entry = match value {
+                Value::String(inner) => inner.clone(),
+                _ => value.to_string(),
+            };
+            fields.insert(key.clone(), entry);
+        }
+
+        let level_value = Self::extract_json_value(
+            object,
+            &["level", "lvl", "severity", "log.level"],
+        );
+        let message_value = Self::extract_json_value(
+            object,
+            &["msg", "message", "log", "event", "error"],
+        );
+
+        let level = level_value.as_deref().and_then(LogLevel::parse_value);
+
+        Some((fields, level, message_value))
+    }
+
+    fn extract_json_value(
+        object: &serde_json::Map<String, Value>,
+        keys: &[&str],
+    ) -> Option<String> {
+        for key in keys {
+            if let Some(value) = object.get(*key) {
+                return Some(match value {
+                    Value::String(inner) => inner.clone(),
+                    _ => value.to_string(),
+                });
+            }
+        }
+        None
+    }
+
+    fn parse_logfmt_message(
+        message: &str,
+    ) -> Option<(BTreeMap<String, String>, Option<LogLevel>, Option<String>)> {
+        let fields = Self::parse_logfmt_fields(message)?;
+        let level_value = Self::extract_logfmt_value(&fields, &["level", "lvl", "severity"]);
+        let message_value =
+            Self::extract_logfmt_value(&fields, &["msg", "message", "log", "event", "error"]);
+        let level = level_value.as_deref().and_then(LogLevel::parse_value);
+        Some((fields, level, message_value))
+    }
+
+    fn parse_klog_message(message: &str) -> Option<(Option<String>, LogLevel)> {
+        let mut chars = message.chars();
+        let level_char = chars.next()?;
+        let level = match level_char {
+            'I' => LogLevel::Info,
+            'W' => LogLevel::Warn,
+            'E' => LogLevel::Error,
+            'F' => LogLevel::Fatal,
+            _ => return None,
+        };
+
+        let rest = chars.as_str();
+        let bytes = rest.as_bytes();
+        if bytes.len() < 8 {
+            return None;
+        }
+        if !bytes[0..4].iter().all(|b| b.is_ascii_digit()) {
+            return None;
+        }
+        if !bytes[4].is_ascii_whitespace() {
+            return None;
+        }
+        if !bytes[5..].iter().any(|b| *b == b':') {
+            return None;
+        }
+
+        let msg = if let Some(idx) = rest.find("] ") {
+            Some(rest[idx + 2..].to_string())
+        } else {
+            None
+        };
+
+        Some((msg, level))
+    }
+
+    fn parse_logback_message(message: &str) -> Option<(Option<String>, LogLevel)> {
+        let mut parts = message.split_whitespace();
+        let date_token = parts.next()?;
+        let time_token = parts.next()?;
+        let level_token = parts.next()?;
+
+        if !Self::is_date_token(date_token) || !Self::is_time_token(time_token) {
+            return None;
+        }
+
+        let level = LogLevel::parse_value(level_token)?;
+
+        let msg = if let Some(idx) = message.find(" - ") {
+            Some(message[idx + 3..].to_string())
+        } else {
+            None
+        };
+
+        Some((msg, level))
+    }
+
+    fn is_date_token(token: &str) -> bool {
+        let bytes = token.as_bytes();
+        if bytes.len() != 10 {
+            return false;
+        }
+        bytes[0..4].iter().all(|b| b.is_ascii_digit())
+            && bytes[4] == b'-'
+            && bytes[5..7].iter().all(|b| b.is_ascii_digit())
+            && bytes[7] == b'-'
+            && bytes[8..10].iter().all(|b| b.is_ascii_digit())
+    }
+
+    fn is_time_token(token: &str) -> bool {
+        let bytes = token.as_bytes();
+        if bytes.len() < 8 {
+            return false;
+        }
+        bytes[0..2].iter().all(|b| b.is_ascii_digit())
+            && bytes[2] == b':'
+            && bytes[3..5].iter().all(|b| b.is_ascii_digit())
+            && bytes[5] == b':'
+            && bytes[6..8].iter().all(|b| b.is_ascii_digit())
+    }
+
+    fn extract_logfmt_value(
+        fields: &BTreeMap<String, String>,
+        keys: &[&str],
+    ) -> Option<String> {
+        for key in keys {
+            if let Some(value) = fields.get(*key) {
+                return Some(value.clone());
+            }
+        }
+        None
+    }
+
+    fn parse_logfmt_fields(message: &str) -> Option<BTreeMap<String, String>> {
+        let mut fields = BTreeMap::new();
+        let mut chars = message.chars().peekable();
+
+        loop {
+            while let Some(ch) = chars.peek() {
+                if ch.is_whitespace() {
+                    chars.next();
+                } else {
+                    break;
+                }
+            }
+
+            if chars.peek().is_none() {
+                break;
+            }
+
+            let mut key = String::new();
+            let mut saw_equal = false;
+            while let Some(ch) = chars.peek() {
+                if *ch == '=' {
+                    chars.next();
+                    saw_equal = true;
+                    break;
+                }
+                if ch.is_whitespace() {
+                    break;
+                }
+                key.push(*ch);
+                chars.next();
+            }
+
+            if key.is_empty() || !saw_equal {
+                break;
+            }
+
+            let mut value = String::new();
+            if matches!(chars.peek(), Some(&'"')) {
+                chars.next();
+                while let Some(ch) = chars.next() {
+                    if ch == '\\' {
+                        if let Some(escaped) = chars.next() {
+                            value.push(escaped);
+                        }
+                        continue;
+                    }
+                    if ch == '"' {
+                        break;
+                    }
+                    value.push(ch);
+                }
+            } else {
+                while let Some(ch) = chars.peek() {
+                    if ch.is_whitespace() {
+                        break;
+                    }
+                    value.push(*ch);
+                    chars.next();
+                }
+            }
+
+            if !key.is_empty() {
+                fields.insert(key, value);
+            }
+        }
+
+        if fields.is_empty() {
+            None
+        } else {
+            Some(fields)
         }
     }
 }
@@ -447,6 +791,9 @@ mod tests {
                 timestamp: None,
                 message: "ERROR: failed".to_string(),
                 level: Some(LogLevel::Error),
+                format: LogFormat::Plain,
+                fields: None,
+                raw: "ERROR: failed".to_string(),
                 pod: "test".to_string(),
                 container: "main".to_string(),
                 namespace: "default".to_string(),
@@ -455,6 +802,9 @@ mod tests {
                 timestamp: None,
                 message: "INFO: success".to_string(),
                 level: Some(LogLevel::Info),
+                format: LogFormat::Plain,
+                fields: None,
+                raw: "INFO: success".to_string(),
                 pod: "test".to_string(),
                 container: "main".to_string(),
                 namespace: "default".to_string(),

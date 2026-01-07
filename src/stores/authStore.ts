@@ -12,6 +12,7 @@ import { create } from "zustand";
 import * as commands from "@/generated/commands";
 import type { LicenseStatus, UserProfile } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
+import { AUTH_DISABLED } from "@/lib/flags";
 
 // Re-export types for convenience
 export type { LicenseStatus, UserProfile };
@@ -52,20 +53,49 @@ interface AuthState {
   setUserProfile: (profile: UserProfile) => void;
 }
 
+const DISABLED_LICENSE_STATUS: LicenseStatus = {
+  hasLicense: true,
+  licenseKey: null,
+  subscriptionType: "lifetime",
+  expiresAt: null,
+  isValid: true,
+};
+
+const DISABLED_USER_PROFILE: UserProfile = {
+  userId: "local",
+  email: "offline@local",
+  firstName: null,
+  lastName: null,
+  company: null,
+  emailVerified: true,
+};
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   // Initial state
-  isAuthenticated: false,
+  isAuthenticated: AUTH_DISABLED,
   loading: false,
   error: null,
-  user: null,
-  userProfile: null,
-  licenseStatus: null,
+  user: AUTH_DISABLED ? DISABLED_USER_PROFILE : null,
+  userProfile: AUTH_DISABLED ? DISABLED_USER_PROFILE : null,
+  licenseStatus: AUTH_DISABLED ? DISABLED_LICENSE_STATUS : null,
   isCheckingLicense: false,
   licenseError: null,
   lastLicenseCheck: null,
   authServerUrl: null,
 
   login: async (email: string, password: string) => {
+    if (AUTH_DISABLED) {
+      set({
+        isAuthenticated: true,
+        user: DISABLED_USER_PROFILE,
+        userProfile: DISABLED_USER_PROFILE,
+        licenseStatus: DISABLED_LICENSE_STATUS,
+        loading: false,
+        error: null,
+        licenseError: null,
+      });
+      return;
+    }
     set({ loading: true, error: null });
 
     try {
@@ -104,6 +134,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     firstName?: string,
     lastName?: string
   ) => {
+    if (AUTH_DISABLED) {
+      set({
+        isAuthenticated: true,
+        user: DISABLED_USER_PROFILE,
+        userProfile: DISABLED_USER_PROFILE,
+        licenseStatus: DISABLED_LICENSE_STATUS,
+        loading: false,
+        error: null,
+        licenseError: null,
+      });
+      return;
+    }
     set({ loading: true, error: null });
 
     try {
@@ -142,6 +184,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
+    if (AUTH_DISABLED) {
+      set({
+        isAuthenticated: true,
+        user: DISABLED_USER_PROFILE,
+        userProfile: DISABLED_USER_PROFILE,
+        licenseStatus: DISABLED_LICENSE_STATUS,
+        error: null,
+      });
+      return;
+    }
     // Clear tokens and state
     try {
       await commands.logoutUser();
@@ -159,6 +211,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   checkAuth: async () => {
+    if (AUTH_DISABLED) {
+      set({
+        isAuthenticated: true,
+        user: DISABLED_USER_PROFILE,
+        userProfile: DISABLED_USER_PROFILE,
+      });
+      return;
+    }
     // Backend handles token validation. We just try to get profile.
     try {
       const userProfile = await commands.getUserProfile();
@@ -169,6 +229,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   initializeAuth: async () => {
+    if (AUTH_DISABLED) {
+      set({
+        isAuthenticated: true,
+        user: DISABLED_USER_PROFILE,
+        userProfile: DISABLED_USER_PROFILE,
+        licenseStatus: DISABLED_LICENSE_STATUS,
+        loading: false,
+      });
+      return;
+    }
     set({ loading: true });
 
     // Try to restore session from backend (it will load from keychain)
@@ -194,6 +264,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   checkLicenseStatus: async (forceRefresh = false) => {
+    if (AUTH_DISABLED) {
+      set({
+        licenseStatus: DISABLED_LICENSE_STATUS,
+        isCheckingLicense: false,
+        lastLicenseCheck: Date.now(),
+        licenseError: null,
+      });
+      return;
+    }
     const state = get();
 
     // Don't check license if not authenticated
@@ -225,6 +304,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   activateLicense: async (licenseKey: string) => {
+    if (AUTH_DISABLED) {
+      set({
+        licenseStatus: DISABLED_LICENSE_STATUS,
+        licenseError: null,
+      });
+      return;
+    }
     try {
       const status = await commands.activateLicense(licenseKey);
       set({
