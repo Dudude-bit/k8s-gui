@@ -17,13 +17,13 @@ import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { useMemo } from "react";
 import { commands } from "@/lib/commands";
 import { normalizeTauriError } from "@/lib/error-utils";
-import { formatAge } from "@/lib/utils";
 import { useMetrics } from "@/hooks/useMetrics";
 import { parseCPU, parseMemory } from "@/lib/k8s-quantity";
 import { MetricsStatusBanner } from "@/components/metrics";
 import { ResourceList } from "@/components/resources/ResourceList";
 import type { NodeInfo } from "@/generated/types";
 import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
+import { formatAge } from "@/lib/utils";
 
 export function NodeList() {
   const { isConnected } = useClusterStore();
@@ -117,18 +117,15 @@ export function NodeList() {
     },
   });
 
+  const nodeUrlPrefix = `/${toPlural(ResourceType.Node)}`;
+
   const columns: ColumnDef<NodeInfo>[] = useMemo(
     () => [
       {
         accessorKey: "name",
         header: "Name",
         cell: ({ row }) => (
-          <Link
-            to={`/${toPlural(ResourceType.Node)}/${row.original.name}`}
-            className="font-medium hover:underline flex items-center gap-2"
-          >
-            {row.original.name}
-          </Link>
+          <span className="font-medium">{row.original.name}</span>
         ),
       },
       {
@@ -265,6 +262,7 @@ export function NodeList() {
       },
     ],
     [
+      nodeUrlPrefix,
       cordonMutation,
       uncordonMutation,
       drainMutation,
@@ -293,6 +291,7 @@ export function NodeList() {
           <MetricsStatusBanner status={nodeStatus} />
         ) : null
       }
+      getRowHref={(row) => `${nodeUrlPrefix}/${row.name}`}
     />
   );
 }

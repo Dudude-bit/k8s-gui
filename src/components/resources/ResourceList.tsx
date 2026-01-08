@@ -10,6 +10,7 @@ import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import { useResource } from "@/hooks/useResource";
 import { useClusterStore } from "@/stores/clusterStore";
 import { STALE_TIMES } from "@/lib/refresh";
+import type { QuickAction } from "@/components/ui/quick-actions";
 
 export interface ResourceDeleteConfig<T> {
   /** Function to delete a resource */
@@ -61,6 +62,12 @@ export interface ResourceListProps<
   searchKey?: string;
   /** Optional search input placeholder */
   searchPlaceholder?: string;
+  /** Generate navigation URL for row click */
+  getRowHref?: (row: T) => string;
+  /** Quick actions shown on row hover */
+  quickActions?:
+    | QuickAction<T>[]
+    | ((setDeleteTarget: (item: T) => void) => QuickAction<T>[]);
 }
 
 export function ResourceList<T extends { name: string; namespace?: string | null }>({
@@ -82,6 +89,8 @@ export function ResourceList<T extends { name: string; namespace?: string | null
   embedded = false,
   searchKey,
   searchPlaceholder,
+  getRowHref,
+  quickActions,
 }: ResourceListProps<T>) {
   const { isConnected } = useClusterStore();
   const { toast } = useToast();
@@ -139,6 +148,12 @@ export function ResourceList<T extends { name: string; namespace?: string | null
       ? columns(setDeleteTarget as (item: T) => void)
       : columns;
 
+  // Resolve quick actions - can be a function that receives setDeleteTarget
+  const resolvedQuickActions =
+    typeof quickActions === "function"
+      ? quickActions(setDeleteTarget as (item: T) => void)
+      : quickActions;
+
   if (!isConnected) {
     return <ConnectClusterEmptyState resourceLabel={emptyStateLabel} />;
   }
@@ -167,6 +182,8 @@ export function ResourceList<T extends { name: string; namespace?: string | null
         isFetching={fetching && !loading}
         searchKey={searchKey}
         searchPlaceholder={searchPlaceholder}
+        getRowHref={getRowHref}
+        quickActions={resolvedQuickActions}
       />
       {deleteConfig && (
         <ConfirmDialog

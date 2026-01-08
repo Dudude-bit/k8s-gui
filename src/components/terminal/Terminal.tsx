@@ -7,7 +7,7 @@ import "@xterm/xterm/css/xterm.css";
 import { useThemeStore } from "@/stores/themeStore";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Terminal as TerminalIcon } from "lucide-react";
 import { commands } from "@/lib/commands";
 import { useTerminalSession } from "@/hooks/useTerminalSession";
 import { normalizeTauriError } from "@/lib/error-utils";
@@ -29,6 +29,7 @@ export function Terminal({
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const initializedRef = useRef(false);
   const { theme } = useThemeStore();
   const [unavailableReason, setUnavailableReason] = useState<string | null>(null);
 
@@ -114,8 +115,10 @@ export function Terminal({
     disconnectRef.current = disconnect;
   }, [send, resize, connect, disconnect]);
 
+  // Initialize xterm once on mount
   useEffect(() => {
-    if (!terminalRef.current) return;
+    if (!terminalRef.current || initializedRef.current) return;
+    initializedRef.current = true;
 
     // Initialize xterm
     const xterm = new XTerm({
@@ -155,10 +158,17 @@ export function Terminal({
     connectRef.current();
 
     return () => {
+      initializedRef.current = false;
       resizeObserver.disconnect();
       xterm.dispose();
       disconnectRef.current(); // Ensure session is closed
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Update theme dynamically without reconnecting
+  useEffect(() => {
+    xtermRef.current?.options.theme && (xtermRef.current.options.theme = terminalTheme);
   }, [terminalTheme]);
 
   // Polling logic for Pod status
@@ -269,11 +279,11 @@ export function Terminal({
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
       <div className="flex items-center justify-between gap-3 px-4 py-2 bg-muted border-b">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">Pod:</span>
-          <span className="font-medium">{podName}</span>
-          <span className="text-muted-foreground">Container:</span>
-          <span className="font-medium">{containerName}</span>
+        <div className="flex min-w-0 items-center gap-2 text-sm">
+          <TerminalIcon className="h-4 w-4 shrink-0" />
+          <span className="truncate font-mono text-sm font-semibold">{podName}</span>
+          <span className="text-muted-foreground">/</span>
+          <span className="truncate font-mono text-sm text-blue-500">{containerName}</span>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant={statusVariant}>{statusLabel}</Badge>

@@ -20,6 +20,8 @@ import type { PersistentVolumeClaimInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { STALE_TIMES } from "@/lib/refresh";
 
+const pvcUrlPrefix = `/${toPlural(ResourceType.PersistentVolumeClaim)}`;
+
 const baseColumns: ColumnDef<PersistentVolumeClaimInfo>[] = [
   {
     accessorKey: "name",
@@ -140,6 +142,7 @@ export function PersistentVolumeClaimList() {
       }}
       staleTime={STALE_TIMES.resourceList}
       searchKey="name"
+      getRowHref={(row) => `${pvcUrlPrefix}/${row.namespace}/${row.name}`}
     />
   );
 }

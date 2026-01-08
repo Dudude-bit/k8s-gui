@@ -52,22 +52,30 @@ interface WithLabels {
 
 /**
  * Creates a name column with link to detail page
+ * @param linkPrefix - URL prefix for the detail page
+ * @param options.className - Custom class name for the link/span
+ * @param options.disableLink - If true, renders as span instead of link (use with row-level click)
  */
 export function createNameColumn<T extends BaseResource>(
   linkPrefix: string,
-  options?: { className?: string }
+  options?: { className?: string; disableLink?: boolean }
 ): ColumnDef<T> {
   return {
     accessorKey: "name",
     header: "Name",
-    cell: ({ row }) => (
-      <Link
-        to={`${linkPrefix}/${row.original.namespace}/${row.original.name}`}
-        className={options?.className ?? "font-medium hover:underline"}
-      >
-        {row.original.name}
-      </Link>
-    ),
+    cell: ({ row }) =>
+      options?.disableLink ? (
+        <span className={options?.className ?? "font-medium"}>
+          {row.original.name}
+        </span>
+      ) : (
+        <Link
+          to={`${linkPrefix}/${row.original.namespace}/${row.original.name}`}
+          className={options?.className ?? "font-medium hover:underline"}
+        >
+          {row.original.name}
+        </Link>
+      ),
   };
 }
 

@@ -20,6 +20,8 @@ import { ResourceList } from "@/components/resources/ResourceList";
 import type { IngressInfo } from "@/generated/types";
 import { STALE_TIMES } from "@/lib/refresh";
 
+const ingressUrlPrefix = `/${toPlural(ResourceType.Ingress)}`;
+
 const getIngressOpenUrl = (ingress: IngressInfo): string | null => {
   const host =
     ingress.rules.find((rule) => rule.host && rule.host !== "*")?.host ||
@@ -226,6 +228,7 @@ export function IngressList() {
       }}
       staleTime={STALE_TIMES.resourceList}
       searchKey="name"
+      getRowHref={(row) => `${ingressUrlPrefix}/${row.namespace}/${row.name}`}
     />
   );
 }

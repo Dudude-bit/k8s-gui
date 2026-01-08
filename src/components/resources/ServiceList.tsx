@@ -36,10 +36,11 @@ function formatPort(port: ServicePortInfo): string {
 
 export function ServiceList() {
   const { currentNamespace } = useClusterStore();
+  const serviceUrlPrefix = `/${toPlural(ResourceType.Service)}`;
 
   const columns = useMemo<ColumnDef<ServiceInfo>[]>(
     () => [
-      createNameColumn<ServiceInfo>(`/${toPlural(ResourceType.Service)}`),
+      createNameColumn<ServiceInfo>(serviceUrlPrefix, { disableLink: true }),
       createNamespaceColumn<ServiceInfo>(),
       createTypeBadgeColumn<ServiceInfo>(),
       {
@@ -86,7 +87,7 @@ export function ServiceList() {
       },
       createAgeColumn<ServiceInfo>(),
     ],
-    []
+    [serviceUrlPrefix]
   );
 
   return (
@@ -130,6 +131,7 @@ export function ServiceList() {
         },
       ]}
       emptyStateLabel={toPlural(ResourceType.Service)}
+      getRowHref={(row) => `${serviceUrlPrefix}/${row.namespace}/${row.name}`}
       deleteConfig={{
         mutationFn: async (item) => {
           await commands.deleteService(item.name, item.namespace);

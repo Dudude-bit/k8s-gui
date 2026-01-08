@@ -13,7 +13,6 @@ import {
   matchJobPods,
   type ResourceMetrics,
 } from "@/lib/metrics";
-import { formatAge } from "@/lib/utils";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import type { JobInfo } from "@/generated/types";
 import { commands } from "@/lib/commands";
@@ -25,6 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Eye, Trash2 } from "lucide-react";
 import { MetricsStatusBanner } from "@/components/metrics";
+import { createNameColumn, createAgeColumn } from "./columns";
 
 // Extended Info with metrics
 type JobInfoWithMetrics = JobInfo & ResourceMetrics;
@@ -70,20 +70,11 @@ export function JobList() {
     await Promise.all([jobsQuery.refetch(), refetchPods()]);
   }, [jobsQuery, refetchPods]);
 
+  const jobUrlPrefix = `/${toPlural(ResourceType.Job)}`;
+
   const columns = useMemo<ColumnDef<JobInfoWithMetrics>[]>(
     () => [
-      {
-        accessorKey: "name",
-        header: "Name",
-        cell: ({ row }) => (
-          <Link
-            to={`/${toPlural(ResourceType.Job)}/${row.original.namespace}/${row.original.name}`}
-            className="font-medium text-primary hover:underline"
-          >
-            {row.original.name}
-          </Link>
-        ),
-      },
+      createNameColumn<JobInfoWithMetrics>(jobUrlPrefix, { disableLink: true }),
       { accessorKey: "namespace", header: "Namespace" },
       {
         id: "cpu",
@@ -110,13 +101,9 @@ export function JobList() {
         header: "Status",
         cell: ({ row }) => <StatusBadge status={row.original.status} />,
       },
-      {
-        id: "age",
-        header: "Age",
-        cell: ({ row }) => formatAge(row.original.createdAt),
-      },
+      createAgeColumn<JobInfoWithMetrics>(),
     ],
-    []
+    [jobUrlPrefix]
   );
 
   return (
@@ -164,6 +151,7 @@ export function JobList() {
           resourceType: ResourceType.Job,
         }}
         emptyStateLabel="jobs"
+        getRowHref={(row) => `${jobUrlPrefix}/${row.namespace}/${row.name}`}
       />
     </div>
   );

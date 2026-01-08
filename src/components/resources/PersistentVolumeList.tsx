@@ -20,6 +20,8 @@ import type { PersistentVolumeInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { STALE_TIMES } from "@/lib/refresh";
 
+const pvUrlPrefix = `/${toPlural(ResourceType.PersistentVolume)}`;
+
 const baseColumns: ColumnDef<PersistentVolumeInfo>[] = [
   {
     accessorKey: "name",
@@ -128,6 +130,7 @@ export function PersistentVolumeList() {
       }}
       staleTime={STALE_TIMES.resourceList}
       searchKey="name"
+      getRowHref={(row) => `${pvUrlPrefix}/${row.name}`}
     />
   );
 }

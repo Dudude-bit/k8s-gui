@@ -76,9 +76,11 @@ export function DeploymentList() {
     await Promise.all([deploymentsQuery.refetch(), refetchPods()]);
   }, [deploymentsQuery, refetchPods]);
 
+  const deploymentUrlPrefix = `/${toPlural(ResourceType.Deployment)}`;
+
   const columns = useMemo<ColumnDef<DeploymentInfoWithMetrics>[]>(
     () => [
-      createNameColumn<DeploymentInfoWithMetrics>(`/${toPlural(ResourceType.Deployment)}`),
+      createNameColumn<DeploymentInfoWithMetrics>(deploymentUrlPrefix, { disableLink: true }),
       createNamespaceColumn<DeploymentInfoWithMetrics>(),
       {
         id: "cpu",
@@ -116,7 +118,7 @@ export function DeploymentList() {
       },
       createAgeColumn<DeploymentInfoWithMetrics>(),
     ],
-    []
+    [deploymentUrlPrefix]
   );
 
   return (
@@ -167,6 +169,7 @@ export function DeploymentList() {
           },
         ]}
         emptyStateLabel={toPlural(ResourceType.Deployment)}
+        getRowHref={(row) => `${deploymentUrlPrefix}/${row.namespace}/${row.name}`}
         deleteConfig={{
           mutationFn: async (item) => {
             try {

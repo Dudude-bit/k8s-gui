@@ -12,7 +12,6 @@ import {
   matchStatefulSetPods,
   type ResourceMetrics,
 } from "@/lib/metrics";
-import { formatAge } from "@/lib/utils";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import type { StatefulSetInfo } from "@/generated/types";
 import { commands } from "@/lib/commands";
@@ -24,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Eye, Trash2 } from "lucide-react";
 import { MetricsStatusBanner } from "@/components/metrics";
+import { createNameColumn, createAgeColumn } from "./columns";
 
 // Extended Info with metrics
 type StatefulSetInfoWithMetrics = StatefulSetInfo & ResourceMetrics;
@@ -69,20 +69,11 @@ export function StatefulSetList() {
     await Promise.all([statefulSetsQuery.refetch(), refetchPods()]);
   }, [statefulSetsQuery, refetchPods]);
 
+  const statefulSetUrlPrefix = `/${toPlural(ResourceType.StatefulSet)}`;
+
   const columns = useMemo<ColumnDef<StatefulSetInfoWithMetrics>[]>(
     () => [
-      {
-        accessorKey: "name",
-        header: "Name",
-        cell: ({ row }) => (
-          <Link
-            to={`/${toPlural(ResourceType.StatefulSet)}/${row.original.namespace}/${row.original.name}`}
-            className="font-medium text-primary hover:underline"
-          >
-            {row.original.name}
-          </Link>
-        ),
-      },
+      createNameColumn<StatefulSetInfoWithMetrics>(statefulSetUrlPrefix, { disableLink: true }),
       { accessorKey: "namespace", header: "Namespace" },
       {
         id: "cpu",
@@ -114,13 +105,9 @@ export function StatefulSetList() {
           );
         },
       },
-      {
-        id: "age",
-        header: "Age",
-        cell: ({ row }) => formatAge(row.original.createdAt),
-      },
+      createAgeColumn<StatefulSetInfoWithMetrics>(),
     ],
-    []
+    [statefulSetUrlPrefix]
   );
 
   return (
@@ -170,6 +157,7 @@ export function StatefulSetList() {
           resourceType: ResourceType.StatefulSet,
         }}
         emptyStateLabel="statefulsets"
+        getRowHref={(row) => `${statefulSetUrlPrefix}/${row.namespace}/${row.name}`}
       />
     </div>
   );

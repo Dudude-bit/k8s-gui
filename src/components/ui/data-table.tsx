@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useNavigate } from "react-router-dom";
 import {
   flexRender,
   getCoreRowModel,
@@ -28,6 +29,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TableSkeleton } from "@/components/ui/skeleton";
+import { QuickActions, type QuickAction } from "@/components/ui/quick-actions";
+import { useTableKeyboardNav } from "@/hooks/useTableKeyboardNav";
 import { ChevronLeft, ChevronRight, Search, AlertTriangle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -43,6 +46,14 @@ interface DataTableProps<TData, TValue> {
   enableVirtualScroll?: boolean;
   /** Max height for virtual scroll container (default: 600px) */
   virtualScrollHeight?: number;
+  /** Generate navigation URL for row click */
+  getRowHref?: (row: TData) => string;
+  /** Custom row click handler (alternative to getRowHref) */
+  onRowClick?: (row: TData) => void;
+  /** Quick actions shown on row hover */
+  quickActions?: QuickAction<TData>[];
+  /** Enable keyboard navigation (default: true if getRowHref or onRowClick provided) */
+  enableKeyboardNav?: boolean;
 }
 
 // Extended page size options for large datasets
@@ -59,7 +70,12 @@ export function DataTable<TData, TValue>({
   searchPlaceholder = "Search...",
   enableVirtualScroll,
   virtualScrollHeight = VIRTUAL_SCROLL_DEFAULT_HEIGHT,
+  getRowHref,
+  onRowClick,
+  quickActions,
+  enableKeyboardNav,
 }: DataTableProps<TData, TValue>) {
+  const navigate = useNavigate();
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
@@ -70,6 +86,7 @@ export function DataTable<TData, TValue>({
     pageIndex: 0,
     pageSize: 25,
   });
+  const [hoveredRowIndex, setHoveredRowIndex] = React.useState<number | null>(null);
   const deferredSearch = React.useDeferredValue(searchValue);
 
   // Determine if we should use virtual scroll based on data size
@@ -98,6 +115,28 @@ export function DataTable<TData, TValue>({
     },
   });
 
+  const rows = table.getRowModel().rows;
+  const isClickable = !!(getRowHref || onRowClick);
+  const keyboardNavEnabled = enableKeyboardNav ?? isClickable;
+
+  // Keyboard navigation
+  const { containerRef, focusedRowIndex, getRowProps } = useTableKeyboardNav({
+    rowCount: rows.length,
+    getRowHref: getRowHref
+      ? (index) => {
+          const row = rows[index];
+          return row ? getRowHref(row.original) : undefined;
+        }
+      : undefined,
+    onRowAction: onRowClick
+      ? (index) => {
+          const row = rows[index];
+          if (row) onRowClick(row.original);
+        }
+      : undefined,
+    enabled: keyboardNavEnabled,
+  });
+
   React.useEffect(() => {
     const searchColumn = searchKey ? table.getColumn(searchKey) : undefined;
 
@@ -113,7 +152,7 @@ export function DataTable<TData, TValue>({
 
   const filteredRows = table.getFilteredRowModel().rows.length;
   const totalRows = data.length;
-  const pageRows = table.getRowModel().rows.length;
+  const pageRows = rows.length;
   const pageStart =
     totalRows === 0 ? 0 : pagination.pageIndex * pagination.pageSize + 1;
   const pageEnd = totalRows === 0 ? 0 : pageStart + pageRows - 1;
@@ -126,6 +165,26 @@ export function DataTable<TData, TValue>({
       table.setPageSize(Number(value));
     }
     table.setPageIndex(0);
+  };
+
+  // Handle row click
+  const handleRowClick = (row: TData, event: React.MouseEvent) => {
+    // Don't navigate if clicking on interactive elements
+    const target = event.target as HTMLElement;
+    if (
+      target.closest("button") ||
+      target.closest("a") ||
+      target.closest('[role="menuitem"]') ||
+      target.closest('[data-quick-actions]')
+    ) {
+      return;
+    }
+
+    if (getRowHref) {
+      navigate(getRowHref(row));
+    } else if (onRowClick) {
+      onRowClick(row);
+    }
   };
 
   // Get current page size display value
@@ -157,11 +216,14 @@ export function DataTable<TData, TValue>({
         )}
       </div>
       <div
+        ref={containerRef}
         className={cn(
           "rounded-md border transition-opacity duration-200",
           isFetching && "opacity-60"
         )}
         aria-busy={isFetching}
+        role={keyboardNavEnabled ? "grid" : undefined}
+        aria-label={keyboardNavEnabled ? "Data table" : undefined}
       >
         {/* Use scrollable container for large datasets when showing all rows */}
         <div
@@ -202,22 +264,51 @@ export function DataTable<TData, TValue>({
               ))}
             </TableHeader>
             <TableBody>
-              {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
+              {rows.length ? (
+                rows.map((row, index) => {
+                  const rowProps = keyboardNavEnabled ? getRowProps(index) : {};
+                  const isFocused = focusedRowIndex === index;
+                  const isHovered = hoveredRowIndex === index;
+
+                  return (
+                    <TableRow
+                      key={row.id}
+                      data-state={row.getIsSelected() && "selected"}
+                      {...rowProps}
+                      className={cn(
+                        isClickable && "cursor-pointer",
+                        isFocused && "ring-2 ring-ring ring-inset",
+                        "relative group"
+                      )}
+                      onClick={isClickable ? (e) => handleRowClick(row.original, e) : undefined}
+                      onMouseEnter={() => setHoveredRowIndex(index)}
+                      onMouseLeave={() => setHoveredRowIndex(null)}
+                    >
+                      {row.getVisibleCells().map((cell, cellIndex) => (
+                        <TableCell key={cell.id} className="relative">
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                          {/* Render quick actions in the last cell before actions column */}
+                          {quickActions &&
+                            cellIndex === row.getVisibleCells().length - 2 && (
+                              <div
+                                data-quick-actions
+                                className="absolute right-0 top-1/2 -translate-y-1/2 pr-2"
+                              >
+                                <QuickActions
+                                  item={row.original}
+                                  actions={quickActions}
+                                  visible={isHovered || isFocused}
+                                />
+                              </div>
+                            )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  );
+                })
               ) : (
                 <TableRow>
                   <TableCell

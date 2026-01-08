@@ -821,17 +821,6 @@ export function PodDetail() {
       {/* Terminal Panel */}
       {showTerminal && selectedContainer && pod && (
         <Card className="my-4 overflow-hidden border-2 border-muted">
-          <CardHeader className="flex flex-row items-center justify-between py-2 px-4 bg-muted">
-            <div className="flex items-center gap-2">
-              <TerminalIcon className="h-4 w-4" />
-              <span className="font-mono text-sm font-semibold">{pod.name}</span>
-              <span className="text-muted-foreground">/</span>
-              <span className="font-mono text-sm text-blue-500">{selectedContainer}</span>
-            </div>
-            <Button variant="ghost" size="icon" onClick={() => setShowTerminal(false)} className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive">
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </CardHeader>
           <CardContent className="p-0 h-[500px] overflow-hidden relative bg-black">
             <Terminal
               podName={pod.name}

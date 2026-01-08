@@ -49,28 +49,23 @@ export function CustomResourceList({
 
   const namespace = scope === "Namespaced" ? currentNamespace : null;
 
+  // Generate detail path for a custom resource
+  const getDetailPath = (item: CustomResourceListItem) =>
+    scope === "Namespaced"
+      ? `/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(crdName)}/instances/${item.namespace}/${item.name}`
+      : `/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(crdName)}/instances/${item.name}`;
+
   // Build columns from printer columns and plugin
   const baseColumns = useMemo<ColumnDef<CustomResourceListItem>[]>(() => {
     const cols: ColumnDef<CustomResourceListItem>[] = [];
 
-    // Name column (always first)
+    // Name column (always first) - use simple text since row is clickable
     cols.push({
       accessorKey: "name",
       header: "Name",
-      cell: ({ row }) => {
-        const item = row.original;
-        const detailPath = scope === "Namespaced"
-          ? `/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(crdName)}/instances/${item.namespace}/${item.name}`
-          : `/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(crdName)}/instances/${item.name}`;
-        return (
-          <Link
-            to={detailPath}
-            className="font-medium text-primary hover:underline"
-          >
-            {item.name}
-          </Link>
-        );
-      },
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.name}</span>
+      ),
     });
 
     // Namespace column for namespaced resources
@@ -202,6 +197,7 @@ export function CustomResourceList({
       searchKey="name"
       searchPlaceholder={`Search ${crdKind}...`}
       embedded={embedded}
+      getRowHref={getDetailPath}
     />
   );
 }

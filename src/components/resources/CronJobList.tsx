@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Eye, Trash2 } from "lucide-react";
 import { MetricsStatusBanner } from "@/components/metrics";
+import { createNameColumn, createAgeColumn } from "./columns";
 
 // Extended Info with metrics
 type CronJobInfoWithMetrics = CronJobInfo & ResourceMetrics;
@@ -70,20 +71,11 @@ export function CronJobList() {
     await Promise.all([cronJobsQuery.refetch(), refetchPods()]);
   }, [cronJobsQuery, refetchPods]);
 
+  const cronJobUrlPrefix = `/${toPlural(ResourceType.CronJob)}`;
+
   const columns = useMemo<ColumnDef<CronJobInfoWithMetrics>[]>(
     () => [
-      {
-        accessorKey: "name",
-        header: "Name",
-        cell: ({ row }) => (
-          <Link
-            to={`/${toPlural(ResourceType.CronJob)}/${row.original.namespace}/${row.original.name}`}
-            className="font-medium text-primary hover:underline"
-          >
-            {row.original.name}
-          </Link>
-        ),
-      },
+      createNameColumn<CronJobInfoWithMetrics>(cronJobUrlPrefix, { disableLink: true }),
       { accessorKey: "namespace", header: "Namespace" },
       {
         id: "cpu",
@@ -122,13 +114,9 @@ export function CronJobList() {
             ? formatAge(row.original.lastSchedule) + " ago"
             : "Never",
       },
-      {
-        id: "age",
-        header: "Age",
-        cell: ({ row }) => formatAge(row.original.createdAt),
-      },
+      createAgeColumn<CronJobInfoWithMetrics>(),
     ],
-    []
+    [cronJobUrlPrefix]
   );
 
   return (
@@ -176,6 +164,7 @@ export function CronJobList() {
           resourceType: ResourceType.CronJob,
         }}
         emptyStateLabel="cronjobs"
+        getRowHref={(row) => `${cronJobUrlPrefix}/${row.namespace}/${row.name}`}
       />
     </div>
   );

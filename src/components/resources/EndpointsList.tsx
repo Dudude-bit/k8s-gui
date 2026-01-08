@@ -17,6 +17,8 @@ import type { EndpointsInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { STALE_TIMES } from "@/lib/refresh";
 
+const endpointsUrlPrefix = `/${toPlural(ResourceType.Endpoints)}`;
+
 const columns: ColumnDef<EndpointsInfo>[] = [
   {
     accessorKey: "name",
@@ -188,6 +190,7 @@ export function EndpointsList() {
       emptyStateLabel={toPlural(ResourceType.Endpoints)}
       staleTime={STALE_TIMES.resourceList}
       searchKey="name"
+      getRowHref={(row) => `${endpointsUrlPrefix}/${row.namespace}/${row.name}`}
     />
   );
 }

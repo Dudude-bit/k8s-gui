@@ -12,7 +12,6 @@ import {
   matchDaemonSetPods,
   type ResourceMetrics,
 } from "@/lib/metrics";
-import { formatAge } from "@/lib/utils";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import type { DaemonSetInfo } from "@/generated/types";
 import { commands } from "@/lib/commands";
@@ -24,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Eye, Trash2 } from "lucide-react";
 import { MetricsStatusBanner } from "@/components/metrics";
+import { createNameColumn, createAgeColumn } from "./columns";
 
 // Extended Info with metrics
 type DaemonSetInfoWithMetrics = DaemonSetInfo & ResourceMetrics;
@@ -69,20 +69,11 @@ export function DaemonSetList() {
     await Promise.all([daemonSetsQuery.refetch(), refetchPods()]);
   }, [daemonSetsQuery, refetchPods]);
 
+  const daemonSetUrlPrefix = `/${toPlural(ResourceType.DaemonSet)}`;
+
   const columns = useMemo<ColumnDef<DaemonSetInfoWithMetrics>[]>(
     () => [
-      {
-        accessorKey: "name",
-        header: "Name",
-        cell: ({ row }) => (
-          <Link
-            to={`/${toPlural(ResourceType.DaemonSet)}/${row.original.namespace}/${row.original.name}`}
-            className="font-medium text-primary hover:underline"
-          >
-            {row.original.name}
-          </Link>
-        ),
-      },
+      createNameColumn<DaemonSetInfoWithMetrics>(daemonSetUrlPrefix, { disableLink: true }),
       { accessorKey: "namespace", header: "Namespace" },
       {
         id: "cpu",
@@ -124,13 +115,9 @@ export function DaemonSetList() {
           );
         },
       },
-      {
-        id: "age",
-        header: "Age",
-        cell: ({ row }) => formatAge(row.original.createdAt),
-      },
+      createAgeColumn<DaemonSetInfoWithMetrics>(),
     ],
-    []
+    [daemonSetUrlPrefix]
   );
 
   return (
@@ -180,6 +167,7 @@ export function DaemonSetList() {
           resourceType: ResourceType.DaemonSet,
         }}
         emptyStateLabel="daemonsets"
+        getRowHref={(row) => `${daemonSetUrlPrefix}/${row.namespace}/${row.name}`}
       />
     </div>
   );

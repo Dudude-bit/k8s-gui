@@ -43,9 +43,13 @@ export function PodList() {
     refetch,
   } = usePodsWithMetrics();
 
+  // URL prefix for pod details
+  const podUrlPrefix = `/${toPlural(ResourceType.Pod)}`;
+
   const columns = useMemo<ColumnDef<PodWithMetrics>[]>(
     () => [
-      createNameColumn<PodWithMetrics>(`/${toPlural(ResourceType.Pod)}`),
+      // Use disableLink since row is clickable
+      createNameColumn<PodWithMetrics>(podUrlPrefix, { disableLink: true }),
       createNamespaceColumn<PodWithMetrics>(),
       {
         id: "status",
@@ -114,7 +118,7 @@ export function PodList() {
       },
       createAgeColumn<PodWithMetrics>(),
     ],
-    []
+    [podUrlPrefix]
   );
 
   return (
@@ -136,7 +140,7 @@ export function PodList() {
               <ActionMenu>
                 <DropdownMenuItem asChild>
                   <Link
-                    to={`/${toPlural(ResourceType.Pod)}/${row.original.namespace}/${row.original.name}`}
+                    to={`${podUrlPrefix}/${row.original.namespace}/${row.original.name}`}
                   >
                     <Eye className="mr-2 h-4 w-4" />
                     View Details
@@ -163,6 +167,7 @@ export function PodList() {
           },
         ]}
         emptyStateLabel={toPlural(ResourceType.Pod)}
+        getRowHref={(row) => `${podUrlPrefix}/${row.namespace}/${row.name}`}
         deleteConfig={{
           mutationFn: async (item) => {
             try {

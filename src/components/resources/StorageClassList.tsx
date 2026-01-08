@@ -18,6 +18,8 @@ import type { StorageClassInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { STALE_TIMES } from "@/lib/refresh";
 
+const storageClassUrlPrefix = `/${toPlural(ResourceType.StorageClass)}`;
+
 const baseColumns: ColumnDef<StorageClassInfo>[] = [
   {
     accessorKey: "name",
@@ -143,6 +145,7 @@ export function StorageClassList() {
       }}
       staleTime={STALE_TIMES.resourceList}
       searchKey="name"
+      getRowHref={(row) => `${storageClassUrlPrefix}/${row.name}`}
     />
   );
 }

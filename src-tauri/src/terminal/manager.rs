@@ -136,6 +136,11 @@ impl TerminalManager {
                 });
             }
 
+            let mut close_status = None;
+
+            // Take status early so we can react to process exit while waiting for input.
+            let mut status_fut = attached.take_status();
+
             // Handle stdin
             if let Some(mut stdin) = attached.stdin() {
                 loop {
@@ -166,20 +171,33 @@ impl TerminalManager {
                                 }
                             }
                         }
+                        status = async {
+                            if let Some(status_future) = &mut status_fut {
+                                status_future.await
+                            } else {
+                                None
+                            }
+                        }, if status_fut.is_some() => {
+                            if let Some(exit_status) = status {
+                                tracing::debug!("Terminal session {} exited: {:?}", session_id_clone, exit_status);
+                                if let Some(code) = exit_status.code {
+                                    close_status = Some(format!("Exited with code {code}"));
+                                }
+                            }
+                            status_fut = None;
+                            break;
+                        }
                     }
                 }
             }
 
-            // Wait for process to finish
-            let status = attached.take_status();
-            let mut close_status = None;
-            
-            if let Some(status) = status {
+            // Wait for process to finish if we haven't already
+            if let Some(status) = status_fut {
                 if let Some(exit_status) = status.await {
                     tracing::debug!("Terminal session {} exited: {:?}", session_id_clone, exit_status);
-                     if let Some(code) = exit_status.code {
-                         close_status = Some(format!("Exited with code {code}"));
-                     }
+                    if let Some(code) = exit_status.code {
+                        close_status = Some(format!("Exited with code {code}"));
+                    }
                 }
             }
             

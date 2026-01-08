@@ -2,6 +2,8 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { commands } from "@/lib/commands";
 import { listen } from "@tauri-apps/api/event";
 import { normalizeTauriError } from "@/lib/error-utils";
+import { useTerminalSessionStore } from "@/stores/terminalSessionStore";
+import { useClusterStore } from "@/stores/clusterStore";
 
 export type SessionStatus =
     | "idle"
@@ -30,13 +32,22 @@ export function useTerminalSession({
     const [error, setError] = useState<string | null>(null);
     const sessionIdRef = useRef<string | null>(null);
     const isCleanedUpRef = useRef(false);
+    const connectAttemptRef = useRef(0);
     const unlistenRef = useRef<(() => void)[]>([]);
     const statusRef = useRef<SessionStatus>("idle");
+    const isMountedRef = useRef(false);
 
-    // Keep statusRef in sync with status
-    useEffect(() => {
-        statusRef.current = status;
-    }, [status]);
+    // Terminal session tracking
+    const currentContext = useClusterStore((state) => state.currentContext);
+    const { addSession, removeSession } = useTerminalSessionStore();
+
+    // Helper to update status synchronously (both state and ref)
+    const updateStatus = useCallback((newStatus: SessionStatus) => {
+        statusRef.current = newStatus;
+        if (isMountedRef.current) {
+            setStatus(newStatus);
+        }
+    }, []);
 
     const cleanupListeners = useCallback(() => {
         unlistenRef.current.forEach((u) => u());
@@ -44,19 +55,26 @@ export function useTerminalSession({
     }, []);
 
     const cleanupSession = useCallback(async () => {
+        connectAttemptRef.current += 1;
         isCleanedUpRef.current = true;
         cleanupListeners();
 
         const sessionId = sessionIdRef.current;
         if (sessionId) {
+            // Remove from activity tracking
+            removeSession(sessionId);
+
             sessionIdRef.current = null;
             try {
                 await commands.closeTerminal(sessionId);
             } catch (err) {
                 console.error("Failed to close terminal session:", err);
             }
+            updateStatus("closed");
+        } else {
+            updateStatus("idle");
         }
-    }, [cleanupListeners]);
+    }, [cleanupListeners, updateStatus, removeSession]);
 
     const send = useCallback(async (data: string) => {
         const sessionId = sessionIdRef.current;
@@ -81,25 +99,42 @@ export function useTerminalSession({
     }, []);
 
     const connect = useCallback(async () => {
-        if (statusRef.current === "connecting" || statusRef.current === "connected") return;
+        const attemptId = connectAttemptRef.current + 1;
+        connectAttemptRef.current = attemptId;
+        if (
+            (statusRef.current === "connecting" || statusRef.current === "connected") &&
+            !isCleanedUpRef.current
+        ) {
+            return;
+        }
 
         // Reset state
         isCleanedUpRef.current = false;
         cleanupListeners(); // Clear any old listeners
-        setStatus("connecting");
+        updateStatus("connecting");
         setError(null);
 
         try {
             const sid = await commands.openShell(namespace, podName, containerName, null);
 
-            if (isCleanedUpRef.current) {
+            if (connectAttemptRef.current !== attemptId || isCleanedUpRef.current) {
                 // Cleanup happened while connecting
                 await commands.closeTerminal(sid);
                 return;
             }
 
             sessionIdRef.current = sid;
-            setStatus("connected");
+            updateStatus("connected");
+
+            // Add to activity tracking
+            addSession({
+                id: sid,
+                context: currentContext ?? "unknown",
+                podName,
+                namespace,
+                containerName,
+                status: "connected",
+            });
 
             // Listen for output
             const unlistenOutput = await listen<{ session_id: string; data: string }>(
@@ -120,7 +155,9 @@ export function useTerminalSession({
                 if (event.payload.session_id === sid) {
                     cleanupListeners();
                     sessionIdRef.current = null;
-                    setStatus("closed");
+                    updateStatus("closed");
+                    // Remove from activity tracking
+                    removeSession(sid);
                     if (onClose) onClose(event.payload.status);
                 }
             });
@@ -128,15 +165,19 @@ export function useTerminalSession({
 
         } catch (err) {
             console.error("Failed to open shell:", err);
-            setStatus("error");
-            setError(normalizeTauriError(err));
+            if (connectAttemptRef.current === attemptId) {
+                updateStatus("error");
+                setError(normalizeTauriError(err));
+            }
             // Try to close if we got a session ID somehow? (Unlikely if openShell threw)
         }
-    }, [namespace, podName, containerName, onOutput, onClose, cleanupListeners]);
+    }, [namespace, podName, containerName, currentContext, onOutput, onClose, cleanupListeners, updateStatus, addSession, removeSession]);
 
     // Cleanup on unmount
     useEffect(() => {
+        isMountedRef.current = true;
         return () => {
+            isMountedRef.current = false;
             cleanupSession();
         };
     }, [cleanupSession]);

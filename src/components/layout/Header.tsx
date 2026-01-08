@@ -34,6 +34,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { LicenseStatusBadge } from "@/components/license/LicenseStatusBadge";
+import { ActivityPanel } from "./ActivityPanel";
 import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -241,8 +242,11 @@ export function Header() {
         )}
       </div>
 
-      {/* Right: License, Search, Profile, and theme */}
+      {/* Right: Activity, License, Search, Profile, and theme */}
       <div className="flex items-center gap-2">
+        {/* Activity panel */}
+        <ActivityPanel />
+
         {/* License status badge */}
         {!AUTH_DISABLED && <LicenseStatusBadge />}
 
