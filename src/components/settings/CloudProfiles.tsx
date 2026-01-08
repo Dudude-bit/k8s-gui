@@ -35,7 +35,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import type { GcpProfile, AzureProfile, ContextBinding } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
 import {

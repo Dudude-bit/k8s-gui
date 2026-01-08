@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ResourceNodeData } from "@/features/infrastructure/types";
-import { ResourceType } from "@/lib/resource-types";
+import { ResourceType } from "@/lib/resource-registry";
 
 const KIND_BADGE_CLASS: Record<ResourceNodeData["kind"], string> = {
   [ResourceType.Pod]: "badge-pod",

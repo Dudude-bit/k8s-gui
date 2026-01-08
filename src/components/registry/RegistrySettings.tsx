@@ -25,7 +25,7 @@ import {
   RegistryProvider,
   useRegistryStore,
 } from "@/stores/registryStore";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import { normalizeTauriError } from "@/lib/error-utils";
 
 export function RegistrySettings() {

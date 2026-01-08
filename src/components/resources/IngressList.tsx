@@ -1,14 +1,10 @@
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import { useClusterStore } from "@/stores/clusterStore";
-import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
-import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
 import { Eye, Trash2, Globe, ExternalLink } from "lucide-react";
-import { useResourceList } from "@/hooks/useResource";
-import { ResourceType, toPlural } from "@/lib/resource-types";
-import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -19,6 +15,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ActionMenu } from "@/components/ui/action-menu";
+import { ResourceList } from "@/components/resources/ResourceList";
 
 import type { IngressInfo } from "@/generated/types";
 
@@ -36,7 +33,7 @@ const getIngressOpenUrl = (ingress: IngressInfo): string | null => {
   return `${scheme}://${host}`;
 };
 
-const columns: ColumnDef<IngressInfo>[] = [
+const baseColumns: ColumnDef<IngressInfo>[] = [
   {
     accessorKey: "name",
     header: "Name",
@@ -165,78 +162,69 @@ const columns: ColumnDef<IngressInfo>[] = [
     accessorKey: "age",
     header: "Age",
   },
-  {
-    id: "actions",
-    cell: ({ row }) => {
-      const openUrl = getIngressOpenUrl(row.original);
-      return (
-        <ActionMenu>
-          <DropdownMenuItem asChild>
-            <Link to={`/${toPlural(ResourceType.Ingress)}/${row.original.namespace}/${row.original.name}`}>
-              <Eye className="mr-2 h-4 w-4" />
-              View Details
-            </Link>
-          </DropdownMenuItem>
-          {openUrl && (
-            <DropdownMenuItem
-              onClick={() => window.open(openUrl, "_blank", "noreferrer")}
-            >
-              <ExternalLink className="mr-2 h-4 w-4" />
-              Open in Browser
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem className="text-destructive">
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete
-          </DropdownMenuItem>
-        </ActionMenu>
-      );
-    },
-  },
 ];
 
 export function IngressList() {
-  const { isConnected, currentNamespace } = useClusterStore();
-
-  const {
-    data: ingresses = [],
-    isLoading,
-    isFetching,
-    refetch,
-  } = useResourceList(
-    [toPlural(ResourceType.Ingress), currentNamespace],
-    async () => {
-      return await commands.listIngresses({
-        namespace: currentNamespace ?? null,
-        labelSelector: null,
-        fieldSelector: null,
-        limit: null,
-      });
-    },
-    { enabled: isConnected }
-  );
-
-  if (!isConnected) {
-    return <ConnectClusterEmptyState resourceLabel={toPlural(ResourceType.Ingress)} />;
-  }
+  const { currentNamespace } = useClusterStore();
 
   return (
-    <div className="space-y-4">
-      <ResourceListHeader
-        title="Ingresses"
-        description="HTTP/HTTPS routing rules for external access to services"
-        isFetching={isFetching}
-        isLoading={isLoading}
-        onRefresh={() => refetch()}
-      />
-      <DataTable
-        columns={columns}
-        data={ingresses}
-        isLoading={isLoading && ingresses.length === 0}
-        isFetching={isFetching && !isLoading}
-        searchKey="name"
-      />
-    </div>
+    <ResourceList<IngressInfo>
+      title="Ingresses"
+      queryKey={[toPlural(ResourceType.Ingress), currentNamespace]}
+      queryFn={() =>
+        commands.listIngresses({
+          namespace: currentNamespace || null,
+          labelSelector: null,
+          fieldSelector: null,
+          limit: null,
+        })
+      }
+      columns={(setDeleteTarget) => [
+        ...baseColumns,
+        {
+          id: "actions",
+          cell: ({ row }) => {
+            const openUrl = getIngressOpenUrl(row.original);
+            return (
+              <ActionMenu>
+                <DropdownMenuItem asChild>
+                  <Link
+                    to={`/${toPlural(ResourceType.Ingress)}/${row.original.namespace}/${row.original.name}`}
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    View Details
+                  </Link>
+                </DropdownMenuItem>
+                {openUrl && (
+                  <DropdownMenuItem
+                    onClick={() => window.open(openUrl, "_blank", "noreferrer")}
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Open in Browser
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => setDeleteTarget(row.original)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </ActionMenu>
+            );
+          },
+        },
+      ]}
+      emptyStateLabel={toPlural(ResourceType.Ingress)}
+      deleteConfig={{
+        mutationFn: (item) =>
+          commands.deleteIngress(item.name, item.namespace ?? null),
+        invalidateQueryKeys: [[toPlural(ResourceType.Ingress)]],
+        resourceType: ResourceType.Ingress,
+      }}
+      staleTime={10000}
+      searchKey="name"
+    />
   );
 }

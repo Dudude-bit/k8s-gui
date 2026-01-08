@@ -1,5 +1,5 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import { useClusterStore } from "@/stores/clusterStore";
 import {
   Card,
@@ -30,7 +30,7 @@ import { MetricsStatusBanner } from "@/components/metrics";
 import { getTopPodsByCPU, getTopPodsByMemory, mergePodsWithMetrics } from "@/lib/metrics";
 import { useMemo } from "react";
 import { normalizeTauriError } from "@/lib/error-utils";
-import { ResourceType, toPlural } from "@/lib/resource-types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 
 export function ClusterOverview() {
   const { isConnected, currentContext, currentNamespace } = useClusterStore();

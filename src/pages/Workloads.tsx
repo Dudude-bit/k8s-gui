@@ -1,5 +1,5 @@
 import { Routes, Route } from "react-router-dom";
-import { ResourceType, toPlural } from "@/lib/resource-types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { PodList } from "@/components/resources/PodList";
 import { DeploymentList } from "@/components/resources/DeploymentList";
 import { StatefulSetList } from "@/components/resources/StatefulSetList";

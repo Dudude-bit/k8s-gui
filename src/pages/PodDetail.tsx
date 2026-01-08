@@ -1,10 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useMetrics, useResourceDetail } from "@/hooks";
 import { mergePodsWithMetrics } from "@/lib/metrics";
-import { ResourceType, toPlural } from "@/lib/resource-types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { useClusterStore } from "@/stores/clusterStore";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { LicenseErrorBanner } from "@/components/license/LicenseErrorBanner";

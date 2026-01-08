@@ -4,6 +4,7 @@ use k8s_openapi::api::core::v1::Service;
 use tauri::State;
 
 use crate::commands::filters::ServiceFilters;
+use crate::commands::helpers::{get_resource_info, list_resource_infos};
 use crate::error::Result;
 use crate::resources::ServiceInfo;
 use crate::state::AppState;
@@ -15,17 +16,8 @@ pub async fn list_services(
     state: State<'_, AppState>,
 ) -> Result<Vec<ServiceInfo>> {
     let filters = filters.unwrap_or_default();
-
-    let list = crate::commands::helpers::list_resources::<Service>(
-        filters.namespace.clone(),
-        state,
-        filters.label_selector.as_deref(),
-        filters.field_selector.as_deref(),
-        filters.limit,
-    )
-    .await?;
-
-    let mut services: Vec<ServiceInfo> = list.items.iter().map(ServiceInfo::from).collect();
+    let mut services: Vec<ServiceInfo> =
+        list_resource_infos::<Service, ServiceInfo>(Some(filters.base.clone()), state).await?;
 
     // Apply type filter if specified
     if let Some(svc_type) = &filters.service_type {
@@ -42,8 +34,7 @@ pub async fn get_service(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<ServiceInfo> {
-    let service: Service = crate::commands::helpers::get_resource(name, namespace, state).await?;
-    Ok(ServiceInfo::from(&service))
+    get_resource_info::<Service, ServiceInfo>(name, namespace, state).await
 }
 
 /// Delete a service
@@ -55,4 +46,3 @@ pub async fn delete_service(
 ) -> Result<()> {
     crate::commands::helpers::delete_resource::<Service>(name, namespace, state, None).await
 }
-

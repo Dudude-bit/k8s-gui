@@ -11,7 +11,7 @@ import {
   ConfigMapResourceData,
   SecretResourceData,
 } from "./types";
-import { ResourceType } from "@/lib/resource-types";
+import { ResourceType, getApiVersion } from "@/lib/resource-registry";
 
 export const RESOURCE_KINDS: ResourceKind[] = [
   ResourceType.Pod,
@@ -21,15 +21,6 @@ export const RESOURCE_KINDS: ResourceKind[] = [
   ResourceType.ConfigMap,
   ResourceType.Secret,
 ];
-
-const DEFAULT_API_VERSION: Record<ResourceKind, string> = {
-  [ResourceType.Pod]: "v1",
-  [ResourceType.Deployment]: "apps/v1",
-  [ResourceType.Service]: "v1",
-  [ResourceType.Ingress]: "networking.k8s.io/v1",
-  [ResourceType.ConfigMap]: "v1",
-  [ResourceType.Secret]: "v1",
-};
 
 const DEFAULT_NAMESPACE = "default";
 
@@ -453,9 +444,13 @@ const withMetadata = (
   base.metadata = metadata;
 };
 
+const ensureApiVersion = (base: Record<string, unknown>, kind: ResourceKind) => {
+  base.apiVersion = base.apiVersion ?? getApiVersion(kind);
+};
+
 const buildPodManifest = (data: PodResourceData) => {
   const base = clone(data.rawManifest ?? {});
-  base.apiVersion = base.apiVersion ?? DEFAULT_API_VERSION.Pod;
+  ensureApiVersion(base, data.kind);
   base.kind = ResourceType.Pod;
   withMetadata(base, data);
   const spec = isRecord(base.spec) ? { ...base.spec } : {};
@@ -477,7 +472,7 @@ const buildPodManifest = (data: PodResourceData) => {
 
 const buildDeploymentManifest = (data: DeploymentResourceData) => {
   const base = clone(data.rawManifest ?? {});
-  base.apiVersion = base.apiVersion ?? DEFAULT_API_VERSION.Deployment;
+  ensureApiVersion(base, data.kind);
   base.kind = ResourceType.Deployment;
   withMetadata(base, data);
   const spec = isRecord(base.spec) ? { ...base.spec } : {};
@@ -516,7 +511,7 @@ const buildDeploymentManifest = (data: DeploymentResourceData) => {
 
 const buildServiceManifest = (data: ServiceResourceData) => {
   const base = clone(data.rawManifest ?? {});
-  base.apiVersion = base.apiVersion ?? DEFAULT_API_VERSION.Service;
+  ensureApiVersion(base, data.kind);
   base.kind = ResourceType.Service;
   withMetadata(base, data);
   const spec = isRecord(base.spec) ? { ...base.spec } : {};
@@ -535,7 +530,7 @@ const buildServiceManifest = (data: ServiceResourceData) => {
 
 const buildIngressManifest = (data: IngressResourceData) => {
   const base = clone(data.rawManifest ?? {});
-  base.apiVersion = base.apiVersion ?? DEFAULT_API_VERSION.Ingress;
+  ensureApiVersion(base, data.kind);
   base.kind = ResourceType.Ingress;
   withMetadata(base, data);
   const spec = isRecord(base.spec) ? { ...base.spec } : {};
@@ -567,7 +562,7 @@ const buildIngressManifest = (data: IngressResourceData) => {
 
 const buildConfigMapManifest = (data: ConfigMapResourceData) => {
   const base = clone(data.rawManifest ?? {});
-  base.apiVersion = base.apiVersion ?? DEFAULT_API_VERSION.ConfigMap;
+  ensureApiVersion(base, data.kind);
   base.kind = ResourceType.ConfigMap;
   withMetadata(base, data);
   base.data = data.data;
@@ -576,7 +571,7 @@ const buildConfigMapManifest = (data: ConfigMapResourceData) => {
 
 const buildSecretManifest = (data: SecretResourceData) => {
   const base = clone(data.rawManifest ?? {});
-  base.apiVersion = base.apiVersion ?? DEFAULT_API_VERSION.Secret;
+  ensureApiVersion(base, data.kind);
   base.kind = ResourceType.Secret;
   withMetadata(base, data);
   base.type = data.secretType || "Opaque";

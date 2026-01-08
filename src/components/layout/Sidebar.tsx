@@ -14,9 +14,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import { useEffect, useState } from "react";
-import { ResourceType, toPlural } from "@/lib/resource-types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Overview", path: "/" },

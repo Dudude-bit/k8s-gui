@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { ResourceType, toPlural } from "@/lib/resource-types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { PageSkeleton } from "@/components/ui/skeleton";

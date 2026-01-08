@@ -1,13 +1,8 @@
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import * as commands from "@/generated/commands";
 import { useClusterStore } from "@/stores/clusterStore";
-import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
-import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
 import { Eye, Network, CircleDot } from "lucide-react";
-import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
@@ -15,9 +10,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ActionMenu } from "@/components/ui/action-menu";
+import { ResourceList } from "@/components/resources/ResourceList";
+import { commands } from "@/lib/commands";
 
 import type { EndpointsInfo } from "@/generated/types";
-import { ResourceType, toPlural } from "@/lib/resource-types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 
 const columns: ColumnDef<EndpointsInfo>[] = [
   {
@@ -158,7 +155,9 @@ const columns: ColumnDef<EndpointsInfo>[] = [
     cell: ({ row }) => (
       <ActionMenu>
         <DropdownMenuItem asChild>
-          <Link to={`/${toPlural(ResourceType.Endpoints)}/${row.original.namespace}/${row.original.name}`}>
+          <Link
+            to={`/${toPlural(ResourceType.Endpoints)}/${row.original.namespace}/${row.original.name}`}
+          >
             <Eye className="mr-2 h-4 w-4" />
             View Details
           </Link>
@@ -169,49 +168,25 @@ const columns: ColumnDef<EndpointsInfo>[] = [
 ];
 
 export function EndpointsList() {
-  const { isConnected, currentNamespace } = useClusterStore();
-
-  const {
-    data: endpoints = [],
-    isLoading,
-    isFetching,
-    refetch,
-  } = useQuery({
-    queryKey: [toPlural(ResourceType.Endpoints), currentNamespace],
-    queryFn: async () => {
-      return await commands.listEndpoints({
-        namespace: currentNamespace || null,
-        labelSelector: null,
-        fieldSelector: null,
-        limit: null,
-      });
-    },
-    enabled: isConnected,
-    placeholderData: keepPreviousData,
-    staleTime: 10000,
-    refetchOnWindowFocus: false,
-  });
-
-  if (!isConnected) {
-    return <ConnectClusterEmptyState resourceLabel={toPlural(ResourceType.Endpoints)} />;
-  }
+  const { currentNamespace } = useClusterStore();
 
   return (
-    <div className="space-y-4">
-      <ResourceListHeader
-        title="Endpoints"
-        description={`Network endpoints for services in ${currentNamespace || "all namespaces"}`}
-        isFetching={isFetching}
-        isLoading={isLoading}
-        onRefresh={() => refetch()}
-      />
-      <DataTable
-        columns={columns}
-        data={endpoints}
-        isLoading={isLoading && endpoints.length === 0}
-        isFetching={isFetching && !isLoading}
-        searchKey="name"
-      />
-    </div>
+    <ResourceList<EndpointsInfo>
+      title="Endpoints"
+      description={`Network endpoints for services in ${currentNamespace || "all namespaces"}`}
+      queryKey={[toPlural(ResourceType.Endpoints), currentNamespace]}
+      queryFn={() =>
+        commands.listEndpoints({
+          namespace: currentNamespace || null,
+          labelSelector: null,
+          fieldSelector: null,
+          limit: null,
+        })
+      }
+      columns={columns}
+      emptyStateLabel={toPlural(ResourceType.Endpoints)}
+      staleTime={10000}
+      searchKey="name"
+    />
   );
 }

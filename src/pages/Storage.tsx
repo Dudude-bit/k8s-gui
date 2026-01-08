@@ -1,5 +1,5 @@
 import { Routes, Route } from "react-router-dom";
-import { ResourceType, toPlural } from "@/lib/resource-types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { PersistentVolumeList } from "@/components/resources/PersistentVolumeList";
 import { PersistentVolumeClaimList } from "@/components/resources/PersistentVolumeClaimList";
 import { StorageClassList } from "@/components/resources/StorageClassList";

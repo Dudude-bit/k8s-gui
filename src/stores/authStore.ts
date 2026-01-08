@@ -9,7 +9,7 @@
  */
 
 import { create } from "zustand";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import type { LicenseStatus, UserProfile } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { AUTH_DISABLED } from "@/lib/flags";

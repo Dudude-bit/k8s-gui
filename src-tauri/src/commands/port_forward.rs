@@ -15,6 +15,7 @@ use tokio::time::{sleep, Duration};
 
 /// Port-forward request payload
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PortForwardRequest {
     pub local_port: u16,
     pub remote_port: u16,
@@ -23,6 +24,7 @@ pub struct PortForwardRequest {
 
 /// Active port-forward session info
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PortForwardSessionInfo {
     pub id: String,
     pub context: String,

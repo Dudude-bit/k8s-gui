@@ -16,8 +16,8 @@ import { SchemaViewer } from "@/components/crds/SchemaViewer";
 import { CustomResourceList } from "@/components/resources/CustomResourceList";
 import { formatAge } from "@/lib/utils";
 import { normalizeTauriError } from "@/lib/error-utils";
-import { ResourceType, toPlural } from "@/lib/resource-types";
-import * as commands from "@/generated/commands";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { commands } from "@/lib/commands";
 
 export function CrdDetail() {
   const { name } = useParams<{ name: string }>();

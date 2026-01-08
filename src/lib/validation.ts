@@ -7,7 +7,7 @@
  * All validation logic is centralized in k8s-gui-common for a single source of truth.
  */
 
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import { normalizeTauriError } from "./error-utils";
 
 export interface ValidationResult {

@@ -20,7 +20,7 @@ import {
   Trash2,
   ArrowDown,
 } from "lucide-react";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import type { LogFormat, LogLevel, LogLine, StreamLogConfig } from "@/generated/types";
 import { normalizeTauriError, isPremiumFeatureError } from "@/lib/error-utils";
 

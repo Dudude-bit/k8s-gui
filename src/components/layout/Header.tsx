@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import { useClusterStore } from "@/stores/clusterStore";
 import { useThemeStore } from "@/stores/themeStore";
 import {

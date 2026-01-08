@@ -1,35 +1,28 @@
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-  keepPreviousData,
-} from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useClusterStore } from "@/stores/clusterStore";
-import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
 import { Eye, Shield, ShieldOff, AlertTriangle, Lock } from "lucide-react";
-import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
 import { ActionMenu } from "@/components/ui/action-menu";
-import { ResourceType, toPlural } from "@/lib/resource-types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { MetricBadge } from "@/components/ui/metric-card";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { useMemo } from "react";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { formatAge } from "@/lib/utils";
 import { useMetrics } from "@/hooks/useMetrics";
-import { mergeNodesWithMetrics, type NodeWithMetrics } from "@/lib/metrics";
 import { parseCPU, parseMemory } from "@/lib/k8s-quantity";
 import { MetricsStatusBanner } from "@/components/metrics";
+import { ResourceList } from "@/components/resources/ResourceList";
+import type { NodeInfo } from "@/generated/types";
 
 export function NodeList() {
   const { isConnected } = useClusterStore();
@@ -37,37 +30,19 @@ export function NodeList() {
   const queryClient = useQueryClient();
   const { hasAccess } = usePremiumFeature();
 
-  const {
-    data: nodes = [],
-    isLoading,
-    isFetching,
-    refetch,
-  } = useQuery({
-    queryKey: [toPlural(ResourceType.Node)],
-    queryFn: async () => {
-      try {
-        return await commands.listNodes(null);
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
-    enabled: isConnected,
-    placeholderData: keepPreviousData,
-    staleTime: 10000,
-    refetchInterval: 15000,
-    refetchOnWindowFocus: false,
-  });
-
   const { nodeMetrics, nodeStatus } = useMetrics({
     includePods: false,
     includeCluster: false,
     enabled: isConnected,
   });
 
-  // Merge nodes with metrics
-  const nodesWithMetrics = useMemo(() => {
-    return mergeNodesWithMetrics(nodes, nodeMetrics);
-  }, [nodes, nodeMetrics]);
+  const nodeMetricsByName = useMemo(() => {
+    const metricsMap = new Map<string, typeof nodeMetrics[number]>();
+    for (const metric of nodeMetrics) {
+      metricsMap.set(metric.name, metric);
+    }
+    return metricsMap;
+  }, [nodeMetrics]);
 
   const cordonMutation = useMutation({
     mutationFn: async (nodeName: string) => {
@@ -141,7 +116,7 @@ export function NodeList() {
     },
   });
 
-  const columns: ColumnDef<NodeWithMetrics>[] = useMemo(
+  const columns: ColumnDef<NodeInfo>[] = useMemo(
     () => [
       {
         accessorKey: "name",
@@ -202,12 +177,13 @@ export function NodeList() {
               </Badge>
             );
           }
+          const metrics = nodeMetricsByName.get(row.original.name);
           const capacity = row.original.capacity
             ? row.original.capacity.cpu
             : null;
           return (
             <MetricBadge
-              used={row.original.cpuMillicores}
+              used={metrics?.cpuMillicores ?? null}
               total={capacity ? parseCPU(capacity) : null}
               type="cpu"
             />
@@ -226,12 +202,13 @@ export function NodeList() {
               </Badge>
             );
           }
+          const metrics = nodeMetricsByName.get(row.original.name);
           const capacity = row.original.capacity
             ? row.original.capacity.memory
             : null;
           return (
             <MetricBadge
-              used={row.original.memoryBytes}
+              used={metrics?.memoryBytes ?? null}
               total={capacity ? parseMemory(capacity) : null}
               type="memory"
             />
@@ -286,30 +263,35 @@ export function NodeList() {
         ),
       },
     ],
-    [cordonMutation, uncordonMutation, drainMutation, hasAccess]
+    [
+      cordonMutation,
+      uncordonMutation,
+      drainMutation,
+      hasAccess,
+      nodeMetricsByName,
+    ]
   );
 
-  if (!isConnected) {
-    return <ConnectClusterEmptyState resourceLabel={toPlural(ResourceType.Node)} />;
-  }
-
   return (
-    <div className="h-full space-y-4">
-      <ResourceListHeader
-        title="Nodes"
-        isFetching={isFetching}
-        isLoading={isLoading}
-        onRefresh={() => refetch()}
-      />
-      {hasAccess && nodeStatus?.status !== "available" && (
-        <MetricsStatusBanner status={nodeStatus} />
-      )}
-      <DataTable
-        columns={columns}
-        data={nodesWithMetrics}
-        isLoading={isLoading && nodes.length === 0}
-        isFetching={isFetching && !isLoading}
-      />
-    </div>
+    <ResourceList<NodeInfo>
+      title="Nodes"
+      queryKey={[toPlural(ResourceType.Node)]}
+      queryFn={async () => {
+        try {
+          return await commands.listNodes(null);
+        } catch (err) {
+          throw new Error(normalizeTauriError(err));
+        }
+      }}
+      columns={columns}
+      emptyStateLabel={toPlural(ResourceType.Node)}
+      staleTime={10000}
+      refetchInterval={15000}
+      headerContent={
+        hasAccess && nodeStatus?.status !== "available" ? (
+          <MetricsStatusBanner status={nodeStatus} />
+        ) : null
+      }
+    />
   );
 }

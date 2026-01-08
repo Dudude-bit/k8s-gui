@@ -13,9 +13,9 @@ import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { ResourceDetailLayout } from "@/components/resources/ResourceDetailLayout";
 import { formatAge } from "@/lib/utils";
 import { normalizeTauriError } from "@/lib/error-utils";
-import { ResourceType, toPlural } from "@/lib/resource-types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { useClusterStore } from "@/stores/clusterStore";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import type { CustomResourceDetailInfo } from "@/generated/types";
 
 // Component to render spec/status as a tree

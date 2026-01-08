@@ -1,4 +1,4 @@
-import { ResourceType } from "@/lib/resource-types";
+import { ResourceType } from "@/lib/resource-registry";
 
 export type ResourceKind =
   | typeof ResourceType.Pod

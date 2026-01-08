@@ -1,8 +1,7 @@
 import { useMemo } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import { useClusterStore } from "@/stores/clusterStore";
-import type { PodInfo } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { useMetrics } from "@/hooks/useMetrics";
 import { mergePodsWithMetrics, type PodWithMetrics } from "@/lib/metrics";

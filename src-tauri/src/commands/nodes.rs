@@ -1,6 +1,7 @@
 //! Node commands
 
-use crate::commands::helpers::ResourceContext;
+use crate::commands::filters::ResourceFilters;
+use crate::commands::helpers::{get_cluster_resource_info, list_cluster_resource_infos, ResourceContext};
 use crate::error::Result;
 use crate::resources::{NodeInfo, PodInfo};
 use crate::state::AppState;
@@ -26,16 +27,14 @@ pub async fn list_nodes(
     state: State<'_, AppState>,
 ) -> Result<Vec<NodeInfo>> {
     let filters = filters.unwrap_or_default();
-
-    let list = crate::commands::helpers::list_cluster_resources::<Node>(
-        state,
-        filters.label_selector.as_deref(),
-        filters.field_selector.as_deref(),
-        filters.limit,
-    )
-    .await?;
-
-    let mut nodes: Vec<NodeInfo> = list.items.iter().map(NodeInfo::from).collect();
+    let base_filters = ResourceFilters {
+        namespace: None,
+        label_selector: filters.label_selector.clone(),
+        field_selector: filters.field_selector.clone(),
+        limit: filters.limit,
+    };
+    let mut nodes: Vec<NodeInfo> =
+        list_cluster_resource_infos::<Node, NodeInfo>(Some(base_filters), state).await?;
 
     if filters.ready_only.unwrap_or(false) {
         nodes.retain(|n| n.status.ready);
@@ -47,11 +46,7 @@ pub async fn list_nodes(
 /// Get a single node by name
 #[tauri::command]
 pub async fn get_node(name: String, state: State<'_, AppState>) -> Result<NodeInfo> {
-    let ctx = ResourceContext::for_list(&state, None)?;
-    let api: kube::Api<Node> = ctx.cluster_api();
-    let node = api.get(&name).await?;
-
-    Ok(NodeInfo::from(&node))
+    get_cluster_resource_info::<Node, NodeInfo>(name, state).await
 }
 
 /// Get pods running on a node

@@ -1,5 +1,5 @@
 import { Routes, Route } from "react-router-dom";
-import { ResourceType, toPlural } from "@/lib/resource-types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { ServiceList } from "@/components/resources/ServiceList";
 import { IngressList } from "@/components/resources/IngressList";
 import { EndpointsList } from "@/components/resources/EndpointsList";

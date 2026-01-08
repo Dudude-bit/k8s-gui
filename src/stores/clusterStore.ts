@@ -12,7 +12,7 @@ import { create } from "zustand";
 
 import type { ClusterContext } from "@/types/kubernetes";
 import { normalizeTauriError } from "@/lib/error-utils";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 
 /** Cluster store state and actions */
 interface ClusterState {

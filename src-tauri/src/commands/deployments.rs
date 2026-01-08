@@ -1,7 +1,7 @@
 //! Deployment-specific commands
 
 use crate::commands::filters::ResourceFilters;
-use crate::commands::helpers::ResourceContext;
+use crate::commands::helpers::{get_resource_info, list_resource_infos, ResourceContext};
 use crate::error::Result;
 use crate::resources::{DeploymentCondition, DeploymentInfo, PodInfo, RolloutStatus};
 use crate::state::AppState;
@@ -16,18 +16,7 @@ pub async fn list_deployments(
     filters: Option<ResourceFilters>,
     state: State<'_, AppState>,
 ) -> Result<Vec<DeploymentInfo>> {
-    let filters = filters.unwrap_or_default();
-
-    let list = crate::commands::helpers::list_resources::<Deployment>(
-        filters.namespace,
-        state,
-        filters.label_selector.as_deref(),
-        filters.field_selector.as_deref(),
-        filters.limit,
-    )
-    .await?;
-
-    Ok(list.items.iter().map(DeploymentInfo::from).collect())
+    list_resource_infos::<Deployment, DeploymentInfo>(filters, state).await
 }
 
 /// Get a single deployment by name
@@ -38,9 +27,7 @@ pub async fn get_deployment(
     state: State<'_, AppState>,
 ) -> Result<DeploymentInfo> {
     crate::validation::validate_resource_name(&name)?;
-    let deployment: Deployment =
-        crate::commands::helpers::get_resource(name, namespace, state).await?;
-    Ok(DeploymentInfo::from(&deployment))
+    get_resource_info::<Deployment, DeploymentInfo>(name, namespace, state).await
 }
 
 /// Delete a deployment

@@ -7,9 +7,9 @@ import {
     InfoCard,
 } from "@/components/resources/ResourceDetailLayout";
 import { useResourceDetail } from "@/hooks";
-import { ResourceType } from "@/lib/resource-types";
+import { ResourceType } from "@/lib/resource-registry";
 import { Globe, ExternalLink, Shield, Network, Copy, Link2, Tag, FileText, ArrowRight, AlertTriangle, Info, Clock, Calendar } from "lucide-react";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import type { IngressInfo, IngressRule, IngressTlsConfig, EventInfo, EventFilters } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { useQuery } from "@tanstack/react-query";

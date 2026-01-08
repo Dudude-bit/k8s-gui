@@ -6,9 +6,9 @@ import {
     InfoCard,
 } from "@/components/resources/ResourceDetailLayout";
 import { useResourceDetail } from "@/hooks";
-import { ResourceType } from "@/lib/resource-types";
+import { ResourceType } from "@/lib/resource-registry";
 import { Layers, Star, Settings } from "lucide-react";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import type { StorageClassInfo } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
 

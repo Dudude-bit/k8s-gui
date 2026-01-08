@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import {
   Dialog,
   DialogContent,

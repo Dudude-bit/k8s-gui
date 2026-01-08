@@ -1,4 +1,4 @@
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
 import { ColumnDef } from "@tanstack/react-table";
@@ -11,7 +11,7 @@ import {
 import { useMemo } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceList } from "./ResourceList";
-import { ResourceType, toPlural } from "@/lib/resource-types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 import type { ServiceInfo, ServicePortInfo } from "@/generated/types";
 import {
   createNameColumn,

@@ -9,7 +9,7 @@
  */
 
 import { create } from "zustand";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import type {
   PortForwardConfigInfo,
   PortForwardConfigPayload,

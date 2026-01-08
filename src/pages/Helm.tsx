@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { ActionMenu } from "@/components/ui/action-menu";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import type { HelmRelease } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
 

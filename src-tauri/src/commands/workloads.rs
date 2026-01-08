@@ -11,6 +11,7 @@ use k8s_openapi::api::batch::v1::{CronJob, Job};
 use tauri::State;
 
 use crate::commands::filters::ResourceFilters;
+use crate::commands::helpers::{get_resource_info, list_resource_infos};
 
 // ============= StatefulSet =============
 
@@ -19,18 +20,7 @@ pub async fn list_statefulsets(
     filters: Option<ResourceFilters>,
     state: State<'_, AppState>,
 ) -> Result<Vec<StatefulSetInfo>> {
-    let filters = filters.unwrap_or_default();
-
-    let list = crate::commands::helpers::list_resources::<StatefulSet>(
-        filters.namespace,
-        state,
-        filters.label_selector.as_deref(),
-        filters.field_selector.as_deref(),
-        filters.limit,
-    )
-    .await?;
-
-    Ok(list.items.iter().map(StatefulSetInfo::from).collect())
+    list_resource_infos::<StatefulSet, StatefulSetInfo>(filters, state).await
 }
 
 #[tauri::command]
@@ -40,9 +30,7 @@ pub async fn get_statefulset(
     state: State<'_, AppState>,
 ) -> Result<StatefulSetDetailInfo> {
     crate::validation::validate_resource_name(&name)?;
-    let ss: StatefulSet =
-        crate::commands::helpers::get_resource(name, namespace, state).await?;
-    Ok(StatefulSetDetailInfo::from(&ss))
+    get_resource_info::<StatefulSet, StatefulSetDetailInfo>(name, namespace, state).await
 }
 
 #[tauri::command]
@@ -72,18 +60,7 @@ pub async fn list_daemonsets(
     filters: Option<ResourceFilters>,
     state: State<'_, AppState>,
 ) -> Result<Vec<DaemonSetInfo>> {
-    let filters = filters.unwrap_or_default();
-
-    let list = crate::commands::helpers::list_resources::<DaemonSet>(
-        filters.namespace,
-        state,
-        filters.label_selector.as_deref(),
-        filters.field_selector.as_deref(),
-        filters.limit,
-    )
-    .await?;
-
-    Ok(list.items.iter().map(DaemonSetInfo::from).collect())
+    list_resource_infos::<DaemonSet, DaemonSetInfo>(filters, state).await
 }
 
 #[tauri::command]
@@ -93,8 +70,7 @@ pub async fn get_daemonset(
     state: State<'_, AppState>,
 ) -> Result<DaemonSetDetailInfo> {
     crate::validation::validate_resource_name(&name)?;
-    let ds: DaemonSet = crate::commands::helpers::get_resource(name, namespace, state).await?;
-    Ok(DaemonSetDetailInfo::from(&ds))
+    get_resource_info::<DaemonSet, DaemonSetDetailInfo>(name, namespace, state).await
 }
 
 #[tauri::command]
@@ -124,18 +100,7 @@ pub async fn list_jobs(
     filters: Option<ResourceFilters>,
     state: State<'_, AppState>,
 ) -> Result<Vec<JobInfo>> {
-    let filters = filters.unwrap_or_default();
-
-    let list = crate::commands::helpers::list_resources::<Job>(
-        filters.namespace,
-        state,
-        filters.label_selector.as_deref(),
-        filters.field_selector.as_deref(),
-        filters.limit,
-    )
-    .await?;
-
-    Ok(list.items.iter().map(JobInfo::from).collect())
+    list_resource_infos::<Job, JobInfo>(filters, state).await
 }
 
 #[tauri::command]
@@ -145,8 +110,7 @@ pub async fn get_job(
     state: State<'_, AppState>,
 ) -> Result<JobDetailInfo> {
     crate::validation::validate_resource_name(&name)?;
-    let job: Job = crate::commands::helpers::get_resource(name, namespace, state).await?;
-    Ok(JobDetailInfo::from(&job))
+    get_resource_info::<Job, JobDetailInfo>(name, namespace, state).await
 }
 
 #[tauri::command]
@@ -176,18 +140,7 @@ pub async fn list_cronjobs(
     filters: Option<ResourceFilters>,
     state: State<'_, AppState>,
 ) -> Result<Vec<CronJobInfo>> {
-    let filters = filters.unwrap_or_default();
-
-    let list = crate::commands::helpers::list_resources::<CronJob>(
-        filters.namespace,
-        state,
-        filters.label_selector.as_deref(),
-        filters.field_selector.as_deref(),
-        filters.limit,
-    )
-    .await?;
-
-    Ok(list.items.iter().map(CronJobInfo::from).collect())
+    list_resource_infos::<CronJob, CronJobInfo>(filters, state).await
 }
 
 #[tauri::command]
@@ -197,8 +150,7 @@ pub async fn get_cronjob(
     state: State<'_, AppState>,
 ) -> Result<CronJobDetailInfo> {
     crate::validation::validate_resource_name(&name)?;
-    let cj: CronJob = crate::commands::helpers::get_resource(name, namespace, state).await?;
-    Ok(CronJobDetailInfo::from(&cj))
+    get_resource_info::<CronJob, CronJobDetailInfo>(name, namespace, state).await
 }
 
 #[tauri::command]

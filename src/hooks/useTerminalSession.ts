@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import { listen } from "@tauri-apps/api/event";
 import { normalizeTauriError } from "@/lib/error-utils";
 

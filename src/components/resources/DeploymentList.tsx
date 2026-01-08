@@ -10,7 +10,7 @@ import {
 import { useMemo } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceList } from "./ResourceList";
-import { ResourceType, toPlural } from "@/lib/resource-types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -27,7 +27,7 @@ import {
   createReplicasColumn,
 } from "./columns";
 import type { DeploymentInfo } from "@/generated/types";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { MetricsStatusBanner } from "@/components/metrics";
 

@@ -1,5 +1,5 @@
 import { ResourceKind } from "@/features/infrastructure/types";
-import { ResourceType } from "@/lib/resource-types";
+import { ResourceType } from "@/lib/resource-registry";
 import { Button } from "@/components/ui/button";
 
 interface ResourcePaletteProps {

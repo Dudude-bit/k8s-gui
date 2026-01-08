@@ -8,7 +8,7 @@ import { useThemeStore } from "@/stores/themeStore";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import { useTerminalSession } from "@/hooks/useTerminalSession";
 import { normalizeTauriError } from "@/lib/error-utils";
 

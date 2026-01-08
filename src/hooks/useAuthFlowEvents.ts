@@ -4,7 +4,7 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { open } from "@tauri-apps/plugin-shell";
 import { useToast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 
 interface AuthUrlRequestedPayload {
   context: string;

@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useAuthStore } from "@/stores/authStore";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import type { UserProfile } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { AUTH_DISABLED } from "@/lib/flags";

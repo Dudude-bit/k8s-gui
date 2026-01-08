@@ -25,8 +25,8 @@ import { useClusterStore } from "@/stores/clusterStore";
 import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import { createAgeColumn } from "@/components/resources/columns";
 import { normalizeTauriError } from "@/lib/error-utils";
-import { ResourceType, toPlural } from "@/lib/resource-types";
-import * as commands from "@/generated/commands";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { commands } from "@/lib/commands";
 import type { CrdInfo } from "@/generated/types";
 
 // Extend CrdInfo with a namespace field for ResourceList compatibility

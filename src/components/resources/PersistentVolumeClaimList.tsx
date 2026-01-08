@@ -1,13 +1,10 @@
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useClusterStore } from "@/stores/clusterStore";
-import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
 import { Eye, Trash2, Database } from "lucide-react";
-import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
+import { ResourceList } from "@/components/resources/ResourceList";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -18,12 +15,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ActionMenu } from "@/components/ui/action-menu";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import type { PersistentVolumeClaimInfo } from "@/generated/types";
-import { normalizeTauriError } from "@/lib/error-utils";
-import { ResourceType, toPlural } from "@/lib/resource-types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 
-const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
+const baseColumns: ColumnDef<PersistentVolumeClaimInfo>[] = [
   {
     accessorKey: "name",
     header: "Name",
@@ -87,76 +83,62 @@ const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
     accessorKey: "age",
     header: "Age",
   },
-  {
-    id: "actions",
-    cell: ({ row }) => (
-      <ActionMenu>
-        <DropdownMenuItem asChild>
-          <Link to={`/${toPlural(ResourceType.PersistentVolumeClaim)}/${row.original.namespace}/${row.original.name}`}>
-            <Eye className="mr-2 h-4 w-4" />
-            View Details
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem className="text-destructive">
-          <Trash2 className="mr-2 h-4 w-4" />
-          Delete
-        </DropdownMenuItem>
-      </ActionMenu>
-    ),
-  },
 ];
 
 export function PersistentVolumeClaimList() {
-  const { isConnected, currentNamespace } = useClusterStore();
+  const { currentNamespace } = useClusterStore();
 
-  const {
-    data: pvcs = [],
-    isLoading,
-    isFetching,
-    refetch,
-  } = useQuery({
-    queryKey: [toPlural(ResourceType.PersistentVolumeClaim), currentNamespace],
-    queryFn: async () => {
-      try {
-        return await commands.listPersistentVolumeClaims({
+  return (
+    <ResourceList<PersistentVolumeClaimInfo>
+      title="Persistent Volume Claims"
+      description={`Requests for storage by pods in ${currentNamespace || "all namespaces"}`}
+      queryKey={[toPlural(ResourceType.PersistentVolumeClaim), currentNamespace]}
+      queryFn={() =>
+        commands.listPersistentVolumeClaims({
           namespace: currentNamespace || null,
           labelSelector: null,
           fieldSelector: null,
           limit: null,
-        });
-      } catch (err) {
-        throw normalizeTauriError(err);
+        })
       }
-    },
-    enabled: isConnected,
-    placeholderData: keepPreviousData,
-    staleTime: 10000,
-    refetchOnWindowFocus: false,
-  });
-
-  if (!isConnected) {
-    return (
-      <ConnectClusterEmptyState resourceLabel={toPlural(ResourceType.PersistentVolumeClaim)} />
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <ResourceListHeader
-        title="Persistent Volume Claims"
-        description={`Requests for storage by pods in ${currentNamespace || "all namespaces"}`}
-        isFetching={isFetching}
-        isLoading={isLoading}
-        onRefresh={() => refetch()}
-      />
-      <DataTable
-        columns={columns}
-        data={pvcs}
-        isLoading={isLoading && pvcs.length === 0}
-        isFetching={isFetching && !isLoading}
-        searchKey="name"
-      />
-    </div>
+      columns={(setDeleteTarget) => [
+        ...baseColumns,
+        {
+          id: "actions",
+          cell: ({ row }) => (
+            <ActionMenu>
+              <DropdownMenuItem asChild>
+                <Link
+                  to={`/${toPlural(ResourceType.PersistentVolumeClaim)}/${row.original.namespace}/${row.original.name}`}
+                >
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Details
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => setDeleteTarget(row.original)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </ActionMenu>
+          ),
+        },
+      ]}
+      emptyStateLabel={toPlural(ResourceType.PersistentVolumeClaim)}
+      deleteConfig={{
+        mutationFn: (item) =>
+          commands.deletePersistentVolumeClaim(
+            item.name,
+            item.namespace ?? null
+          ),
+        invalidateQueryKeys: [[toPlural(ResourceType.PersistentVolumeClaim)]],
+        resourceType: ResourceType.PersistentVolumeClaim,
+      }}
+      staleTime={10000}
+      searchKey="name"
+    />
   );
 }

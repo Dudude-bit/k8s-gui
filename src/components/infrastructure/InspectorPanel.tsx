@@ -26,13 +26,13 @@ import { useClusterStore } from "@/stores/clusterStore";
 import { DEFAULT_REGISTRIES, useRegistryStore } from "@/stores/registryStore";
 import { useQuery } from "@tanstack/react-query";
 import { Trash2, Plus, HelpCircle } from "lucide-react";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import type {
   RegistryImageResult,
   RegistrySearchRequest,
 } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
-import { ResourceType } from "@/lib/resource-types";
+import { ResourceType } from "@/lib/resource-registry";
 
 const SERVICE_TYPE_OPTIONS = ["ClusterIP", "NodePort", "LoadBalancer"] as const;
 const SERVICE_SESSION_AFFINITY_OPTIONS = ["None", "ClientIP"] as const;

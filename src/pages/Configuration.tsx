@@ -1,5 +1,5 @@
 import { Routes, Route } from "react-router-dom";
-import { ResourceType, toPlural } from "@/lib/resource-types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { ConfigMapList } from "@/components/resources/ConfigMapList";
 import { SecretList } from "@/components/resources/SecretList";
 import { InfrastructureBuilder } from "@/pages/InfrastructureBuilder";

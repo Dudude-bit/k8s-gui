@@ -22,10 +22,10 @@ import {
   createAgeColumn,
 } from "./columns";
 import type { ContainerInfo } from "@/generated/types";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { ResourceList } from "./ResourceList";
-import { ResourceType, toPlural } from "@/lib/resource-types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { MetricsStatusBanner } from "@/components/metrics";
 
 // Helper to format ready containers count

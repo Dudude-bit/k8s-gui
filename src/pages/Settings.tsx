@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import { useToast } from "@/components/ui/use-toast";
 import { PortForwardManager } from "@/components/port-forward/PortForwardManager";
 import { RegistrySettings } from "@/components/registry/RegistrySettings";

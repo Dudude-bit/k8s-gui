@@ -20,10 +20,12 @@ export interface ResourceDeleteConfig<T> {
 }
 
 export interface ResourceListProps<
-  T extends { name: string; namespace: string },
+  T extends { name: string; namespace?: string | null },
 > {
   /** Display title for the resource list */
-  title: string;
+  title: string | ((count: number) => string);
+  /** Optional description below the title */
+  description?: string;
   /** Query key for React Query */
   queryKey: string[];
   /** Function to fetch resources */
@@ -42,10 +44,19 @@ export interface ResourceListProps<
   refetchInterval?: number;
   /** Optional custom header actions */
   headerActions?: ReactNode;
+  /** Optional content rendered between header and table */
+  headerContent?: ReactNode;
+  /** Render without header wrapper for embedded list views */
+  embedded?: boolean;
+  /** Optional column to target for search */
+  searchKey?: string;
+  /** Optional search input placeholder */
+  searchPlaceholder?: string;
 }
 
-export function ResourceList<T extends { name: string; namespace: string }>({
+export function ResourceList<T extends { name: string; namespace?: string | null }>({
   title,
+  description,
   queryKey,
   queryFn,
   columns,
@@ -54,6 +65,10 @@ export function ResourceList<T extends { name: string; namespace: string }>({
   staleTime,
   refetchInterval,
   headerActions,
+  headerContent,
+  embedded = false,
+  searchKey,
+  searchPlaceholder,
 }: ResourceListProps<T>) {
   const { isConnected } = useClusterStore();
   const { toast } = useToast();
@@ -110,21 +125,29 @@ export function ResourceList<T extends { name: string; namespace: string }>({
   }
 
   const showSkeleton = isLoading && resources.length === 0;
+  const resolvedTitle =
+    typeof title === "function" ? title(resources.length) : title;
 
-  return (
-    <div className="space-y-4 animate-in fade-in duration-200">
-      <ResourceListHeader
-        title={title}
-        isFetching={isFetching}
-        isLoading={isLoading}
-        onRefresh={() => refetch()}
-        actions={headerActions}
-      />
+  const content = (
+    <>
+      {!embedded && (
+        <ResourceListHeader
+          title={resolvedTitle}
+          description={description}
+          isFetching={isFetching}
+          isLoading={isLoading}
+          onRefresh={() => refetch()}
+          actions={headerActions}
+        />
+      )}
+      {headerContent}
       <DataTable
         columns={resolvedColumns}
         data={resources}
         isLoading={showSkeleton}
         isFetching={isFetching && !isLoading}
+        searchKey={searchKey}
+        searchPlaceholder={searchPlaceholder}
       />
       {deleteConfig && (
         <ConfirmDialog
@@ -137,7 +160,7 @@ export function ResourceList<T extends { name: string; namespace: string }>({
           title={`Delete ${deleteConfig.resourceType.toLowerCase()}?`}
           description={
             deleteTarget
-              ? `This will delete ${deleteTarget.name} in ${deleteTarget.namespace}.`
+              ? `This will delete ${deleteTarget.name}${deleteTarget.namespace ? ` in ${deleteTarget.namespace}` : ""}.`
               : undefined
           }
           confirmLabel="Delete"
@@ -150,6 +173,16 @@ export function ResourceList<T extends { name: string; namespace: string }>({
           }}
         />
       )}
+    </>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <div className="space-y-4 animate-in fade-in duration-200">
+      {content}
     </div>
   );
 }

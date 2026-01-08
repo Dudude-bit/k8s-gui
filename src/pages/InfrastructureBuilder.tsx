@@ -58,9 +58,9 @@ import {
   Trash2,
   HelpCircle,
 } from "lucide-react";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import { normalizeTauriError } from "@/lib/error-utils";
-import { ResourceType } from "@/lib/resource-types";
+import { ResourceType } from "@/lib/resource-registry";
 
 const LOCAL_CONTEXT = "__local__";
 const GRID_SPACING_X = 260;

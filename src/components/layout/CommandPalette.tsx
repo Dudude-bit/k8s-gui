@@ -5,9 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { useClusterStore } from "@/stores/clusterStore";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import type { ResourceListItem, ResourceQuery } from "@/generated/types";
-import { ResourceType, toPlural } from "@/lib/resource-types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 import {
   Box,
   Network,

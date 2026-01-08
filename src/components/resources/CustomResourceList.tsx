@@ -1,5 +1,4 @@
-import { useState, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ColumnDef } from "@tanstack/react-table";
 import { Eye, Trash2 } from "lucide-react";
@@ -9,18 +8,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { ActionMenu } from "@/components/ui/action-menu";
-import { DataTable } from "@/components/ui/data-table";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { useToast } from "@/components/ui/use-toast";
 import { useClusterStore } from "@/stores/clusterStore";
-import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import { createAgeColumn, createNamespaceColumn } from "./columns";
 import { formatAge } from "@/lib/utils";
 import { normalizeTauriError } from "@/lib/error-utils";
-import { ResourceType, toPlural } from "@/lib/resource-types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { usePlugin } from "@/lib/crd-plugins";
 import { getKindSpecificColumns } from "@/lib/crd-plugins/plugins";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
+import { ResourceList } from "@/components/resources/ResourceList";
 import type { CustomResourceInfo, PrinterColumn } from "@/generated/types";
 
 interface CustomResourceListProps {
@@ -45,75 +41,15 @@ export function CustomResourceList({
   printerColumns = [],
   embedded = false,
 }: CustomResourceListProps) {
-  const { currentNamespace, isConnected } = useClusterStore();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [deleteTarget, setDeleteTarget] = useState<CustomResourceListItem | null>(null);
+  const { currentNamespace } = useClusterStore();
 
   // Get plugin for this CRD (if any)
   const plugin = usePlugin(crdGroup, crdKind, crdPlural);
 
   const namespace = scope === "Namespaced" ? currentNamespace : null;
 
-  const {
-    data: resources = [],
-    isLoading,
-    isFetching,
-    refetch,
-  } = useQuery({
-    queryKey: ["custom-resources", crdName, namespace],
-    queryFn: async () => {
-      try {
-        const result = await commands.listCustomResources(
-          crdName,
-          namespace || null,
-          null, // labelSelector
-          null // limit
-        );
-        // Ensure namespace is always a string
-        return result.map((r) => ({
-          ...r,
-          namespace: r.namespace || "",
-        }));
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
-    enabled: isConnected,
-    staleTime: 10000,
-    refetchInterval: 15000,
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (item: CustomResourceListItem) => {
-      try {
-        await commands.deleteCustomResource(
-          crdName,
-          item.name,
-          item.namespace || null
-        );
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
-    onSuccess: (_, item) => {
-      toast({
-        title: `${crdKind} deleted`,
-        description: `${item.name} has been deleted.`,
-      });
-      queryClient.invalidateQueries({ queryKey: ["custom-resources", crdName] });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: `Failed to delete ${crdKind}`,
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
   // Build columns from printer columns and plugin
-  const columns = useMemo<ColumnDef<CustomResourceListItem>[]>(() => {
+  const baseColumns = useMemo<ColumnDef<CustomResourceListItem>[]>(() => {
     const cols: ColumnDef<CustomResourceListItem>[] = [];
 
     // Name column (always first)
@@ -189,81 +125,83 @@ export function CustomResourceList({
     // Age column (always last before actions)
     cols.push(createAgeColumn<CustomResourceListItem>());
 
-    // Actions column
-    cols.push({
-      id: "actions",
-      cell: ({ row }) => {
-        const item = row.original;
-        const detailPath = scope === "Namespaced"
-          ? `/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(crdName)}/instances/${item.namespace}/${item.name}`
-          : `/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(crdName)}/instances/${item.name}`;
-
-        return (
-          <ActionMenu>
-            <DropdownMenuItem asChild>
-              <Link to={detailPath}>
-                <Eye className="mr-2 h-4 w-4" />
-                View Details
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={() => setDeleteTarget(item)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
-          </ActionMenu>
-        );
-      },
-    });
-
     return cols;
   }, [crdName, crdKind, scope, printerColumns, plugin]);
 
-  const content = (
-    <>
-      <DataTable
-        columns={columns}
-        data={resources}
-        isLoading={isLoading}
-        searchPlaceholder={`Search ${crdKind}...`}
-        searchKey="name"
-      />
-
-      <ConfirmDialog
-        open={!!deleteTarget}
-        onOpenChange={() => setDeleteTarget(null)}
-        title={`Delete ${crdKind}?`}
-        description={`Are you sure you want to delete "${deleteTarget?.name}"?`}
-        confirmLabel="Delete"
-        confirmVariant="destructive"
-        confirmDisabled={deleteMutation.isPending}
-        onConfirm={() => {
-          if (deleteTarget) {
-            deleteMutation.mutate(deleteTarget);
-            setDeleteTarget(null);
-          }
-        }}
-      />
-    </>
-  );
-
-  if (embedded) {
-    return content;
-  }
-
   return (
-    <div className="space-y-4">
-      <ResourceListHeader
-        title={`${crdKind} Instances (${resources.length})`}
-        isLoading={isLoading}
-        isFetching={isFetching}
-        onRefresh={() => refetch()}
-      />
-      {content}
-    </div>
+    <ResourceList<CustomResourceListItem>
+      title={(count) => `${crdKind} Instances (${count})`}
+      queryKey={["custom-resources", crdName, namespace ?? "all"]}
+      queryFn={async () => {
+        try {
+          const result = await commands.listCustomResources(
+            crdName,
+            namespace || null,
+            null,
+            null
+          );
+          return result.map((r) => ({
+            ...r,
+            namespace: r.namespace || "",
+          }));
+        } catch (err) {
+          throw new Error(normalizeTauriError(err));
+        }
+      }}
+      columns={(setDeleteTarget) => [
+        ...baseColumns,
+        {
+          id: "actions",
+          cell: ({ row }) => {
+            const item = row.original;
+            const detailPath =
+              scope === "Namespaced"
+                ? `/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(crdName)}/instances/${item.namespace}/${item.name}`
+                : `/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(crdName)}/instances/${item.name}`;
+
+            return (
+              <ActionMenu>
+                <DropdownMenuItem asChild>
+                  <Link to={detailPath}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    View Details
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => setDeleteTarget(item)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </ActionMenu>
+            );
+          },
+        },
+      ]}
+      emptyStateLabel={crdPlural}
+      deleteConfig={{
+        mutationFn: async (item) => {
+          try {
+            await commands.deleteCustomResource(
+              crdName,
+              item.name,
+              item.namespace || null
+            );
+          } catch (err) {
+            throw new Error(normalizeTauriError(err));
+          }
+        },
+        invalidateQueryKeys: [["custom-resources", crdName]],
+        resourceType: crdKind,
+      }}
+      staleTime={10000}
+      refetchInterval={15000}
+      searchKey="name"
+      searchPlaceholder={`Search ${crdKind}...`}
+      embedded={embedded}
+    />
   );
 }
 

@@ -22,10 +22,10 @@ import {
 import { useState } from "react";
 import { AlertTriangle, Info, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import type { EventInfo, EventFilters } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
-import { ResourceType, toPlural } from "@/lib/resource-types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 
 export function Events() {
   const { isConnected, currentNamespace } = useClusterStore();

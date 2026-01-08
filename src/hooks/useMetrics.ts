@@ -3,7 +3,7 @@ import {
   keepPreviousData,
   UseQueryOptions,
 } from "@tanstack/react-query";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import type {
   MetricsStatus,
   PodMetricsResponse,

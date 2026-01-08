@@ -10,6 +10,7 @@ use k8s_openapi::api::networking::v1::Ingress;
 use tauri::State;
 
 use crate::commands::filters::ResourceFilters;
+use crate::commands::helpers::{get_resource_info, list_resource_infos};
 
 /// List Ingresses
 #[tauri::command]
@@ -17,22 +18,7 @@ pub async fn list_ingresses(
     filters: Option<ResourceFilters>,
     state: State<'_, AppState>,
 ) -> Result<Vec<IngressInfo>> {
-    let filters = filters.unwrap_or_default();
-
-    let list = crate::commands::helpers::list_resources::<Ingress>(
-        filters.namespace,
-        state,
-        filters.label_selector.as_deref(),
-        filters.field_selector.as_deref(),
-        filters.limit,
-    )
-    .await?;
-
-    Ok(list
-        .items
-        .iter()
-        .map(IngressInfo::from)
-        .collect())
+    list_resource_infos::<Ingress, IngressInfo>(filters, state).await
 }
 
 /// List Endpoints
@@ -41,22 +27,7 @@ pub async fn list_endpoints(
     filters: Option<ResourceFilters>,
     state: State<'_, AppState>,
 ) -> Result<Vec<EndpointsInfo>> {
-    let filters = filters.unwrap_or_default();
-
-    let list = crate::commands::helpers::list_resources::<Endpoints>(
-        filters.namespace,
-        state,
-        filters.label_selector.as_deref(),
-        filters.field_selector.as_deref(),
-        filters.limit,
-    )
-    .await?;
-
-    Ok(list
-        .items
-        .iter()
-        .map(EndpointsInfo::from)
-        .collect())
+    list_resource_infos::<Endpoints, EndpointsInfo>(filters, state).await
 }
 
 /// Get a single Ingress by name
@@ -66,8 +37,7 @@ pub async fn get_ingress(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<IngressInfo> {
-    let ingress: Ingress = crate::commands::helpers::get_resource(name, namespace, state).await?;
-    Ok(IngressInfo::from(&ingress))
+    get_resource_info::<Ingress, IngressInfo>(name, namespace, state).await
 }
 
 /// Delete an Ingress
@@ -87,8 +57,7 @@ pub async fn get_endpoints(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<EndpointsInfo> {
-    let endpoints: Endpoints = crate::commands::helpers::get_resource(name, namespace, state).await?;
-    Ok(EndpointsInfo::from(&endpoints))
+    get_resource_info::<Endpoints, EndpointsInfo>(name, namespace, state).await
 }
 
 /// Delete an Endpoints resource
@@ -100,4 +69,3 @@ pub async fn delete_endpoints(
 ) -> Result<()> {
     crate::commands::helpers::delete_resource::<Endpoints>(name, namespace, state, None).await
 }
-

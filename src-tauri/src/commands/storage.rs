@@ -11,6 +11,10 @@ use k8s_openapi::api::storage::v1::StorageClass;
 use tauri::State;
 
 use crate::commands::filters::ResourceFilters;
+use crate::commands::helpers::{
+    get_cluster_resource_info, get_resource_info, list_cluster_resource_infos,
+    list_resource_infos,
+};
 
 /// List all `PersistentVolumes` in the cluster
 #[tauri::command]
@@ -18,21 +22,7 @@ pub async fn list_persistent_volumes(
     filters: Option<ResourceFilters>,
     state: State<'_, AppState>,
 ) -> Result<Vec<PersistentVolumeInfo>> {
-    let filters = filters.unwrap_or_default();
-
-    let list = crate::commands::helpers::list_cluster_resources::<PersistentVolume>(
-        state,
-        filters.label_selector.as_deref(),
-        filters.field_selector.as_deref(),
-        filters.limit,
-    )
-    .await?;
-
-    Ok(list
-        .items
-        .iter()
-        .map(PersistentVolumeInfo::from)
-        .collect())
+    list_cluster_resource_infos::<PersistentVolume, PersistentVolumeInfo>(filters, state).await
 }
 
 /// List `PersistentVolumeClaims`
@@ -41,22 +31,7 @@ pub async fn list_persistent_volume_claims(
     filters: Option<ResourceFilters>,
     state: State<'_, AppState>,
 ) -> Result<Vec<PersistentVolumeClaimInfo>> {
-    let filters = filters.unwrap_or_default();
-
-    let list = crate::commands::helpers::list_resources::<PersistentVolumeClaim>(
-        filters.namespace,
-        state,
-        filters.label_selector.as_deref(),
-        filters.field_selector.as_deref(),
-        filters.limit,
-    )
-    .await?;
-
-    Ok(list
-        .items
-        .iter()
-        .map(PersistentVolumeClaimInfo::from)
-        .collect())
+    list_resource_infos::<PersistentVolumeClaim, PersistentVolumeClaimInfo>(filters, state).await
 }
 
 /// List `StorageClasses`
@@ -65,21 +40,7 @@ pub async fn list_storage_classes(
     filters: Option<ResourceFilters>,
     state: State<'_, AppState>,
 ) -> Result<Vec<StorageClassInfo>> {
-    let filters = filters.unwrap_or_default();
-
-    let list = crate::commands::helpers::list_cluster_resources::<StorageClass>(
-        state,
-        filters.label_selector.as_deref(),
-        filters.field_selector.as_deref(),
-        filters.limit,
-    )
-    .await?;
-
-    Ok(list
-        .items
-        .iter()
-        .map(StorageClassInfo::from)
-        .collect())
+    list_cluster_resource_infos::<StorageClass, StorageClassInfo>(filters, state).await
 }
 
 /// Get a single PersistentVolume by name
@@ -88,8 +49,7 @@ pub async fn get_persistent_volume(
     name: String,
     state: State<'_, AppState>,
 ) -> Result<PersistentVolumeInfo> {
-    let pv: PersistentVolume = crate::commands::helpers::get_cluster_resource(name, state).await?;
-    Ok(PersistentVolumeInfo::from(&pv))
+    get_cluster_resource_info::<PersistentVolume, PersistentVolumeInfo>(name, state).await
 }
 
 /// Delete a PersistentVolume
@@ -108,8 +68,8 @@ pub async fn get_persistent_volume_claim(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<PersistentVolumeClaimInfo> {
-    let pvc: PersistentVolumeClaim = crate::commands::helpers::get_resource(name, namespace, state).await?;
-    Ok(PersistentVolumeClaimInfo::from(&pvc))
+    get_resource_info::<PersistentVolumeClaim, PersistentVolumeClaimInfo>(name, namespace, state)
+        .await
 }
 
 /// Delete a PersistentVolumeClaim
@@ -128,8 +88,7 @@ pub async fn get_storage_class(
     name: String,
     state: State<'_, AppState>,
 ) -> Result<StorageClassInfo> {
-    let sc: StorageClass = crate::commands::helpers::get_cluster_resource(name, state).await?;
-    Ok(StorageClassInfo::from(&sc))
+    get_cluster_resource_info::<StorageClass, StorageClassInfo>(name, state).await
 }
 
 /// Delete a StorageClass
@@ -140,4 +99,3 @@ pub async fn delete_storage_class(
 ) -> Result<()> {
     crate::commands::helpers::delete_cluster_resource::<StorageClass>(name, state, None).await
 }
-

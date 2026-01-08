@@ -13,9 +13,9 @@ import {
   type ResourceMetrics,
 } from "@/lib/metrics";
 import { formatAge } from "@/lib/utils";
-import { ResourceType, toPlural } from "@/lib/resource-types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 import type { CronJobInfo } from "@/generated/types";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { ActionMenu } from "@/components/ui/action-menu";
 import {

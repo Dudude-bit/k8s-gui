@@ -6,9 +6,9 @@ import {
     InfoCard,
 } from "@/components/resources/ResourceDetailLayout";
 import { useResourceDetail } from "@/hooks";
-import { ResourceType } from "@/lib/resource-types";
+import { ResourceType } from "@/lib/resource-registry";
 import { Database, HardDrive, Link as LinkIcon } from "lucide-react";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import type { PersistentVolumeClaimInfo } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { StatusBadge } from "@/components/ui/status-badge";

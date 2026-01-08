@@ -23,6 +23,9 @@ pub enum ResourceType {
     StorageClass,
     Endpoints,
     Node,
+    Event,
+    Namespace,
+    CustomResourceDefinition,
 }
 
 impl ResourceType {
@@ -44,6 +47,9 @@ impl ResourceType {
             "StorageClass" => Some(Self::StorageClass),
             "Endpoints" => Some(Self::Endpoints),
             "Node" => Some(Self::Node),
+            "Event" => Some(Self::Event),
+            "Namespace" => Some(Self::Namespace),
+            "CustomResourceDefinition" => Some(Self::CustomResourceDefinition),
             _ => None,
         }
     }
@@ -66,6 +72,9 @@ impl ResourceType {
             Self::StorageClass => "StorageClass",
             Self::Endpoints => "Endpoints",
             Self::Node => "Node",
+            Self::Event => "Event",
+            Self::Namespace => "Namespace",
+            Self::CustomResourceDefinition => "CustomResourceDefinition",
         }
     }
 
@@ -87,12 +96,22 @@ impl ResourceType {
             Self::StorageClass => "storageclasses",
             Self::Endpoints => "endpoints",
             Self::Node => "nodes",
+            Self::Event => "events",
+            Self::Namespace => "namespaces",
+            Self::CustomResourceDefinition => "customresourcedefinitions",
         }
     }
 
     /// Check if this is a cluster-scoped resource (not namespaced)
     pub fn is_cluster_scoped(&self) -> bool {
-        matches!(self, Self::Node | Self::PersistentVolume)
+        matches!(
+            self,
+            Self::Node
+                | Self::PersistentVolume
+                | Self::StorageClass
+                | Self::Namespace
+                | Self::CustomResourceDefinition
+        )
     }
 
     /// Get all supported resource types
@@ -113,6 +132,9 @@ impl ResourceType {
             Self::StorageClass,
             Self::Endpoints,
             Self::Node,
+            Self::Event,
+            Self::Namespace,
+            Self::CustomResourceDefinition,
         ]
     }
 }
@@ -152,6 +174,9 @@ mod tests {
     fn test_cluster_scoped() {
         assert!(ResourceType::Node.is_cluster_scoped());
         assert!(ResourceType::PersistentVolume.is_cluster_scoped());
+        assert!(ResourceType::StorageClass.is_cluster_scoped());
+        assert!(ResourceType::Namespace.is_cluster_scoped());
+        assert!(ResourceType::CustomResourceDefinition.is_cluster_scoped());
         assert!(!ResourceType::Pod.is_cluster_scoped());
     }
 }

@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronRight, Lock, FileKey, Settings, Box, Loader2 } from "lucide-react";
 import type { EnvVarInfo, EnvFromInfo, EnvVarSourceType } from "@/generated/types";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 
 interface EnvironmentVariablesProps {
   env: EnvVarInfo[];

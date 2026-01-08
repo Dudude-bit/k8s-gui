@@ -16,7 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import type { PaymentInfo } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { AUTH_DISABLED } from "@/lib/flags";

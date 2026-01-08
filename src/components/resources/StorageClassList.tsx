@@ -1,12 +1,8 @@
-import { useClusterStore } from "@/stores/clusterStore";
-import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
-import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
 import { Eye, Trash2, Layers, Star } from "lucide-react";
-import { useResourceList } from "@/hooks/useResource";
-import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
+import { ResourceList } from "@/components/resources/ResourceList";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -17,12 +13,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ActionMenu } from "@/components/ui/action-menu";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import type { StorageClassInfo } from "@/generated/types";
-import { normalizeTauriError } from "@/lib/error-utils";
-import { ResourceType, toPlural } from "@/lib/resource-types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 
-const columns: ColumnDef<StorageClassInfo>[] = [
+const baseColumns: ColumnDef<StorageClassInfo>[] = [
   {
     accessorKey: "name",
     header: "Name",
@@ -104,65 +99,49 @@ const columns: ColumnDef<StorageClassInfo>[] = [
     accessorKey: "age",
     header: "Age",
   },
-  {
-    id: "actions",
-    cell: ({ row }) => (
-      <ActionMenu>
-        <DropdownMenuItem asChild>
-          <Link to={`/${toPlural(ResourceType.StorageClass)}/${row.original.name}`}>
-            <Eye className="mr-2 h-4 w-4" />
-            View Details
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem className="text-destructive">
-          <Trash2 className="mr-2 h-4 w-4" />
-          Delete
-        </DropdownMenuItem>
-      </ActionMenu>
-    ),
-  },
 ];
 
 export function StorageClassList() {
-  const { isConnected } = useClusterStore();
-
-  const {
-    data: storageClasses = [],
-    isLoading,
-    isFetching,
-    refetch,
-  } = useResourceList(
-    [toPlural(ResourceType.StorageClass)],
-    async () => {
-      try {
-        return await commands.listStorageClasses(null);
-      } catch (err) {
-        throw normalizeTauriError(err);
-      }
-    },
-    { enabled: isConnected }
-  );
-
-  if (!isConnected) {
-    return <ConnectClusterEmptyState resourceLabel={toPlural(ResourceType.StorageClass)} />;
-  }
-
   return (
-    <div className="space-y-4">
-      <ResourceListHeader
-        title="Storage Classes"
-        description="Describes the classes of storage available in the cluster"
-        isFetching={isFetching}
-        isLoading={isLoading}
-        onRefresh={() => refetch()}
-      />
-      <DataTable
-        columns={columns}
-        data={storageClasses}
-        isLoading={isLoading}
-        searchKey="name"
-      />
-    </div>
+    <ResourceList<StorageClassInfo>
+      title="Storage Classes"
+      description="Describes the classes of storage available in the cluster"
+      queryKey={[toPlural(ResourceType.StorageClass)]}
+      queryFn={() => commands.listStorageClasses(null)}
+      columns={(setDeleteTarget) => [
+        ...baseColumns,
+        {
+          id: "actions",
+          cell: ({ row }) => (
+            <ActionMenu>
+              <DropdownMenuItem asChild>
+                <Link
+                  to={`/${toPlural(ResourceType.StorageClass)}/${row.original.name}`}
+                >
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Details
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => setDeleteTarget(row.original)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </ActionMenu>
+          ),
+        },
+      ]}
+      emptyStateLabel={toPlural(ResourceType.StorageClass)}
+      deleteConfig={{
+        mutationFn: (item) => commands.deleteStorageClass(item.name),
+        invalidateQueryKeys: [[toPlural(ResourceType.StorageClass)]],
+        resourceType: ResourceType.StorageClass,
+      }}
+      staleTime={10000}
+      searchKey="name"
+    />
   );
 }

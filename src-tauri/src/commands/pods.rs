@@ -4,6 +4,7 @@ use k8s_openapi::api::core::v1::Pod;
 use tauri::State;
 
 use crate::commands::filters::PodFilters;
+use crate::commands::helpers::{get_resource_info, list_resource_infos};
 use crate::error::Result;
 use crate::resources::PodInfo;
 use crate::state::AppState;
@@ -15,17 +16,8 @@ pub async fn list_pods(
     state: State<'_, AppState>,
 ) -> Result<Vec<PodInfo>> {
     let filters = filters.unwrap_or_default();
-
-    let list = crate::commands::helpers::list_resources::<Pod>(
-        filters.namespace.clone(),
-        state,
-        filters.label_selector.as_deref(),
-        filters.field_selector.as_deref(),
-        filters.limit,
-    )
-    .await?;
-
-    let mut pods: Vec<PodInfo> = list.items.iter().map(PodInfo::from).collect();
+    let mut pods: Vec<PodInfo> =
+        list_resource_infos::<Pod, PodInfo>(Some(filters.base.clone()), state).await?;
 
     // Apply status filter if specified
     if let Some(status) = &filters.status_filter {
@@ -43,8 +35,7 @@ pub async fn get_pod(
     state: State<'_, AppState>,
 ) -> Result<PodInfo> {
     crate::validation::validate_resource_name(&name)?;
-    let pod: Pod = crate::commands::helpers::get_resource(name, namespace, state).await?;
-    Ok(PodInfo::from(&pod))
+    get_resource_info::<Pod, PodInfo>(name, namespace, state).await
 }
 
 /// Delete a pod

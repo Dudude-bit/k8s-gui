@@ -1,14 +1,10 @@
-import * as commands from "@/generated/commands";
-import { useClusterStore } from "@/stores/clusterStore";
-import { DataTable } from "@/components/ui/data-table";
+import { commands } from "@/lib/commands";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
-import { useResourceList } from "@/hooks/useResource";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
 import { Eye, Trash2, HardDrive } from "lucide-react";
-import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
+import { ResourceList } from "@/components/resources/ResourceList";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -21,9 +17,9 @@ import {
 import { ActionMenu } from "@/components/ui/action-menu";
 
 import type { PersistentVolumeInfo } from "@/generated/types";
-import { ResourceType, toPlural } from "@/lib/resource-types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 
-const columns: ColumnDef<PersistentVolumeInfo>[] = [
+const baseColumns: ColumnDef<PersistentVolumeInfo>[] = [
   {
     accessorKey: "name",
     header: "Name",
@@ -88,61 +84,49 @@ const columns: ColumnDef<PersistentVolumeInfo>[] = [
     accessorKey: "age",
     header: "Age",
   },
-  {
-    id: "actions",
-    cell: ({ row }) => (
-      <ActionMenu>
-        <DropdownMenuItem asChild>
-          <Link to={`/${toPlural(ResourceType.PersistentVolume)}/${row.original.name}`}>
-            <Eye className="mr-2 h-4 w-4" />
-            View Details
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem className="text-destructive">
-          <Trash2 className="mr-2 h-4 w-4" />
-          Delete
-        </DropdownMenuItem>
-      </ActionMenu>
-    ),
-  },
 ];
 
 export function PersistentVolumeList() {
-  const { isConnected } = useClusterStore();
-
-  const {
-    data: pvs = [],
-    isLoading,
-    isFetching,
-    refetch,
-  } = useResourceList(
-    [toPlural(ResourceType.PersistentVolume)],
-    async () => {
-      return await commands.listPersistentVolumes(null);
-    },
-    { enabled: isConnected }
-  );
-
-  if (!isConnected) {
-    return <ConnectClusterEmptyState resourceLabel={toPlural(ResourceType.PersistentVolume)} />;
-  }
-
   return (
-    <div className="space-y-4">
-      <ResourceListHeader
-        title="Persistent Volumes"
-        description="Cluster-wide storage resources provisioned by an administrator"
-        isFetching={isFetching}
-        isLoading={isLoading}
-        onRefresh={() => refetch()}
-      />
-      <DataTable
-        columns={columns}
-        data={pvs}
-        isLoading={isLoading}
-        searchKey="name"
-      />
-    </div>
+    <ResourceList<PersistentVolumeInfo>
+      title="Persistent Volumes"
+      description="Cluster-wide storage resources provisioned by an administrator"
+      queryKey={[toPlural(ResourceType.PersistentVolume)]}
+      queryFn={() => commands.listPersistentVolumes(null)}
+      columns={(setDeleteTarget) => [
+        ...baseColumns,
+        {
+          id: "actions",
+          cell: ({ row }) => (
+            <ActionMenu>
+              <DropdownMenuItem asChild>
+                <Link
+                  to={`/${toPlural(ResourceType.PersistentVolume)}/${row.original.name}`}
+                >
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Details
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => setDeleteTarget(row.original)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </ActionMenu>
+          ),
+        },
+      ]}
+      emptyStateLabel={toPlural(ResourceType.PersistentVolume)}
+      deleteConfig={{
+        mutationFn: (item) => commands.deletePersistentVolume(item.name),
+        invalidateQueryKeys: [[toPlural(ResourceType.PersistentVolume)]],
+        resourceType: ResourceType.PersistentVolume,
+      }}
+      staleTime={10000}
+      searchKey="name"
+    />
   );
 }

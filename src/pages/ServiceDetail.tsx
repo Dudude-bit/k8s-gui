@@ -8,9 +8,9 @@ import {
   ResourceDetailLayout,
 } from "@/components/resources/ResourceDetailLayout";
 import { useResourceDetail } from "@/hooks";
-import { ResourceType } from "@/lib/resource-types";
+import { ResourceType } from "@/lib/resource-registry";
 import { Network, Globe, Server } from "lucide-react";
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import type { ServiceInfo } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
 

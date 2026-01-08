@@ -8,13 +8,14 @@
  */
 
 import type { ReactNode } from "react";
+import type { ConditionInfo } from "@/generated/types";
 import { Button } from "@/components/ui/button";
 import { DetailSkeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { ResourceDetailHeader } from "./ResourceDetailHeader";
 import { LabelsDisplay } from "./LabelsDisplay";
+import { ConditionsDisplay } from "./ConditionsDisplay";
 import { ArrowLeft, AlertCircle, RefreshCw } from "lucide-react";
 import { isResourceNotFoundError } from "@/hooks/useResourceDetail";
 
@@ -139,69 +140,6 @@ export function InfoCard({
 }
 
 /**
- * Conditions display component
- */
-interface Condition {
-  type: string;
-  status: string;
-  message?: string;
-  reason?: string;
-  lastTransitionTime?: string;
-}
-
-interface ConditionsDisplayProps {
-  conditions: Condition[];
-  title?: string;
-}
-
-export function ConditionsDisplay({
-  conditions,
-  title = "Conditions",
-}: ConditionsDisplayProps) {
-  if (!conditions || conditions.length === 0) {
-    return null;
-  }
-
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-lg">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
-          {conditions.map((condition, index) => (
-            <div
-              key={index}
-              className="flex items-center justify-between p-2 rounded-md bg-muted/50"
-            >
-              <div className="flex items-center gap-3">
-                <Badge
-                  variant={
-                    condition.status === "True"
-                      ? "default"
-                      : condition.status === "False"
-                        ? "destructive"
-                        : "secondary"
-                  }
-                >
-                  {condition.status}
-                </Badge>
-                <span className="font-medium">{condition.type}</span>
-              </div>
-              {condition.message && (
-                <span className="text-sm text-muted-foreground truncate max-w-[50%]">
-                  {condition.message}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-/**
  * Tab definition for resource detail tabs
  */
 export interface DetailTab {
@@ -259,7 +197,7 @@ interface ResourceDetailLayoutProps {
   /** Annotations for display */
   annotations?: Record<string, string>;
   /** Conditions for ConditionsDisplay */
-  conditions?: Condition[];
+  conditions?: ConditionInfo[];
 
   /** Additional content below tabs */
   children?: ReactNode;

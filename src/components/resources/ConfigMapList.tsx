@@ -1,4 +1,4 @@
-import * as commands from "@/generated/commands";
+import { commands } from "@/lib/commands";
 import { fetchResourceYaml } from "@/hooks/useResourceYaml";
 import { useClusterStore } from "@/stores/clusterStore";
 import { ColumnDef } from "@tanstack/react-table";
@@ -12,7 +12,7 @@ import { ActionMenu } from "@/components/ui/action-menu";
 import { YamlEditorMenuAction } from "@/components/yaml";
 import type { ConfigMapInfo } from "@/generated/types";
 import { ResourceList } from "./ResourceList";
-import { ResourceType, toPlural } from "@/lib/resource-types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { useCopyToClipboard } from "@/hooks";
 import {
   createSimpleNameColumn,

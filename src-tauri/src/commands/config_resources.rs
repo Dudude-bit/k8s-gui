@@ -1,6 +1,6 @@
 //! `ConfigMap` and Secret commands
 
-use crate::commands::helpers::ResourceContext;
+use crate::commands::helpers::{get_resource_info, list_resource_infos, ResourceContext};
 use crate::error::Result;
 use crate::resources::{ConfigMapInfo, SecretInfo};
 use crate::state::AppState;
@@ -20,18 +20,7 @@ pub async fn list_configmaps(
     filters: Option<ResourceFilters>,
     state: State<'_, AppState>,
 ) -> Result<Vec<ConfigMapInfo>> {
-    let filters = filters.unwrap_or_default();
-
-    let list = crate::commands::helpers::list_resources::<ConfigMap>(
-        filters.namespace.clone(),
-        state,
-        filters.label_selector.as_deref(),
-        filters.field_selector.as_deref(),
-        filters.limit,
-    )
-    .await?;
-
-    Ok(list.items.iter().map(ConfigMapInfo::from).collect())
+    list_resource_infos::<ConfigMap, ConfigMapInfo>(filters, state).await
 }
 
 /// Get a `ConfigMap` by name
@@ -41,9 +30,7 @@ pub async fn get_configmap(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<ConfigMapInfo> {
-    let configmap: ConfigMap =
-        crate::commands::helpers::get_resource(name, namespace, state).await?;
-    Ok(ConfigMapInfo::from(&configmap))
+    get_resource_info::<ConfigMap, ConfigMapInfo>(name, namespace, state).await
 }
 
 /// Get `ConfigMap` data
@@ -81,17 +68,8 @@ pub async fn list_secrets(
     state: State<'_, AppState>,
 ) -> Result<Vec<SecretInfo>> {
     let filters = filters.unwrap_or_default();
-
-    let list = crate::commands::helpers::list_resources::<Secret>(
-        filters.namespace.clone(),
-        state,
-        filters.label_selector.as_deref(),
-        filters.field_selector.as_deref(),
-        filters.limit,
-    )
-    .await?;
-
-    let mut secrets: Vec<SecretInfo> = list.items.iter().map(SecretInfo::from).collect();
+    let mut secrets: Vec<SecretInfo> =
+        list_resource_infos::<Secret, SecretInfo>(Some(filters.base.clone()), state).await?;
 
     // Filter by type if specified
     if let Some(secret_type) = &filters.secret_type {
@@ -108,9 +86,7 @@ pub async fn get_secret(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<SecretInfo> {
-    let secret: Secret =
-        crate::commands::helpers::get_resource(name, namespace, state).await?;
-    Ok(SecretInfo::from(&secret))
+    get_resource_info::<Secret, SecretInfo>(name, namespace, state).await
 }
 
 /// Get decoded Secret data (base64 decoded to UTF-8 strings)

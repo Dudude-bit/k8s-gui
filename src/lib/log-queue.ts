@@ -5,7 +5,7 @@
  * Includes retry logic with exponential backoff for reliability.
  */
 
-import { logFrontendEventsBatch } from "@/generated/commands";
+import { commands } from "@/lib/commands";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -216,7 +216,7 @@ class LogQueueImpl {
 
         try {
             // Use batch command for efficiency - single IPC call
-            await logFrontendEventsBatch(batchEntries);
+            await commands.logFrontendEventsBatch(batchEntries);
         } catch (error) {
             // If batch fails, mark all entries for retry
             for (const entry of entries) {
