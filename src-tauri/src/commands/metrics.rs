@@ -4,7 +4,10 @@
 
 use crate::auth::license_client::LicenseClient;
 use crate::error::Result;
-use crate::metrics::{get_node_metrics, get_pod_metrics, ClusterMetrics, NodeMetrics, PodMetrics};
+use crate::metrics::{
+    get_cluster_metrics as fetch_cluster_metrics, get_node_metrics, get_pod_metrics,
+    ClusterMetricsResponse, NodeMetricsResponse, PodMetricsResponse,
+};
 use crate::state::AppState;
 use tauri::State;
 
@@ -14,7 +17,7 @@ pub async fn get_pods_metrics(
     namespace: Option<String>,
     state: State<'_, AppState>,
     license: State<'_, LicenseClient>,
-) -> Result<Vec<PodMetrics>> {
+) -> Result<PodMetricsResponse> {
     license.require_premium_license().await?;
     get_pod_metrics(namespace.as_deref(), &state).await
 }
@@ -24,7 +27,7 @@ pub async fn get_pods_metrics(
 pub async fn get_nodes_metrics(
     state: State<'_, AppState>,
     license: State<'_, LicenseClient>,
-) -> Result<Vec<NodeMetrics>> {
+) -> Result<NodeMetricsResponse> {
     license.require_premium_license().await?;
     get_node_metrics(&state).await
 }
@@ -34,7 +37,7 @@ pub async fn get_nodes_metrics(
 pub async fn get_cluster_metrics(
     state: State<'_, AppState>,
     license: State<'_, LicenseClient>,
-) -> Result<ClusterMetrics> {
+) -> Result<ClusterMetricsResponse> {
     license.require_premium_license().await?;
-    crate::metrics::get_cluster_metrics(&state).await
+    fetch_cluster_metrics(&state).await
 }

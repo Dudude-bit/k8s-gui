@@ -3,44 +3,84 @@
 //! Provides functionality to fetch resource usage metrics (CPU, Memory)
 //! from the Kubernetes Metrics API (/apis/metrics.k8s.io/v1beta1/)
 
-use crate::error::{Error, Result};
-use crate::metrics::helpers::{
-    format_cpu_from_millicores, parse_cpu_to_millicores, parse_memory_to_bytes,
-};
+use crate::error::Result;
 use crate::state::AppState;
-use reqwest::header::AUTHORIZATION;
-use reqwest::Client as HttpClient;
+use crate::utils::quantities::{parse_cpu, parse_memory};
+use crate::commands::helpers::ResourceContext;
+use kube::api::ListParams;
+use kube::core::DynamicObject;
+use kube::discovery::ApiResource;
+use kube::Api;
 use serde::{Deserialize, Serialize};
 
-pub mod helpers;
+// ============================================================================
+// Public Types
+// ============================================================================
 
-/// Pod metrics from Metrics API
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MetricsStatusKind {
+    Available,
+    NotInstalled,
+    Forbidden,
+    Error,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetricsStatus {
+    pub status: MetricsStatusKind,
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PodMetricsResponse {
+    pub status: MetricsStatus,
+    pub data: Vec<PodMetrics>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NodeMetricsResponse {
+    pub status: MetricsStatus,
+    pub data: Vec<NodeMetrics>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClusterMetricsResponse {
+    pub status: MetricsStatus,
+    pub data: ClusterMetrics,
+}
+
+/// Pod metrics from Metrics API (values are in millicores/bytes)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PodMetrics {
     pub name: String,
     pub namespace: String,
-    pub cpu_usage: Option<String>, // in millicores or cores (e.g., "500m", "2")
-    pub memory_usage: Option<String>, // in bytes (will be formatted on frontend)
+    pub cpu_millicores: Option<f64>,
+    pub memory_bytes: Option<u64>,
 }
 
-/// Node metrics from Metrics API
+/// Node metrics from Metrics API (values are in millicores/bytes)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NodeMetrics {
     pub name: String,
-    pub cpu_usage: Option<String>,    // in millicores or cores
-    pub memory_usage: Option<String>, // in bytes
+    pub cpu_millicores: Option<f64>,
+    pub memory_bytes: Option<u64>,
 }
 
-/// Cluster metrics (aggregated)
+/// Cluster metrics (aggregated, values are in millicores/bytes)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClusterMetrics {
-    pub total_cpu_usage: Option<String>,
-    pub total_memory_usage: Option<String>,
-    pub total_cpu_capacity: Option<String>,
-    pub total_memory_capacity: Option<String>,
+    pub total_cpu_millicores: Option<f64>,
+    pub total_memory_bytes: Option<u64>,
+    pub total_cpu_capacity_millicores: Option<f64>,
+    pub total_memory_capacity_bytes: Option<u64>,
 }
 
 // ============================================================================
@@ -48,21 +88,10 @@ pub struct ClusterMetrics {
 // ============================================================================
 
 #[derive(Debug, Deserialize)]
-struct PodMetricsList {
-    items: Vec<PodMetricsItem>,
-}
-
-#[derive(Debug, Deserialize)]
 struct PodMetricsItem {
     metadata: PodMetricsMetadata,
     #[serde(rename = "containers")]
     containers: Vec<ContainerMetrics>,
-    #[allow(dead_code)]
-    #[serde(rename = "window")]
-    window: String,
-    #[allow(dead_code)]
-    #[serde(rename = "timestamp")]
-    timestamp: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -73,8 +102,6 @@ struct PodMetricsMetadata {
 
 #[derive(Debug, Deserialize)]
 struct ContainerMetrics {
-    #[allow(dead_code)]
-    name: String,
     usage: ContainerUsage,
 }
 
@@ -85,20 +112,9 @@ struct ContainerUsage {
 }
 
 #[derive(Debug, Deserialize)]
-struct NodeMetricsList {
-    items: Vec<NodeMetricsItem>,
-}
-
-#[derive(Debug, Deserialize)]
 struct NodeMetricsItem {
     metadata: NodeMetricsMetadata,
     usage: ContainerUsage,
-    #[allow(dead_code)]
-    #[serde(rename = "window")]
-    window: String,
-    #[allow(dead_code)]
-    #[serde(rename = "timestamp")]
-    timestamp: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -107,350 +123,257 @@ struct NodeMetricsMetadata {
 }
 
 // ============================================================================
-// Metrics Client (eliminates duplication, adds authentication)
+// Helpers
 // ============================================================================
 
-/// Client for accessing Kubernetes Metrics API with proper authentication.
-///
-/// This client handles the complexities of:
-/// - Extracting cluster configuration from kubeconfig
-/// - Setting up TLS (including insecure mode)
-/// - Adding authentication headers (Bearer token, etc.)
-pub struct MetricsClient {
-    http_client: HttpClient,
-    base_url: String,
-    auth_header: Option<String>,
-}
-
-impl MetricsClient {
-    /// Create a new `MetricsClient` from the current application state.
-    ///
-    /// Extracts the cluster configuration, TLS settings, and authentication
-    /// credentials from the kubeconfig.
-    pub async fn from_state(state: &AppState) -> Result<Self> {
-        let context = state
-            .get_current_context()
-            .ok_or_else(|| Error::Connection("No cluster connected".to_string()))?;
-
-        let kubeconfig = state
-            .client_manager
-            .kubeconfig_clone()
-            .await
-            .map_err(|e| Error::Config(format!("Failed to get kubeconfig: {e}")))?;
-
-        // Find cluster name from context
-        let cluster_name = kubeconfig
-            .contexts
-            .iter()
-            .find(|c| c.name == context)
-            .and_then(|c| c.context.as_ref())
-            .map(|c| &c.cluster)
-            .ok_or_else(|| Error::Config("Cluster not found in kubeconfig".to_string()))?;
-
-        // Find user name from context
-        let user_name = kubeconfig
-            .contexts
-            .iter()
-            .find(|c| c.name == context)
-            .and_then(|c| c.context.as_ref())
-            .and_then(|c| c.user.as_ref());
-
-        // Get cluster configuration
-        let cluster = kubeconfig
-            .clusters
-            .iter()
-            .find(|c| c.name == *cluster_name)
-            .and_then(|c| c.cluster.as_ref())
-            .ok_or_else(|| Error::Config("Cluster config not found".to_string()))?;
-
-        let base_url = cluster
-            .server
-            .as_deref()
-            .ok_or_else(|| Error::Config("Cluster server URL not found".to_string()))?
-            .to_string();
-
-        let insecure_skip_tls = cluster.insecure_skip_tls_verify.unwrap_or(false);
-
-        // Extract authentication token from user configuration
-        let auth_header = if let Some(user_name) = user_name {
-            kubeconfig
-                .auth_infos
-                .iter()
-                .find(|a| &a.name == user_name)
-                .and_then(|a| a.auth_info.as_ref())
-                .and_then(|auth| {
-                    // Try token first (SecretBox requires expose_secret())
-                    if let Some(token) = &auth.token {
-                        use secrecy::ExposeSecret;
-                        return Some(format!("Bearer {}", token.expose_secret()));
-                    }
-                    // Try token-file
-                    if let Some(token_file) = &auth.token_file {
-                        if let Ok(token) = std::fs::read_to_string(token_file) {
-                            return Some(format!("Bearer {}", token.trim()));
-                        }
-                    }
-                    None
-                })
-        } else {
-            None
-        };
-
-        // Build HTTP client with TLS configuration
-        let http_client = HttpClient::builder()
-            .danger_accept_invalid_certs(insecure_skip_tls)
-            .build()
-            .map_err(|e| Error::Connection(format!("Failed to create HTTP client: {e}")))?;
-
-        Ok(Self {
-            http_client,
-            base_url,
-            auth_header,
-        })
-    }
-
-    /// Make a GET request to the Metrics API.
-    async fn get<T: serde::de::DeserializeOwned>(&self, path: &str) -> Result<Option<T>> {
-        let url = format!("{}{}", self.base_url, path);
-
-        let mut request = self.http_client.get(&url);
-
-        // Add authorization header if available
-        if let Some(auth) = &self.auth_header {
-            request = request.header(AUTHORIZATION, auth);
-        }
-
-        let response = request
-            .send()
-            .await
-            .map_err(|e| Error::Connection(format!("Failed to fetch metrics: {e}")))?;
-
-        // Check if Metrics API is available
-        if response.status() == 404 {
-            tracing::debug!("Metrics API not available (404) for path: {}", path);
-            return Ok(None);
-        }
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let text = response.text().await.unwrap_or_default();
-            tracing::warn!("Metrics API returned error {}: {}", status, text);
-            return Ok(None);
-        }
-
-        let result: T = response
-            .json()
-            .await
-            .map_err(|e| Error::Serialization(format!("Failed to parse metrics response: {e}")))?;
-
-        Ok(Some(result))
-    }
-
-    /// Get pod metrics for a specific namespace or all namespaces.
-    pub async fn get_pod_metrics(&self, namespace: Option<&str>) -> Result<Vec<PodMetrics>> {
-        let path = match namespace {
-            Some(ns) => format!("/apis/metrics.k8s.io/v1beta1/namespaces/{ns}/pods"),
-            None => "/apis/metrics.k8s.io/v1beta1/pods".to_string(),
-        };
-
-        let metrics_list: Option<PodMetricsList> = self.get(&path).await?;
-
-        let Some(metrics_list) = metrics_list else {
-            return Ok(vec![]);
-        };
-
-        let result = metrics_list
-            .items
-            .into_iter()
-            .map(|item| {
-                let (total_cpu_millicores, total_memory_bytes) =
-                    item.containers
-                        .iter()
-                        .fold((0.0f64, 0u64), |(cpu, mem), container| {
-                            let cpu_delta = container
-                                .usage
-                                .cpu
-                                .as_ref()
-                                .and_then(|s| parse_cpu_to_millicores(s).ok())
-                                .unwrap_or(0.0);
-                            let mem_delta = container
-                                .usage
-                                .memory
-                                .as_ref()
-                                .and_then(|s| parse_memory_to_bytes(s).ok())
-                                .unwrap_or(0);
-                            (cpu + cpu_delta, mem + mem_delta)
-                        });
-
-                PodMetrics {
-                    name: item.metadata.name,
-                    namespace: item.metadata.namespace,
-                    cpu_usage: if total_cpu_millicores > 0.0 {
-                        Some(format_cpu_from_millicores(total_cpu_millicores))
-                    } else {
-                        None
-                    },
-                    memory_usage: if total_memory_bytes > 0 {
-                        Some(format!("{total_memory_bytes}"))
-                    } else {
-                        None
-                    },
-                }
-            })
-            .collect();
-
-        Ok(result)
-    }
-
-    /// Get node metrics.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the Metrics API request fails or the response cannot be parsed.
-    pub async fn get_node_metrics(&self) -> Result<Vec<NodeMetrics>> {
-        let path = "/apis/metrics.k8s.io/v1beta1/nodes";
-
-        let metrics_list: Option<NodeMetricsList> = self.get(path).await?;
-
-        let Some(metrics_list) = metrics_list else {
-            return Ok(vec![]);
-        };
-
-        let result = metrics_list
-            .items
-            .into_iter()
-            .map(|item| {
-                let cpu_usage = item.usage.cpu.as_ref().map(|s| {
-                    parse_cpu_to_millicores(s)
-                        .map_or_else(|_| s.clone(), format_cpu_from_millicores)
-                });
-
-                let memory_usage = item.usage.memory.as_ref().map(|s| {
-                    parse_memory_to_bytes(s).map_or_else(|_| s.clone(), |bytes| format!("{bytes}"))
-                });
-
-                NodeMetrics {
-                    name: item.metadata.name,
-                    cpu_usage,
-                    memory_usage,
-                }
-            })
-            .collect();
-
-        Ok(result)
+fn metrics_status_available() -> MetricsStatus {
+    MetricsStatus {
+        status: MetricsStatusKind::Available,
+        message: None,
     }
 }
 
+fn metrics_status_from_error(err: &kube::Error) -> MetricsStatus {
+    match err {
+        kube::Error::Api(api_err) => match api_err.code {
+            404 => MetricsStatus {
+                status: MetricsStatusKind::NotInstalled,
+                message: Some(api_err.message.clone()),
+            },
+            401 | 403 => MetricsStatus {
+                status: MetricsStatusKind::Forbidden,
+                message: Some(api_err.message.clone()),
+            },
+            _ => MetricsStatus {
+                status: MetricsStatusKind::Error,
+                message: Some(format!("Metrics API error {}: {}", api_err.code, api_err.message)),
+            },
+        },
+        _ => MetricsStatus {
+            status: MetricsStatusKind::Error,
+            message: Some(err.to_string()),
+        },
+    }
+}
+
+fn metrics_api_resource(kind: &str) -> ApiResource {
+    let plural = match kind {
+        "PodMetrics" => "pods",
+        "NodeMetrics" => "nodes",
+        _ => {
+            let mut lower = kind.to_ascii_lowercase();
+            lower.push('s');
+            return ApiResource {
+                group: "metrics.k8s.io".to_string(),
+                version: "v1beta1".to_string(),
+                api_version: "metrics.k8s.io/v1beta1".to_string(),
+                kind: kind.to_string(),
+                plural: lower,
+            };
+        }
+    };
+
+    ApiResource {
+        group: "metrics.k8s.io".to_string(),
+        version: "v1beta1".to_string(),
+        api_version: "metrics.k8s.io/v1beta1".to_string(),
+        kind: kind.to_string(),
+        plural: plural.to_string(),
+    }
+}
+
+fn metrics_api(ctx: &ResourceContext, kind: &str) -> Api<DynamicObject> {
+    let api_resource = metrics_api_resource(kind);
+    let is_cluster_scoped = kind == "NodeMetrics";
+    ctx.dynamic_api_for_resource(&api_resource, is_cluster_scoped)
+}
+
+fn parse_pod_metric(item: DynamicObject) -> Option<PodMetrics> {
+    let value = serde_json::to_value(&item).ok()?;
+    let parsed: PodMetricsItem = serde_json::from_value(value).ok()?;
+
+    let mut total_cpu = 0.0f64;
+    let mut total_memory = 0u64;
+    let mut has_cpu = false;
+    let mut has_memory = false;
+
+    for container in &parsed.containers {
+        if let Some(cpu) = &container.usage.cpu {
+            has_cpu = true;
+            total_cpu += parse_cpu(cpu);
+        }
+        if let Some(memory) = &container.usage.memory {
+            has_memory = true;
+            total_memory += parse_memory(memory);
+        }
+    }
+
+    Some(PodMetrics {
+        name: parsed.metadata.name,
+        namespace: parsed.metadata.namespace,
+        cpu_millicores: if has_cpu { Some(total_cpu) } else { None },
+        memory_bytes: if has_memory { Some(total_memory) } else { None },
+    })
+}
+
+fn parse_node_metric(item: DynamicObject) -> Option<NodeMetrics> {
+    let value = serde_json::to_value(&item).ok()?;
+    let parsed: NodeMetricsItem = serde_json::from_value(value).ok()?;
+
+    let cpu_millicores = parsed.usage.cpu.as_ref().map(|cpu| parse_cpu(cpu));
+    let memory_bytes = parsed
+        .usage
+        .memory
+        .as_ref()
+        .map(|memory| parse_memory(memory));
+
+    Some(NodeMetrics {
+        name: parsed.metadata.name,
+        cpu_millicores,
+        memory_bytes,
+    })
+}
+
 // ============================================================================
-// Public API Functions (use MetricsClient internally)
+// Public API Functions
 // ============================================================================
 
 /// Get pod metrics from Metrics API
-///
-/// # Errors
-///
-/// Returns an error if the Metrics API request fails or the response cannot be parsed.
-pub async fn get_pod_metrics(namespace: Option<&str>, state: &AppState) -> Result<Vec<PodMetrics>> {
-    let metrics_client = MetricsClient::from_state(state).await?;
-    metrics_client.get_pod_metrics(namespace).await
-}
+pub async fn get_pod_metrics(
+    namespace: Option<&str>,
+    state: &AppState,
+) -> Result<PodMetricsResponse> {
+    let ctx =
+        ResourceContext::for_list_from_app_state(state, namespace.map(str::to_string))?;
+    let api = metrics_api(&ctx, "PodMetrics");
 
-/// Get node metrics from Metrics API
-///
-/// # Errors
-///
-/// Returns an error if the Metrics API request fails or the response cannot be parsed.
-pub async fn get_node_metrics(state: &AppState) -> Result<Vec<NodeMetrics>> {
-    let metrics_client = MetricsClient::from_state(state).await?;
-    metrics_client.get_node_metrics().await
-}
-
-/// Get aggregated cluster metrics (total CPU/memory usage and capacity)
-///
-/// # Errors
-///
-/// Returns an error if the Metrics API or Kubernetes API requests fail,
-/// or if the response cannot be parsed.
-pub async fn get_cluster_metrics(state: &AppState) -> Result<ClusterMetrics> {
-    use k8s_openapi::api::core::v1::Node;
-    use kube::api::ListParams;
-
-    let context = state
-        .get_current_context()
-        .ok_or_else(|| Error::Connection("No cluster connected".to_string()))?;
-
-    let client = state
-        .client_manager
-        .get_client(&context)
-        .ok_or_else(|| Error::Connection("Client not found".to_string()))?;
-
-    // Get node metrics (usage)
-    let metrics_client = MetricsClient::from_state(state).await?;
-    let node_metrics = metrics_client.get_node_metrics().await?;
-
-    // Get nodes to extract capacity
-    let node_api: kube::Api<Node> = kube::Api::all((*client).clone());
-    let nodes = node_api.list(&ListParams::default()).await?;
-
-    // Aggregate CPU and memory usage from metrics
-    let mut total_cpu_cores = 0.0;
-    let mut total_memory_bytes = 0u64;
-
-    for metric in &node_metrics {
-        if let Some(cpu_str) = &metric.cpu_usage {
-            if let Ok(cores) = parse_cpu_to_millicores(cpu_str) {
-                total_cpu_cores += cores;
-            }
+    let list = match api.list(&ListParams::default()).await {
+        Ok(list) => list,
+        Err(err) => {
+            return Ok(PodMetricsResponse {
+                status: metrics_status_from_error(&err),
+                data: vec![],
+            })
         }
-        if let Some(mem_str) = &metric.memory_usage {
-            if let Ok(bytes) = parse_memory_to_bytes(mem_str) {
-                total_memory_bytes += bytes;
-            }
+    };
+
+    let mut metrics = Vec::new();
+    for item in list.items {
+        if let Some(metric) = parse_pod_metric(item) {
+            metrics.push(metric);
         }
     }
 
-    // Aggregate CPU and memory capacity from nodes
-    let mut total_cpu_capacity_cores = 0.0;
-    let mut total_memory_capacity_bytes = 0u64;
+    Ok(PodMetricsResponse {
+        status: metrics_status_available(),
+        data: metrics,
+    })
+}
+
+/// Get node metrics from Metrics API
+pub async fn get_node_metrics(state: &AppState) -> Result<NodeMetricsResponse> {
+    let ctx = ResourceContext::for_list_from_app_state(state, None)?;
+    let api = metrics_api(&ctx, "NodeMetrics");
+
+    let list = match api.list(&ListParams::default()).await {
+        Ok(list) => list,
+        Err(err) => {
+            return Ok(NodeMetricsResponse {
+                status: metrics_status_from_error(&err),
+                data: vec![],
+            })
+        }
+    };
+
+    let mut metrics = Vec::new();
+    for item in list.items {
+        if let Some(metric) = parse_node_metric(item) {
+            metrics.push(metric);
+        }
+    }
+
+    Ok(NodeMetricsResponse {
+        status: metrics_status_available(),
+        data: metrics,
+    })
+}
+
+/// Get aggregated cluster metrics (total CPU/memory usage and capacity)
+pub async fn get_cluster_metrics(
+    state: &AppState,
+) -> Result<ClusterMetricsResponse> {
+    use k8s_openapi::api::core::v1::Node;
+    use kube::api::ListParams;
+
+    let ctx = ResourceContext::for_list_from_app_state(state, None)?;
+    let client = ctx.client.clone();
+
+    // Get node metrics (usage)
+    let node_metrics_response = get_node_metrics(state).await?;
+
+    // Get nodes to extract capacity
+    let node_api: kube::Api<Node> = kube::Api::all(client);
+    let nodes = node_api.list(&ListParams::default()).await?;
+
+    let mut total_cpu_usage = 0.0f64;
+    let mut total_memory_usage = 0u64;
+    let mut has_cpu_usage = false;
+    let mut has_memory_usage = false;
+
+    for metric in &node_metrics_response.data {
+        if let Some(cpu) = metric.cpu_millicores {
+            has_cpu_usage = true;
+            total_cpu_usage += cpu;
+        }
+        if let Some(memory) = metric.memory_bytes {
+            has_memory_usage = true;
+            total_memory_usage += memory;
+        }
+    }
+
+    let mut total_cpu_capacity = 0.0f64;
+    let mut total_memory_capacity = 0u64;
+    let mut has_cpu_capacity = false;
+    let mut has_memory_capacity = false;
 
     for node in &nodes.items {
         if let Some(status) = &node.status {
             if let Some(capacity) = &status.capacity {
                 if let Some(cpu_qty) = capacity.get("cpu") {
-                    if let Ok(cores) = parse_cpu_to_millicores(&cpu_qty.0) {
-                        total_cpu_capacity_cores += cores;
-                    }
+                    has_cpu_capacity = true;
+                    total_cpu_capacity += parse_cpu(&cpu_qty.0);
                 }
                 if let Some(mem_qty) = capacity.get("memory") {
-                    if let Ok(bytes) = parse_memory_to_bytes(&mem_qty.0) {
-                        total_memory_capacity_bytes += bytes;
-                    }
+                    has_memory_capacity = true;
+                    total_memory_capacity += parse_memory(&mem_qty.0);
                 }
             }
         }
     }
 
-    // Format results
-    Ok(ClusterMetrics {
-        total_cpu_usage: if total_cpu_cores > 0.0 {
-            Some(format_cpu_from_millicores(total_cpu_cores))
-        } else {
-            None
-        },
-        total_memory_usage: if total_memory_bytes > 0 {
-            Some(format!("{total_memory_bytes}"))
-        } else {
-            None
-        },
-        total_cpu_capacity: if total_cpu_capacity_cores > 0.0 {
-            Some(format_cpu_from_millicores(total_cpu_capacity_cores))
-        } else {
-            None
-        },
-        total_memory_capacity: if total_memory_capacity_bytes > 0 {
-            Some(format!("{total_memory_capacity_bytes}"))
-        } else {
-            None
+    Ok(ClusterMetricsResponse {
+        status: node_metrics_response.status,
+        data: ClusterMetrics {
+            total_cpu_millicores: if has_cpu_usage {
+                Some(total_cpu_usage)
+            } else {
+                None
+            },
+            total_memory_bytes: if has_memory_usage {
+                Some(total_memory_usage)
+            } else {
+                None
+            },
+            total_cpu_capacity_millicores: if has_cpu_capacity {
+                Some(total_cpu_capacity)
+            } else {
+                None
+            },
+            total_memory_capacity_bytes: if has_memory_capacity {
+                Some(total_memory_capacity)
+            } else {
+                None
+            },
         },
     })
 }

@@ -65,6 +65,31 @@ impl ResourceContext {
         Ok(ResourceContext { client, namespace })
     }
 
+    /// Create context from AppState directly (useful outside Tauri commands).
+    fn from_app_state(
+        state: &AppState,
+        namespace: Option<String>,
+        require_namespace: bool,
+    ) -> Result<Self> {
+        let context = state
+            .get_current_context()
+            .ok_or_else(|| Error::Internal("No cluster connected".to_string()))?;
+
+        let client = state
+            .client_manager
+            .get_client(&context)
+            .ok_or_else(|| Error::Internal("Client not found".to_string()))
+            .map(|c| (*c).clone())?;
+
+        let namespace = if require_namespace {
+            Some(normalize_optional_namespace(namespace).unwrap_or_else(|| "default".to_string()))
+        } else {
+            normalize_optional_namespace(namespace)
+        };
+
+        Ok(ResourceContext { client, namespace })
+    }
+
     /// Create context directly from a client (for use outside of Tauri commands)
     #[must_use]
     pub fn from_client(client: Client, namespace: String) -> Self {
@@ -82,6 +107,14 @@ impl ResourceContext {
     /// For list commands - namespace is optional (None = all namespaces)
     pub fn for_list(state: &State<'_, AppState>, namespace: Option<String>) -> Result<Self> {
         Self::from_state(state, namespace, false)
+    }
+
+    /// For list commands without Tauri state - namespace is optional (None = all namespaces)
+    pub fn for_list_from_app_state(
+        state: &AppState,
+        namespace: Option<String>,
+    ) -> Result<Self> {
+        Self::from_app_state(state, namespace, false)
     }
 
     #[must_use]

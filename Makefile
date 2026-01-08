@@ -1,4 +1,4 @@
-.PHONY: gen-entities gen-entities-tauri gen-icons dev build test clean help
+.PHONY: gen-entities gen-entities-tauri gen-icons dev build test clean help apply-test-manifests
 
 MISE := $(shell command -v mise 2>/dev/null)
 MISE_EXEC := $(if $(MISE),$(MISE) exec --,)
@@ -14,6 +14,7 @@ help:
 	@echo "  make test          - Run all tests"
 	@echo "  make clean         - Clean build artifacts"
 	@echo "  make gen-icons     - Generate base icon and Tauri icon assets"
+	@echo "  make apply-test-manifests - Apply test manifests to the current kube-context"
 
 # Generate SeaORM entities using xtask
 gen-entities:
@@ -43,3 +44,8 @@ test:
 # Clean build artifacts
 clean:
 	$(MISE_EXEC) cargo clean
+
+# Apply Kubernetes test manifests (CRDs first).
+apply-test-manifests:
+	kubectl apply -f test-manifests/k8s-gui-crds.yaml
+	kubectl apply -f test-manifests/k8s-gui-all.yaml

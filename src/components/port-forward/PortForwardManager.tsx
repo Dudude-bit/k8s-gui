@@ -37,6 +37,7 @@ type PortForwardFormState = {
   localPort: string;
   remotePort: string;
   autoReconnect: boolean;
+  autoStart: boolean;
 };
 
 const emptyFormState: PortForwardFormState = {
@@ -46,6 +47,7 @@ const emptyFormState: PortForwardFormState = {
   localPort: "",
   remotePort: "",
   autoReconnect: true,
+  autoStart: false,
 };
 
 const portStatusBadge = (status?: string) => {
@@ -96,6 +98,7 @@ export function PortForwardManager() {
   const removeConfig = usePortForwardStore((state) => state.removeConfig);
   const startConfig = usePortForwardStore((state) => state.startConfig);
   const stopSession = usePortForwardStore((state) => state.stopSession);
+  const refreshConfigs = usePortForwardStore((state) => state.refreshConfigs);
   const refreshSessions = usePortForwardStore((state) => state.refreshSessions);
   const startAllForContext = usePortForwardStore(
     (state) => state.startAllForContext
@@ -115,6 +118,12 @@ export function PortForwardManager() {
       console.error("Failed to refresh port-forward sessions:", error);
     });
   }, [refreshSessions, currentContext]);
+
+  useEffect(() => {
+    refreshConfigs().catch((error) => {
+      console.error("Failed to refresh port-forward configs:", error);
+    });
+  }, [refreshConfigs]);
 
   const contextConfigs = useMemo(
     () => configs.filter((config) => config.context === currentContext),
@@ -158,11 +167,12 @@ export function PortForwardManager() {
       localPort: String(config.localPort),
       remotePort: String(config.remotePort),
       autoReconnect: config.autoReconnect,
+      autoStart: config.autoStart,
     });
     setDialogOpen(true);
   };
 
-  const handleSaveConfig = () => {
+  const handleSaveConfig = async () => {
     if (!currentContext) {
       toast({
         title: "No cluster selected",
@@ -195,29 +205,39 @@ export function PortForwardManager() {
 
     const name = formState.name.trim() || `${formState.pod}:${remotePort}`;
 
-    if (editingConfig) {
-      updateConfig(editingConfig.id, {
+    try {
+      if (editingConfig) {
+        await updateConfig(editingConfig.id, {
+          name,
+          pod: formState.pod.trim(),
+          namespace: formState.namespace.trim(),
+          localPort,
+          remotePort,
+          autoReconnect: formState.autoReconnect,
+          autoStart: formState.autoStart,
+        });
+        setDialogOpen(false);
+        return;
+      }
+
+      await addConfig({
+        context: currentContext,
         name,
         pod: formState.pod.trim(),
         namespace: formState.namespace.trim(),
         localPort,
         remotePort,
         autoReconnect: formState.autoReconnect,
+        autoStart: formState.autoStart,
       });
       setDialogOpen(false);
-      return;
+    } catch (error) {
+      toast({
+        title: "Failed to save port-forward config",
+        description: normalizeTauriError(error),
+        variant: "destructive",
+      });
     }
-
-    addConfig({
-      context: currentContext,
-      name,
-      pod: formState.pod.trim(),
-      namespace: formState.namespace.trim(),
-      localPort,
-      remotePort,
-      autoReconnect: formState.autoReconnect,
-    });
-    setDialogOpen(false);
   };
 
   const handleStartConfig = async (configId: string) => {
@@ -242,6 +262,21 @@ export function PortForwardManager() {
     } catch (error) {
       toast({
         title: "Failed to stop port-forward",
+        description: normalizeTauriError(error),
+        variant: "destructive",
+      });
+    } finally {
+      setActionConfigId(null);
+    }
+  };
+
+  const handleRemoveConfig = async (configId: string) => {
+    setActionConfigId(configId);
+    try {
+      await removeConfig(configId);
+    } catch (error) {
+      toast({
+        title: "Failed to remove port-forward config",
         description: normalizeTauriError(error),
         variant: "destructive",
       });
@@ -278,17 +313,40 @@ export function PortForwardManager() {
     }
   };
 
-  const handleToggleAutoReconnect = (
+  const handleToggleAutoReconnect = async (
     config: PortForwardConfig,
     checked: boolean
   ) => {
-    updateConfig(config.id, { autoReconnect: checked });
-    const activeSession = sessionsByKey.get(sessionKey(config));
-    if (activeSession) {
+    try {
+      await updateConfig(config.id, { autoReconnect: checked });
+      const activeSession = sessionsByKey.get(sessionKey(config));
+      if (activeSession) {
+        toast({
+          title: "Auto-reconnect updated",
+          description:
+            "Changes will apply the next time this port-forward starts.",
+        });
+      }
+    } catch (error) {
       toast({
-        title: "Auto-reconnect updated",
-        description:
-          "Changes will apply the next time this port-forward starts.",
+        title: "Failed to update auto-reconnect",
+        description: normalizeTauriError(error),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleAutoStart = async (
+    config: PortForwardConfig,
+    checked: boolean
+  ) => {
+    try {
+      await updateConfig(config.id, { autoStart: checked });
+    } catch (error) {
+      toast({
+        title: "Failed to update auto-start",
+        description: normalizeTauriError(error),
+        variant: "destructive",
       });
     }
   };
@@ -311,7 +369,14 @@ export function PortForwardManager() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <RefreshButton
-              onRefresh={() => refreshSessions()}
+              onRefresh={() => {
+                refreshSessions().catch((error) => {
+                  console.error("Failed to refresh port-forward sessions:", error);
+                });
+                refreshConfigs().catch((error) => {
+                  console.error("Failed to refresh port-forward configs:", error);
+                });
+              }}
               variant="outline"
               size="sm"
             >
@@ -408,21 +473,33 @@ export function PortForwardManager() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => removeConfig(config.id)}
+                        onClick={() => handleRemoveConfig(config.id)}
+                        disabled={actionConfigId === config.id}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={config.autoReconnect}
-                        onCheckedChange={(checked) =>
-                          handleToggleAutoReconnect(config, checked)
-                        }
-                      />
-                      <Label className="text-sm">Auto reconnect</Label>
+                    <div className="flex flex-wrap items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={config.autoReconnect}
+                          onCheckedChange={(checked) =>
+                            handleToggleAutoReconnect(config, checked)
+                          }
+                        />
+                        <Label className="text-sm">Auto reconnect</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={config.autoStart}
+                          onCheckedChange={(checked) =>
+                            handleToggleAutoStart(config, checked)
+                          }
+                        />
+                        <Label className="text-sm">Auto start</Label>
+                      </div>
                     </div>
                     {activeSession &&
                     statusBySession[activeSession.id]?.message ? (
@@ -584,6 +661,20 @@ export function PortForwardManager() {
                 checked={formState.autoReconnect}
                 onCheckedChange={(checked) =>
                   setFormState((prev) => ({ ...prev, autoReconnect: checked }))
+                }
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <div>
+                <p className="text-sm font-medium">Auto start</p>
+                <p className="text-xs text-muted-foreground">
+                  Start automatically when this cluster connects
+                </p>
+              </div>
+              <Switch
+                checked={formState.autoStart}
+                onCheckedChange={(checked) =>
+                  setFormState((prev) => ({ ...prev, autoStart: checked }))
                 }
               />
             </div>

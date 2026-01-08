@@ -4,10 +4,9 @@ import * as commands from "@/generated/commands";
 import { useState, useEffect, useMemo } from "react";
 import {
   useResourceMutation,
-
-  usePodMetrics,
   useResourceDetail,
 } from "@/hooks";
+import { useMetrics } from "@/hooks/useMetrics";
 import type { DeploymentInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-types";
 import { Button } from "@/components/ui/button";
@@ -41,6 +40,7 @@ import {
 } from "lucide-react";
 import { LogViewer } from "@/components/logs/LogViewer";
 import { LicenseErrorBanner } from "@/components/license/LicenseErrorBanner";
+import { MetricsStatusBanner } from "@/components/metrics";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
@@ -48,12 +48,10 @@ import { EnvironmentVariables } from "@/components/resources/EnvironmentVariable
 import { MetricPair } from "@/components/ui/metric-card";
 import { ResourceDetailLayout } from "@/components/resources/ResourceDetailLayout";
 import {
-  aggregatePodMetrics,
   parseCPU as parseKubernetesCPU,
   parseMemory as parseKubernetesMemory,
-  formatCPU,
-  formatMemory,
 } from "@/lib/k8s-quantity";
+import { aggregatePodMetrics, mergePodsWithMetrics } from "@/lib/metrics";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 
@@ -122,20 +120,16 @@ export function DeploymentDetail() {
   });
 
   // Get pod metrics for real-time updates
-  const { data: podMetrics = [] } = usePodMetrics(namespace || undefined);
+  const { podMetrics, podStatus } = useMetrics({
+    namespace: namespace || null,
+    includeNodes: false,
+    includeCluster: false,
+    enabled: !!deployment,
+  });
 
   // Merge pods with metrics
   const podsWithMetrics = useMemo(() => {
-    return pods.map((pod) => {
-      const metrics = podMetrics.find(
-        (m) => m.name === pod.name && m.namespace === pod.namespace
-      );
-      return {
-        ...pod,
-        cpuUsage: metrics?.cpuUsage ?? pod.cpuUsage ?? null,
-        memoryUsage: metrics?.memoryUsage ?? pod.memoryUsage ?? null,
-      };
-    });
+    return mergePodsWithMetrics(pods, podMetrics);
   }, [pods, podMetrics]);
 
   // Calculate aggregated metrics for deployment
@@ -183,15 +177,15 @@ export function DeploymentDetail() {
     return {
       cpu:
         totalCpuLimits > 0
-          ? formatCPU(totalCpuLimits * replicas)
+          ? totalCpuLimits * replicas
           : totalCpuRequests > 0
-            ? formatCPU(totalCpuRequests * replicas)
+            ? totalCpuRequests * replicas
             : null,
       memory:
         totalMemoryLimits > 0
-          ? formatMemory(totalMemoryLimits * replicas)
+          ? totalMemoryLimits * replicas
           : totalMemoryRequests > 0
-            ? formatMemory(totalMemoryRequests * replicas)
+            ? totalMemoryRequests * replicas
             : null,
     };
   }, [deployment]);
@@ -360,6 +354,9 @@ export function DeploymentDetail() {
             <LabelsDisplay labels={deployment?.labels || {}} title="Labels" />
           </div>
 
+          {hasAccess && podStatus?.status !== "available" && (
+            <MetricsStatusBanner status={podStatus} />
+          )}
           {/* Resource Usage Metrics */}
           <Card>
             <CardHeader>
@@ -369,9 +366,9 @@ export function DeploymentDetail() {
               {hasAccess ? (
                 <>
                   <MetricPair
-                    cpuUsed={aggregatedMetrics.cpuUsage}
-                    cpuTotal="2" /* example */
-                    memoryUsed={aggregatedMetrics.memoryUsage}
+                    cpuUsed={aggregatedMetrics.cpuMillicores}
+                    cpuTotal={totalResources.cpu}
+                    memoryUsed={aggregatedMetrics.memoryBytes}
                     memoryTotal={totalResources.memory}
                     showProgressBar={true}
                     orientation="vertical"

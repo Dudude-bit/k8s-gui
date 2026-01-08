@@ -2,8 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Server, Cpu, HardDrive, MemoryStick, Lock } from "lucide-react";
-import { formatKubernetesBytes } from "@/lib/k8s-quantity";
-import { useNodeMetrics } from "@/hooks/useNodeMetrics";
+import { formatKubernetesBytes, parseCPU, parseMemory } from "@/lib/k8s-quantity";
 import { MetricCard } from "@/components/ui/metric-card";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
@@ -16,6 +15,9 @@ import { ResourceType } from "@/lib/resource-types";
 import { InfoRow, ResourceDetailLayout } from "@/components/resources/ResourceDetailLayout";
 import type { NodeInfo } from "@/generated/types";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useMetrics } from "@/hooks/useMetrics";
+import { MetricsStatusBanner } from "@/components/metrics";
+import { mergeNodesWithMetrics } from "@/lib/metrics";
 
 export function NodeDetail() {
   const { hasAccess } = usePremiumFeature();
@@ -58,16 +60,14 @@ export function NodeDetail() {
     placeholderData: keepPreviousData,
   });
 
-  // Get node metrics for real-time updates
-  const { data: nodeMetrics = [] } = useNodeMetrics();
+  const { nodeMetrics, nodeStatus } = useMetrics({
+    includePods: false,
+    includeCluster: false,
+    enabled: !!node,
+  });
   const nodeWithMetrics = useMemo(() => {
     if (!node) return null;
-    const metrics = nodeMetrics.find((m) => m.name === node.name);
-    return {
-      ...node,
-      cpuUsage: metrics?.cpuUsage ?? null,
-      memoryUsage: metrics?.memoryUsage ?? null,
-    };
+    return mergeNodesWithMetrics([node], nodeMetrics)[0] ?? null;
   }, [node, nodeMetrics]);
 
   if (!node && !isLoading && !error) {
@@ -164,12 +164,15 @@ export function NodeDetail() {
       activeTab={activeTab}
       onTabChange={setActiveTab}
     >
+      {hasAccess && nodeStatus?.status !== "available" && (
+        <MetricsStatusBanner status={nodeStatus} />
+      )}
       <div className="grid gap-4 md:grid-cols-4">
         {hasAccess ? (
           <MetricCard
             title="CPU Usage"
-            used={nodeWithMetrics?.cpuUsage ?? null}
-            total={node?.capacity.cpu ?? null}
+            used={nodeWithMetrics?.cpuMillicores ?? null}
+            total={node?.capacity.cpu ? parseCPU(node.capacity.cpu) : null}
             type="cpu"
             icon={<Cpu className="h-4 w-4" />}
             showProgressBar={true}
@@ -186,8 +189,8 @@ export function NodeDetail() {
         {hasAccess ? (
           <MetricCard
             title="Memory Usage"
-            used={nodeWithMetrics?.memoryUsage ?? null}
-            total={node?.capacity.memory ?? null}
+            used={nodeWithMetrics?.memoryBytes ?? null}
+            total={node?.capacity.memory ? parseMemory(node.capacity.memory) : null}
             type="memory"
             icon={<MemoryStick className="h-4 w-4" />}
             showProgressBar={true}

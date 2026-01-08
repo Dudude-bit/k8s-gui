@@ -166,9 +166,6 @@ pub struct PodInfo {
     pub annotations: BTreeMap<String, String>,
     pub created_at: Option<DateTime<Utc>>,
     pub restart_count: i32,
-    // Resource usage metrics (from Metrics API)
-    pub cpu_usage: Option<String>, // in millicores or cores (e.g., "500m", "2")
-    pub memory_usage: Option<String>, // in bytes
     // Resource requests/limits (from spec)
     pub cpu_requests: Option<String>, // aggregated from all containers
     pub cpu_limits: Option<String>,   // aggregated from all containers
@@ -261,8 +258,6 @@ impl From<&Pod> for PodInfo {
             annotations: pod.annotations().clone(),
             created_at: pod.creation_timestamp().map(|t| t.0),
             restart_count,
-            cpu_usage: None,    // Will be populated from Metrics API
-            memory_usage: None, // Will be populated from Metrics API
             cpu_requests,
             cpu_limits,
             memory_requests,
@@ -690,9 +685,6 @@ pub struct NodeInfo {
     pub capacity: ResourceQuantities,
     pub allocatable: ResourceQuantities,
     pub created_at: Option<DateTime<Utc>>,
-    // Resource usage metrics (from Metrics API)
-    pub cpu_usage: Option<String>,    // in millicores or cores
-    pub memory_usage: Option<String>, // in bytes
 }
 
 /// Node status information
@@ -833,8 +825,6 @@ impl From<&Node> for NodeInfo {
             capacity,
             allocatable,
             created_at: node.creation_timestamp().map(|t| t.0),
-            cpu_usage: None,    // Will be populated from Metrics API
-            memory_usage: None, // Will be populated from Metrics API
         }
     }
 }

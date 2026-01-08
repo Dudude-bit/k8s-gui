@@ -32,6 +32,9 @@ pub struct AppConfig {
     /// Authentication tokens (license server)
     #[serde(default)]
     pub auth_tokens: AuthTokensConfig,
+    /// Port-forward configuration
+    #[serde(default)]
+    pub port_forward: PortForwardConfigStore,
 }
 
 /// Theme configuration
@@ -264,6 +267,31 @@ pub struct AuthTokensConfig {
     /// Refresh token for license server
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "refresh_token")]
     pub refresh_token: Option<String>,
+}
+
+/// Port-forward configuration store
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PortForwardConfigStore {
+    /// Saved port-forward configs
+    #[serde(default)]
+    pub configs: Vec<PortForwardConfig>,
+}
+
+/// Stored port-forward configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PortForwardConfig {
+    pub id: String,
+    pub context: String,
+    pub name: String,
+    pub pod: String,
+    pub namespace: String,
+    pub local_port: u16,
+    pub remote_port: u16,
+    #[serde(default)]
+    pub auto_reconnect: bool,
+    #[serde(default)]
+    pub auto_start: bool,
+    pub created_at: String,
 }
 
 /// Binding of a kubeconfig context to cloud profiles

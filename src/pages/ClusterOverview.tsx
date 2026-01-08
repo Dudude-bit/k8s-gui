@@ -20,14 +20,14 @@ import {
   Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatBytes } from "@/lib/k8s-quantity";
+import { formatBytes, formatCPU } from "@/lib/k8s-quantity";
 import { Link } from "react-router-dom";
-import { useClusterMetrics } from "@/hooks/useClusterMetrics";
-import { usePodMetrics } from "@/hooks/usePodMetrics";
+import { useMetrics } from "@/hooks/useMetrics";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { MetricCard } from "@/components/ui/metric-card";
 import { LicenseErrorBanner } from "@/components/license/LicenseErrorBanner";
-import { getTopPodsByCPU, getTopPodsByMemory } from "@/lib/k8s-quantity";
+import { MetricsStatusBanner } from "@/components/metrics";
+import { getTopPodsByCPU, getTopPodsByMemory, mergePodsWithMetrics } from "@/lib/metrics";
 import { useMemo } from "react";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { ResourceType, toPlural } from "@/lib/resource-types";
@@ -71,15 +71,12 @@ export function ClusterOverview() {
   // Check premium feature access
   const { hasAccess } = usePremiumFeature();
 
-  // Get cluster metrics (only if user has premium access)
-  const { data: clusterMetrics } = useClusterMetrics({
-    enabled: hasAccess,
-  });
-
-  // Get all pod metrics for top pods (only if user has premium access)
-  const { data: allPodMetrics = [] } = usePodMetrics(undefined, {
-    enabled: hasAccess,
-  });
+  const { clusterMetrics, clusterStatus, podMetrics: allPodMetrics, podStatus } =
+    useMetrics({
+      namespace: null,
+      includeNodes: false,
+      enabled: isConnected,
+    });
 
   // Get all pods
   const { data: allPods = [] } = useQuery({
@@ -107,35 +104,33 @@ export function ClusterOverview() {
 
   // Merge pods with metrics
   const podsWithMetrics = useMemo(() => {
-    return allPods.map((pod) => {
-      const metrics = allPodMetrics.find(
-        (m) => m.name === pod.name && m.namespace === pod.namespace
-      );
-      return {
-        ...pod,
-        cpuUsage: metrics?.cpuUsage ?? pod.cpuUsage ?? null,
-        memoryUsage: metrics?.memoryUsage ?? pod.memoryUsage ?? null,
-      };
-    });
+    return mergePodsWithMetrics(allPods, allPodMetrics);
   }, [allPods, allPodMetrics]);
 
   // Calculate top pods by CPU and Memory
   const topPodsByCPU = useMemo(() => {
-    return getTopPodsByCPU(podsWithMetrics, 5);
-  }, [podsWithMetrics]);
+                    return getTopPodsByCPU(podsWithMetrics, 5);
+                  }, [podsWithMetrics]);
 
   const topPodsByMemory = useMemo(() => {
-    return getTopPodsByMemory(podsWithMetrics, 5);
-  }, [podsWithMetrics]);
+                    return getTopPodsByMemory(podsWithMetrics, 5);
+                  }, [podsWithMetrics]);
 
   // Calculate total cluster capacity from nodes (fallback if metrics API unavailable)
   const totalClusterCapacity = useMemo(() => {
     // This would ideally come from node metrics, but for now we'll use clusterMetrics if available
     return {
-      cpu: clusterMetrics?.totalCpuCapacity ?? null,
-      memory: clusterMetrics?.totalMemoryCapacity ?? null,
+      cpu: clusterMetrics?.totalCpuCapacityMillicores ?? null,
+      memory: clusterMetrics?.totalMemoryCapacityBytes ?? null,
     };
   }, [clusterMetrics]);
+
+  const metricsStatus =
+    clusterStatus?.status !== "available"
+      ? clusterStatus
+      : podStatus?.status !== "available"
+        ? podStatus
+        : null;
 
   // Only show skeleton on initial load, not on refetch
   const showSkeleton = (isLoadingCluster || isLoadingStats) && !stats;
@@ -294,21 +289,28 @@ export function ClusterOverview() {
       </div>
 
       {/* Cluster Resource Usage */}
+      {hasAccess && metricsStatus && (
+        <MetricsStatusBanner status={metricsStatus} />
+      )}
       {hasAccess ? (
         <div className="grid gap-4 md:grid-cols-2">
           <MetricCard
             title="Cluster CPU Usage"
-            used={clusterMetrics?.totalCpuUsage ?? null}
-            total={clusterMetrics?.totalCpuCapacity ?? totalClusterCapacity.cpu}
+            used={clusterMetrics?.totalCpuMillicores ?? null}
+            total={
+              clusterMetrics?.totalCpuCapacityMillicores ??
+              totalClusterCapacity.cpu
+            }
             type="cpu"
             showProgressBar
           />
 
           <MetricCard
             title="Cluster Memory Usage"
-            used={clusterMetrics?.totalMemoryUsage ?? null}
+            used={clusterMetrics?.totalMemoryBytes ?? null}
             total={
-              clusterMetrics?.totalMemoryCapacity ?? totalClusterCapacity.memory
+              clusterMetrics?.totalMemoryCapacityBytes ??
+              totalClusterCapacity.memory
             }
             type="memory"
             showProgressBar
@@ -348,7 +350,7 @@ export function ClusterOverview() {
                           <span className="text-sm">{pod.name}</span>
                         </div>
                         <div className="text-sm font-medium">
-                          {pod.cpuUsage.toFixed(2)}m
+                          {formatCPU(pod.cpuMillicores)}
                         </div>
                       </Link>
                     );
@@ -389,7 +391,7 @@ export function ClusterOverview() {
                           <span className="text-sm">{pod.name}</span>
                         </div>
                         <div className="text-sm font-medium">
-                          {formatBytes(pod.memoryUsage)}
+                          {formatBytes(pod.memoryBytes)}
                         </div>
                       </Link>
                     );

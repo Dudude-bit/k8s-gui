@@ -2,14 +2,19 @@ import { Link } from "react-router-dom";
 import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
 import { ColumnDef } from "@tanstack/react-table";
-import { useMemo, useCallback } from "react";
+import { useMemo } from "react";
 import { ResourceList } from "./ResourceList";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
+import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { MetricBadge } from "@/components/ui/metric-card";
-import { aggregatePodMetrics } from "@/lib/k8s-quantity";
+import {
+  attachAggregatedPodMetrics,
+  matchCronJobPods,
+  type ResourceMetrics,
+} from "@/lib/metrics";
 import { formatAge } from "@/lib/utils";
 import { ResourceType, toPlural } from "@/lib/resource-types";
-import type { CronJobInfo, PodInfo } from "@/generated/types";
+import type { CronJobInfo } from "@/generated/types";
 import * as commands from "@/generated/commands";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { ActionMenu } from "@/components/ui/action-menu";
@@ -18,31 +23,17 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Eye, Trash2 } from "lucide-react";
+import { MetricsStatusBanner } from "@/components/metrics";
 
 // Extended Info with metrics
-type CronJobInfoWithMetrics = CronJobInfo & {
-  cpuUsage: string | null;
-  memoryUsage: string | null;
-};
+type CronJobInfoWithMetrics = CronJobInfo & ResourceMetrics;
 
 export function CronJobList() {
   const { currentNamespace } = useClusterStore();
+  const { hasAccess } = usePremiumFeature();
 
   // Use centralized pods with metrics hook
-  const { data: podsWithMetrics } = usePodsWithMetrics();
-
-  // CronJobs need to match pods via their Jobs
-  const matchCronJobPods = useCallback(
-    (cronJob: CronJobInfo, pod: PodInfo): boolean => {
-      // CronJob pods have name pattern: {cronjob-name}-{timestamp}-{hash}
-      // We match if the pod name starts with the cronjob name followed by a dash
-      return (
-        pod.namespace === cronJob.namespace &&
-        pod.name.startsWith(cronJob.name + "-")
-      );
-    },
-    []
-  );
+  const { data: podsWithMetrics, podStatus } = usePodsWithMetrics();
 
   // Query function that merges resources with aggregated metrics
   const queryFn = async (): Promise<CronJobInfoWithMetrics[]> => {
@@ -54,20 +45,7 @@ export function CronJobList() {
         limit: null,
       });
 
-      // Aggregate metrics per resource
-      return items.map((item) => {
-        const matchedPods = podsWithMetrics.filter((pod) =>
-          matchCronJobPods(item, pod)
-        );
-
-        const aggregatedMetrics = aggregatePodMetrics(matchedPods);
-
-        return {
-          ...item,
-          cpuUsage: aggregatedMetrics.cpuUsage,
-          memoryUsage: aggregatedMetrics.memoryUsage,
-        };
-      });
+      return attachAggregatedPodMetrics(items, podsWithMetrics, matchCronJobPods);
     } catch (err) {
       throw new Error(normalizeTauriError(err));
     }
@@ -92,14 +70,14 @@ export function CronJobList() {
         id: "cpu",
         header: "CPU",
         cell: ({ row }) => (
-          <MetricBadge used={row.original.cpuUsage} type="cpu" />
+          <MetricBadge used={row.original.cpuMillicores} type="cpu" />
         ),
       },
       {
         id: "memory",
         header: "Memory",
         cell: ({ row }) => (
-          <MetricBadge used={row.original.memoryUsage} type="memory" />
+          <MetricBadge used={row.original.memoryBytes} type="memory" />
         ),
       },
       { accessorKey: "schedule", header: "Schedule" },
@@ -135,50 +113,55 @@ export function CronJobList() {
   );
 
   return (
-    <ResourceList<CronJobInfoWithMetrics>
-      title="CronJobs"
-      queryKey={[
-        "cronjobs",
-        currentNamespace,
-        JSON.stringify(podsWithMetrics.map((p) => p.name)),
-      ]}
-      queryFn={queryFn}
-      columns={(setDeleteTarget) => [
-        ...columns,
-        {
-          id: "actions",
-          cell: ({ row }) => (
-            <ActionMenu>
-              <DropdownMenuItem asChild>
-                <Link
-                  to={`/${toPlural(ResourceType.CronJob)}/${row.original.namespace}/${row.original.name}`}
+    <div className="space-y-4">
+      {hasAccess && podStatus?.status !== "available" && (
+        <MetricsStatusBanner status={podStatus} />
+      )}
+      <ResourceList<CronJobInfoWithMetrics>
+        title="CronJobs"
+        queryKey={[
+          "cronjobs",
+          currentNamespace,
+          JSON.stringify(podsWithMetrics.map((p) => p.name)),
+        ]}
+        queryFn={queryFn}
+        columns={(setDeleteTarget) => [
+          ...columns,
+          {
+            id: "actions",
+            cell: ({ row }) => (
+              <ActionMenu>
+                <DropdownMenuItem asChild>
+                  <Link
+                    to={`/${toPlural(ResourceType.CronJob)}/${row.original.namespace}/${row.original.name}`}
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    View Details
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => setDeleteTarget(row.original)}
                 >
-                  <Eye className="mr-2 h-4 w-4" />
-                  View Details
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => setDeleteTarget(row.original)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </ActionMenu>
-          ),
-        },
-      ]}
-      deleteConfig={{
-        mutationFn: async (item) => {
-          await commands.deleteCronjob(item.name, item.namespace);
-        },
-        invalidateQueryKeys: [["cronjobs"]],
-        resourceType: ResourceType.CronJob,
-      }}
-      emptyStateLabel="cronjobs"
-      staleTime={10000}
-      refetchInterval={15000}
-    />
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </ActionMenu>
+            ),
+          },
+        ]}
+        deleteConfig={{
+          mutationFn: async (item) => {
+            await commands.deleteCronjob(item.name, item.namespace);
+          },
+          invalidateQueryKeys: [["cronjobs"]],
+          resourceType: ResourceType.CronJob,
+        }}
+        emptyStateLabel="cronjobs"
+        staleTime={10000}
+        refetchInterval={15000}
+      />
+    </div>
   );
 }

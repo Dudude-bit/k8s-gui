@@ -22,8 +22,7 @@ export {
 export { useResourceYaml } from "./useResourceYaml";
 export { useCopyToClipboard } from "./useCopyToClipboard";
 export { usePodsWithMetrics, type PodWithMetrics } from "./usePodsWithMetrics";
-export { usePodMetrics } from "./usePodMetrics";
-export { useResourceWithMetrics } from "./useResourceWithMetrics";
+export { useMetrics } from "./useMetrics";
 
 // License and user hooks
 export { useLicense } from "./useLicense";

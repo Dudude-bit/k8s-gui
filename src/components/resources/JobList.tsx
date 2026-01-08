@@ -4,10 +4,14 @@ import { ColumnDef } from "@tanstack/react-table";
 import { useMemo } from "react";
 import { ResourceList } from "./ResourceList";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
-import { matchJobPods } from "@/hooks/useResourceWithMetrics";
+import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { MetricBadge } from "@/components/ui/metric-card";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { aggregatePodMetrics } from "@/lib/k8s-quantity";
+import {
+  attachAggregatedPodMetrics,
+  matchJobPods,
+  type ResourceMetrics,
+} from "@/lib/metrics";
 import { formatAge } from "@/lib/utils";
 import { ResourceType, toPlural } from "@/lib/resource-types";
 import type { JobInfo } from "@/generated/types";
@@ -19,18 +23,17 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Eye, Trash2 } from "lucide-react";
+import { MetricsStatusBanner } from "@/components/metrics";
 
 // Extended Info with metrics
-type JobInfoWithMetrics = JobInfo & {
-  cpuUsage: string | null;
-  memoryUsage: string | null;
-};
+type JobInfoWithMetrics = JobInfo & ResourceMetrics;
 
 export function JobList() {
   const { currentNamespace } = useClusterStore();
+  const { hasAccess } = usePremiumFeature();
 
   // Use centralized pods with metrics hook
-  const { data: podsWithMetrics } = usePodsWithMetrics();
+  const { data: podsWithMetrics, podStatus } = usePodsWithMetrics();
 
   // Query function that merges resources with aggregated metrics
   const queryFn = async (): Promise<JobInfoWithMetrics[]> => {
@@ -42,20 +45,7 @@ export function JobList() {
         limit: null,
       });
 
-      // Aggregate metrics per resource
-      return items.map((item) => {
-        const matchedPods = podsWithMetrics.filter((pod) =>
-          matchJobPods(item, pod)
-        );
-
-        const aggregatedMetrics = aggregatePodMetrics(matchedPods);
-
-        return {
-          ...item,
-          cpuUsage: aggregatedMetrics.cpuUsage,
-          memoryUsage: aggregatedMetrics.memoryUsage,
-        };
-      });
+      return attachAggregatedPodMetrics(items, podsWithMetrics, matchJobPods);
     } catch (err) {
       throw new Error(normalizeTauriError(err));
     }
@@ -80,14 +70,14 @@ export function JobList() {
         id: "cpu",
         header: "CPU",
         cell: ({ row }) => (
-          <MetricBadge used={row.original.cpuUsage} type="cpu" />
+          <MetricBadge used={row.original.cpuMillicores} type="cpu" />
         ),
       },
       {
         id: "memory",
         header: "Memory",
         cell: ({ row }) => (
-          <MetricBadge used={row.original.memoryUsage} type="memory" />
+          <MetricBadge used={row.original.memoryBytes} type="memory" />
         ),
       },
       {
@@ -111,50 +101,55 @@ export function JobList() {
   );
 
   return (
-    <ResourceList<JobInfoWithMetrics>
-      title="Jobs"
-      queryKey={[
-        "jobs",
-        currentNamespace,
-        JSON.stringify(podsWithMetrics.map((p) => p.name)),
-      ]}
-      queryFn={queryFn}
-      columns={(setDeleteTarget) => [
-        ...columns,
-        {
-          id: "actions",
-          cell: ({ row }) => (
-            <ActionMenu>
-              <DropdownMenuItem asChild>
-                <Link
-                  to={`/${toPlural(ResourceType.Job)}/${row.original.namespace}/${row.original.name}`}
+    <div className="space-y-4">
+      {hasAccess && podStatus?.status !== "available" && (
+        <MetricsStatusBanner status={podStatus} />
+      )}
+      <ResourceList<JobInfoWithMetrics>
+        title="Jobs"
+        queryKey={[
+          "jobs",
+          currentNamespace,
+          JSON.stringify(podsWithMetrics.map((p) => p.name)),
+        ]}
+        queryFn={queryFn}
+        columns={(setDeleteTarget) => [
+          ...columns,
+          {
+            id: "actions",
+            cell: ({ row }) => (
+              <ActionMenu>
+                <DropdownMenuItem asChild>
+                  <Link
+                    to={`/${toPlural(ResourceType.Job)}/${row.original.namespace}/${row.original.name}`}
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    View Details
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => setDeleteTarget(row.original)}
                 >
-                  <Eye className="mr-2 h-4 w-4" />
-                  View Details
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => setDeleteTarget(row.original)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </ActionMenu>
-          ),
-        },
-      ]}
-      deleteConfig={{
-        mutationFn: async (item) => {
-          await commands.deleteJob(item.name, item.namespace);
-        },
-        invalidateQueryKeys: [["jobs"]],
-        resourceType: ResourceType.Job,
-      }}
-      emptyStateLabel="jobs"
-      staleTime={10000}
-      refetchInterval={15000}
-    />
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </ActionMenu>
+            ),
+          },
+        ]}
+        deleteConfig={{
+          mutationFn: async (item) => {
+            await commands.deleteJob(item.name, item.namespace);
+          },
+          invalidateQueryKeys: [["jobs"]],
+          resourceType: ResourceType.Job,
+        }}
+        emptyStateLabel="jobs"
+        staleTime={10000}
+        refetchInterval={15000}
+      />
+    </div>
   );
 }

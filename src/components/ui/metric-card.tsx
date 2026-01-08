@@ -11,8 +11,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import {
-  parseCPU,
-  parseMemory,
   formatCPU,
   formatMemory,
   calculateUtilization,
@@ -27,10 +25,10 @@ import { Cpu, MemoryStick, Activity, HardDrive } from "lucide-react";
 export interface MetricCardProps {
   /** Title for the metric card */
   title: string;
-  /** Used value (can be string like "500m" or number) */
-  used: string | number | null | undefined;
-  /** Total/limit value (can be string like "2" or number) */
-  total: string | number | null | undefined;
+  /** Used value (millicores/bytes depending on type) */
+  used: number | null | undefined;
+  /** Total/limit value (millicores/bytes depending on type) */
+  total: number | null | undefined;
   /** Type of metric for parsing and formatting */
   type: "cpu" | "memory" | "storage" | "custom";
   /** Custom icon (defaults to CPU/Memory based on type) */
@@ -45,8 +43,6 @@ export interface MetricCardProps {
   className?: string;
   /** Format function for custom type */
   formatValue?: (value: number) => string;
-  /** Parse function for custom type */
-  parseValue?: (value: string) => number;
 }
 
 /**
@@ -55,8 +51,8 @@ export interface MetricCardProps {
  * @example
  * <MetricCard
  *   title="CPU Usage"
- *   used="500m"
- *   total="2"
+ *   used={500}
+ *   total={2000}
  *   type="cpu"
  *   showProgressBar
  * />
@@ -72,16 +68,22 @@ export function MetricCard({
   description,
   className,
   formatValue,
-  parseValue,
 }: MetricCardProps) {
-  // Parse values based on type
-  const parse = parseValue ?? (type === "cpu" ? parseCPU : parseMemory);
-  const format = formatValue ?? (type === "cpu" ? formatCPU : formatMemory);
+  const format =
+    formatValue ??
+    (type === "cpu"
+      ? formatCPU
+      : type === "memory" || type === "storage"
+        ? formatMemory
+        : (value: number) => `${value}`);
 
-  const usedNum = typeof used === "number" ? used : parse(used ?? "0");
-  const totalNum = typeof total === "number" ? total : parse(total ?? "0");
+  const usedNum = typeof used === "number" ? used : null;
+  const totalNum = typeof total === "number" ? total : null;
 
-  const percentage = calculateUtilization(usedNum, totalNum);
+  const percentage =
+    usedNum !== null && totalNum !== null
+      ? calculateUtilization(usedNum, totalNum)
+      : null;
   const colorVariant = getUtilizationColor(percentage);
 
   // Default icons based on type
@@ -97,16 +99,8 @@ export function MetricCard({
     );
 
   // Format display values
-  const usedDisplay = used
-    ? typeof used === "string"
-      ? used
-      : format(usedNum)
-    : "-";
-  const totalDisplay = total
-    ? typeof total === "string"
-      ? total
-      : format(totalNum)
-    : "-";
+  const usedDisplay = usedNum !== null ? format(usedNum) : "-";
+  const totalDisplay = totalNum !== null ? format(totalNum) : "-";
 
   return (
     <Card className={cn("overflow-hidden", className)}>
@@ -158,9 +152,9 @@ export function MetricCard({
 
 export interface MetricBadgeProps {
   /** Used value */
-  used: string | number | null | undefined;
+  used: number | null | undefined;
   /** Total/limit value (optional) */
-  total?: string | number | null | undefined;
+  total?: number | null | undefined;
   /** Type of metric */
   type: "cpu" | "memory";
   /** Show percentage */
@@ -173,7 +167,7 @@ export interface MetricBadgeProps {
  * MetricBadge - Compact inline metric display
  *
  * @example
- * <MetricBadge used="500m" total="2" type="cpu" />
+ * <MetricBadge used={500} total={2000} type="cpu" />
  */
 export function MetricBadge({
   used,
@@ -182,24 +176,18 @@ export function MetricBadge({
   showPercentage = false,
   className,
 }: MetricBadgeProps) {
-  const parse = type === "cpu" ? parseCPU : parseMemory;
   const format = type === "cpu" ? formatCPU : formatMemory;
 
-  const usedNum = typeof used === "number" ? used : parse(used ?? "0");
-  const totalNum = total
-    ? typeof total === "number"
-      ? total
-      : parse(total)
-    : null;
+  const usedNum = typeof used === "number" ? used : null;
+  const totalNum = typeof total === "number" ? total : null;
 
-  const percentage = totalNum ? calculateUtilization(usedNum, totalNum) : null;
+  const percentage =
+    usedNum !== null && totalNum !== null
+      ? calculateUtilization(usedNum, totalNum)
+      : null;
   const colorVariant = getUtilizationColor(percentage);
 
-  const usedDisplay = used
-    ? typeof used === "string"
-      ? used
-      : format(usedNum)
-    : "-";
+  const usedDisplay = usedNum !== null ? format(usedNum) : "-";
 
   return (
     <Badge
@@ -226,9 +214,9 @@ export interface MetricRowProps {
   /** Label for the metric */
   label: string;
   /** Used value */
-  used: string | number | null | undefined;
+  used: number | null | undefined;
   /** Total/limit value (optional) */
-  total?: string | number | null | undefined;
+  total?: number | null | undefined;
   /** Type of metric */
   type: "cpu" | "memory" | "custom";
   /** Icon to display */
@@ -239,8 +227,6 @@ export interface MetricRowProps {
   className?: string;
   /** Format function for custom type */
   formatValue?: (value: number) => string;
-  /** Parse function for custom type */
-  parseValue?: (value: string) => number;
 }
 
 /**
@@ -249,8 +235,8 @@ export interface MetricRowProps {
  * @example
  * <MetricRow
  *   label="CPU"
- *   used="500m"
- *   total="2"
+ *   used={500}
+ *   total={2000}
  *   type="cpu"
  *   icon={<Cpu className="h-4 w-4" />}
  *   showProgressBar
@@ -265,31 +251,26 @@ export function MetricRow({
   showProgressBar = false,
   className,
   formatValue,
-  parseValue,
 }: MetricRowProps) {
-  const parse = parseValue ?? (type === "cpu" ? parseCPU : parseMemory);
-  const format = formatValue ?? (type === "cpu" ? formatCPU : formatMemory);
+  const format =
+    formatValue ??
+    (type === "cpu"
+      ? formatCPU
+      : type === "memory"
+        ? formatMemory
+        : (value: number) => `${value}`);
 
-  const usedNum = typeof used === "number" ? used : parse(used ?? "0");
-  const totalNum = total
-    ? typeof total === "number"
-      ? total
-      : parse(total)
-    : null;
+  const usedNum = typeof used === "number" ? used : null;
+  const totalNum = typeof total === "number" ? total : null;
 
-  const percentage = totalNum ? calculateUtilization(usedNum, totalNum) : null;
+  const percentage =
+    usedNum !== null && totalNum !== null
+      ? calculateUtilization(usedNum, totalNum)
+      : null;
   const colorVariant = getUtilizationColor(percentage);
 
-  const usedDisplay = used
-    ? typeof used === "string"
-      ? used
-      : format(usedNum)
-    : "-";
-  const totalDisplay = total
-    ? typeof total === "string"
-      ? total
-      : format(totalNum ?? 0)
-    : null;
+  const usedDisplay = usedNum !== null ? format(usedNum) : "-";
+  const totalDisplay = totalNum !== null ? format(totalNum) : null;
 
   return (
     <div className={cn("space-y-1", className)}>
@@ -300,7 +281,7 @@ export function MetricRow({
         </div>
         <div className="flex items-center gap-2">
           <span className="font-medium">{usedDisplay}</span>
-          {totalDisplay && (
+          {totalNum !== null && (
             <span className="text-muted-foreground">/ {totalDisplay}</span>
           )}
           {percentage !== null && (
@@ -335,13 +316,13 @@ export function MetricRow({
 
 export interface MetricPairProps {
   /** CPU used */
-  cpuUsed: string | null | undefined;
+  cpuUsed: number | null | undefined;
   /** CPU total/limit */
-  cpuTotal?: string | null | undefined;
+  cpuTotal?: number | null | undefined;
   /** Memory used */
-  memoryUsed: string | null | undefined;
+  memoryUsed: number | null | undefined;
   /** Memory total/limit */
-  memoryTotal?: string | null | undefined;
+  memoryTotal?: number | null | undefined;
   /** Show progress bars */
   showProgressBar?: boolean;
   /** Orientation */
@@ -355,10 +336,10 @@ export interface MetricPairProps {
  *
  * @example
  * <MetricPair
- *   cpuUsed="500m"
- *   cpuTotal="2"
- *   memoryUsed="512Mi"
- *   memoryTotal="4Gi"
+ *   cpuUsed={500}
+ *   cpuTotal={2000}
+ *   memoryUsed={536870912}
+ *   memoryTotal={4294967296}
  *   showProgressBar
  * />
  */
@@ -408,13 +389,13 @@ export interface NodeResourceCardProps {
   /** Node name */
   nodeName: string;
   /** CPU capacity */
-  cpuCapacity: string | null | undefined;
+  cpuCapacity: number | null | undefined;
   /** CPU allocatable */
-  cpuAllocatable: string | null | undefined;
+  cpuAllocatable: number | null | undefined;
   /** Memory capacity */
-  memoryCapacity: string | null | undefined;
+  memoryCapacity: number | null | undefined;
   /** Memory allocatable */
-  memoryAllocatable: string | null | undefined;
+  memoryAllocatable: number | null | undefined;
   /** Custom className */
   className?: string;
 }
@@ -439,18 +420,30 @@ export function NodeResourceCard({
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-xs text-muted-foreground mb-1">CPU Capacity</p>
-            <p className="font-medium">{cpuCapacity ?? "-"}</p>
+            <p className="font-medium">
+              {cpuCapacity !== null && cpuCapacity !== undefined
+                ? formatCPU(cpuCapacity)
+                : "-"}
+            </p>
             <p className="text-xs text-muted-foreground">
-              {cpuAllocatable && `Allocatable: ${cpuAllocatable}`}
+              {cpuAllocatable !== null &&
+                cpuAllocatable !== undefined &&
+                `Allocatable: ${formatCPU(cpuAllocatable)}`}
             </p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-1">
               Memory Capacity
             </p>
-            <p className="font-medium">{memoryCapacity ?? "-"}</p>
+            <p className="font-medium">
+              {memoryCapacity !== null && memoryCapacity !== undefined
+                ? formatMemory(memoryCapacity)
+                : "-"}
+            </p>
             <p className="text-xs text-muted-foreground">
-              {memoryAllocatable && `Allocatable: ${memoryAllocatable}`}
+              {memoryAllocatable !== null &&
+                memoryAllocatable !== undefined &&
+                `Allocatable: ${formatMemory(memoryAllocatable)}`}
             </p>
           </div>
         </div>

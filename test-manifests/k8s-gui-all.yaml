@@ -1,4 +1,5 @@
 # Test resources for k8s-gui UI coverage.
+# Apply CRDs first: `kubectl apply -f test-manifests/k8s-gui-crds.yaml`.
 # Minikube setup: `minikube addons enable ingress` and `minikube addons enable metrics-server`.
 # Some documents (CRD/PV/StorageClass) require cluster-admin privileges.
 apiVersion: v1
@@ -338,53 +339,7 @@ spec:
     requests:
       storage: 1Gi
 ---
-# CustomResourceDefinition for CRD views (cluster-scoped).
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  name: widgets.demo.k8s.io
-spec:
-  group: demo.k8s.io
-  scope: Namespaced
-  names:
-    plural: widgets
-    singular: widget
-    kind: Widget
-    shortNames:
-      - wd
-  versions:
-    - name: v1
-      served: true
-      storage: true
-      additionalPrinterColumns:
-        - name: Tier
-          type: string
-          jsonPath: .spec.tier
-        - name: Ready
-          type: string
-          jsonPath: .status.ready
-      schema:
-        openAPIV3Schema:
-          type: object
-          properties:
-            spec:
-              type: object
-              properties:
-                tier:
-                  type: string
-                size:
-                  type: integer
-                description:
-                  type: string
-            status:
-              type: object
-              properties:
-                ready:
-                  type: string
-      subresources:
-        status: {}
----
-apiVersion: demo.k8s.io/v1
+apiVersion: demo.k8s-gui.io/v1
 kind: Widget
 metadata:
   name: widget-demo

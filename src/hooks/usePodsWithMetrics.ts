@@ -2,14 +2,12 @@ import { useMemo } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import * as commands from "@/generated/commands";
 import { useClusterStore } from "@/stores/clusterStore";
-import { usePodMetrics, type PodMetrics } from "@/hooks/usePodMetrics";
 import type { PodInfo } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
+import { useMetrics } from "@/hooks/useMetrics";
+import { mergePodsWithMetrics, type PodWithMetrics } from "@/lib/metrics";
 
-export interface PodWithMetrics extends PodInfo {
-  cpuUsage: string | null;
-  memoryUsage: string | null;
-}
+export type { PodWithMetrics } from "@/lib/metrics";
 
 interface UsePodsWithMetricsOptions {
   /** Whether the query should be enabled (default: true when connected) */
@@ -55,33 +53,27 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
     refetchOnWindowFocus: false,
   });
 
-  // Fetch pod metrics - also cached by TanStack Query
   const {
-    data: podMetrics = [],
-    isLoading: isLoadingMetrics,
-    isFetching: isFetchingMetrics,
-  } = usePodMetrics(currentNamespace || undefined, {
+    podMetrics,
+    podStatus,
+    podMetricsQuery: { isLoading: isLoadingMetrics, isFetching: isFetchingMetrics },
+  } = useMetrics({
+    namespace: currentNamespace || null,
     enabled,
+    includeNodes: false,
+    includeCluster: false,
   });
 
   // Merge pods with their metrics - memoized for performance
   const podsWithMetrics = useMemo<PodWithMetrics[]>(() => {
-    return pods.map((pod) => {
-      const metrics = podMetrics.find(
-        (m: PodMetrics) => m.name === pod.name && m.namespace === pod.namespace
-      );
-      return {
-        ...pod,
-        cpuUsage: metrics?.cpuUsage ?? null,
-        memoryUsage: metrics?.memoryUsage ?? null,
-      };
-    });
+    return mergePodsWithMetrics(pods, podMetrics);
   }, [pods, podMetrics]);
 
   return {
     data: podsWithMetrics,
     pods,
     podMetrics,
+    podStatus,
     isLoading: isLoadingPods || isLoadingMetrics,
     isFetching: isFetchingPods || isFetchingMetrics,
     refetch: refetchPods,

@@ -12,9 +12,14 @@ import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceList } from "./ResourceList";
 import { ResourceType, toPlural } from "@/lib/resource-types";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
+import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { MetricBadge } from "@/components/ui/metric-card";
-import { aggregatePodMetrics } from "@/lib/k8s-quantity";
+import {
+  attachAggregatedPodMetrics,
+  matchDeploymentPods,
+  type ResourceMetrics,
+} from "@/lib/metrics";
 import {
   createNameColumn,
   createNamespaceColumn,
@@ -24,18 +29,17 @@ import {
 import type { DeploymentInfo } from "@/generated/types";
 import * as commands from "@/generated/commands";
 import { normalizeTauriError } from "@/lib/error-utils";
+import { MetricsStatusBanner } from "@/components/metrics";
 
 // Extended DeploymentInfo with metrics
-type DeploymentInfoWithMetrics = DeploymentInfo & {
-  cpuUsage: string | null;
-  memoryUsage: string | null;
-};
+type DeploymentInfoWithMetrics = DeploymentInfo & ResourceMetrics;
 
 export function DeploymentList() {
   const { currentNamespace } = useClusterStore();
+  const { hasAccess } = usePremiumFeature();
 
   // Use centralized pods with metrics hook
-  const { data: podsWithMetrics } = usePodsWithMetrics();
+  const { data: podsWithMetrics, podStatus } = usePodsWithMetrics();
 
   // Query function that merges deployments with aggregated metrics
   const queryFn = async (): Promise<DeploymentInfoWithMetrics[]> => {
@@ -47,28 +51,11 @@ export function DeploymentList() {
         limit: null,
       });
 
-      // Aggregate metrics per deployment
-      return deployments.map((deployment) => {
-        const deploymentPods = podsWithMetrics.filter((pod) => {
-          const podLabels = pod.labels || {};
-          const deploymentLabels = deployment.labels || {};
-
-          return (
-            pod.namespace === deployment.namespace &&
-            (podLabels["app"] === deploymentLabels["app"] ||
-              podLabels["deployment"] === deployment.name ||
-              pod.name.startsWith(deployment.name + "-"))
-          );
-        });
-
-        const aggregatedMetrics = aggregatePodMetrics(deploymentPods);
-
-        return {
-          ...deployment,
-          cpuUsage: aggregatedMetrics.cpuUsage,
-          memoryUsage: aggregatedMetrics.memoryUsage,
-        };
-      });
+      return attachAggregatedPodMetrics(
+        deployments,
+        podsWithMetrics,
+        matchDeploymentPods
+      );
     } catch (err) {
       throw new Error(normalizeTauriError(err));
     }
@@ -82,14 +69,14 @@ export function DeploymentList() {
         id: "cpu",
         header: "CPU",
         cell: ({ row }) => (
-          <MetricBadge used={row.original.cpuUsage} type="cpu" />
+          <MetricBadge used={row.original.cpuMillicores} type="cpu" />
         ),
       },
       {
         id: "memory",
         header: "Memory",
         cell: ({ row }) => (
-          <MetricBadge used={row.original.memoryUsage} type="memory" />
+          <MetricBadge used={row.original.memoryBytes} type="memory" />
         ),
       },
       createReplicasColumn<DeploymentInfoWithMetrics>(),
@@ -118,62 +105,67 @@ export function DeploymentList() {
   );
 
   return (
-    <ResourceList<DeploymentInfoWithMetrics>
-      title="Deployments"
-      queryKey={[
-        toPlural(ResourceType.Deployment),
-        currentNamespace,
-        JSON.stringify(podsWithMetrics.map((p) => p.name)),
-      ]}
-      queryFn={queryFn}
-      columns={(setDeleteTarget) => [
-        ...columns,
-        {
-          id: "actions",
-          cell: ({ row }) => (
-            <ActionMenu>
-              <DropdownMenuItem asChild>
-                <Link
-                  to={`/${toPlural(ResourceType.Deployment)}/${row.original.namespace}/${row.original.name}`}
+    <div className="space-y-4">
+      {hasAccess && podStatus?.status !== "available" && (
+        <MetricsStatusBanner status={podStatus} />
+      )}
+      <ResourceList<DeploymentInfoWithMetrics>
+        title="Deployments"
+        queryKey={[
+          toPlural(ResourceType.Deployment),
+          currentNamespace,
+          JSON.stringify(podsWithMetrics.map((p) => p.name)),
+        ]}
+        queryFn={queryFn}
+        columns={(setDeleteTarget) => [
+          ...columns,
+          {
+            id: "actions",
+            cell: ({ row }) => (
+              <ActionMenu>
+                <DropdownMenuItem asChild>
+                  <Link
+                    to={`/${toPlural(ResourceType.Deployment)}/${row.original.namespace}/${row.original.name}`}
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    View Details
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Scale className="mr-2 h-4 w-4" />
+                  Scale
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <RotateCw className="mr-2 h-4 w-4" />
+                  Restart
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => setDeleteTarget(row.original)}
                 >
-                  <Eye className="mr-2 h-4 w-4" />
-                  View Details
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Scale className="mr-2 h-4 w-4" />
-                Scale
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <RotateCw className="mr-2 h-4 w-4" />
-                Restart
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => setDeleteTarget(row.original)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </ActionMenu>
-          ),
-        },
-      ]}
-      emptyStateLabel={toPlural(ResourceType.Deployment)}
-      deleteConfig={{
-        mutationFn: async (item) => {
-          try {
-            await commands.deleteDeployment(item.name, item.namespace);
-          } catch (err) {
-            throw new Error(normalizeTauriError(err));
-          }
-        },
-        invalidateQueryKeys: [[toPlural(ResourceType.Deployment)]],
-        resourceType: ResourceType.Deployment,
-      }}
-      staleTime={10000}
-      refetchInterval={15000}
-    />
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </ActionMenu>
+            ),
+          },
+        ]}
+        emptyStateLabel={toPlural(ResourceType.Deployment)}
+        deleteConfig={{
+          mutationFn: async (item) => {
+            try {
+              await commands.deleteDeployment(item.name, item.namespace);
+            } catch (err) {
+              throw new Error(normalizeTauriError(err));
+            }
+          },
+          invalidateQueryKeys: [[toPlural(ResourceType.Deployment)]],
+          resourceType: ResourceType.Deployment,
+        }}
+        staleTime={10000}
+        refetchInterval={15000}
+      />
+    </div>
   );
 }

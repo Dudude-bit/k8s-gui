@@ -2,7 +2,7 @@
  * Port Forward Store
  *
  * Manages port forwarding configurations and active sessions.
- * Persists port forward configurations to localStorage and tracks
+ * Persists configs via the Tauri backend and tracks
  * active sessions from the Tauri backend.
  *
  * @module stores/portForwardStore
@@ -11,12 +11,11 @@
 import { create } from "zustand";
 import * as commands from "@/generated/commands";
 import type {
-  PortForwardSessionInfo,
+  PortForwardConfigInfo,
+  PortForwardConfigPayload,
   PortForwardRequest,
+  PortForwardSessionInfo,
 } from "@/generated/types";
-
-/** LocalStorage key for port forward configurations */
-const CONFIG_STORAGE_KEY = "k8s-gui.port-forward.configs";
 
 /**
  * Saved port forward configuration
@@ -41,6 +40,8 @@ export interface PortForwardConfig {
   remotePort: number;
   /** Whether to automatically reconnect on failure */
   autoReconnect: boolean;
+  /** Whether to auto-start on connect */
+  autoStart: boolean;
   /** ISO timestamp when created */
   createdAt: string;
 }
@@ -95,50 +96,26 @@ interface PortForwardState {
   configs: PortForwardConfig[];
   sessions: PortForwardSession[];
   statusBySession: Record<string, PortForwardStatus>;
-  hydrated: boolean;
-  hydrate: () => void;
+  configsLoaded: boolean;
+  refreshConfigs: () => Promise<void>;
   addConfig: (
     config: Omit<PortForwardConfig, "id" | "createdAt">
-  ) => PortForwardConfig;
-  updateConfig: (id: string, updates: Partial<PortForwardConfig>) => void;
-  removeConfig: (id: string) => void;
+  ) => Promise<PortForwardConfig>;
+  updateConfig: (
+    id: string,
+    updates: Partial<Omit<PortForwardConfig, "id" | "createdAt">>
+  ) => Promise<PortForwardConfig>;
+  removeConfig: (id: string) => Promise<void>;
   refreshSessions: () => Promise<void>;
   startConfig: (configId: string) => Promise<PortForwardSession>;
   stopSession: (sessionId: string) => Promise<void>;
   startAllForContext: (
     context: string
   ) => Promise<{ started: number; skipped: number; failed: number }>;
+  startAutoForContext: (
+    context: string
+  ) => Promise<{ started: number; skipped: number; failed: number }>;
   setStatus: (status: PortForwardStatus) => void;
-}
-
-function loadConfigsFromStorage(): PortForwardConfig[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
-  try {
-    const raw = window.localStorage.getItem(CONFIG_STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      return parsed;
-    }
-  } catch (error) {
-    console.warn("Failed to load port-forward configs:", error);
-  }
-  return [];
-}
-
-function saveConfigsToStorage(configs: PortForwardConfig[]) {
-  if (typeof window === "undefined") {
-    return;
-  }
-  try {
-    window.localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(configs));
-  } catch (error) {
-    console.warn("Failed to save port-forward configs:", error);
-  }
 }
 
 function mapSession(payload: PortForwardSessionInfo): PortForwardSession {
@@ -154,44 +131,116 @@ function mapSession(payload: PortForwardSessionInfo): PortForwardSession {
   };
 }
 
+function mapConfig(payload: PortForwardConfigInfo): PortForwardConfig {
+  return {
+    id: payload.id,
+    context: payload.context,
+    name: payload.name,
+    pod: payload.pod,
+    namespace: payload.namespace,
+    localPort: payload.localPort,
+    remotePort: payload.remotePort,
+    autoReconnect: payload.autoReconnect,
+    autoStart: payload.autoStart,
+    createdAt: payload.createdAt,
+  };
+}
+
+function toPayload(
+  config: Omit<PortForwardConfig, "id" | "createdAt">
+): PortForwardConfigPayload {
+  return {
+    context: config.context,
+    name: config.name,
+    pod: config.pod,
+    namespace: config.namespace,
+    localPort: config.localPort,
+    remotePort: config.remotePort,
+    autoReconnect: config.autoReconnect,
+    autoStart: config.autoStart,
+  };
+}
+
+function sessionKey(item: {
+  context: string;
+  pod: string;
+  namespace: string;
+  localPort: number;
+  remotePort: number;
+}) {
+  return `${item.context}:${item.pod}:${item.namespace}:${item.localPort}:${item.remotePort}`;
+}
+
+async function startConfigsWithFilter(
+  configs: PortForwardConfig[],
+  sessions: PortForwardSession[],
+  filter: (config: PortForwardConfig) => boolean,
+  startConfig: (configId: string) => Promise<PortForwardSession>
+) {
+  const activeKey = new Set(sessions.map(sessionKey));
+
+  let started = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const config of configs.filter(filter)) {
+    const key = sessionKey(config);
+    if (activeKey.has(key)) {
+      skipped += 1;
+      continue;
+    }
+    try {
+      await startConfig(config.id);
+      started += 1;
+    } catch (error) {
+      console.error("Failed to start port-forward:", error);
+      failed += 1;
+    }
+  }
+
+  return { started, skipped, failed };
+}
+
 export const usePortForwardStore = create<PortForwardState>((set, get) => ({
   configs: [],
   sessions: [],
   statusBySession: {},
-  hydrated: false,
+  configsLoaded: false,
 
-  hydrate: () => {
-    if (get().hydrated) {
-      return;
+  refreshConfigs: async () => {
+    const configs = await commands.listPortForwardConfigs();
+    set({ configs: configs.map(mapConfig), configsLoaded: true });
+  },
+
+  addConfig: async (config) => {
+    const payload = toPayload(config);
+    const created = await commands.createPortForwardConfig(payload);
+    const mapped = mapConfig(created);
+    set((state) => ({
+      configs: [...state.configs.filter((item) => item.id !== mapped.id), mapped],
+    }));
+    return mapped;
+  },
+
+  updateConfig: async (id, updates) => {
+    const existing = get().configs.find((item) => item.id === id);
+    if (!existing) {
+      throw new Error("Port-forward config not found");
     }
-    const configs = loadConfigsFromStorage();
-    set({ configs, hydrated: true });
+    const payload = toPayload({ ...existing, ...updates });
+    const updated = await commands.updatePortForwardConfig(id, payload);
+    const mapped = mapConfig(updated);
+    set((state) => ({
+      configs: state.configs.map((item) => (item.id === id ? mapped : item)),
+    }));
+    return mapped;
   },
 
-  addConfig: (config) => {
-    const newConfig: PortForwardConfig = {
-      ...config,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-    };
-    const configs = [...get().configs, newConfig];
-    saveConfigsToStorage(configs);
-    set({ configs });
-    return newConfig;
-  },
-
-  updateConfig: (id, updates) => {
-    const configs = get().configs.map((config) =>
-      config.id === id ? { ...config, ...updates } : config
-    );
-    saveConfigsToStorage(configs);
-    set({ configs });
-  },
-
-  removeConfig: (id) => {
-    const configs = get().configs.filter((config) => config.id !== id);
-    saveConfigsToStorage(configs);
-    set({ configs });
+  removeConfig: async (id) => {
+    await commands.deletePortForwardConfig(id);
+    set((state) => ({
+      configs: state.configs.filter((config) => config.id !== id),
+    }));
   },
 
   refreshSessions: async () => {
@@ -232,35 +281,23 @@ export const usePortForwardStore = create<PortForwardState>((set, get) => ({
   },
 
   startAllForContext: async (context) => {
-    const { configs, sessions } = get();
-    const activeKey = new Set(
-      sessions.map(
-        (session) =>
-          `${session.context}:${session.pod}:${session.namespace}:${session.localPort}:${session.remotePort}`
-      )
+    const { configs, sessions, startConfig } = get();
+    return startConfigsWithFilter(
+      configs,
+      sessions,
+      (config) => config.context === context,
+      startConfig
     );
+  },
 
-    let started = 0;
-    let skipped = 0;
-    let failed = 0;
-
-    const toStart = configs.filter((config) => config.context === context);
-    for (const config of toStart) {
-      const key = `${config.context}:${config.pod}:${config.namespace}:${config.localPort}:${config.remotePort}`;
-      if (activeKey.has(key)) {
-        skipped += 1;
-        continue;
-      }
-      try {
-        await get().startConfig(config.id);
-        started += 1;
-      } catch (error) {
-        console.error("Failed to start port-forward:", error);
-        failed += 1;
-      }
-    }
-
-    return { started, skipped, failed };
+  startAutoForContext: async (context) => {
+    const { configs, sessions, startConfig } = get();
+    return startConfigsWithFilter(
+      configs,
+      sessions,
+      (config) => config.context === context && config.autoStart,
+      startConfig
+    );
   },
 
   setStatus: (status) => {

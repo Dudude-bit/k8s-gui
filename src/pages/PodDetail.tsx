@@ -2,11 +2,13 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as commands from "@/generated/commands";
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { usePodMetrics, useResourceDetail } from "@/hooks";
+import { useMetrics, useResourceDetail } from "@/hooks";
+import { mergePodsWithMetrics } from "@/lib/metrics";
 import { ResourceType, toPlural } from "@/lib/resource-types";
 import { useClusterStore } from "@/stores/clusterStore";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { LicenseErrorBanner } from "@/components/license/LicenseErrorBanner";
+import { MetricsStatusBanner } from "@/components/metrics";
 import type { PodInfo } from "@/generated/types";
 import {
   Tooltip,
@@ -47,6 +49,7 @@ import {
 } from "lucide-react";
 import { MetricCard } from "@/components/ui/metric-card";
 import { normalizeTauriError } from "@/lib/error-utils";
+import { parseCPU, parseMemory } from "@/lib/k8s-quantity";
 
 const parsePortValue = (value: string) => {
   const parsed = Number(value);
@@ -61,6 +64,7 @@ interface PortForwardFormState {
   localPort: string;
   remotePort: string;
   autoReconnect: boolean;
+  autoStart: boolean;
   saveConfig: boolean;
 }
 
@@ -99,6 +103,7 @@ export function PodDetail() {
     localPort: "",
     remotePort: "",
     autoReconnect: true,
+    autoStart: false,
     saveConfig: true,
   });
 
@@ -127,21 +132,16 @@ export function PodDetail() {
     }
   }, [pod]);
 
-  // Get pod metrics for real-time updates (only if user has premium access)
-  const { data: podMetrics } = usePodMetrics(namespace || undefined, {
-    enabled: hasLicenseAccess && !!pod,
+  const { podMetrics, podStatus } = useMetrics({
+    namespace: namespace || null,
+    includeNodes: false,
+    includeCluster: false,
+    enabled: !!pod,
   });
 
   const podWithMetrics = useMemo(() => {
     if (!pod) return null;
-    const metrics = podMetrics?.find(
-      (m) => m.name === pod.name && m.namespace === pod.namespace
-    );
-    return {
-      ...pod,
-      cpuUsage: metrics?.cpuUsage ?? pod.cpuUsage ?? null,
-      memoryUsage: metrics?.memoryUsage ?? pod.memoryUsage ?? null,
-    };
+    return mergePodsWithMetrics([pod], podMetrics)[0] ?? null;
   }, [pod, podMetrics]);
 
   // Find replacement pod by labels
@@ -269,6 +269,7 @@ export function PodDetail() {
       localPort: "",
       remotePort: "",
       autoReconnect: true,
+      autoStart: false,
       saveConfig: true,
     });
     setPortForwardOpen(true);
@@ -302,7 +303,7 @@ export function PodDetail() {
     setPortForwardBusy(true);
     try {
       if (portForwardForm.saveConfig) {
-        const config = addPortForwardConfig({
+        const config = await addPortForwardConfig({
           context: currentContext,
           name: portForwardForm.name.trim() || `${pod.name}:${remotePort}`,
           pod: pod.name,
@@ -310,6 +311,7 @@ export function PodDetail() {
           localPort,
           remotePort,
           autoReconnect: portForwardForm.autoReconnect,
+          autoStart: portForwardForm.autoStart,
         });
         await startPortForwardConfig(config.id);
       } else {
@@ -577,6 +579,9 @@ export function PodDetail() {
         }
       ]}
     >
+      {hasLicenseAccess && podStatus?.status !== "available" && (
+        <MetricsStatusBanner status={podStatus} />
+      )}
       {/* Top Content: Info Cards and Metrics */}
       {pod && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -602,17 +607,27 @@ export function PodDetail() {
               <>
                 <MetricCard
                   title="CPU Usage"
-                  used={podWithMetrics.cpuUsage}
-                  total={podWithMetrics.cpuLimits ?? podWithMetrics.cpuRequests}
+                  used={podWithMetrics.cpuMillicores}
+                  total={
+                    podWithMetrics.cpuLimits
+                      ? parseCPU(podWithMetrics.cpuLimits)
+                      : podWithMetrics.cpuRequests
+                        ? parseCPU(podWithMetrics.cpuRequests)
+                        : null
+                  }
                   type="cpu"
                   showProgressBar
                 />
 
                 <MetricCard
                   title="Memory Usage"
-                  used={podWithMetrics.memoryUsage}
+                  used={podWithMetrics.memoryBytes}
                   total={
-                    podWithMetrics.memoryLimits ?? podWithMetrics.memoryRequests
+                    podWithMetrics.memoryLimits
+                      ? parseMemory(podWithMetrics.memoryLimits)
+                      : podWithMetrics.memoryRequests
+                        ? parseMemory(podWithMetrics.memoryRequests)
+                        : null
                   }
                   type="memory"
                   showProgressBar
@@ -726,19 +741,38 @@ export function PodDetail() {
                   />
                 </div>
                 {portForwardForm.saveConfig && (
-                  <div className="grid gap-2">
-                    <Label htmlFor="pf-config-name">Config name</Label>
-                    <Input
-                      id="pf-config-name"
-                      value={portForwardForm.name}
-                      onChange={(event) =>
-                        setPortForwardForm((prev) => ({
-                          ...prev,
-                          name: event.target.value,
-                        }))
-                      }
-                      placeholder={pod.name}
-                    />
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Auto start</p>
+                        <p className="text-xs text-muted-foreground">
+                          Start automatically when this cluster connects
+                        </p>
+                      </div>
+                      <Switch
+                        checked={portForwardForm.autoStart}
+                        onCheckedChange={(checked) =>
+                          setPortForwardForm((prev) => ({
+                            ...prev,
+                            autoStart: checked,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="pf-config-name">Config name</Label>
+                      <Input
+                        id="pf-config-name"
+                        value={portForwardForm.name}
+                        onChange={(event) =>
+                          setPortForwardForm((prev) => ({
+                            ...prev,
+                            name: event.target.value,
+                          }))
+                        }
+                        placeholder={pod.name}
+                      />
+                    </div>
                   </div>
                 )}
               </div>

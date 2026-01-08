@@ -10,6 +10,7 @@ import { Layout } from "@/components/layout/Layout";
 import { ErrorProvider } from "@/contexts/error-context";
 import { useAuthFlowEvents } from "@/hooks/useAuthFlowEvents";
 import { usePortForwardEvents } from "@/hooks/usePortForwardEvents";
+import { usePortForwardAutoStart } from "@/hooks/usePortForwardAutoStart";
 import { usePortForwardStore } from "@/stores/portForwardStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { setupFrontendLogger } from "@/lib/frontend-logger";
@@ -108,11 +109,17 @@ export default function App() {
   const { theme } = useThemeStore();
   const location = useLocation();
   const { toast } = useToast();
-  const hydratePortForwards = usePortForwardStore((state) => state.hydrate);
+  const refreshPortForwardConfigs = usePortForwardStore(
+    (state) => state.refreshConfigs
+  );
+  const refreshPortForwardSessions = usePortForwardStore(
+    (state) => state.refreshSessions
+  );
 
   // Global event hooks (ErrorProvider now handles error toasts)
   useAuthFlowEvents();
   usePortForwardEvents();
+  usePortForwardAutoStart();
   // Initialize license check on app start
   useLicense();
 
@@ -126,8 +133,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    hydratePortForwards();
-  }, [hydratePortForwards]);
+    refreshPortForwardConfigs().catch((error) => {
+      console.error("Failed to load port-forward configs:", error);
+    });
+    refreshPortForwardSessions().catch((error) => {
+      console.error("Failed to load port-forward sessions:", error);
+    });
+  }, [refreshPortForwardConfigs, refreshPortForwardSessions]);
 
   useEffect(() => {
     const root = window.document.documentElement;

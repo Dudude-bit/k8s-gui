@@ -19,21 +19,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
 import { ActionMenu } from "@/components/ui/action-menu";
-import { useNodeMetrics } from "@/hooks/useNodeMetrics";
 import { ResourceType, toPlural } from "@/lib/resource-types";
 import { MetricBadge } from "@/components/ui/metric-card";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { useMemo } from "react";
-import type { NodeInfo } from "@/generated/types";
 import * as commands from "@/generated/commands";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { formatAge } from "@/lib/utils";
-
-// Extended type for NodeList with metrics
-interface NodeWithMetrics extends NodeInfo {
-  cpuUsage: string | null;
-  memoryUsage: string | null;
-}
+import { useMetrics } from "@/hooks/useMetrics";
+import { mergeNodesWithMetrics, type NodeWithMetrics } from "@/lib/metrics";
+import { parseCPU, parseMemory } from "@/lib/k8s-quantity";
+import { MetricsStatusBanner } from "@/components/metrics";
 
 export function NodeList() {
   const { isConnected } = useClusterStore();
@@ -62,19 +58,15 @@ export function NodeList() {
     refetchOnWindowFocus: false,
   });
 
-  // Get node metrics separately for real-time updates
-  const { data: nodeMetrics = [] } = useNodeMetrics();
+  const { nodeMetrics, nodeStatus } = useMetrics({
+    includePods: false,
+    includeCluster: false,
+    enabled: isConnected,
+  });
 
   // Merge nodes with metrics
   const nodesWithMetrics = useMemo(() => {
-    return nodes.map((node) => {
-      const metrics = nodeMetrics.find((m) => m.name === node.name);
-      return {
-        ...node,
-        cpuUsage: metrics?.cpuUsage ?? node.cpuUsage ?? null,
-        memoryUsage: metrics?.memoryUsage ?? node.memoryUsage ?? null,
-      };
-    });
+    return mergeNodesWithMetrics(nodes, nodeMetrics);
   }, [nodes, nodeMetrics]);
 
   const cordonMutation = useMutation({
@@ -215,8 +207,8 @@ export function NodeList() {
             : null;
           return (
             <MetricBadge
-              used={row.original.cpuUsage}
-              total={capacity}
+              used={row.original.cpuMillicores}
+              total={capacity ? parseCPU(capacity) : null}
               type="cpu"
             />
           );
@@ -239,8 +231,8 @@ export function NodeList() {
             : null;
           return (
             <MetricBadge
-              used={row.original.memoryUsage}
-              total={capacity}
+              used={row.original.memoryBytes}
+              total={capacity ? parseMemory(capacity) : null}
               type="memory"
             />
           );
@@ -309,6 +301,9 @@ export function NodeList() {
         isLoading={isLoading}
         onRefresh={() => refetch()}
       />
+      {hasAccess && nodeStatus?.status !== "available" && (
+        <MetricsStatusBanner status={nodeStatus} />
+      )}
       <DataTable
         columns={columns}
         data={nodesWithMetrics}

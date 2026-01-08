@@ -1,6 +1,8 @@
 //! Pod port-forward commands
 
 use crate::commands::helpers::ResourceContext;
+use crate::commands::settings::save_config;
+use crate::config::{AppConfig, PortForwardConfig as StoredPortForwardConfig};
 use crate::error::{Error, Result};
 use crate::state::{AppEvent, AppState};
 use crate::utils::require_namespace;
@@ -30,6 +32,106 @@ pub struct PortForwardSessionInfo {
     pub remote_port: u16,
     pub auto_reconnect: bool,
     pub created_at: String,
+}
+
+/// Saved port-forward config payload
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PortForwardConfigPayload {
+    pub context: String,
+    pub name: String,
+    pub pod: String,
+    pub namespace: String,
+    pub local_port: u16,
+    pub remote_port: u16,
+    pub auto_reconnect: bool,
+    pub auto_start: bool,
+}
+
+/// Saved port-forward config info
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PortForwardConfigInfo {
+    pub id: String,
+    pub context: String,
+    pub name: String,
+    pub pod: String,
+    pub namespace: String,
+    pub local_port: u16,
+    pub remote_port: u16,
+    pub auto_reconnect: bool,
+    pub auto_start: bool,
+    pub created_at: String,
+}
+
+fn normalize_port_forward_config(
+    payload: PortForwardConfigPayload,
+    id: String,
+    created_at: String,
+) -> Result<StoredPortForwardConfig> {
+    let context = payload.context.trim();
+    if context.is_empty() {
+        return Err(Error::InvalidInput("Context is required".to_string()));
+    }
+    let pod = payload.pod.trim();
+    if pod.is_empty() {
+        return Err(Error::InvalidInput("Pod name is required".to_string()));
+    }
+    let namespace = payload.namespace.trim();
+    if namespace.is_empty() {
+        return Err(Error::InvalidInput("Namespace is required".to_string()));
+    }
+    if payload.local_port == 0 || payload.remote_port == 0 {
+        return Err(Error::InvalidInput(
+            "Ports must be greater than 0".to_string(),
+        ));
+    }
+
+    let name = payload.name.trim();
+    let name = if name.is_empty() {
+        format!("{pod}:{}", payload.remote_port)
+    } else {
+        name.to_string()
+    };
+
+    Ok(StoredPortForwardConfig {
+        id,
+        context: context.to_string(),
+        name,
+        pod: pod.to_string(),
+        namespace: namespace.to_string(),
+        local_port: payload.local_port,
+        remote_port: payload.remote_port,
+        auto_reconnect: payload.auto_reconnect,
+        auto_start: payload.auto_start,
+        created_at,
+    })
+}
+
+fn map_config(config: &StoredPortForwardConfig) -> PortForwardConfigInfo {
+    PortForwardConfigInfo {
+        id: config.id.clone(),
+        context: config.context.clone(),
+        name: config.name.clone(),
+        pod: config.pod.clone(),
+        namespace: config.namespace.clone(),
+        local_port: config.local_port,
+        remote_port: config.remote_port,
+        auto_reconnect: config.auto_reconnect,
+        auto_start: config.auto_start,
+        created_at: config.created_at.clone(),
+    }
+}
+
+fn config_key(config: &StoredPortForwardConfig) -> String {
+    format!(
+        "{}:{}:{}:{}:{}",
+        config.context,
+        config.namespace,
+        config.pod,
+        config.local_port,
+        config.remote_port
+    )
 }
 
 async fn forward_connection(
@@ -308,4 +410,89 @@ pub fn list_port_forwards(
         .collect();
 
     Ok(sessions)
+}
+
+/// List saved port-forward configs
+#[tauri::command]
+pub fn list_port_forward_configs() -> Result<Vec<PortForwardConfigInfo>> {
+    let config = AppConfig::load()?;
+    Ok(config
+        .port_forward
+        .configs
+        .iter()
+        .map(map_config)
+        .collect())
+}
+
+/// Create a saved port-forward config
+#[tauri::command]
+pub fn create_port_forward_config(
+    payload: PortForwardConfigPayload,
+) -> Result<PortForwardConfigInfo> {
+    let mut app_config = AppConfig::load()?;
+    let created_at = chrono::Utc::now().to_rfc3339();
+    let id = format!("pf-config-{}", uuid::Uuid::new_v4());
+    let config = normalize_port_forward_config(payload, id, created_at)?;
+
+    let key = config_key(&config);
+    if app_config
+        .port_forward
+        .configs
+        .iter()
+        .any(|existing| config_key(existing) == key)
+    {
+        return Err(Error::InvalidInput(
+            "Port-forward config already exists".to_string(),
+        ));
+    }
+
+    app_config.port_forward.configs.push(config.clone());
+    save_config(&app_config)?;
+    Ok(map_config(&config))
+}
+
+/// Update an existing port-forward config
+#[tauri::command]
+pub fn update_port_forward_config(
+    id: String,
+    payload: PortForwardConfigPayload,
+) -> Result<PortForwardConfigInfo> {
+    let mut app_config = AppConfig::load()?;
+    let index = app_config
+        .port_forward
+        .configs
+        .iter()
+        .position(|item| item.id == id)
+        .ok_or_else(|| Error::InvalidInput("Port-forward config not found".to_string()))?;
+
+    let created_at = app_config.port_forward.configs[index].created_at.clone();
+    let updated = normalize_port_forward_config(payload, id.clone(), created_at)?;
+    let key = config_key(&updated);
+    if app_config
+        .port_forward
+        .configs
+        .iter()
+        .any(|existing| existing.id != id && config_key(existing) == key)
+    {
+        return Err(Error::InvalidInput(
+            "Port-forward config already exists".to_string(),
+        ));
+    }
+
+    app_config.port_forward.configs[index] = updated.clone();
+    save_config(&app_config)?;
+    Ok(map_config(&updated))
+}
+
+/// Delete a saved port-forward config
+#[tauri::command]
+pub fn delete_port_forward_config(id: String) -> Result<()> {
+    let mut app_config = AppConfig::load()?;
+    let before = app_config.port_forward.configs.len();
+    app_config.port_forward.configs.retain(|item| item.id != id);
+    if before == app_config.port_forward.configs.len() {
+        return Err(Error::InvalidInput("Port-forward config not found".to_string()));
+    }
+    save_config(&app_config)?;
+    Ok(())
 }

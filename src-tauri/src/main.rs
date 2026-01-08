@@ -208,6 +208,10 @@ fn main() {
             commands::port_forward::port_forward_pod,
             commands::port_forward::stop_port_forward,
             commands::port_forward::list_port_forwards,
+            commands::port_forward::list_port_forward_configs,
+            commands::port_forward::create_port_forward_config,
+            commands::port_forward::update_port_forward_config,
+            commands::port_forward::delete_port_forward_config,
 
             // ConfigMap commands
             commands::config_resources::list_configmaps,

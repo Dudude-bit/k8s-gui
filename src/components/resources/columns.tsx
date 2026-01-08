@@ -12,6 +12,7 @@ import { formatAge } from "@/lib/utils";
 import { MetricBadge } from "@/components/ui/metric-card";
 import { Eye, Trash2 } from "lucide-react";
 import { ActionMenu } from "@/components/ui/action-menu";
+import { parseCPU, parseMemory } from "@/lib/k8s-quantity";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -28,11 +29,11 @@ interface WithCreatedAt {
 }
 
 interface WithCpuUsage {
-  cpuUsage?: string | null;
+  cpuMillicores?: number | null;
 }
 
 interface WithMemoryUsage {
-  memoryUsage?: string | null;
+  memoryBytes?: number | null;
 }
 
 interface WithCpuLimits {
@@ -118,8 +119,12 @@ export function createCpuColumn<
     id: "cpu",
     header: "CPU",
     cell: ({ row }) => {
-      const used = row.original.cpuUsage;
-      const total = row.original.cpuLimits ?? row.original.cpuRequests ?? null;
+      const used = row.original.cpuMillicores ?? null;
+      const total = row.original.cpuLimits
+        ? parseCPU(row.original.cpuLimits)
+        : row.original.cpuRequests
+          ? parseCPU(row.original.cpuRequests)
+          : null;
       return <MetricBadge used={used} total={total} type="cpu" />;
     },
   };
@@ -135,9 +140,13 @@ export function createMemoryColumn<
     id: "memory",
     header: "Memory",
     cell: ({ row }) => {
-      const used = row.original.memoryUsage;
+      const used = row.original.memoryBytes ?? null;
       const total =
-        row.original.memoryLimits ?? row.original.memoryRequests ?? null;
+        row.original.memoryLimits
+          ? parseMemory(row.original.memoryLimits)
+          : row.original.memoryRequests
+            ? parseMemory(row.original.memoryRequests)
+            : null;
       return <MetricBadge used={used} total={total} type="memory" />;
     },
   };
