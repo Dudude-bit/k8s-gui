@@ -16,6 +16,7 @@ import { ActionMenu } from "@/components/ui/action-menu";
 import { commands } from "@/lib/commands";
 import type { StorageClassInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { STALE_TIMES } from "@/lib/refresh";
 
 const baseColumns: ColumnDef<StorageClassInfo>[] = [
   {
@@ -140,7 +141,7 @@ export function StorageClassList() {
         invalidateQueryKeys: [[toPlural(ResourceType.StorageClass)]],
         resourceType: ResourceType.StorageClass,
       }}
-      staleTime={10000}
+      staleTime={STALE_TIMES.resourceList}
       searchKey="name"
     />
   );

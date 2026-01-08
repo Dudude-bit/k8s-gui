@@ -18,6 +18,7 @@ import { ActionMenu } from "@/components/ui/action-menu";
 
 import type { PersistentVolumeInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { STALE_TIMES } from "@/lib/refresh";
 
 const baseColumns: ColumnDef<PersistentVolumeInfo>[] = [
   {
@@ -125,7 +126,7 @@ export function PersistentVolumeList() {
         invalidateQueryKeys: [[toPlural(ResourceType.PersistentVolume)]],
         resourceType: ResourceType.PersistentVolume,
       }}
-      staleTime={10000}
+      staleTime={STALE_TIMES.resourceList}
       searchKey="name"
     />
   );

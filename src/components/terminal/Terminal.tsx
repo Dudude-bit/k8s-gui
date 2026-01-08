@@ -101,6 +101,19 @@ export function Terminal({
     [isDark]
   );
 
+  // Store callbacks in refs to avoid dependency issues
+  const sendRef = useRef(send);
+  const resizeRef = useRef(resize);
+  const connectRef = useRef(connect);
+  const disconnectRef = useRef(disconnect);
+
+  useEffect(() => {
+    sendRef.current = send;
+    resizeRef.current = resize;
+    connectRef.current = connect;
+    disconnectRef.current = disconnect;
+  }, [send, resize, connect, disconnect]);
+
   useEffect(() => {
     if (!terminalRef.current) return;
 
@@ -127,28 +140,26 @@ export function Terminal({
     fitAddonRef.current = fitAddon;
 
     xterm.onData((data) => {
-      send(data);
+      sendRef.current(data);
     });
 
     // Handle resize
     const handleResize = () => {
       fitAddon.fit();
-      if (status === "connected") {
-        resize(xterm.cols, xterm.rows);
-      }
+      resizeRef.current(xterm.cols, xterm.rows);
     };
 
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(terminalRef.current);
 
-    connect();
+    connectRef.current();
 
     return () => {
       resizeObserver.disconnect();
       xterm.dispose();
-      disconnect(); // Ensure session is closed
+      disconnectRef.current(); // Ensure session is closed
     };
-  }, [connect, disconnect, resize, send, status, terminalTheme]);
+  }, [terminalTheme]);
 
   // Polling logic for Pod status
   useEffect(() => {

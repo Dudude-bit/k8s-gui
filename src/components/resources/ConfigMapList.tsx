@@ -14,6 +14,7 @@ import type { ConfigMapInfo } from "@/generated/types";
 import { ResourceList } from "./ResourceList";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { useCopyToClipboard } from "@/hooks";
+import { STALE_TIMES } from "@/lib/refresh";
 import {
   createSimpleNameColumn,
   createNamespaceColumn,
@@ -136,7 +137,7 @@ export function ConfigMapList() {
         invalidateQueryKeys: [[toPlural(ResourceType.ConfigMap)]],
         resourceType: ResourceType.ConfigMap,
       }}
-      staleTime={10000}
+      staleTime={STALE_TIMES.resourceList}
     />
 
     <ConfigMapDataDialog

@@ -15,6 +15,7 @@ import { commands } from "@/lib/commands";
 
 import type { EndpointsInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { STALE_TIMES } from "@/lib/refresh";
 
 const columns: ColumnDef<EndpointsInfo>[] = [
   {
@@ -185,7 +186,7 @@ export function EndpointsList() {
       }
       columns={columns}
       emptyStateLabel={toPlural(ResourceType.Endpoints)}
-      staleTime={10000}
+      staleTime={STALE_TIMES.resourceList}
       searchKey="name"
     />
   );

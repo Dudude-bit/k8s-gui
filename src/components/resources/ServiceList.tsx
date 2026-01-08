@@ -13,6 +13,7 @@ import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceList } from "./ResourceList";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import type { ServiceInfo, ServicePortInfo } from "@/generated/types";
+import { STALE_TIMES } from "@/lib/refresh";
 import {
   createNameColumn,
   createNamespaceColumn,
@@ -136,7 +137,7 @@ export function ServiceList() {
         invalidateQueryKeys: [[toPlural(ResourceType.Service)]],
         resourceType: ResourceType.Service,
       }}
-      staleTime={10000}
+      staleTime={STALE_TIMES.resourceList}
     />
   );
 }

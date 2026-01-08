@@ -2,9 +2,10 @@ import { Link } from "react-router-dom";
 import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
 import { ColumnDef } from "@tanstack/react-table";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { ResourceList } from "./ResourceList";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
+import { useResourceList } from "@/hooks/useResource";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { MetricBadge } from "@/components/ui/metric-card";
 import {
@@ -33,23 +34,41 @@ export function CronJobList() {
   const { hasAccess } = usePremiumFeature();
 
   // Use centralized pods with metrics hook
-  const { data: podsWithMetrics, podStatus } = usePodsWithMetrics();
+  const {
+    data: podsWithMetrics,
+    podStatus,
+    isLoading: isLoadingPods,
+    isFetching: isFetchingPods,
+    refetch: refetchPods,
+  } = usePodsWithMetrics();
 
-  // Query function that merges resources with aggregated metrics
-  const queryFn = async (): Promise<CronJobInfoWithMetrics[]> => {
-    try {
-      const items = await commands.listCronjobs({
-        namespace: currentNamespace || null,
-        labelSelector: null,
-        fieldSelector: null,
-        limit: null,
-      });
-
-      return attachAggregatedPodMetrics(items, podsWithMetrics, matchCronJobPods);
-    } catch (err) {
-      throw new Error(normalizeTauriError(err));
+  const cronJobsQuery = useResourceList(
+    [toPlural(ResourceType.CronJob), currentNamespace],
+    async () => {
+      try {
+        return await commands.listCronjobs({
+          namespace: currentNamespace || null,
+          labelSelector: null,
+          fieldSelector: null,
+          limit: null,
+        });
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
     }
-  };
+  );
+
+  const cronJobsWithMetrics = useMemo(() => {
+    return attachAggregatedPodMetrics(
+      cronJobsQuery.data ?? [],
+      podsWithMetrics,
+      matchCronJobPods
+    );
+  }, [cronJobsQuery.data, podsWithMetrics]);
+
+  const refetch = useCallback(async () => {
+    await Promise.all([cronJobsQuery.refetch(), refetchPods()]);
+  }, [cronJobsQuery, refetchPods]);
 
   const columns = useMemo<ColumnDef<CronJobInfoWithMetrics>[]>(
     () => [
@@ -119,12 +138,10 @@ export function CronJobList() {
       )}
       <ResourceList<CronJobInfoWithMetrics>
         title="CronJobs"
-        queryKey={[
-          "cronjobs",
-          currentNamespace,
-          JSON.stringify(podsWithMetrics.map((p) => p.name)),
-        ]}
-        queryFn={queryFn}
+        data={cronJobsWithMetrics}
+        isLoading={cronJobsQuery.isLoading}
+        isFetching={cronJobsQuery.isFetching || isFetchingPods || isLoadingPods}
+        onRefresh={refetch}
         columns={(setDeleteTarget) => [
           ...columns,
           {
@@ -159,8 +176,6 @@ export function CronJobList() {
           resourceType: ResourceType.CronJob,
         }}
         emptyStateLabel="cronjobs"
-        staleTime={10000}
-        refetchInterval={15000}
       />
     </div>
   );

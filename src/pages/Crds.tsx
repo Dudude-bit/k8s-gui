@@ -27,6 +27,7 @@ import { createAgeColumn } from "@/components/resources/columns";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { commands } from "@/lib/commands";
+import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
 import type { CrdInfo } from "@/generated/types";
 
 // Extend CrdInfo with a namespace field for ResourceList compatibility
@@ -54,8 +55,8 @@ export function Crds() {
       }
     },
     enabled: isConnected,
-    staleTime: 10000,
-    refetchInterval: 30000,
+    staleTime: STALE_TIMES.resourceList,
+    refetchInterval: REFRESH_INTERVALS.slow,
   });
 
   const deleteMutation = useMutation({

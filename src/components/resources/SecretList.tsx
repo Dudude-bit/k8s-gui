@@ -15,6 +15,7 @@ import type { SecretInfo } from "@/generated/types";
 import { ResourceList } from "./ResourceList";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { useCopyToClipboard } from "@/hooks";
+import { STALE_TIMES } from "@/lib/refresh";
 import {
   createNamespaceColumn,
   createAgeColumn,
@@ -159,7 +160,7 @@ export function SecretList() {
         invalidateQueryKeys: [[toPlural(ResourceType.Secret)]],
         resourceType: ResourceType.Secret,
       }}
-      staleTime={10000}
+      staleTime={STALE_TIMES.resourceList}
     />
 
     <SecretDataDialog

@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { commands } from "@/lib/commands";
 import { useClusterStore } from "@/stores/clusterStore";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { useMetrics } from "@/hooks/useMetrics";
 import { mergePodsWithMetrics, type PodWithMetrics } from "@/lib/metrics";
+import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
 
 export type { PodWithMetrics } from "@/lib/metrics";
 
@@ -47,15 +48,19 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
     },
     enabled,
     placeholderData: keepPreviousData,
-    staleTime: 10000,
-    refetchInterval: 15000,
+    staleTime: STALE_TIMES.resourceList,
+    refetchInterval: REFRESH_INTERVALS.resourceList,
     refetchOnWindowFocus: false,
   });
 
   const {
     podMetrics,
     podStatus,
-    podMetricsQuery: { isLoading: isLoadingMetrics, isFetching: isFetchingMetrics },
+    podMetricsQuery,
+    podMetricsQuery: {
+      isLoading: isLoadingMetrics,
+      isFetching: isFetchingMetrics,
+    },
   } = useMetrics({
     namespace: currentNamespace || null,
     enabled,
@@ -68,6 +73,10 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
     return mergePodsWithMetrics(pods, podMetrics);
   }, [pods, podMetrics]);
 
+  const refetch = useCallback(async () => {
+    await Promise.all([refetchPods(), podMetricsQuery.refetch()]);
+  }, [podMetricsQuery, refetchPods]);
+
   return {
     data: podsWithMetrics,
     pods,
@@ -75,6 +84,6 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
     podStatus,
     isLoading: isLoadingPods || isLoadingMetrics,
     isFetching: isFetchingPods || isFetchingMetrics,
-    refetch: refetchPods,
+    refetch,
   };
 }

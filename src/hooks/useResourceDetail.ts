@@ -20,6 +20,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useResourceYaml } from "./useResourceYaml";
+import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
 
 export interface UseResourceDetailOptions<T> {
   /** Resource kind for YAML command (e.g., "Pod", "Deployment") */
@@ -38,6 +39,10 @@ export interface UseResourceDetailOptions<T> {
   placeholderData?: boolean;
   /** Default tab to show */
   defaultTab?: string;
+  /** Override refetch interval */
+  refetchInterval?: number | false;
+  /** Override stale time */
+  staleTime?: number;
 }
 
 export interface UseResourceDetailResult<T> {
@@ -91,6 +96,8 @@ export function useResourceDetail<T>(
     onDeleted,
     placeholderData = true,
     defaultTab = "overview",
+    refetchInterval = REFRESH_INTERVALS.resourceDetail,
+    staleTime = STALE_TIMES.resourceDetail,
   } = options;
 
   // For cluster-scoped resources, namespace won't be in the URL
@@ -120,6 +127,9 @@ export function useResourceDetail<T>(
     },
     enabled: !!name,
     placeholderData: placeholderData ? keepPreviousData : undefined,
+    staleTime,
+    refetchInterval,
+    refetchOnWindowFocus: false,
   });
 
   // Always use useResourceYaml for YAML fetching

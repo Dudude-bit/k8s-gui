@@ -1,4 +1,3 @@
-import { useClusterStore } from "@/stores/clusterStore";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
 import { Eye, Trash2, Terminal, FileText } from "lucide-react";
@@ -35,14 +34,14 @@ function formatReady(containers: ContainerInfo[]): string {
 }
 
 export function PodList() {
-  const { currentNamespace } = useClusterStore();
   const { hasAccess } = usePremiumFeature();
-  const { data: podsWithMetrics, podStatus } = usePodsWithMetrics();
-
-  // Wrap the data from the hook into a query function for ResourceList
-  const queryFn = async (): Promise<PodWithMetrics[]> => {
-    return podsWithMetrics;
-  };
+  const {
+    data: podsWithMetrics,
+    podStatus,
+    isLoading,
+    isFetching,
+    refetch,
+  } = usePodsWithMetrics();
 
   const columns = useMemo<ColumnDef<PodWithMetrics>[]>(
     () => [
@@ -125,14 +124,10 @@ export function PodList() {
       )}
       <ResourceList<PodWithMetrics>
         title="Pods"
-        // We use the same query key structure but include podsWithMetrics length/content hash to force update
-        // when the hook updates.
-        queryKey={[
-          `${toPlural(ResourceType.Pod)}-list-view`,
-          currentNamespace,
-          JSON.stringify(podsWithMetrics.map((p) => p.name)),
-        ]}
-        queryFn={queryFn}
+        data={podsWithMetrics}
+        isLoading={isLoading}
+        isFetching={isFetching}
+        onRefresh={refetch}
         columns={(setDeleteTarget) => [
           ...columns,
           {
@@ -179,7 +174,6 @@ export function PodList() {
           invalidateQueryKeys: [[toPlural(ResourceType.Pod)]],
           resourceType: ResourceType.Pod,
         }}
-        staleTime={10000}
       />
     </div>
   );

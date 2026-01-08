@@ -18,6 +18,7 @@ import { ActionMenu } from "@/components/ui/action-menu";
 import { commands } from "@/lib/commands";
 import type { PersistentVolumeClaimInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { STALE_TIMES } from "@/lib/refresh";
 
 const baseColumns: ColumnDef<PersistentVolumeClaimInfo>[] = [
   {
@@ -137,7 +138,7 @@ export function PersistentVolumeClaimList() {
         invalidateQueryKeys: [[toPlural(ResourceType.PersistentVolumeClaim)]],
         resourceType: ResourceType.PersistentVolumeClaim,
       }}
-      staleTime={10000}
+      staleTime={STALE_TIMES.resourceList}
       searchKey="name"
     />
   );

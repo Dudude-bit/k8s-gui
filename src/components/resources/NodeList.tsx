@@ -23,6 +23,7 @@ import { parseCPU, parseMemory } from "@/lib/k8s-quantity";
 import { MetricsStatusBanner } from "@/components/metrics";
 import { ResourceList } from "@/components/resources/ResourceList";
 import type { NodeInfo } from "@/generated/types";
+import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
 
 export function NodeList() {
   const { isConnected } = useClusterStore();
@@ -285,8 +286,8 @@ export function NodeList() {
       }}
       columns={columns}
       emptyStateLabel={toPlural(ResourceType.Node)}
-      staleTime={10000}
-      refetchInterval={15000}
+      staleTime={STALE_TIMES.resourceList}
+      refetchInterval={REFRESH_INTERVALS.resourceList}
       headerContent={
         hasAccess && nodeStatus?.status !== "available" ? (
           <MetricsStatusBanner status={nodeStatus} />

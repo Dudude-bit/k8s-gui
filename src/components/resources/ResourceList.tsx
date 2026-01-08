@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { ResourceListHeader } from "@/components/resources/ResourceListHeader";
 import { useResource } from "@/hooks/useResource";
 import { useClusterStore } from "@/stores/clusterStore";
+import { STALE_TIMES } from "@/lib/refresh";
 
 export interface ResourceDeleteConfig<T> {
   /** Function to delete a resource */
@@ -27,9 +28,17 @@ export interface ResourceListProps<
   /** Optional description below the title */
   description?: string;
   /** Query key for React Query */
-  queryKey: string[];
+  queryKey?: string[];
   /** Function to fetch resources */
-  queryFn: () => Promise<T[]>;
+  queryFn?: () => Promise<T[]>;
+  /** Optional data override (skips internal query) */
+  data?: T[];
+  /** Optional loading state when using data override */
+  isLoading?: boolean;
+  /** Optional fetching state when using data override */
+  isFetching?: boolean;
+  /** Optional refresh handler when using data override */
+  onRefresh?: () => void;
   /** Table column definitions - can use setDeleteTarget from useResourceListDelete hook */
   columns:
   | ColumnDef<T>[]
@@ -41,7 +50,7 @@ export interface ResourceListProps<
   /** Optional stale time override (default: 5000ms) */
   staleTime?: number;
   /** Optional refetch interval (default: undefined - no auto refetch) */
-  refetchInterval?: number;
+  refetchInterval?: number | false;
   /** Optional custom header actions */
   headerActions?: ReactNode;
   /** Optional content rendered between header and table */
@@ -59,6 +68,10 @@ export function ResourceList<T extends { name: string; namespace?: string | null
   description,
   queryKey,
   queryFn,
+  data,
+  isLoading,
+  isFetching,
+  onRefresh,
   columns,
   emptyStateLabel,
   deleteConfig,
@@ -75,15 +88,21 @@ export function ResourceList<T extends { name: string; namespace?: string | null
   const queryClient = useQueryClient();
   const [deleteTarget, setDeleteTarget] = useState<T | null>(null);
 
-  const {
-    data: resources = [],
-    isLoading,
-    isFetching,
-    refetch,
-  } = useResource(queryKey, queryFn, {
-    staleTime: staleTime ?? 5000,
-    refetchInterval,
-  });
+  const shouldUseQuery = data === undefined && !!queryKey && !!queryFn;
+  const queryResult = useResource(
+    (queryKey ?? ["resource-list"]) as string[],
+    (queryFn ?? (async () => [] as T[])) as () => Promise<T[]>,
+    {
+      enabled: shouldUseQuery,
+      staleTime: staleTime ?? STALE_TIMES.resourceList,
+      ...(refetchInterval !== undefined ? { refetchInterval } : {}),
+    }
+  );
+
+  const resources = data ?? queryResult.data ?? [];
+  const loading = isLoading ?? queryResult.isLoading;
+  const fetching = isFetching ?? queryResult.isFetching;
+  const refresh = onRefresh ?? queryResult.refetch;
 
   // Delete mutation
   const deleteMutation = useMutation({
@@ -124,7 +143,7 @@ export function ResourceList<T extends { name: string; namespace?: string | null
     return <ConnectClusterEmptyState resourceLabel={emptyStateLabel} />;
   }
 
-  const showSkeleton = isLoading && resources.length === 0;
+  const showSkeleton = loading && resources.length === 0;
   const resolvedTitle =
     typeof title === "function" ? title(resources.length) : title;
 
@@ -134,9 +153,9 @@ export function ResourceList<T extends { name: string; namespace?: string | null
         <ResourceListHeader
           title={resolvedTitle}
           description={description}
-          isFetching={isFetching}
-          isLoading={isLoading}
-          onRefresh={() => refetch()}
+          isFetching={fetching}
+          isLoading={loading}
+          onRefresh={refresh}
           actions={headerActions}
         />
       )}
@@ -145,7 +164,7 @@ export function ResourceList<T extends { name: string; namespace?: string | null
         columns={resolvedColumns}
         data={resources}
         isLoading={showSkeleton}
-        isFetching={isFetching && !isLoading}
+        isFetching={fetching && !loading}
         searchKey={searchKey}
         searchPlaceholder={searchPlaceholder}
       />

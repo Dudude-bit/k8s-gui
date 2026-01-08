@@ -1,9 +1,10 @@
 import { Link } from "react-router-dom";
 import { useClusterStore } from "@/stores/clusterStore";
 import { ColumnDef } from "@tanstack/react-table";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { ResourceList } from "./ResourceList";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
+import { useResourceList } from "@/hooks/useResource";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { MetricBadge } from "@/components/ui/metric-card";
 import {
@@ -32,23 +33,41 @@ export function DaemonSetList() {
   const { hasAccess } = usePremiumFeature();
 
   // Use centralized pods with metrics hook
-  const { data: podsWithMetrics, podStatus } = usePodsWithMetrics();
+  const {
+    data: podsWithMetrics,
+    podStatus,
+    isLoading: isLoadingPods,
+    isFetching: isFetchingPods,
+    refetch: refetchPods,
+  } = usePodsWithMetrics();
 
-  // Query function that merges resources with aggregated metrics
-  const queryFn = async (): Promise<DaemonSetInfoWithMetrics[]> => {
-    try {
-      const items = await commands.listDaemonsets({
-        namespace: currentNamespace || null,
-        labelSelector: null,
-        fieldSelector: null,
-        limit: null,
-      });
-
-      return attachAggregatedPodMetrics(items, podsWithMetrics, matchDaemonSetPods);
-    } catch (err) {
-      throw new Error(normalizeTauriError(err));
+  const daemonSetsQuery = useResourceList(
+    [toPlural(ResourceType.DaemonSet), currentNamespace],
+    async () => {
+      try {
+        return await commands.listDaemonsets({
+          namespace: currentNamespace || null,
+          labelSelector: null,
+          fieldSelector: null,
+          limit: null,
+        });
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
     }
-  };
+  );
+
+  const daemonSetsWithMetrics = useMemo(() => {
+    return attachAggregatedPodMetrics(
+      daemonSetsQuery.data ?? [],
+      podsWithMetrics,
+      matchDaemonSetPods
+    );
+  }, [daemonSetsQuery.data, podsWithMetrics]);
+
+  const refetch = useCallback(async () => {
+    await Promise.all([daemonSetsQuery.refetch(), refetchPods()]);
+  }, [daemonSetsQuery, refetchPods]);
 
   const columns = useMemo<ColumnDef<DaemonSetInfoWithMetrics>[]>(
     () => [
@@ -121,12 +140,12 @@ export function DaemonSetList() {
       )}
       <ResourceList<DaemonSetInfoWithMetrics>
         title="DaemonSets"
-        queryKey={[
-          "daemonsets",
-          currentNamespace,
-          JSON.stringify(podsWithMetrics.map((p) => p.name)),
-        ]}
-        queryFn={queryFn}
+        data={daemonSetsWithMetrics}
+        isLoading={daemonSetsQuery.isLoading}
+        isFetching={
+          daemonSetsQuery.isFetching || isFetchingPods || isLoadingPods
+        }
+        onRefresh={refetch}
         columns={(setDeleteTarget) => [
           ...columns,
           {
@@ -161,8 +180,6 @@ export function DaemonSetList() {
           resourceType: ResourceType.DaemonSet,
         }}
         emptyStateLabel="daemonsets"
-        staleTime={10000}
-        refetchInterval={15000}
       />
     </div>
   );

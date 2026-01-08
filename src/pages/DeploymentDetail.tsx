@@ -9,6 +9,7 @@ import {
 import { useMetrics } from "@/hooks/useMetrics";
 import type { DeploymentInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -114,8 +115,8 @@ export function DeploymentDetail() {
     },
     enabled: !!namespace && !!name,
     placeholderData: keepPreviousData,
-    staleTime: 10000,
-    refetchInterval: 15000,
+    staleTime: STALE_TIMES.resourceList,
+    refetchInterval: REFRESH_INTERVALS.resourceList,
     refetchOnWindowFocus: false,
   });
 
@@ -202,7 +203,7 @@ export function DeploymentDetail() {
       }
     },
     enabled: !!namespace && !!name,
-    refetchInterval: 5000,
+    refetchInterval: REFRESH_INTERVALS.fast,
   });
 
   const scaleMutation = useResourceMutation(

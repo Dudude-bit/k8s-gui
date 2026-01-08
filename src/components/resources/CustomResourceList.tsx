@@ -18,6 +18,7 @@ import { getKindSpecificColumns } from "@/lib/crd-plugins/plugins";
 import { commands } from "@/lib/commands";
 import { ResourceList } from "@/components/resources/ResourceList";
 import type { CustomResourceInfo, PrinterColumn } from "@/generated/types";
+import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
 
 interface CustomResourceListProps {
   crdName: string;
@@ -196,8 +197,8 @@ export function CustomResourceList({
         invalidateQueryKeys: [["custom-resources", crdName]],
         resourceType: crdKind,
       }}
-      staleTime={10000}
-      refetchInterval={15000}
+      staleTime={STALE_TIMES.resourceList}
+      refetchInterval={REFRESH_INTERVALS.resourceList}
       searchKey="name"
       searchPlaceholder={`Search ${crdKind}...`}
       embedded={embedded}

@@ -11,6 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { HeaderSkeleton, StatsSkeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { Progress } from "@/components/ui/progress";
 import {
   Box,
   Server,
@@ -18,19 +19,26 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
+  Search,
+  Layers,
+  Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatBytes, formatCPU } from "@/lib/k8s-quantity";
 import { Link } from "react-router-dom";
 import { useMetrics } from "@/hooks/useMetrics";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
-import { MetricCard } from "@/components/ui/metric-card";
+import { MetricBadge, MetricCard } from "@/components/ui/metric-card";
 import { LicenseErrorBanner } from "@/components/license/LicenseErrorBanner";
 import { MetricsStatusBanner } from "@/components/metrics";
-import { getTopPodsByCPU, getTopPodsByMemory, mergePodsWithMetrics } from "@/lib/metrics";
+import {
+  getTopPodsByCPU,
+  getTopPodsByMemory,
+  mergePodsWithMetrics,
+} from "@/lib/metrics";
 import { useMemo } from "react";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
 
 export function ClusterOverview() {
   const { isConnected, currentContext, currentNamespace } = useClusterStore();
@@ -47,6 +55,9 @@ export function ClusterOverview() {
     },
     enabled: isConnected && !!currentContext,
     placeholderData: keepPreviousData,
+    staleTime: STALE_TIMES.overview,
+    refetchInterval: REFRESH_INTERVALS.overview,
+    refetchOnWindowFocus: false,
   });
 
   // Single efficient stats call with smooth transitions
@@ -64,8 +75,10 @@ export function ClusterOverview() {
       }
     },
     enabled: isConnected,
-    staleTime: 10000, // 10 seconds cache
+    staleTime: STALE_TIMES.overview,
     placeholderData: keepPreviousData, // Keep showing previous data while loading
+    refetchInterval: REFRESH_INTERVALS.overview,
+    refetchOnWindowFocus: false,
   });
 
   // Check premium feature access
@@ -97,8 +110,8 @@ export function ClusterOverview() {
     },
     enabled: isConnected,
     placeholderData: keepPreviousData,
-    staleTime: 10000,
-    refetchInterval: 15000,
+    staleTime: STALE_TIMES.resourceList,
+    refetchInterval: REFRESH_INTERVALS.resourceList,
     refetchOnWindowFocus: false,
   });
 
@@ -108,13 +121,21 @@ export function ClusterOverview() {
   }, [allPods, allPodMetrics]);
 
   // Calculate top pods by CPU and Memory
-  const topPodsByCPU = useMemo(() => {
-                    return getTopPodsByCPU(podsWithMetrics, 5);
-                  }, [podsWithMetrics]);
+  const topPodsByCPU = useMemo<TopPodMetric[]>(() => {
+    return getTopPodsByCPU(podsWithMetrics, 5).map((pod) => ({
+      name: pod.name,
+      namespace: pod.namespace,
+      value: pod.cpuMillicores,
+    }));
+  }, [podsWithMetrics]);
 
-  const topPodsByMemory = useMemo(() => {
-                    return getTopPodsByMemory(podsWithMetrics, 5);
-                  }, [podsWithMetrics]);
+  const topPodsByMemory = useMemo<TopPodMetric[]>(() => {
+    return getTopPodsByMemory(podsWithMetrics, 5).map((pod) => ({
+      name: pod.name,
+      namespace: pod.namespace,
+      value: pod.memoryBytes,
+    }));
+  }, [podsWithMetrics]);
 
   // Calculate total cluster capacity from nodes (fallback if metrics API unavailable)
   const totalClusterCapacity = useMemo(() => {
@@ -131,6 +152,126 @@ export function ClusterOverview() {
       : podStatus?.status !== "available"
         ? podStatus
         : null;
+
+  const overviewSubtitle = useMemo(() => {
+    const parts = [clusterInfo?.context || "Connected cluster"];
+    parts.push(
+      currentNamespace ? `Namespace: ${currentNamespace}` : "All namespaces"
+    );
+    if (clusterInfo?.serverVersion) {
+      parts.push(`Kubernetes ${clusterInfo.serverVersion}`);
+    }
+    if (clusterInfo?.platform) {
+      parts.push(clusterInfo.platform);
+    }
+    return parts.join(" • ");
+  }, [clusterInfo, currentNamespace]);
+
+  const resourceStats = useMemo<ResourceStatCardData[]>(() => {
+    return [
+      {
+        id: "pods",
+        title: "Pods",
+        icon: Box,
+        value: stats?.pods.total ?? 0,
+        href: `/workloads/${toPlural(ResourceType.Pod)}`,
+        badges: [
+          {
+            label: "Running",
+            value: stats?.pods.running ?? 0,
+            variant: "success",
+            icon: CheckCircle,
+          },
+          {
+            label: "Pending",
+            value: stats?.pods.pending ?? 0,
+            variant: "warning",
+            icon: Clock,
+            hideWhenZero: true,
+          },
+          {
+            label: "Failed",
+            value: stats?.pods.failed ?? 0,
+            variant: "error",
+            icon: AlertTriangle,
+            hideWhenZero: true,
+          },
+        ],
+      },
+      {
+        id: "deployments",
+        title: "Deployments",
+        icon: Box,
+        value: stats?.deployments.total ?? 0,
+        href: `/workloads/${toPlural(ResourceType.Deployment)}`,
+        badges: [
+          {
+            label: "Available",
+            value: stats?.deployments.available ?? 0,
+            variant: "success",
+            icon: CheckCircle,
+          },
+          {
+            label: "Unavailable",
+            value: stats?.deployments.unavailable ?? 0,
+            variant: "error",
+            icon: AlertTriangle,
+            hideWhenZero: true,
+          },
+        ],
+      },
+      {
+        id: "services",
+        title: "Services",
+        icon: Activity,
+        value: stats?.services.total ?? 0,
+        description: "Active services in namespace",
+        href: `/network/${toPlural(ResourceType.Service)}`,
+      },
+      {
+        id: "nodes",
+        title: "Nodes",
+        icon: Server,
+        value: stats?.nodes.total ?? 0,
+        href: `/${toPlural(ResourceType.Node)}`,
+        badges: [
+          {
+            label: "Ready",
+            value: stats?.nodes.ready ?? 0,
+            variant: "success",
+            icon: CheckCircle,
+          },
+        ],
+      },
+    ];
+  }, [stats]);
+
+  const podBasePath = `/${toPlural(ResourceType.Pod)}`;
+
+  const openCommandPalette = () => {
+    window.dispatchEvent(new CustomEvent("command-palette-open"));
+  };
+
+  const quickActions: QuickActionTileProps[] = [
+    {
+      icon: Search,
+      label: "Command Palette",
+      description: "Search resources and run commands",
+      onClick: openCommandPalette,
+    },
+    {
+      icon: Layers,
+      label: "Infrastructure Builder",
+      description: "Design manifests visually",
+      href: "/configuration/builder",
+    },
+    {
+      icon: Package,
+      label: "Helm Releases",
+      description: "Install and manage charts",
+      href: "/helm",
+    },
+  ];
 
   // Only show skeleton on initial load, not on refetch
   const showSkeleton = (isLoadingCluster || isLoadingStats) && !stats;
@@ -161,131 +302,16 @@ export function ClusterOverview() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
-      {/* Cluster Info Header */}
-      <div className="flex items-center gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            {currentContext}
-          </h1>
-          <p className="text-muted-foreground">
-            {clusterInfo?.context || "Connected cluster"}
-            {currentNamespace && ` • ${currentNamespace}`}
-            {!currentNamespace && " • All namespaces"}
-          </p>
-        </div>
-        {isFetching && (
-          <Spinner size="sm" className="text-muted-foreground" />
-        )}
-      </div>
+      <OverviewHeader
+        title={currentContext || "Cluster Overview"}
+        subtitle={overviewSubtitle}
+        isFetching={isFetching}
+      />
 
-      {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {/* Pods Card */}
-        <Card
-          className={cn(
-            "transition-all duration-200",
-            isFetching && "opacity-70"
-          )}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pods</CardTitle>
-            <Box className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.pods.total || 0}</div>
-            <div className="mt-2 flex gap-2 text-xs">
-              <Badge variant="default" className="gap-1">
-                <CheckCircle className="h-3 w-3" />
-                {stats?.pods.running || 0} Running
-              </Badge>
-              {(stats?.pods.pending || 0) > 0 && (
-                <Badge variant="secondary" className="gap-1">
-                  <Clock className="h-3 w-3" />
-                  {stats?.pods.pending} Pending
-                </Badge>
-              )}
-              {(stats?.pods.failed || 0) > 0 && (
-                <Badge variant="destructive" className="gap-1">
-                  <AlertTriangle className="h-3 w-3" />
-                  {stats?.pods.failed} Failed
-                </Badge>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Deployments Card */}
-        <Card
-          className={cn(
-            "transition-all duration-200",
-            isFetching && "opacity-70"
-          )}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Deployments</CardTitle>
-            <Box className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {stats?.deployments.total || 0}
-            </div>
-            <div className="mt-2 flex gap-2 text-xs">
-              <Badge variant="default" className="gap-1">
-                <CheckCircle className="h-3 w-3" />
-                {stats?.deployments.available || 0} Available
-              </Badge>
-              {(stats?.deployments.unavailable || 0) > 0 && (
-                <Badge variant="destructive" className="gap-1">
-                  <AlertTriangle className="h-3 w-3" />
-                  {stats?.deployments.unavailable} Unavailable
-                </Badge>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Services Card */}
-        <Card
-          className={cn(
-            "transition-all duration-200",
-            isFetching && "opacity-70"
-          )}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Services</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {stats?.services.total || 0}
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Active services in namespace
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Nodes Card */}
-        <Card
-          className={cn(
-            "transition-all duration-200",
-            isFetching && "opacity-70"
-          )}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Nodes</CardTitle>
-            <Server className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.nodes.total || 0}</div>
-            <div className="mt-2 flex gap-2 text-xs">
-              <Badge variant="default" className="gap-1">
-                <CheckCircle className="h-3 w-3" />
-                {stats?.nodes.ready || 0} Ready
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
+        {resourceStats.map((stat) => (
+          <ResourceStatCard key={stat.id} {...stat} dimmed={isFetching} />
+        ))}
       </div>
 
       {/* Cluster Resource Usage */}
@@ -323,87 +349,20 @@ export function ClusterOverview() {
       {/* Top Pods by Resource Usage */}
       {hasAccess && (
         <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Top Pods by CPU</CardTitle>
-              <CardDescription>
-                Pods consuming the most CPU resources
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {topPodsByCPU.length > 0 ? (
-                  topPodsByCPU.map((pod, idx) => {
-                    const podInfo = podsWithMetrics.find(
-                      (p) => p.name === pod.name
-                    );
-                    return (
-                      <Link
-                        key={pod.name}
-                        to={`/${toPlural(ResourceType.Pod)}/${podInfo?.namespace || "default"}/${pod.name}`}
-                        className="flex items-center justify-between p-2 rounded-md hover:bg-muted transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">
-                            #{idx + 1}
-                          </span>
-                          <span className="text-sm">{pod.name}</span>
-                        </div>
-                        <div className="text-sm font-medium">
-                          {formatCPU(pod.cpuMillicores)}
-                        </div>
-                      </Link>
-                    );
-                  })
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No pod metrics available
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Top Pods by Memory</CardTitle>
-              <CardDescription>
-                Pods consuming the most memory resources
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {topPodsByMemory.length > 0 ? (
-                  topPodsByMemory.map((pod, idx) => {
-                    const podInfo = podsWithMetrics.find(
-                      (p) => p.name === pod.name
-                    );
-                    return (
-                      <Link
-                        key={pod.name}
-                        to={`/${toPlural(ResourceType.Pod)}/${podInfo?.namespace || "default"}/${pod.name}`}
-                        className="flex items-center justify-between p-2 rounded-md hover:bg-muted transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">
-                            #{idx + 1}
-                          </span>
-                          <span className="text-sm">{pod.name}</span>
-                        </div>
-                        <div className="text-sm font-medium">
-                          {formatBytes(pod.memoryBytes)}
-                        </div>
-                      </Link>
-                    );
-                  })
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No pod metrics available
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <TopPodsCard
+            title="Top Pods by CPU"
+            description="Pods consuming the most CPU resources"
+            items={topPodsByCPU}
+            type="cpu"
+            basePath={podBasePath}
+          />
+          <TopPodsCard
+            title="Top Pods by Memory"
+            description="Pods consuming the most memory resources"
+            items={topPodsByMemory}
+            type="memory"
+            basePath={podBasePath}
+          />
         </div>
       )}
 
@@ -413,47 +372,264 @@ export function ClusterOverview() {
           <CardTitle>Quick Actions</CardTitle>
           <CardDescription>Common tasks and shortcuts</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-2 md:grid-cols-3">
-          <QuickActionButton
-            icon={Box}
-            label="View Pods"
-            href={`/workloads/${toPlural(ResourceType.Pod)}`}
-          />
-          <QuickActionButton
-            icon={Box}
-            label="View Deployments"
-            href={`/workloads/${toPlural(ResourceType.Deployment)}`}
-          />
-          <QuickActionButton
-            icon={Activity}
-            label="View Events"
-            href="/events"
-          />
+        <CardContent className="grid gap-3 md:grid-cols-3">
+          {quickActions.map((action) => (
+            <QuickActionTile key={action.label} {...action} />
+          ))}
         </CardContent>
       </Card>
     </div>
   );
 }
 
-function QuickActionButton({
-  icon: Icon,
-  label,
-  href,
-}: {
+type StatBadgeVariant =
+  | "default"
+  | "secondary"
+  | "destructive"
+  | "outline"
+  | "success"
+  | "warning"
+  | "error";
+
+type StatBadgeConfig = {
+  label: string;
+  value: number;
+  variant?: StatBadgeVariant;
+  icon?: React.ElementType;
+  hideWhenZero?: boolean;
+};
+
+type ResourceStatCardData = {
+  id: string;
+  title: string;
+  icon: React.ElementType;
+  value: number;
+  badges?: StatBadgeConfig[];
+  description?: string;
+  href?: string;
+};
+
+type TopPodMetric = {
+  name: string;
+  namespace: string;
+  value: number;
+};
+
+type OverviewHeaderProps = {
+  title: string;
+  subtitle: string;
+  isFetching: boolean;
+};
+
+type ResourceStatCardProps = ResourceStatCardData & {
+  dimmed?: boolean;
+};
+
+type TopPodsCardProps = {
+  title: string;
+  description: string;
+  items: TopPodMetric[];
+  type: "cpu" | "memory";
+  basePath: string;
+};
+
+type QuickActionTileProps = {
   icon: React.ElementType;
   label: string;
-  href: string;
-}) {
+  description: string;
+  href?: string;
+  onClick?: () => void;
+};
+
+function OverviewHeader({ title, subtitle, isFetching }: OverviewHeaderProps) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+        <p className="text-sm text-muted-foreground">{subtitle}</p>
+      </div>
+      {isFetching && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Spinner size="sm" className="text-muted-foreground" />
+          <span>Updating</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ResourceStatCard({
+  title,
+  icon: Icon,
+  value,
+  badges,
+  description,
+  dimmed,
+  href,
+}: ResourceStatCardProps) {
+  const visibleBadges =
+    badges?.filter((badge) => !badge.hideWhenZero || badge.value > 0) ?? [];
+
+  const card = (
+    <Card
+      className={cn(
+        "transition-all duration-200",
+        dimmed && "opacity-70",
+        href && "group-hover:bg-accent"
+      )}
+    >
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        <Icon className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="text-2xl font-bold">{value}</div>
+        {visibleBadges.length > 0 && (
+          <div className="flex flex-wrap gap-2 text-xs">
+            {visibleBadges.map((badge) => {
+              const BadgeIcon = badge.icon;
+              return (
+                <Badge
+                  key={badge.label}
+                  variant={badge.variant ?? "secondary"}
+                  className="gap-1"
+                >
+                  {BadgeIcon && <BadgeIcon className="h-3 w-3" />}
+                  {badge.value} {badge.label}
+                </Badge>
+              );
+            })}
+          </div>
+        )}
+        {description && (
+          <p className="text-xs text-muted-foreground">{description}</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+
+  if (!href) {
+    return card;
+  }
+
   return (
     <Link
       to={href}
-      className={cn(
-        "flex items-center gap-2 rounded-lg border border-border p-3",
-        "transition-colors hover:bg-accent"
-      )}
+      className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      aria-label={`Open ${title}`}
     >
-      <Icon className="h-4 w-4 text-muted-foreground" />
-      <span className="text-sm font-medium">{label}</span>
+      {card}
     </Link>
+  );
+}
+
+function TopPodsCard({
+  title,
+  description,
+  items,
+  type,
+  basePath,
+}: TopPodsCardProps) {
+  const maxValue = items.reduce((max, item) => Math.max(max, item.value), 0);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {items.length > 0 ? (
+          <div className="space-y-2">
+            {items.map((item, idx) => {
+              const progress = maxValue
+                ? Math.min(100, (item.value / maxValue) * 100)
+                : 0;
+              return (
+                <Link
+                  key={`${item.namespace}-${item.name}`}
+                  to={`${basePath}/${item.namespace}/${item.name}`}
+                  className="flex cursor-pointer flex-col gap-2 rounded-md border border-transparent p-2 transition-colors hover:border-border hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={`Open pod ${item.namespace}/${item.name}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className="px-2 text-[10px] font-medium"
+                        >
+                          #{idx + 1}
+                        </Badge>
+                        <span className="truncate text-sm font-medium">
+                          {item.name}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {item.namespace}
+                      </p>
+                    </div>
+                    <MetricBadge
+                      used={item.value}
+                      type={type}
+                      className="shrink-0"
+                    />
+                  </div>
+                  <Progress value={progress} className="h-1" />
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+            No pod metrics available
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function QuickActionTile({
+  icon: Icon,
+  label,
+  description,
+  href,
+  onClick,
+}: QuickActionTileProps) {
+  const content = (
+    <>
+      <div className="mt-0.5 rounded-md bg-muted p-2 text-muted-foreground transition-colors group-hover:text-foreground">
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="space-y-1 text-left">
+        <p className="text-sm font-medium leading-none">{label}</p>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </div>
+    </>
+  );
+
+  const className = cn(
+    "group flex items-start gap-3 rounded-lg border border-border bg-card p-3",
+    "transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+  );
+
+  if (href) {
+    return (
+      <Link to={href} className={className} aria-label={label}>
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={className}
+      onClick={onClick}
+      aria-label={label}
+    >
+      {content}
+    </button>
   );
 }

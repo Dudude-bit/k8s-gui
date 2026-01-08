@@ -15,6 +15,7 @@ import { EnvironmentVariables } from "@/components/resources/EnvironmentVariable
 import { ResourceDetailLayout, InfoCard, InfoRow } from "@/components/resources/ResourceDetailLayout";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { useResourceDetail } from "@/hooks";
+import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
 
 export function StatefulSetDetail() {
   const {
@@ -71,8 +72,8 @@ export function StatefulSetDetail() {
     },
     enabled: !!namespace && !!name,
     placeholderData: keepPreviousData,
-    staleTime: 10000,
-    refetchInterval: 15000,
+    staleTime: STALE_TIMES.resourceList,
+    refetchInterval: REFRESH_INTERVALS.resourceList,
   });
 
   if (!statefulSet && !isLoading && !error) {

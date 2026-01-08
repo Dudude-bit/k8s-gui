@@ -5,6 +5,7 @@ import { RefreshButton } from "@/components/ui/refresh-button";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
 import {
   Card,
   CardContent,
@@ -56,9 +57,9 @@ export function Events() {
       }
     },
     enabled: isConnected,
-    refetchInterval: 5000, // Auto-refresh every 5 seconds
+    refetchInterval: REFRESH_INTERVALS.fast, // Auto-refresh every 5 seconds
     placeholderData: keepPreviousData,
-    staleTime: 5000,
+    staleTime: STALE_TIMES.fast,
     refetchOnWindowFocus: false,
   });
 

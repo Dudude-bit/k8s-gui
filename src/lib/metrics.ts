@@ -97,13 +97,20 @@ export function attachAggregatedPodMetrics<
 }
 
 export function getTopPodsByCPU(
-  pods: Array<{ name: string; cpuMillicores?: number | null }>,
+  pods: Array<{
+    name: string;
+    namespace?: string | null;
+    cpuMillicores?: number | null;
+  }>,
   limit: number = 5
-): Array<{ name: string; cpuMillicores: number }> {
+): Array<{ name: string; namespace: string; cpuMillicores: number }> {
   return pods
-    .filter((pod) => pod.cpuMillicores !== null && pod.cpuMillicores !== undefined)
+    .filter(
+      (pod) => pod.cpuMillicores !== null && pod.cpuMillicores !== undefined
+    )
     .map((pod) => ({
       name: pod.name,
+      namespace: pod.namespace ?? "default",
       cpuMillicores: pod.cpuMillicores as number,
     }))
     .sort((a, b) => b.cpuMillicores - a.cpuMillicores)
@@ -111,13 +118,20 @@ export function getTopPodsByCPU(
 }
 
 export function getTopPodsByMemory(
-  pods: Array<{ name: string; memoryBytes?: number | null }>,
+  pods: Array<{
+    name: string;
+    namespace?: string | null;
+    memoryBytes?: number | null;
+  }>,
   limit: number = 5
-): Array<{ name: string; memoryBytes: number }> {
+): Array<{ name: string; namespace: string; memoryBytes: number }> {
   return pods
-    .filter((pod) => pod.memoryBytes !== null && pod.memoryBytes !== undefined)
+    .filter(
+      (pod) => pod.memoryBytes !== null && pod.memoryBytes !== undefined
+    )
     .map((pod) => ({
       name: pod.name,
+      namespace: pod.namespace ?? "default",
       memoryBytes: pod.memoryBytes as number,
     }))
     .sort((a, b) => b.memoryBytes - a.memoryBytes)

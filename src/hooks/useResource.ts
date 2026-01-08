@@ -17,6 +17,7 @@ import {
 import { useClusterStore } from "@/stores/clusterStore";
 import { useToast } from "@/components/ui/use-toast";
 import { normalizeTauriError } from "@/lib/error-utils";
+import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
 
 // ============================================================================
 // Query Hooks
@@ -45,7 +46,7 @@ export function useResource<TData = unknown, TError = Error>(
   options?: UseResourceOptions<TData, TError>
 ) {
   const isConnected = useClusterStore((state) => state.isConnected);
-  const { ignoreConnection, ...queryOptions } = options ?? {};
+  const { ignoreConnection, refetchInterval, ...queryOptions } = options ?? {};
 
   return useQuery({
     queryKey,
@@ -53,7 +54,8 @@ export function useResource<TData = unknown, TError = Error>(
     enabled:
       (ignoreConnection || isConnected) && queryOptions?.enabled !== false,
     placeholderData: keepPreviousData,
-    staleTime: 5000,
+    staleTime: STALE_TIMES.resourceDetail,
+    refetchInterval: refetchInterval ?? REFRESH_INTERVALS.resourceList,
     refetchOnWindowFocus: false,
     ...queryOptions,
   });
@@ -74,7 +76,7 @@ export function useResourceList<TData = unknown, TError = Error>(
   options?: UseResourceOptions<TData, TError>
 ) {
   return useResource(queryKey, queryFn, {
-    staleTime: 10000,
+    staleTime: STALE_TIMES.resourceList,
     ...options,
   });
 }

@@ -8,6 +8,7 @@ import {
 } from "@/components/resources/ResourceDetailLayout";
 import { useResourceDetail } from "@/hooks";
 import { ResourceType } from "@/lib/resource-registry";
+import { REFRESH_INTERVALS } from "@/lib/refresh";
 import { Globe, ExternalLink, Shield, Network, Copy, Link2, Tag, FileText, ArrowRight, AlertTriangle, Info, Clock, Calendar } from "lucide-react";
 import { commands } from "@/lib/commands";
 import type { IngressInfo, IngressRule, IngressTlsConfig, EventInfo, EventFilters } from "@/generated/types";
@@ -121,7 +122,7 @@ export function IngressDetail() {
             return await commands.listEvents(filters);
         },
         enabled: !!name && !!namespace,
-        refetchInterval: 10000,
+        refetchInterval: REFRESH_INTERVALS.overview,
     });
 
 

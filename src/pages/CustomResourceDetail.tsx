@@ -14,6 +14,7 @@ import { ResourceDetailLayout } from "@/components/resources/ResourceDetailLayou
 import { formatAge } from "@/lib/utils";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
 import { useClusterStore } from "@/stores/clusterStore";
 import { commands } from "@/lib/commands";
 import type { CustomResourceDetailInfo } from "@/generated/types";
@@ -124,8 +125,8 @@ export function CustomResourceDetail() {
       }
     },
     enabled: isConnected && !!decodedCrdName && !!name,
-    staleTime: 10000,
-    refetchInterval: 15000,
+    staleTime: STALE_TIMES.resourceDetail,
+    refetchInterval: REFRESH_INTERVALS.resourceDetail,
   });
 
   // Fetch YAML
@@ -143,7 +144,7 @@ export function CustomResourceDetail() {
       }
     },
     enabled: isConnected && !!decodedCrdName && !!name,
-    staleTime: 10000,
+    staleTime: STALE_TIMES.resourceDetail,
   });
 
   // Delete mutation

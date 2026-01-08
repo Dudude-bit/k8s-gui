@@ -18,6 +18,7 @@ import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceList } from "@/components/resources/ResourceList";
 
 import type { IngressInfo } from "@/generated/types";
+import { STALE_TIMES } from "@/lib/refresh";
 
 const getIngressOpenUrl = (ingress: IngressInfo): string | null => {
   const host =
@@ -223,7 +224,7 @@ export function IngressList() {
         invalidateQueryKeys: [[toPlural(ResourceType.Ingress)]],
         resourceType: ResourceType.Ingress,
       }}
-      staleTime={10000}
+      staleTime={STALE_TIMES.resourceList}
       searchKey="name"
     />
   );

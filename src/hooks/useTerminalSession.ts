@@ -31,6 +31,12 @@ export function useTerminalSession({
     const sessionIdRef = useRef<string | null>(null);
     const isCleanedUpRef = useRef(false);
     const unlistenRef = useRef<(() => void)[]>([]);
+    const statusRef = useRef<SessionStatus>("idle");
+
+    // Keep statusRef in sync with status
+    useEffect(() => {
+        statusRef.current = status;
+    }, [status]);
 
     const cleanupListeners = useCallback(() => {
         unlistenRef.current.forEach((u) => u());
@@ -54,28 +60,28 @@ export function useTerminalSession({
 
     const send = useCallback(async (data: string) => {
         const sessionId = sessionIdRef.current;
-        if (sessionId && status === "connected") {
+        if (sessionId && statusRef.current === "connected") {
             try {
                 await commands.terminalInput(sessionId, data);
             } catch (err) {
                 console.error("Failed to send terminal input:", err);
             }
         }
-    }, [status]);
+    }, []);
 
     const resize = useCallback(async (cols: number, rows: number) => {
         const sessionId = sessionIdRef.current;
-        if (sessionId && status === "connected") {
+        if (sessionId && statusRef.current === "connected") {
             try {
                 await commands.terminalResize(sessionId, cols, rows);
             } catch (err) {
                 console.error("Failed to resize terminal:", err);
             }
         }
-    }, [status]);
+    }, []);
 
     const connect = useCallback(async () => {
-        if (status === "connecting" || status === "connected") return;
+        if (statusRef.current === "connecting" || statusRef.current === "connected") return;
 
         // Reset state
         isCleanedUpRef.current = false;
@@ -126,7 +132,7 @@ export function useTerminalSession({
             setError(normalizeTauriError(err));
             // Try to close if we got a session ID somehow? (Unlikely if openShell threw)
         }
-    }, [namespace, podName, containerName, onOutput, onClose, status, cleanupListeners]);
+    }, [namespace, podName, containerName, onOutput, onClose, cleanupListeners]);
 
     // Cleanup on unmount
     useEffect(() => {

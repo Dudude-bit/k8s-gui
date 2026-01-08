@@ -1,9 +1,10 @@
 import { Link } from "react-router-dom";
 import { useClusterStore } from "@/stores/clusterStore";
 import { ColumnDef } from "@tanstack/react-table";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { ResourceList } from "./ResourceList";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
+import { useResourceList } from "@/hooks/useResource";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { MetricBadge } from "@/components/ui/metric-card";
 import {
@@ -32,27 +33,41 @@ export function StatefulSetList() {
   const { hasAccess } = usePremiumFeature();
 
   // Use centralized pods with metrics hook
-  const { data: podsWithMetrics, podStatus } = usePodsWithMetrics();
+  const {
+    data: podsWithMetrics,
+    podStatus,
+    isLoading: isLoadingPods,
+    isFetching: isFetchingPods,
+    refetch: refetchPods,
+  } = usePodsWithMetrics();
 
-  // Query function that merges resources with aggregated metrics
-  const queryFn = async (): Promise<StatefulSetInfoWithMetrics[]> => {
-    try {
-      const items = await commands.listStatefulsets({
-        namespace: currentNamespace || null,
-        labelSelector: null,
-        fieldSelector: null,
-        limit: null,
-      });
-
-      return attachAggregatedPodMetrics(
-        items,
-        podsWithMetrics,
-        matchStatefulSetPods
-      );
-    } catch (err) {
-      throw new Error(normalizeTauriError(err));
+  const statefulSetsQuery = useResourceList(
+    [toPlural(ResourceType.StatefulSet), currentNamespace],
+    async () => {
+      try {
+        return await commands.listStatefulsets({
+          namespace: currentNamespace || null,
+          labelSelector: null,
+          fieldSelector: null,
+          limit: null,
+        });
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
     }
-  };
+  );
+
+  const statefulSetsWithMetrics = useMemo(() => {
+    return attachAggregatedPodMetrics(
+      statefulSetsQuery.data ?? [],
+      podsWithMetrics,
+      matchStatefulSetPods
+    );
+  }, [statefulSetsQuery.data, podsWithMetrics]);
+
+  const refetch = useCallback(async () => {
+    await Promise.all([statefulSetsQuery.refetch(), refetchPods()]);
+  }, [statefulSetsQuery, refetchPods]);
 
   const columns = useMemo<ColumnDef<StatefulSetInfoWithMetrics>[]>(
     () => [
@@ -115,12 +130,12 @@ export function StatefulSetList() {
       )}
       <ResourceList<StatefulSetInfoWithMetrics>
         title="StatefulSets"
-        queryKey={[
-          "statefulsets",
-          currentNamespace,
-          JSON.stringify(podsWithMetrics.map((p) => p.name)),
-        ]}
-        queryFn={queryFn}
+        data={statefulSetsWithMetrics}
+        isLoading={statefulSetsQuery.isLoading}
+        isFetching={
+          statefulSetsQuery.isFetching || isFetchingPods || isLoadingPods
+        }
+        onRefresh={refetch}
         columns={(setDeleteTarget) => [
           ...columns,
           {
@@ -155,8 +170,6 @@ export function StatefulSetList() {
           resourceType: ResourceType.StatefulSet,
         }}
         emptyStateLabel="statefulsets"
-        staleTime={10000}
-        refetchInterval={15000}
       />
     </div>
   );

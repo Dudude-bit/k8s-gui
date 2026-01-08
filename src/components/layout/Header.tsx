@@ -115,6 +115,12 @@ export function Header() {
     }
   };
 
+  const handleRetryConnection = async () => {
+    const targetContext = errorContext || currentContext || undefined;
+    await loadContexts();
+    await connect(targetContext);
+  };
+
   return (
     <header className="flex h-14 items-center justify-between border-b border-border px-4">
       {/* Left: Cluster and Namespace selectors */}
@@ -185,9 +191,8 @@ export function Header() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <RefreshButton
-                  onRefresh={() =>
-                    connect(errorContext || currentContext || undefined)
-                  }
+                  onRefresh={handleRetryConnection}
+                  isRefreshing={isLoading || isAuthenticating}
                   variant="ghost"
                   size="icon"
                 />
@@ -227,12 +232,13 @@ export function Header() {
         )}
 
         {/* Refresh button */}
-        <RefreshButton
-          onRefresh={() => refetchNamespaces()}
-          disabled={!isConnected}
-          variant="ghost"
-          size="icon"
-        />
+        {isConnected && !error && (
+          <RefreshButton
+            onRefresh={() => refetchNamespaces()}
+            variant="ghost"
+            size="icon"
+          />
+        )}
       </div>
 
       {/* Right: License, Search, Profile, and theme */}

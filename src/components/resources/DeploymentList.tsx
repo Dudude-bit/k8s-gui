@@ -7,11 +7,12 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceList } from "./ResourceList";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
+import { useResourceList } from "@/hooks/useResource";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { MetricBadge } from "@/components/ui/metric-card";
@@ -39,27 +40,41 @@ export function DeploymentList() {
   const { hasAccess } = usePremiumFeature();
 
   // Use centralized pods with metrics hook
-  const { data: podsWithMetrics, podStatus } = usePodsWithMetrics();
+  const {
+    data: podsWithMetrics,
+    podStatus,
+    isLoading: isLoadingPods,
+    isFetching: isFetchingPods,
+    refetch: refetchPods,
+  } = usePodsWithMetrics();
 
-  // Query function that merges deployments with aggregated metrics
-  const queryFn = async (): Promise<DeploymentInfoWithMetrics[]> => {
-    try {
-      const deployments = await commands.listDeployments({
-        namespace: currentNamespace || null,
-        labelSelector: null,
-        fieldSelector: null,
-        limit: null,
-      });
-
-      return attachAggregatedPodMetrics(
-        deployments,
-        podsWithMetrics,
-        matchDeploymentPods
-      );
-    } catch (err) {
-      throw new Error(normalizeTauriError(err));
+  const deploymentsQuery = useResourceList(
+    [toPlural(ResourceType.Deployment), currentNamespace],
+    async () => {
+      try {
+        return await commands.listDeployments({
+          namespace: currentNamespace || null,
+          labelSelector: null,
+          fieldSelector: null,
+          limit: null,
+        });
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
     }
-  };
+  );
+
+  const deploymentsWithMetrics = useMemo(() => {
+    return attachAggregatedPodMetrics(
+      deploymentsQuery.data ?? [],
+      podsWithMetrics,
+      matchDeploymentPods
+    );
+  }, [deploymentsQuery.data, podsWithMetrics]);
+
+  const refetch = useCallback(async () => {
+    await Promise.all([deploymentsQuery.refetch(), refetchPods()]);
+  }, [deploymentsQuery, refetchPods]);
 
   const columns = useMemo<ColumnDef<DeploymentInfoWithMetrics>[]>(
     () => [
@@ -111,12 +126,12 @@ export function DeploymentList() {
       )}
       <ResourceList<DeploymentInfoWithMetrics>
         title="Deployments"
-        queryKey={[
-          toPlural(ResourceType.Deployment),
-          currentNamespace,
-          JSON.stringify(podsWithMetrics.map((p) => p.name)),
-        ]}
-        queryFn={queryFn}
+        data={deploymentsWithMetrics}
+        isLoading={deploymentsQuery.isLoading}
+        isFetching={
+          deploymentsQuery.isFetching || isFetchingPods || isLoadingPods
+        }
+        onRefresh={refetch}
         columns={(setDeleteTarget) => [
           ...columns,
           {
@@ -163,8 +178,6 @@ export function DeploymentList() {
           invalidateQueryKeys: [[toPlural(ResourceType.Deployment)]],
           resourceType: ResourceType.Deployment,
         }}
-        staleTime={10000}
-        refetchInterval={15000}
       />
     </div>
   );

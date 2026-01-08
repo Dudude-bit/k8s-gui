@@ -12,6 +12,7 @@ import type {
 } from "@/generated/types";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { handlePremiumQueryError } from "@/lib/error-utils";
+import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
 
 export interface UseMetricsOptions {
   namespace?: string | null;
@@ -76,8 +77,8 @@ export function useMetrics(options?: UseMetricsOptions) {
     },
     enabled: enabled && includePods,
     placeholderData: keepPreviousData,
-    staleTime: 5000,
-    refetchInterval: 8000,
+    staleTime: STALE_TIMES.metrics,
+    refetchInterval: REFRESH_INTERVALS.metrics,
     refetchOnWindowFocus: false,
     ...options?.podQueryOptions,
   });
@@ -93,8 +94,8 @@ export function useMetrics(options?: UseMetricsOptions) {
     },
     enabled: enabled && includeNodes,
     placeholderData: keepPreviousData,
-    staleTime: 5000,
-    refetchInterval: 8000,
+    staleTime: STALE_TIMES.metrics,
+    refetchInterval: REFRESH_INTERVALS.metrics,
     refetchOnWindowFocus: false,
     ...options?.nodeQueryOptions,
   });
@@ -110,8 +111,8 @@ export function useMetrics(options?: UseMetricsOptions) {
     },
     enabled: enabled && includeCluster,
     placeholderData: keepPreviousData,
-    staleTime: 5000,
-    refetchInterval: 10000,
+    staleTime: STALE_TIMES.metrics,
+    refetchInterval: REFRESH_INTERVALS.metricsCluster,
     refetchOnWindowFocus: false,
     ...options?.clusterQueryOptions,
   });

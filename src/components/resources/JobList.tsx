@@ -1,9 +1,10 @@
 import { Link } from "react-router-dom";
 import { useClusterStore } from "@/stores/clusterStore";
 import { ColumnDef } from "@tanstack/react-table";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { ResourceList } from "./ResourceList";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
+import { useResourceList } from "@/hooks/useResource";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { MetricBadge } from "@/components/ui/metric-card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -33,23 +34,41 @@ export function JobList() {
   const { hasAccess } = usePremiumFeature();
 
   // Use centralized pods with metrics hook
-  const { data: podsWithMetrics, podStatus } = usePodsWithMetrics();
+  const {
+    data: podsWithMetrics,
+    podStatus,
+    isLoading: isLoadingPods,
+    isFetching: isFetchingPods,
+    refetch: refetchPods,
+  } = usePodsWithMetrics();
 
-  // Query function that merges resources with aggregated metrics
-  const queryFn = async (): Promise<JobInfoWithMetrics[]> => {
-    try {
-      const items = await commands.listJobs({
-        namespace: currentNamespace || null,
-        labelSelector: null,
-        fieldSelector: null,
-        limit: null,
-      });
-
-      return attachAggregatedPodMetrics(items, podsWithMetrics, matchJobPods);
-    } catch (err) {
-      throw new Error(normalizeTauriError(err));
+  const jobsQuery = useResourceList(
+    [toPlural(ResourceType.Job), currentNamespace],
+    async () => {
+      try {
+        return await commands.listJobs({
+          namespace: currentNamespace || null,
+          labelSelector: null,
+          fieldSelector: null,
+          limit: null,
+        });
+      } catch (err) {
+        throw new Error(normalizeTauriError(err));
+      }
     }
-  };
+  );
+
+  const jobsWithMetrics = useMemo(() => {
+    return attachAggregatedPodMetrics(
+      jobsQuery.data ?? [],
+      podsWithMetrics,
+      matchJobPods
+    );
+  }, [jobsQuery.data, podsWithMetrics]);
+
+  const refetch = useCallback(async () => {
+    await Promise.all([jobsQuery.refetch(), refetchPods()]);
+  }, [jobsQuery, refetchPods]);
 
   const columns = useMemo<ColumnDef<JobInfoWithMetrics>[]>(
     () => [
@@ -107,12 +126,10 @@ export function JobList() {
       )}
       <ResourceList<JobInfoWithMetrics>
         title="Jobs"
-        queryKey={[
-          "jobs",
-          currentNamespace,
-          JSON.stringify(podsWithMetrics.map((p) => p.name)),
-        ]}
-        queryFn={queryFn}
+        data={jobsWithMetrics}
+        isLoading={jobsQuery.isLoading}
+        isFetching={jobsQuery.isFetching || isFetchingPods || isLoadingPods}
+        onRefresh={refetch}
         columns={(setDeleteTarget) => [
           ...columns,
           {
@@ -147,8 +164,6 @@ export function JobList() {
           resourceType: ResourceType.Job,
         }}
         emptyStateLabel="jobs"
-        staleTime={10000}
-        refetchInterval={15000}
       />
     </div>
   );
