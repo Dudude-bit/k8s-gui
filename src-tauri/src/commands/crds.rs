@@ -531,6 +531,7 @@ pub async fn list_custom_resources(
     limit: Option<i64>,
     state: State<'_, AppState>,
 ) -> Result<Vec<CustomResourceInfo>> {
+    crate::validation::validate_dns_subdomain(&crd_name)?;
     // First get the CRD to understand its structure
     let crd: CustomResourceDefinition =
         crate::commands::helpers::get_cluster_resource(crd_name.clone(), state.clone()).await?;
