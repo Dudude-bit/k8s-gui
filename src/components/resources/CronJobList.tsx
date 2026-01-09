@@ -7,17 +7,16 @@ import { ResourceList } from "./ResourceList";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
 import { useResourceList } from "@/hooks/useResource";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
-import { MetricBadge } from "@/components/ui/metric-card";
 import {
   attachAggregatedPodMetrics,
   matchCronJobPods,
   type ResourceMetrics,
 } from "@/lib/metrics";
-import { formatAge } from "@/lib/utils";
+import { RealtimeAge } from "@/components/ui/realtime";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { getResourceDetailUrl, getResourceListUrl } from "@/lib/navigation-utils";
 import type { CronJobInfo } from "@/generated/types";
 import { commands } from "@/lib/commands";
-import { normalizeTauriError } from "@/lib/error-utils";
 import { ActionMenu } from "@/components/ui/action-menu";
 import {
   DropdownMenuItem,
@@ -25,7 +24,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Eye, Trash2 } from "lucide-react";
 import { MetricsStatusBanner } from "@/components/metrics";
-import { createNameColumn, createAgeColumn } from "./columns";
+import {
+  createNameColumn,
+  createNamespaceColumn,
+  createAgeColumn,
+  createCpuColumn,
+  createMemoryColumn,
+} from "./columns";
 
 // Extended Info with metrics
 type CronJobInfoWithMetrics = CronJobInfo & ResourceMetrics;
@@ -45,18 +50,12 @@ export function CronJobList() {
 
   const cronJobsQuery = useResourceList(
     [toPlural(ResourceType.CronJob), currentNamespace],
-    async () => {
-      try {
-        return await commands.listCronjobs({
-          namespace: currentNamespace || null,
-          labelSelector: null,
-          fieldSelector: null,
-          limit: null,
-        });
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    }
+    () => commands.listCronjobs({
+      namespace: currentNamespace || null,
+      labelSelector: null,
+      fieldSelector: null,
+      limit: null,
+    })
   );
 
   const cronJobsWithMetrics = useMemo(() => {
@@ -71,26 +70,12 @@ export function CronJobList() {
     await Promise.all([cronJobsQuery.refetch(), refetchPods()]);
   }, [cronJobsQuery, refetchPods]);
 
-  const cronJobUrlPrefix = `/${toPlural(ResourceType.CronJob)}`;
-
   const columns = useMemo<ColumnDef<CronJobInfoWithMetrics>[]>(
     () => [
-      createNameColumn<CronJobInfoWithMetrics>(cronJobUrlPrefix, { disableLink: true }),
-      { accessorKey: "namespace", header: "Namespace" },
-      {
-        id: "cpu",
-        header: "CPU",
-        cell: ({ row }) => (
-          <MetricBadge used={row.original.cpuMillicores} type="cpu" />
-        ),
-      },
-      {
-        id: "memory",
-        header: "Memory",
-        cell: ({ row }) => (
-          <MetricBadge used={row.original.memoryBytes} type="memory" />
-        ),
-      },
+      createNameColumn<CronJobInfoWithMetrics>(getResourceListUrl(ResourceType.CronJob), { disableLink: true }),
+      createNamespaceColumn<CronJobInfoWithMetrics>(),
+      createCpuColumn<CronJobInfoWithMetrics>(),
+      createMemoryColumn<CronJobInfoWithMetrics>(),
       { accessorKey: "schedule", header: "Schedule" },
       {
         id: "suspend",
@@ -110,13 +95,15 @@ export function CronJobList() {
         id: "last_schedule",
         header: "Last Schedule",
         cell: ({ row }) =>
-          row.original.lastSchedule
-            ? formatAge(row.original.lastSchedule) + " ago"
-            : "Never",
+          row.original.lastSchedule ? (
+            <><RealtimeAge timestamp={row.original.lastSchedule} /> ago</>
+          ) : (
+            "Never"
+          ),
       },
       createAgeColumn<CronJobInfoWithMetrics>(),
     ],
-    [cronJobUrlPrefix]
+    []
   );
 
   return (
@@ -138,7 +125,7 @@ export function CronJobList() {
               <ActionMenu>
                 <DropdownMenuItem asChild>
                   <Link
-                    to={`/${toPlural(ResourceType.CronJob)}/${row.original.namespace}/${row.original.name}`}
+                    to={getResourceDetailUrl(ResourceType.CronJob, row.original.name, row.original.namespace)}
                   >
                     <Eye className="mr-2 h-4 w-4" />
                     View Details
@@ -164,7 +151,7 @@ export function CronJobList() {
           resourceType: ResourceType.CronJob,
         }}
         emptyStateLabel="cronjobs"
-        getRowHref={(row) => `${cronJobUrlPrefix}/${row.namespace}/${row.name}`}
+        getRowHref={(row) => getResourceDetailUrl(ResourceType.CronJob, row.name, row.namespace)}
       />
     </div>
   );

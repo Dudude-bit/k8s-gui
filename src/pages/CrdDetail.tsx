@@ -14,7 +14,7 @@ import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { ResourceDetailLayout } from "@/components/resources/ResourceDetailLayout";
 import { SchemaViewer } from "@/components/crds/SchemaViewer";
 import { CustomResourceList } from "@/components/resources/CustomResourceList";
-import { formatAge } from "@/lib/utils";
+import { RealtimeAge } from "@/components/ui/realtime";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { commands } from "@/lib/commands";
@@ -138,7 +138,7 @@ export function CrdDetail() {
               <div>
                 <p className="text-sm text-muted-foreground">Age</p>
                 <p className="font-medium">
-                  {crd.createdAt ? formatAge(crd.createdAt) : "-"}
+                  <RealtimeAge timestamp={crd.createdAt} fallback="-" />
                 </p>
               </div>
               <div>

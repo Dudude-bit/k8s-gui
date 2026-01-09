@@ -3934,6 +3934,7 @@ dependencies = [
  "config",
  "dashmap",
  "dirs 5.0.1",
+ "flate2",
  "futures",
  "gcp_auth",
  "http 1.4.0",

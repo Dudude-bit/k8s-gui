@@ -8,7 +8,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatAge } from "@/lib/utils";
+import { RealtimeAge } from "@/components/ui/realtime";
 import { MetricBadge } from "@/components/ui/metric-card";
 import { Eye, Trash2 } from "lucide-react";
 import { ActionMenu } from "@/components/ui/action-menu";
@@ -106,12 +106,28 @@ export function createNamespaceColumn<
 
 /**
  * Creates an age column from created_at timestamp
+ * Uses RealtimeAge for auto-updating display
  */
 export function createAgeColumn<T extends WithCreatedAt>(): ColumnDef<T> {
   return {
     id: "age",
     header: "Age",
-    cell: ({ row }) => formatAge(row.original.createdAt ?? null),
+    cell: ({ row }) => <RealtimeAge timestamp={row.original.createdAt} />,
+  };
+}
+
+/**
+ * Creates a generic time-ago column for any timestamp field
+ * Uses RealtimeAge for auto-updating display
+ */
+export function createTimeAgoColumn<T>(
+  accessor: (row: T) => string | null | undefined,
+  header: string
+): ColumnDef<T> {
+  return {
+    id: header.toLowerCase().replace(/\s+/g, "-"),
+    header,
+    cell: ({ row }) => <RealtimeAge timestamp={accessor(row.original)} />,
   };
 }
 

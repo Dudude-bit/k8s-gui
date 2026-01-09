@@ -18,9 +18,10 @@ import { ActionMenu } from "@/components/ui/action-menu";
 import { commands } from "@/lib/commands";
 import type { PersistentVolumeClaimInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import { STALE_TIMES } from "@/lib/refresh";
 
-const pvcUrlPrefix = `/${toPlural(ResourceType.PersistentVolumeClaim)}`;
+
 
 const baseColumns: ColumnDef<PersistentVolumeClaimInfo>[] = [
   {
@@ -112,7 +113,7 @@ export function PersistentVolumeClaimList() {
             <ActionMenu>
               <DropdownMenuItem asChild>
                 <Link
-                  to={`/${toPlural(ResourceType.PersistentVolumeClaim)}/${row.original.namespace}/${row.original.name}`}
+                  to={getResourceDetailUrl(ResourceType.PersistentVolumeClaim, row.original.name, row.original.namespace)}
                 >
                   <Eye className="mr-2 h-4 w-4" />
                   View Details
@@ -142,7 +143,7 @@ export function PersistentVolumeClaimList() {
       }}
       staleTime={STALE_TIMES.resourceList}
       searchKey="name"
-      getRowHref={(row) => `${pvcUrlPrefix}/${row.namespace}/${row.name}`}
+      getRowHref={(row) => getResourceDetailUrl(ResourceType.PersistentVolumeClaim, row.name, row.namespace)}
     />
   );
 }

@@ -29,7 +29,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { formatAge } from "@/lib/utils";
+import { RealtimeAge } from "@/components/ui/realtime";
 import {
   Trash2,
   RefreshCw,
@@ -82,20 +82,8 @@ export function DeploymentDetail() {
     deleteMutation,
   } = useResourceDetail<DeploymentInfo>({
     resourceKind: ResourceType.Deployment,
-    fetchResource: async (name, ns) => {
-      try {
-        return await commands.getDeployment(name, ns);
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
-    deleteResource: async (name, ns) => {
-      try {
-        await commands.deleteDeployment(name, ns);
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
+    fetchResource: (name, ns) => commands.getDeployment(name, ns),
+    deleteResource: (name, ns) => commands.deleteDeployment(name, ns),
     defaultTab: "overview",
   });
 
@@ -466,7 +454,6 @@ export function DeploymentDetail() {
                 const totalCount = pod.containers?.length ?? 0;
                 const readyText = `${readyCount}/${totalCount}`;
                 const status = pod.status?.phase || "Unknown";
-                const age = formatAge(pod.createdAt);
 
                 return (
                   <Link
@@ -491,7 +478,7 @@ export function DeploymentDetail() {
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <span>Ready: {readyText}</span>
                       <span>Restarts: {pod.restartCount ?? 0}</span>
-                      <span>{age}</span>
+                      <RealtimeAge timestamp={pod.createdAt} />
                     </div>
                   </Link>
                 );

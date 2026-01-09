@@ -26,9 +26,9 @@ export interface StreamLogConfig {
 
 export interface ClusterInfo {
   context: string;
-  serverVersion: string;
+  server_version: string;
   platform: string;
-  gitVersion: string;
+  git_version: string;
 }
 
 export interface ContextInfo {
@@ -36,7 +36,7 @@ export interface ContextInfo {
   cluster: string;
   user: string;
   namespace: string | null;
-  isCurrent: boolean;
+  is_current: boolean;
 }
 
 export interface EndpointsInfo {
@@ -503,6 +503,73 @@ export interface NodeFilters {
   readyOnly: boolean | null;
 }
 
+export interface HelmInstallOptions {
+  releaseName: string;
+  chart: string;
+  namespace: string;
+  version: string | null;
+  values: string | null;
+  createNamespace: boolean;
+  wait: boolean;
+  timeout: string | null;
+}
+
+export interface HelmChartSearchResult {
+  name: string;
+  version: string;
+  appVersion: string;
+  description: string;
+}
+
+export interface HelmRepository {
+  name: string;
+  url: string;
+}
+
+export interface HelmRevision {
+  revision: number;
+  updated: string;
+  status: string;
+  chart: string;
+  appVersion: string | null;
+  description: string | null;
+}
+
+export interface HelmReleaseDetail {
+  name: string;
+  namespace: string;
+  revision: number;
+  status: string;
+  chart: string;
+  chartVersion: string;
+  appVersion: string | null;
+  firstDeployed: string | null;
+  lastDeployed: string | null;
+  description: string | null;
+  values: unknown;
+  manifest: string;
+  notes: string | null;
+}
+
+export interface HelmRelease {
+  name: string;
+  namespace: string;
+  revision: number;
+  status: string;
+  chart: string;
+  appVersion: string | null;
+  updated: string;
+  source: string;
+  suspended: boolean | null;
+  sourceRef: string | null;
+}
+
+export interface HelmAvailability {
+  available: boolean;
+  version: string | null;
+  error: string | null;
+}
+
 export interface PodInfo {
   name: string;
   namespace: string;
@@ -641,16 +708,6 @@ export type ServiceFilters = {
   serviceType: string | null;
 } & ResourceFilters;
 
-export interface HelmRelease {
-  name: string;
-  namespace: string;
-  revision: number;
-  status: string;
-  chart: string;
-  appVersion: string | null;
-  updated: string;
-}
-
 export interface BatchLogResult {
   processed: number;
   failed: number;
@@ -668,7 +725,7 @@ export interface ManifestResult {
   success: boolean;
   stdout: string;
   stderr: string;
-  exitCode: number;
+  exit_code: number;
 }
 
 export interface PortForwardConfigPayload {
@@ -780,10 +837,10 @@ export interface InvolvedObjectInfo {
 
 export interface EventFilters {
   namespace: string | null;
-  involvedObjectName: string | null;
-  involvedObjectKind: string | null;
-  eventType: string | null;
-  fieldSelector: string | null;
+  involved_object_name: string | null;
+  involved_object_kind: string | null;
+  event_type: string | null;
+  field_selector: string | null;
   limit: number | null;
 }
 
@@ -935,7 +992,7 @@ export type EnvVarSourceType =
 export type ContainerState =
   | { type: "running" }
   | { type: "waiting", reason: string | null }
-  | { type: "terminated", exitCode: number; reason: string | null }
+  | { type: "terminated", exit_code: number; reason: string | null }
   | { type: "unknown" };
 
 export type MetricsStatusKind =

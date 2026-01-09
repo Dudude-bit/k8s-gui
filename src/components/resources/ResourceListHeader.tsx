@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { RefreshButton } from "@/components/ui/refresh-button";
 import { Spinner } from "@/components/ui/spinner";
+import { DataFreshness } from "@/components/ui/realtime";
 
 interface ResourceListHeaderProps {
   title: string;
@@ -9,6 +10,8 @@ interface ResourceListHeaderProps {
   isLoading?: boolean;
   onRefresh: () => void;
   actions?: ReactNode;
+  /** Timestamp when data was last fetched (from React Query's dataUpdatedAt) */
+  dataUpdatedAt?: number;
 }
 
 export function ResourceListHeader({
@@ -18,6 +21,7 @@ export function ResourceListHeader({
   isLoading,
   onRefresh,
   actions,
+  dataUpdatedAt,
 }: ResourceListHeaderProps) {
   return (
     <div className="flex items-center justify-between">
@@ -34,6 +38,7 @@ export function ResourceListHeader({
       </div>
       <div className="flex items-center gap-2">
         {actions}
+        <DataFreshness dataUpdatedAt={dataUpdatedAt} isFetching={isFetching} />
         <RefreshButton onRefresh={onRefresh} isRefreshing={isFetching} />
       </div>
     </div>

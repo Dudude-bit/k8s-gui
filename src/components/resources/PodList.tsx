@@ -13,18 +13,18 @@ import {
 } from "@/hooks/usePodsWithMetrics";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { MetricBadge } from "@/components/ui/metric-card";
-import { parseCPU, parseMemory } from "@/lib/k8s-quantity";
 import {
   createNameColumn,
   createNamespaceColumn,
   createAgeColumn,
+  createCpuColumn,
+  createMemoryColumn,
 } from "./columns";
 import type { ContainerInfo } from "@/generated/types";
 import { commands } from "@/lib/commands";
-import { normalizeTauriError } from "@/lib/error-utils";
 import { ResourceList } from "./ResourceList";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { getResourceDetailUrl, getResourceListUrl } from "@/lib/navigation-utils";
 import { MetricsStatusBanner } from "@/components/metrics";
 
 // Helper to format ready containers count
@@ -43,53 +43,18 @@ export function PodList() {
     refetch,
   } = usePodsWithMetrics();
 
-  // URL prefix for pod details
-  const podUrlPrefix = `/${toPlural(ResourceType.Pod)}`;
-
   const columns = useMemo<ColumnDef<PodWithMetrics>[]>(
     () => [
       // Use disableLink since row is clickable
-      createNameColumn<PodWithMetrics>(podUrlPrefix, { disableLink: true }),
+      createNameColumn<PodWithMetrics>(getResourceListUrl(ResourceType.Pod), { disableLink: true }),
       createNamespaceColumn<PodWithMetrics>(),
       {
         id: "status",
         header: "Status",
         cell: ({ row }) => <StatusBadge status={row.original.status.phase} />,
       },
-      {
-        id: "cpu",
-        header: "CPU",
-        cell: ({ row }) => (
-          <MetricBadge
-            used={row.original.cpuMillicores}
-            total={
-              row.original.cpuLimits
-                ? parseCPU(row.original.cpuLimits)
-                : row.original.cpuRequests
-                  ? parseCPU(row.original.cpuRequests)
-                  : null
-            }
-            type="cpu"
-          />
-        ),
-      },
-      {
-        id: "memory",
-        header: "Memory",
-        cell: ({ row }) => (
-          <MetricBadge
-            used={row.original.memoryBytes}
-            total={
-              row.original.memoryLimits
-                ? parseMemory(row.original.memoryLimits)
-                : row.original.memoryRequests
-                  ? parseMemory(row.original.memoryRequests)
-                  : null
-            }
-            type="memory"
-          />
-        ),
-      },
+      createCpuColumn<PodWithMetrics>(),
+      createMemoryColumn<PodWithMetrics>(),
       {
         id: "ready",
         header: "Ready",
@@ -118,7 +83,7 @@ export function PodList() {
       },
       createAgeColumn<PodWithMetrics>(),
     ],
-    [podUrlPrefix]
+    []
   );
 
   return (
@@ -140,7 +105,7 @@ export function PodList() {
               <ActionMenu>
                 <DropdownMenuItem asChild>
                   <Link
-                    to={`${podUrlPrefix}/${row.original.namespace}/${row.original.name}`}
+                    to={getResourceDetailUrl(ResourceType.Pod, row.original.name, row.original.namespace)}
                   >
                     <Eye className="mr-2 h-4 w-4" />
                     View Details
@@ -167,15 +132,9 @@ export function PodList() {
           },
         ]}
         emptyStateLabel={toPlural(ResourceType.Pod)}
-        getRowHref={(row) => `${podUrlPrefix}/${row.namespace}/${row.name}`}
+        getRowHref={(row) => getResourceDetailUrl(ResourceType.Pod, row.name, row.namespace)}
         deleteConfig={{
-          mutationFn: async (item) => {
-            try {
-              await commands.deletePod(item.name, item.namespace, false);
-            } catch (err) {
-              throw new Error(normalizeTauriError(err));
-            }
-          },
+          mutationFn: (item) => commands.deletePod(item.name, item.namespace, false),
           invalidateQueryKeys: [[toPlural(ResourceType.Pod)]],
           resourceType: ResourceType.Pod,
         }}

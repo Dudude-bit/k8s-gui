@@ -46,12 +46,14 @@ pub async fn list_nodes(
 /// Get a single node by name
 #[tauri::command]
 pub async fn get_node(name: String, state: State<'_, AppState>) -> Result<NodeInfo> {
+    crate::validation::validate_dns_subdomain(&name)?;
     get_cluster_resource_info::<Node, NodeInfo>(name, state).await
 }
 
 /// Get pods running on a node
 #[tauri::command]
 pub async fn get_node_pods(name: String, state: State<'_, AppState>) -> Result<Vec<PodInfo>> {
+    crate::validation::validate_dns_subdomain(&name)?;
     let ctx = ResourceContext::for_list(&state, None)?;
     let api: kube::Api<Pod> = ctx.namespaced_or_cluster_api();
 
@@ -64,6 +66,7 @@ pub async fn get_node_pods(name: String, state: State<'_, AppState>) -> Result<V
 /// Cordon a node (mark as unschedulable)
 #[tauri::command]
 pub async fn cordon_node(name: String, state: State<'_, AppState>) -> Result<()> {
+    crate::validation::validate_dns_subdomain(&name)?;
     let ctx = ResourceContext::for_list(&state, None)?;
     let api: kube::Api<Node> = ctx.cluster_api();
 
@@ -84,6 +87,7 @@ pub async fn cordon_node(name: String, state: State<'_, AppState>) -> Result<()>
 /// Uncordon a node (mark as schedulable)
 #[tauri::command]
 pub async fn uncordon_node(name: String, state: State<'_, AppState>) -> Result<()> {
+    crate::validation::validate_dns_subdomain(&name)?;
     let ctx = ResourceContext::for_list(&state, None)?;
     let api: kube::Api<Node> = ctx.cluster_api();
 
@@ -109,6 +113,7 @@ pub async fn drain_node(
     force: Option<bool>,
     state: State<'_, AppState>,
 ) -> Result<()> {
+    crate::validation::validate_dns_subdomain(&name)?;
     // First cordon the node
     cordon_node(name.clone(), state.clone()).await?;
 

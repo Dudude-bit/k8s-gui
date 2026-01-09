@@ -61,8 +61,11 @@ export function LogViewer({
   const [searchQuery, setSearchQuery] = useState("");
   const [tailLines, setTailLines] = useState(100);
   const [prettyView, setPrettyView] = useState(false);
+  const [rawView, setRawView] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [isPaused, setIsPaused] = useState(false);
+  const [retryTrigger, setRetryTrigger] = useState(0);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const streamIdRef = useRef<string | null>(null);
   const unlistenRef = useRef<(() => void) | null>(null);
@@ -70,8 +73,8 @@ export function LogViewer({
   // Filter logs based on search
   const filteredLogs = searchQuery
     ? logs.filter((log) =>
-        log.message.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      log.message.toLowerCase().includes(searchQuery.toLowerCase())
+    )
     : logs;
 
   // Get the actual scroll viewport element
@@ -133,140 +136,17 @@ export function LogViewer({
     }
   }, [getViewport]);
 
-  // Start streaming logs
-  const startStreaming = useCallback(async () => {
-    if (isConnecting || isStreaming) return;
-
-    try {
-      setIsConnecting(true);
-      setError(null);
-
-      console.log("Starting log stream for", podName, selectedContainer);
-
-      const config: StreamLogConfig = {
-        podName: podName,
-        namespace,
-        container: selectedContainer,
-        tailLines: tailLines,
-        follow: true,
-        timestamps: true,
-        previous: false,
-        sinceSeconds: null,
-      };
-
-      const streamId = await commands.streamPodLogs(config);
-
-      console.log("Got stream ID:", streamId);
-      streamIdRef.current = streamId;
-
-      // Listen for log events
-      const unlisten = await listen<{
-        stream_id: string;
-        line: string;
-        pod: string;
-        container: string;
-        message: string;
-        timestamp: string | null;
-        level: LogLevel | null;
-        format: LogFormat | null;
-        fields: Record<string, string> | null;
-        raw: string;
-      }>("log-line", (event) => {
-        if (event.payload.stream_id === streamId) {
-          setLogs((prev) =>
-            [
-              ...prev,
-              {
-                timestamp: event.payload.timestamp,
-                message: event.payload.message,
-                level: event.payload.level,
-                format: event.payload.format ?? "plain",
-                fields: event.payload.fields,
-                raw: event.payload.raw || event.payload.line || event.payload.message,
-                pod: event.payload.pod,
-                container: event.payload.container,
-                namespace,
-              },
-            ].slice(-MAX_LOG_LINES)
-          );
-        }
-      });
-
-      unlistenRef.current = unlisten;
-      setIsStreaming(true);
-      setIsConnecting(false);
-    } catch (err) {
-      console.error("Failed to start log streaming:", err);
-      const errorMsg = normalizeTauriError(err);
-
-      // Check if this is a premium feature error
-      if (isPremiumFeatureError(errorMsg)) {
-        setError(
-          "Log streaming is a premium feature. Please activate your license to use real-time log streaming."
-        );
-        setIsConnecting(false);
-        setIsStreaming(false);
-        return;
-      }
-
-      // Check if pod was not found
-      const isPodNotFound =
-        errorMsg.includes("not found") || errorMsg.includes("NotFound");
-
-      setError(errorMsg);
-      setIsConnecting(false);
-      setIsStreaming(false);
-
-      if (isPodNotFound && onPodNotFound) {
-        onPodNotFound();
-      } else {
-        toast({
-          title: "Log streaming failed",
-          description: errorMsg,
-          variant: "destructive",
-        });
-      }
-    }
-  }, [
-    podName,
-    namespace,
-    selectedContainer,
-    tailLines,
-    isConnecting,
-    isStreaming,
-    toast,
-    onPodNotFound,
-  ]);
-
-  const stopStreaming = useCallback(async () => {
-    // Unlisten from events first
-    if (unlistenRef.current) {
-      unlistenRef.current();
-      unlistenRef.current = null;
-    }
-
-    if (streamIdRef.current) {
-      try {
-        await commands.stopLogStream(streamIdRef.current);
-      } catch (err) {
-        console.error("Failed to stop log streaming:", err);
-      }
-      streamIdRef.current = null;
-    }
-    setIsStreaming(false);
-    setIsConnecting(false);
-  }, []);
-
   const toggleStreaming = () => {
-    if (isStreaming) {
-      stopStreaming();
-    } else {
-      startStreaming();
-    }
+    setIsPaused((prev) => !prev);
   };
 
   const clearLogs = () => {
     setLogs([]);
+  };
+
+  const handleRetry = () => {
+    setIsPaused(false);
+    setRetryTrigger((prev) => prev + 1);
   };
 
   const downloadLogs = async () => {
@@ -297,26 +177,206 @@ export function LogViewer({
     }
   };
 
-  // Auto-start streaming on mount
+  // Handle log streaming lifecycle
   useEffect(() => {
-    startStreaming();
+    let active = true;
+    let currentStreamId: string | null = null;
+    let currentUnlisten: (() => void) | null = null;
+
+    const cleanup = async () => {
+      active = false;
+      if (currentUnlisten) {
+        currentUnlisten();
+        currentUnlisten = null;
+      }
+      if (currentStreamId) {
+        try {
+          await commands.stopLogStream(currentStreamId);
+        } catch (err) {
+          console.error("Failed to stop log streaming:", err);
+        }
+        currentStreamId = null;
+      }
+      setIsStreaming(false);
+      setIsConnecting(false);
+    };
+
+    const initStream = async () => {
+      // Small delay to debounce rapid strict mode mounts or prop changes
+      await new Promise(resolve => setTimeout(resolve, 0));
+      if (!active) return;
+
+      if (isConnecting || isStreaming) {
+        // Should not happen if effect is strict, but safety check 
+      }
+
+      if (isPaused) return;
+
+      try {
+        setIsConnecting(true);
+        setError(null);
+        setLogs([]); // Clear logs on new stream start
+
+        console.log("Starting log stream for", podName, selectedContainer);
+
+        const config: StreamLogConfig = {
+          podName: podName,
+          namespace,
+          container: selectedContainer,
+          tailLines: tailLines,
+          follow: true,
+          timestamps: true,
+          previous: false,
+          sinceSeconds: null,
+        };
+
+        // Check active again before async call
+        if (!active) {
+          setIsConnecting(false);
+          return;
+        }
+
+        const streamId = await commands.streamPodLogs(config);
+
+        if (!active) {
+          // If cancelled while waiting for streamId, stop it immediately
+          commands.stopLogStream(streamId).catch(console.error);
+          setIsConnecting(false);
+          return;
+        }
+
+        currentStreamId = streamId;
+        streamIdRef.current = streamId; // Keep ref sync if needed by other funcs
+
+        // Listen for log events
+        const unlisten = await listen<{
+          stream_id: string;
+          line: string;
+          pod: string;
+          container: string;
+          message: string;
+          timestamp: string | null;
+          level: LogLevel | null;
+          format: LogFormat | null;
+          fields: Record<string, string> | null;
+          raw: string;
+        }>("log-line", (event) => {
+          if (event.payload.stream_id === streamId) {
+            setLogs((prev) =>
+              [
+                ...prev,
+                {
+                  timestamp: event.payload.timestamp,
+                  message: event.payload.message,
+                  level: event.payload.level,
+                  format: event.payload.format ?? "plain",
+                  fields: event.payload.fields,
+                  raw: event.payload.raw || event.payload.line || event.payload.message,
+                  pod: event.payload.pod,
+                  container: event.payload.container,
+                  namespace,
+                },
+              ].slice(-MAX_LOG_LINES)
+            );
+          }
+        });
+
+        if (!active) {
+          unlisten();
+          commands.stopLogStream(streamId).catch(console.error);
+          setIsConnecting(false);
+          return;
+        }
+
+        currentUnlisten = unlisten;
+        unlistenRef.current = unlisten; // Keep ref sync
+
+        setIsStreaming(true);
+        setIsConnecting(false);
+      } catch (err) {
+        if (!active) return;
+
+        console.error("Failed to start log streaming:", err);
+        const errorMsg = normalizeTauriError(err);
+
+        // Check if this is a premium feature error
+        if (isPremiumFeatureError(errorMsg)) {
+          setError(
+            "Log streaming is a premium feature. Please activate your license to use real-time log streaming."
+          );
+        } else {
+          // Check if pod was not found
+          const isPodNotFound =
+            errorMsg.includes("not found") || errorMsg.includes("NotFound");
+
+          setError(errorMsg);
+
+          if (isPodNotFound && onPodNotFound) {
+            onPodNotFound();
+          } else {
+            toast({
+              title: "Log streaming failed",
+              description: errorMsg,
+              variant: "destructive",
+            });
+          }
+        }
+        setIsConnecting(false);
+        setIsStreaming(false);
+      }
+    };
+
+    initStream();
 
     return () => {
-      stopStreaming();
+      cleanup();
     };
-  }, []); // Only run on mount/unmount
+  }, [selectedContainer, tailLines, podName, namespace, isPaused, retryTrigger]);
 
-  // Restart streaming when container changes
-  useEffect(() => {
-    if (isStreaming) {
-      stopStreaming().then(() => {
-        setLogs([]);
-        startStreaming();
-      });
-    } else {
-      setLogs([]);
-    }
-  }, [selectedContainer, tailLines]);
+  // Manual toggle handler reused, but needs to interact with the effect?
+  // Actually, if we use the effect for the MAIN stream, manual stop/start might conflict.
+  // Ideally, manual stop just sets a state "paused" that the effect respects.
+  // But for now, let's keep the manual toggle simple. 
+  // If the user manually stops, we might need a state `isManualStop`.
+
+  // BUT: The original code allowed manual start/stop. 
+  // If we put everything in useEffect, it will AUTO-START always.
+  // If the user manually STOPS, and then changes container, it will AUTO-START again.
+  // This seems to be the existing behavior (useEffect dependent on selectedContainer).
+
+  // To allow manual toggle, we can keep the effect but make it respect a `shouldStream` state?
+  // Or simpler: Just rely on the effect for lifecycle, and manual stop sets `selectedContainer` to null? No.
+
+  // Let's stick to the inline effect for robustness, and maybe disable the manual toggle for now if it complicates, OR update manual toggle to force a re-mount or similar?
+  // No, manual toggle is `startStreaming` / `stopStreaming`.
+
+  // Refactoring:
+  // The `startStreaming` function is used by the Retry button and Toggle button.
+  // If I move logic to useEffect, I need to expose a way to retry.
+  // Retry can just strictly toggle `isStreaming` state?
+  // Let's keep `startStreaming` as a function but make it robust.
+
+  // Attempt 2: Keep `startStreaming` but make it use a ref to check if it has been "superceded".
+  // But `useEffect` calling it is the issue.
+
+  // Let's go with the `useEffect` being the SOURCE of truth for the stream.
+  // `isStreaming` becomes a reflected state, or we use a `paused` state.
+
+  // Simplified approach preserving manual control:
+  // 1. Just fix the race condition in `useEffect`.
+  // 2. We keep `stopStreaming` and `startStreaming`.
+  // 3. We use a ref `mountId` or similar to stamp the requests.
+
+  // Let's try the `active` flag pattern but keep the functions outside.
+  // Since `startStreaming` is async, we return a cancellation function? No.
+
+  // Just inline the critical logic into `useEffect` for the *automatic* stream.
+  // For manual toggle, they can call `startStreaming` which operates similarly.
+  // BUT having two places doing `listen` is bad.
+
+  // I will define `startStreaming` and `stopStreaming` using refs to synchronize.
+
+
 
   const formatTimestamp = (timestamp: string | null) => {
     if (!timestamp) return "--:--:--";
@@ -442,10 +502,25 @@ export function LogViewer({
         <Button
           variant={prettyView ? "secondary" : "ghost"}
           size="sm"
-          onClick={() => setPrettyView((prev) => !prev)}
+          onClick={() => {
+            setPrettyView((prev) => !prev);
+            if (!prettyView) setRawView(false);
+          }}
           title="Toggle pretty view"
         >
           Pretty
+        </Button>
+
+        <Button
+          variant={rawView ? "secondary" : "ghost"}
+          size="sm"
+          onClick={() => {
+            setRawView((prev) => !prev);
+            if (!rawView) setPrettyView(false);
+          }}
+          title="Toggle raw view"
+        >
+          Raw
         </Button>
 
         <div className="flex items-center gap-1 ml-auto">
@@ -516,7 +591,7 @@ export function LogViewer({
                 size="sm"
                 onClick={() => {
                   setError(null);
-                  startStreaming();
+                  handleRetry();
                 }}
               >
                 Retry
@@ -538,30 +613,37 @@ export function LogViewer({
                   log.level
                 )}`}
               >
-                <span className="text-muted-foreground shrink-0 w-20">
-                  {formatTimestamp(log.timestamp)}
-                </span>
-                <span
-                  className={`shrink-0 w-8 text-[10px] font-semibold tracking-wide uppercase ${levelClass(
-                    log.level
-                  )}`}
-                >
-                  {levelLabel(log.level)}
-                </span>
-                {log.format !== "plain" && (
-                  <span className="shrink-0 text-[10px] uppercase text-muted-foreground">
-                    {formatLabel(log.format)}
-                  </span>
+                {!rawView && (
+                  <>
+                    <span className="text-muted-foreground shrink-0 w-20">
+                      {formatTimestamp(log.timestamp)}
+                    </span>
+                    <span
+                      className={`shrink-0 w-8 text-[10px] font-semibold tracking-wide uppercase ${levelClass(
+                        log.level
+                      )}`}
+                    >
+                      {levelLabel(log.level)}
+                    </span>
+                    {log.format !== "plain" && (
+                      <span className="shrink-0 text-[10px] uppercase text-muted-foreground">
+                        {formatLabel(log.format)}
+                      </span>
+                    )}
+                  </>
                 )}
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1 w-full min-w-0">
                   <span className="whitespace-pre-wrap break-all">
                     {searchQuery ? (
-                      <HighlightedText text={log.message} query={searchQuery} />
+                      <HighlightedText
+                        text={rawView ? log.raw : log.message}
+                        query={searchQuery}
+                      />
                     ) : (
-                      log.message
+                      rawView ? log.raw : log.message
                     )}
                   </span>
-                  {prettyView && log.fields && (
+                  {!rawView && prettyView && log.fields && (
                     <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground">
                       {Object.entries(log.fields)
                         .filter(([key]) => !HIDDEN_FIELD_KEYS.has(key))
@@ -589,7 +671,7 @@ export function LogViewer({
           )}
         </span>
         <div className="flex items-center gap-4">
-          {detectedFormat && (
+          {!rawView && detectedFormat && (
             <span className="capitalize">format: {detectedFormat}</span>
           )}
           {isStreaming && (

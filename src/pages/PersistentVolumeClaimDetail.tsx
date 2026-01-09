@@ -10,7 +10,7 @@ import { ResourceType } from "@/lib/resource-registry";
 import { Database, HardDrive, Link as LinkIcon } from "lucide-react";
 import { commands } from "@/lib/commands";
 import type { PersistentVolumeClaimInfo } from "@/generated/types";
-import { normalizeTauriError } from "@/lib/error-utils";
+
 import { StatusBadge } from "@/components/ui/status-badge";
 
 export function PersistentVolumeClaimDetail() {
@@ -29,20 +29,8 @@ export function PersistentVolumeClaimDetail() {
         goBack,
     } = useResourceDetail<PersistentVolumeClaimInfo>({
         resourceKind: ResourceType.PersistentVolumeClaim,
-        fetchResource: async (name, ns) => {
-            try {
-                return await commands.getPersistentVolumeClaim(name, ns);
-            } catch (err) {
-                throw new Error(normalizeTauriError(err));
-            }
-        },
-        deleteResource: async (name, ns) => {
-            try {
-                await commands.deletePersistentVolumeClaim(name, ns);
-            } catch (err) {
-                throw new Error(normalizeTauriError(err));
-            }
-        },
+        fetchResource: (name, ns) => commands.getPersistentVolumeClaim(name, ns),
+        deleteResource: (name, ns) => commands.deletePersistentVolumeClaim(name, ns),
         defaultTab: "details",
     });
 

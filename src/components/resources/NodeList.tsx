@@ -12,18 +12,18 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import { MetricBadge } from "@/components/ui/metric-card";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { useMemo } from "react";
 import { commands } from "@/lib/commands";
-import { normalizeTauriError } from "@/lib/error-utils";
 import { useMetrics } from "@/hooks/useMetrics";
 import { parseCPU, parseMemory } from "@/lib/k8s-quantity";
 import { MetricsStatusBanner } from "@/components/metrics";
 import { ResourceList } from "@/components/resources/ResourceList";
 import type { NodeInfo } from "@/generated/types";
 import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
-import { formatAge } from "@/lib/utils";
+import { RealtimeAge } from "@/components/ui/realtime";
 
 export function NodeList() {
   const { isConnected } = useClusterStore();
@@ -46,13 +46,7 @@ export function NodeList() {
   }, [nodeMetrics]);
 
   const cordonMutation = useMutation({
-    mutationFn: async (nodeName: string) => {
-      try {
-        await commands.cordonNode(nodeName);
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
+    mutationFn: (nodeName: string) => commands.cordonNode(nodeName),
     onSuccess: (_, nodeName) => {
       queryClient.invalidateQueries({ queryKey: [toPlural(ResourceType.Node)] });
       toast({
@@ -70,13 +64,7 @@ export function NodeList() {
   });
 
   const uncordonMutation = useMutation({
-    mutationFn: async (nodeName: string) => {
-      try {
-        await commands.uncordonNode(nodeName);
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
+    mutationFn: (nodeName: string) => commands.uncordonNode(nodeName),
     onSuccess: (_, nodeName) => {
       queryClient.invalidateQueries({ queryKey: [toPlural(ResourceType.Node)] });
       toast({
@@ -94,13 +82,7 @@ export function NodeList() {
   });
 
   const drainMutation = useMutation({
-    mutationFn: async (nodeName: string) => {
-      try {
-        await commands.drainNode(nodeName, true, true);
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
+    mutationFn: (nodeName: string) => commands.drainNode(nodeName, true, true),
     onSuccess: (_, nodeName) => {
       queryClient.invalidateQueries({ queryKey: [toPlural(ResourceType.Node)] });
       toast({
@@ -116,8 +98,6 @@ export function NodeList() {
       });
     },
   });
-
-  const nodeUrlPrefix = `/${toPlural(ResourceType.Node)}`;
 
   const columns: ColumnDef<NodeInfo>[] = useMemo(
     () => [
@@ -221,14 +201,14 @@ export function NodeList() {
       {
         id: "age",
         header: "Age",
-        cell: ({ row }) => formatAge(row.original.createdAt),
+        cell: ({ row }) => <RealtimeAge timestamp={row.original.createdAt} />,
       },
       {
         id: "actions",
         cell: ({ row }) => (
           <ActionMenu>
             <DropdownMenuItem asChild>
-              <Link to={`/${toPlural(ResourceType.Node)}/${row.original.name}`}>
+              <Link to={getResourceDetailUrl(ResourceType.Node, row.original.name)}>
                 <Eye className="mr-2 h-4 w-4" />
                 View Details
               </Link>
@@ -262,7 +242,6 @@ export function NodeList() {
       },
     ],
     [
-      nodeUrlPrefix,
       cordonMutation,
       uncordonMutation,
       drainMutation,
@@ -275,13 +254,7 @@ export function NodeList() {
     <ResourceList<NodeInfo>
       title="Nodes"
       queryKey={[toPlural(ResourceType.Node)]}
-      queryFn={async () => {
-        try {
-          return await commands.listNodes(null);
-        } catch (err) {
-          throw new Error(normalizeTauriError(err));
-        }
-      }}
+      queryFn={() => commands.listNodes(null)}
       columns={columns}
       emptyStateLabel={toPlural(ResourceType.Node)}
       staleTime={STALE_TIMES.resourceList}
@@ -291,7 +264,7 @@ export function NodeList() {
           <MetricsStatusBanner status={nodeStatus} />
         ) : null
       }
-      getRowHref={(row) => `${nodeUrlPrefix}/${row.name}`}
+      getRowHref={(row) => getResourceDetailUrl(ResourceType.Node, row.name)}
     />
   );
 }

@@ -44,6 +44,9 @@ const Events = lazy(() =>
 const Helm = lazy(() =>
   import("@/pages/Helm").then((m) => ({ default: m.Helm }))
 );
+const HelmDetail = lazy(() =>
+  import("@/pages/HelmDetail").then((m) => ({ default: m.HelmDetail }))
+);
 const Settings = lazy(() =>
   import("@/pages/Settings").then((m) => ({ default: m.Settings }))
 );
@@ -196,6 +199,7 @@ export default function App() {
             <Route path={`${toPlural(ResourceType.Node)}/:name`} element={<NodeDetail />} />
             <Route path="events" element={<Events />} />
             <Route path="helm" element={<Helm />} />
+            <Route path="helm/:source/:namespace/:name" element={<HelmDetail />} />
             <Route path="settings" element={<Settings />} />
             <Route
               path="profile"

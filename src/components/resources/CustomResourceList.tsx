@@ -10,8 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { useClusterStore } from "@/stores/clusterStore";
 import { createAgeColumn, createNamespaceColumn } from "./columns";
-import { formatAge } from "@/lib/utils";
-import { normalizeTauriError } from "@/lib/error-utils";
+import { RealtimeAge } from "@/components/ui/realtime";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { usePlugin } from "@/lib/crd-plugins";
 import { getKindSpecificColumns } from "@/lib/crd-plugins/plugins";
@@ -129,20 +128,16 @@ export function CustomResourceList({
       title={(count) => `${crdKind} Instances (${count})`}
       queryKey={["custom-resources", crdName, namespace ?? "all"]}
       queryFn={async () => {
-        try {
-          const result = await commands.listCustomResources(
-            crdName,
-            namespace || null,
-            null,
-            null
-          );
-          return result.map((r) => ({
-            ...r,
-            namespace: r.namespace || "",
-          }));
-        } catch (err) {
-          throw new Error(normalizeTauriError(err));
-        }
+        const result = await commands.listCustomResources(
+          crdName,
+          namespace || null,
+          null,
+          null
+        );
+        return result.map((r) => ({
+          ...r,
+          namespace: r.namespace || "",
+        }));
       }}
       columns={(setDeleteTarget) => [
         ...baseColumns,
@@ -178,17 +173,11 @@ export function CustomResourceList({
       ]}
       emptyStateLabel={crdPlural}
       deleteConfig={{
-        mutationFn: async (item) => {
-          try {
-            await commands.deleteCustomResource(
-              crdName,
-              item.name,
-              item.namespace || null
-            );
-          } catch (err) {
-            throw new Error(normalizeTauriError(err));
-          }
-        },
+        mutationFn: (item) => commands.deleteCustomResource(
+          crdName,
+          item.name,
+          item.namespace || null
+        ),
         invalidateQueryKeys: [["custom-resources", crdName]],
         resourceType: crdKind,
       }}
@@ -238,7 +227,7 @@ function formatColumnValue(value: unknown, columnType: string): React.ReactNode 
   switch (columnType) {
     case "date":
       if (typeof value === "string") {
-        return formatAge(value);
+        return <RealtimeAge timestamp={value} />;
       }
       return String(value);
 

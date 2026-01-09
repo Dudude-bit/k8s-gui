@@ -6,16 +6,15 @@ import { ResourceList } from "./ResourceList";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
 import { useResourceList } from "@/hooks/useResource";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
-import { MetricBadge } from "@/components/ui/metric-card";
 import {
   attachAggregatedPodMetrics,
   matchDaemonSetPods,
   type ResourceMetrics,
 } from "@/lib/metrics";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { getResourceDetailUrl, getResourceListUrl } from "@/lib/navigation-utils";
 import type { DaemonSetInfo } from "@/generated/types";
 import { commands } from "@/lib/commands";
-import { normalizeTauriError } from "@/lib/error-utils";
 import { ActionMenu } from "@/components/ui/action-menu";
 import {
   DropdownMenuItem,
@@ -23,7 +22,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Eye, Trash2 } from "lucide-react";
 import { MetricsStatusBanner } from "@/components/metrics";
-import { createNameColumn, createAgeColumn } from "./columns";
+import {
+  createNameColumn,
+  createNamespaceColumn,
+  createAgeColumn,
+  createCpuColumn,
+  createMemoryColumn,
+} from "./columns";
 
 // Extended Info with metrics
 type DaemonSetInfoWithMetrics = DaemonSetInfo & ResourceMetrics;
@@ -43,18 +48,12 @@ export function DaemonSetList() {
 
   const daemonSetsQuery = useResourceList(
     [toPlural(ResourceType.DaemonSet), currentNamespace],
-    async () => {
-      try {
-        return await commands.listDaemonsets({
-          namespace: currentNamespace || null,
-          labelSelector: null,
-          fieldSelector: null,
-          limit: null,
-        });
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    }
+    () => commands.listDaemonsets({
+      namespace: currentNamespace || null,
+      labelSelector: null,
+      fieldSelector: null,
+      limit: null,
+    })
   );
 
   const daemonSetsWithMetrics = useMemo(() => {
@@ -69,26 +68,12 @@ export function DaemonSetList() {
     await Promise.all([daemonSetsQuery.refetch(), refetchPods()]);
   }, [daemonSetsQuery, refetchPods]);
 
-  const daemonSetUrlPrefix = `/${toPlural(ResourceType.DaemonSet)}`;
-
   const columns = useMemo<ColumnDef<DaemonSetInfoWithMetrics>[]>(
     () => [
-      createNameColumn<DaemonSetInfoWithMetrics>(daemonSetUrlPrefix, { disableLink: true }),
-      { accessorKey: "namespace", header: "Namespace" },
-      {
-        id: "cpu",
-        header: "CPU",
-        cell: ({ row }) => (
-          <MetricBadge used={row.original.cpuMillicores} type="cpu" />
-        ),
-      },
-      {
-        id: "memory",
-        header: "Memory",
-        cell: ({ row }) => (
-          <MetricBadge used={row.original.memoryBytes} type="memory" />
-        ),
-      },
+      createNameColumn<DaemonSetInfoWithMetrics>(getResourceListUrl(ResourceType.DaemonSet), { disableLink: true }),
+      createNamespaceColumn<DaemonSetInfoWithMetrics>(),
+      createCpuColumn<DaemonSetInfoWithMetrics>(),
+      createMemoryColumn<DaemonSetInfoWithMetrics>(),
       {
         id: "desired",
         header: "Desired",
@@ -117,7 +102,7 @@ export function DaemonSetList() {
       },
       createAgeColumn<DaemonSetInfoWithMetrics>(),
     ],
-    [daemonSetUrlPrefix]
+    []
   );
 
   return (
@@ -141,7 +126,7 @@ export function DaemonSetList() {
               <ActionMenu>
                 <DropdownMenuItem asChild>
                   <Link
-                    to={`/${toPlural(ResourceType.DaemonSet)}/${row.original.namespace}/${row.original.name}`}
+                    to={getResourceDetailUrl(ResourceType.DaemonSet, row.original.name, row.original.namespace)}
                   >
                     <Eye className="mr-2 h-4 w-4" />
                     View Details
@@ -167,7 +152,7 @@ export function DaemonSetList() {
           resourceType: ResourceType.DaemonSet,
         }}
         emptyStateLabel="daemonsets"
-        getRowHref={(row) => `${daemonSetUrlPrefix}/${row.namespace}/${row.name}`}
+        getRowHref={(row) => getResourceDetailUrl(ResourceType.DaemonSet, row.name, row.namespace)}
       />
     </div>
   );

@@ -49,6 +49,7 @@ pub async fn get_persistent_volume(
     name: String,
     state: State<'_, AppState>,
 ) -> Result<PersistentVolumeInfo> {
+    crate::validation::validate_dns_subdomain(&name)?;
     get_cluster_resource_info::<PersistentVolume, PersistentVolumeInfo>(name, state).await
 }
 
@@ -58,6 +59,7 @@ pub async fn delete_persistent_volume(
     name: String,
     state: State<'_, AppState>,
 ) -> Result<()> {
+    crate::validation::validate_dns_subdomain(&name)?;
     crate::commands::helpers::delete_cluster_resource::<PersistentVolume>(name, state, None).await
 }
 
@@ -68,6 +70,7 @@ pub async fn get_persistent_volume_claim(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<PersistentVolumeClaimInfo> {
+    crate::validation::validate_dns_subdomain(&name)?;
     get_resource_info::<PersistentVolumeClaim, PersistentVolumeClaimInfo>(name, namespace, state)
         .await
 }
@@ -79,6 +82,7 @@ pub async fn delete_persistent_volume_claim(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<()> {
+    crate::validation::validate_dns_subdomain(&name)?;
     crate::commands::helpers::delete_resource::<PersistentVolumeClaim>(name, namespace, state, None).await
 }
 
@@ -88,6 +92,7 @@ pub async fn get_storage_class(
     name: String,
     state: State<'_, AppState>,
 ) -> Result<StorageClassInfo> {
+    crate::validation::validate_dns_subdomain(&name)?;
     get_cluster_resource_info::<StorageClass, StorageClassInfo>(name, state).await
 }
 
@@ -97,5 +102,6 @@ pub async fn delete_storage_class(
     name: String,
     state: State<'_, AppState>,
 ) -> Result<()> {
+    crate::validation::validate_dns_subdomain(&name)?;
     crate::commands::helpers::delete_cluster_resource::<StorageClass>(name, state, None).await
 }

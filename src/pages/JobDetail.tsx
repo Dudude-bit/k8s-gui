@@ -6,14 +6,14 @@ import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatAge } from "@/lib/utils";
+import { RealtimeAge } from "@/components/ui/realtime";
 import { Trash2, Briefcase, RefreshCw, CheckCircle, XCircle, Clock } from "lucide-react";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { EnvironmentVariables } from "@/components/resources/EnvironmentVariables";
 import { ResourceDetailLayout, InfoCard, InfoRow } from "@/components/resources/ResourceDetailLayout";
-import { normalizeTauriError } from "@/lib/error-utils";
+
 import { useResourceDetail } from "@/hooks";
 import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
 
@@ -34,20 +34,8 @@ export function JobDetail() {
     deleteMutation,
   } = useResourceDetail<JobDetailInfo>({
     resourceKind: ResourceType.Job,
-    fetchResource: async (name: string, ns: string | null) => {
-      try {
-        return await commands.getJob(name, ns);
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
-    deleteResource: async (name: string, ns: string | null) => {
-      try {
-        await commands.deleteJob(name, ns);
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
+    fetchResource: (name, ns) => commands.getJob(name, ns),
+    deleteResource: (name, ns) => commands.deleteJob(name, ns),
     defaultTab: "overview",
   });
 
@@ -124,7 +112,7 @@ export function JobDetail() {
                 )}
                 <InfoRow
                   label="Created"
-                  value={job?.createdAt ? formatAge(job.createdAt) : "-"}
+                  value={<RealtimeAge timestamp={job?.createdAt} fallback="-" />}
                 />
               </div>
             </InfoCard>
@@ -145,13 +133,13 @@ export function JobDetail() {
                 {job?.startTime && (
                   <InfoRow
                     label="Start Time"
-                    value={formatAge(job.startTime)}
+                    value={<RealtimeAge timestamp={job.startTime} />}
                   />
                 )}
                 {job?.completionTime && (
                   <InfoRow
                     label="Completion Time"
-                    value={formatAge(job.completionTime)}
+                    value={<RealtimeAge timestamp={job.completionTime} />}
                   />
                 )}
               </div>
@@ -241,7 +229,6 @@ export function JobDetail() {
                 const totalCount = pod.containers?.length ?? 0;
                 const readyText = `${readyCount}/${totalCount}`;
                 const status = pod.status?.phase || "Unknown";
-                const age = formatAge(pod.createdAt);
 
                 return (
                   <Link
@@ -268,7 +255,7 @@ export function JobDetail() {
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <span>Ready: {readyText}</span>
                       <span>Restarts: {pod.restartCount ?? 0}</span>
-                      <span>{age}</span>
+                      <RealtimeAge timestamp={pod.createdAt} />
                     </div>
                   </Link>
                 );

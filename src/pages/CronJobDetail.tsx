@@ -6,13 +6,13 @@ import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatAge } from "@/lib/utils";
+import { RealtimeAge } from "@/components/ui/realtime";
 import { Trash2, CalendarClock, RefreshCw, Pause, Play } from "lucide-react";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { EnvironmentVariables } from "@/components/resources/EnvironmentVariables";
 import { ResourceDetailLayout, InfoCard, InfoRow } from "@/components/resources/ResourceDetailLayout";
-import { normalizeTauriError } from "@/lib/error-utils";
+
 import { useResourceDetail } from "@/hooks";
 import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
 
@@ -33,20 +33,8 @@ export function CronJobDetail() {
     deleteMutation,
   } = useResourceDetail<CronJobDetailInfo>({
     resourceKind: ResourceType.CronJob,
-    fetchResource: async (name: string, ns: string | null) => {
-      try {
-        return await commands.getCronjob(name, ns);
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
-    deleteResource: async (name: string, ns: string | null) => {
-      try {
-        await commands.deleteCronjob(name, ns);
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
+    fetchResource: (name, ns) => commands.getCronjob(name, ns),
+    deleteResource: (name, ns) => commands.deleteCronjob(name, ns),
     defaultTab: "overview",
   });
 
@@ -114,7 +102,7 @@ export function CronJobDetail() {
                 )}
                 <InfoRow
                   label="Created"
-                  value={cronJob?.createdAt ? formatAge(cronJob.createdAt) : "-"}
+                  value={<RealtimeAge timestamp={cronJob?.createdAt} fallback="-" />}
                 />
               </div>
             </InfoCard>
@@ -134,13 +122,13 @@ export function CronJobDetail() {
                 {cronJob?.lastSchedule && (
                   <InfoRow
                     label="Last Schedule"
-                    value={formatAge(cronJob.lastSchedule)}
+                    value={<RealtimeAge timestamp={cronJob.lastSchedule} />}
                   />
                 )}
                 {cronJob?.lastSuccessfulTime && (
                   <InfoRow
                     label="Last Success"
-                    value={formatAge(cronJob.lastSuccessfulTime)}
+                    value={<RealtimeAge timestamp={cronJob.lastSuccessfulTime} />}
                   />
                 )}
                 <InfoRow
@@ -234,7 +222,6 @@ export function CronJobDetail() {
             <div className="space-y-2">
               {jobs.map((job) => {
                 const status = job.status || "Unknown";
-                const age = formatAge(job.createdAt);
 
                 return (
                   <Link
@@ -262,7 +249,7 @@ export function CronJobDetail() {
                       <span>
                         {job.succeeded}/{job.completions ?? 1} completed
                       </span>
-                      <span>{age}</span>
+                      <RealtimeAge timestamp={job.createdAt} />
                     </div>
                   </Link>
                 );

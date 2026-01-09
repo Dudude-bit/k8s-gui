@@ -6,7 +6,6 @@ import { ResourceList } from "./ResourceList";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
 import { useResourceList } from "@/hooks/useResource";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
-import { MetricBadge } from "@/components/ui/metric-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   attachAggregatedPodMetrics,
@@ -14,9 +13,9 @@ import {
   type ResourceMetrics,
 } from "@/lib/metrics";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { getResourceDetailUrl, getResourceListUrl } from "@/lib/navigation-utils";
 import type { JobInfo } from "@/generated/types";
 import { commands } from "@/lib/commands";
-import { normalizeTauriError } from "@/lib/error-utils";
 import { ActionMenu } from "@/components/ui/action-menu";
 import {
   DropdownMenuItem,
@@ -24,7 +23,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Eye, Trash2 } from "lucide-react";
 import { MetricsStatusBanner } from "@/components/metrics";
-import { createNameColumn, createAgeColumn } from "./columns";
+import {
+  createNameColumn,
+  createNamespaceColumn,
+  createAgeColumn,
+  createCpuColumn,
+  createMemoryColumn,
+} from "./columns";
 
 // Extended Info with metrics
 type JobInfoWithMetrics = JobInfo & ResourceMetrics;
@@ -44,18 +49,12 @@ export function JobList() {
 
   const jobsQuery = useResourceList(
     [toPlural(ResourceType.Job), currentNamespace],
-    async () => {
-      try {
-        return await commands.listJobs({
-          namespace: currentNamespace || null,
-          labelSelector: null,
-          fieldSelector: null,
-          limit: null,
-        });
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    }
+    () => commands.listJobs({
+      namespace: currentNamespace || null,
+      labelSelector: null,
+      fieldSelector: null,
+      limit: null,
+    })
   );
 
   const jobsWithMetrics = useMemo(() => {
@@ -70,26 +69,12 @@ export function JobList() {
     await Promise.all([jobsQuery.refetch(), refetchPods()]);
   }, [jobsQuery, refetchPods]);
 
-  const jobUrlPrefix = `/${toPlural(ResourceType.Job)}`;
-
   const columns = useMemo<ColumnDef<JobInfoWithMetrics>[]>(
     () => [
-      createNameColumn<JobInfoWithMetrics>(jobUrlPrefix, { disableLink: true }),
-      { accessorKey: "namespace", header: "Namespace" },
-      {
-        id: "cpu",
-        header: "CPU",
-        cell: ({ row }) => (
-          <MetricBadge used={row.original.cpuMillicores} type="cpu" />
-        ),
-      },
-      {
-        id: "memory",
-        header: "Memory",
-        cell: ({ row }) => (
-          <MetricBadge used={row.original.memoryBytes} type="memory" />
-        ),
-      },
+      createNameColumn<JobInfoWithMetrics>(getResourceListUrl(ResourceType.Job), { disableLink: true }),
+      createNamespaceColumn<JobInfoWithMetrics>(),
+      createCpuColumn<JobInfoWithMetrics>(),
+      createMemoryColumn<JobInfoWithMetrics>(),
       {
         id: "completions",
         header: "Completions",
@@ -103,7 +88,7 @@ export function JobList() {
       },
       createAgeColumn<JobInfoWithMetrics>(),
     ],
-    [jobUrlPrefix]
+    []
   );
 
   return (
@@ -125,7 +110,7 @@ export function JobList() {
               <ActionMenu>
                 <DropdownMenuItem asChild>
                   <Link
-                    to={`/${toPlural(ResourceType.Job)}/${row.original.namespace}/${row.original.name}`}
+                    to={getResourceDetailUrl(ResourceType.Job, row.original.name, row.original.namespace)}
                   >
                     <Eye className="mr-2 h-4 w-4" />
                     View Details
@@ -151,7 +136,7 @@ export function JobList() {
           resourceType: ResourceType.Job,
         }}
         emptyStateLabel="jobs"
-        getRowHref={(row) => `${jobUrlPrefix}/${row.namespace}/${row.name}`}
+        getRowHref={(row) => getResourceDetailUrl(ResourceType.Job, row.name, row.namespace)}
       />
     </div>
   );

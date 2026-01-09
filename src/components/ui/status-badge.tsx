@@ -28,6 +28,9 @@ const statusBadgeVariants = cva(
           "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
         bound:
           "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+        // Helm deployed status
+        deployed:
+          "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
 
         // Pending/In-progress states
         pending:
@@ -38,12 +41,27 @@ const statusBadgeVariants = cva(
           "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
         creating:
           "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+        // Helm pending statuses
+        pendinginstall:
+          "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+        pendingupgrade:
+          "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+        pendingrollback:
+          "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+        uninstalling:
+          "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
 
         // Warning states
         warning:
           "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
         degraded:
           "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+        // Helm/Flux suspended status
+        suspended:
+          "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+        // Helm superseded (previous revision)
+        superseded:
+          "bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400",
 
         // Error states
         error: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
@@ -60,6 +78,9 @@ const statusBadgeVariants = cva(
         terminated:
           "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400",
         completed:
+          "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400",
+        // Helm uninstalled
+        uninstalled:
           "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400",
 
         // Service types
@@ -114,6 +135,7 @@ const statusVariantMap: Record<
   succeeded: "succeeded",
   bound: "bound",
   true: "ready",
+  deployed: "deployed",
 
   // Pending
   pending: "pending",
@@ -121,10 +143,18 @@ const statusVariantMap: Record<
   progressing: "progressing",
   creating: "creating",
   containercreating: "creating",
+  // Helm pending states
+  pendinginstall: "pendinginstall",
+  pendingupgrade: "pendingupgrade",
+  pendingrollback: "pendingrollback",
+  uninstalling: "uninstalling",
 
   // Warning
   warning: "warning",
   degraded: "degraded",
+  suspended: "suspended",
+  // Helm superseded (previous revision)
+  superseded: "superseded",
 
   // Error
   error: "error",
@@ -139,6 +169,7 @@ const statusVariantMap: Record<
   // Terminated
   terminated: "terminated",
   completed: "completed",
+  uninstalled: "uninstalled",
 
   // Unknown
   unknown: "unknown",
@@ -198,14 +229,20 @@ export function StatusBadge({
       case "active":
       case "succeeded":
       case "bound":
+      case "deployed":
         return "bg-green-500";
       case "pending":
       case "waiting":
       case "progressing":
       case "creating":
+      case "pendinginstall":
+      case "pendingupgrade":
+      case "pendingrollback":
+      case "uninstalling":
         return "bg-blue-500";
       case "warning":
       case "degraded":
+      case "suspended":
         return "bg-yellow-500";
       case "error":
       case "failed":

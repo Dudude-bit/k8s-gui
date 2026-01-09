@@ -16,7 +16,7 @@ import {
   type BackgroundJobType,
 } from "@/stores/backgroundJobStore";
 import { cn } from "@/lib/utils";
-import { formatAge } from "@/lib/utils";
+import { RealtimeAge } from "@/components/ui/realtime";
 
 const JOB_TYPE_LABELS: Record<BackgroundJobType, string> = {
   delete: "Delete",
@@ -157,9 +157,10 @@ export function BackgroundJobsTab() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-xs text-muted-foreground">
-                      {formatAge(job.completedAt ?? job.createdAt)}
-                    </span>
+                    <RealtimeAge
+                      timestamp={job.completedAt ?? job.createdAt}
+                      className="text-xs text-muted-foreground"
+                    />
                     <Button
                       variant="ghost"
                       size="icon"

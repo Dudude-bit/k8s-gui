@@ -6,14 +6,14 @@ import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatAge } from "@/lib/utils";
+import { RealtimeAge } from "@/components/ui/realtime";
 import { Trash2, Server, RefreshCw } from "lucide-react";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { EnvironmentVariables } from "@/components/resources/EnvironmentVariables";
 import { ResourceDetailLayout, InfoCard, InfoRow } from "@/components/resources/ResourceDetailLayout";
-import { normalizeTauriError } from "@/lib/error-utils";
+
 import { useResourceDetail } from "@/hooks";
 import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
 
@@ -34,20 +34,8 @@ export function DaemonSetDetail() {
     deleteMutation,
   } = useResourceDetail<DaemonSetDetailInfo>({
     resourceKind: ResourceType.DaemonSet,
-    fetchResource: async (name: string, ns: string | null) => {
-      try {
-        return await commands.getDaemonset(name, ns);
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
-    deleteResource: async (name: string, ns: string | null) => {
-      try {
-        await commands.deleteDaemonset(name, ns);
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
+    fetchResource: (name, ns) => commands.getDaemonset(name, ns),
+    deleteResource: (name, ns) => commands.deleteDaemonset(name, ns),
     defaultTab: "overview",
   });
 
@@ -98,11 +86,7 @@ export function DaemonSetDetail() {
                 />
                 <InfoRow
                   label="Created"
-                  value={
-                    daemonSet?.createdAt
-                      ? formatAge(daemonSet.createdAt)
-                      : "-"
-                  }
+                  value={<RealtimeAge timestamp={daemonSet?.createdAt} fallback="-" />}
                 />
               </div>
             </InfoCard>
@@ -206,7 +190,6 @@ export function DaemonSetDetail() {
                 const totalCount = pod.containers?.length ?? 0;
                 const readyText = `${readyCount}/${totalCount}`;
                 const status = pod.status?.phase || "Unknown";
-                const age = formatAge(pod.createdAt);
 
                 return (
                   <Link
@@ -231,7 +214,7 @@ export function DaemonSetDetail() {
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <span>Ready: {readyText}</span>
                       <span>Restarts: {pod.restartCount ?? 0}</span>
-                      <span>{age}</span>
+                      <RealtimeAge timestamp={pod.createdAt} />
                     </div>
                   </Link>
                 );

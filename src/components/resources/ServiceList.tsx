@@ -12,6 +12,7 @@ import { useMemo } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceList } from "./ResourceList";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { getResourceDetailUrl, getResourceListUrl } from "@/lib/navigation-utils";
 import type { ServiceInfo, ServicePortInfo } from "@/generated/types";
 import { STALE_TIMES } from "@/lib/refresh";
 import {
@@ -36,11 +37,10 @@ function formatPort(port: ServicePortInfo): string {
 
 export function ServiceList() {
   const { currentNamespace } = useClusterStore();
-  const serviceUrlPrefix = `/${toPlural(ResourceType.Service)}`;
 
   const columns = useMemo<ColumnDef<ServiceInfo>[]>(
     () => [
-      createNameColumn<ServiceInfo>(serviceUrlPrefix, { disableLink: true }),
+      createNameColumn<ServiceInfo>(getResourceListUrl(ResourceType.Service), { disableLink: true }),
       createNamespaceColumn<ServiceInfo>(),
       createTypeBadgeColumn<ServiceInfo>(),
       {
@@ -87,7 +87,7 @@ export function ServiceList() {
       },
       createAgeColumn<ServiceInfo>(),
     ],
-    [serviceUrlPrefix]
+    []
   );
 
   return (
@@ -112,7 +112,7 @@ export function ServiceList() {
             <ActionMenu>
               <DropdownMenuItem asChild>
                 <Link
-                  to={`/${toPlural(ResourceType.Service)}/${row.original.namespace}/${row.original.name}`}
+                  to={getResourceDetailUrl(ResourceType.Service, row.original.name, row.original.namespace)}
                 >
                   <Eye className="mr-2 h-4 w-4" />
                   View Details
@@ -131,7 +131,7 @@ export function ServiceList() {
         },
       ]}
       emptyStateLabel={toPlural(ResourceType.Service)}
-      getRowHref={(row) => `${serviceUrlPrefix}/${row.namespace}/${row.name}`}
+      getRowHref={(row) => getResourceDetailUrl(ResourceType.Service, row.name, row.namespace)}
       deleteConfig={{
         mutationFn: async (item) => {
           await commands.deleteService(item.name, item.namespace);

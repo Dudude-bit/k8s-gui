@@ -158,8 +158,8 @@ export function ClusterOverview() {
     parts.push(
       currentNamespace ? `Namespace: ${currentNamespace}` : "All namespaces"
     );
-    if (clusterInfo?.serverVersion) {
-      parts.push(`Kubernetes ${clusterInfo.serverVersion}`);
+    if (clusterInfo?.server_version) {
+      parts.push(`Kubernetes ${clusterInfo.server_version}`);
     }
     if (clusterInfo?.platform) {
       parts.push(clusterInfo.platform);

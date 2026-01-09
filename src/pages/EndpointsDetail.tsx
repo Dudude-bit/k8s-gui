@@ -10,7 +10,7 @@ import { ResourceType } from "@/lib/resource-registry";
 import { Network, CircleDot, Server } from "lucide-react";
 import { commands } from "@/lib/commands";
 import type { EndpointsInfo } from "@/generated/types";
-import { normalizeTauriError } from "@/lib/error-utils";
+
 
 export function EndpointsDetail() {
     const {
@@ -28,20 +28,8 @@ export function EndpointsDetail() {
         goBack,
     } = useResourceDetail<EndpointsInfo>({
         resourceKind: ResourceType.Endpoints,
-        fetchResource: async (name, ns) => {
-            try {
-                return await commands.getEndpoints(name, ns);
-            } catch (err) {
-                throw new Error(normalizeTauriError(err));
-            }
-        },
-        deleteResource: async (name, ns) => {
-            try {
-                await commands.deleteEndpoints(name, ns);
-            } catch (err) {
-                throw new Error(normalizeTauriError(err));
-            }
-        },
+        fetchResource: (name, ns) => commands.getEndpoints(name, ns),
+        deleteResource: (name, ns) => commands.deleteEndpoints(name, ns),
         defaultTab: "addresses",
     });
 

@@ -1,3 +1,22 @@
+import {
+  Box,
+  Layers,
+  Database,
+  Server,
+  Briefcase,
+  CalendarClock,
+  FileText,
+  KeyRound,
+  Network,
+  Globe,
+  HardDrive,
+  Server as NodeIcon,
+  Activity,
+  FolderOpen,
+  Puzzle,
+  type LucideIcon,
+} from "lucide-react";
+
 export type ResourceScope = "namespaced" | "cluster";
 
 export const RESOURCE_REGISTRY = [
@@ -139,4 +158,44 @@ export function getApiVersion(resourceKind: string): string {
 
 export function getScope(resourceKind: ResourceKind): ResourceScope {
   return RESOURCE_BY_KIND.get(resourceKind)?.scope ?? "namespaced";
+}
+
+
+
+/**
+ * Icon mapping for Kubernetes resource kinds
+ */
+export const RESOURCE_ICONS: Record<ResourceKind, LucideIcon> = {
+  Pod: Box,
+  Deployment: Layers,
+  StatefulSet: Database,
+  DaemonSet: Server,
+  Job: Briefcase,
+  CronJob: CalendarClock,
+  ConfigMap: FileText,
+  Secret: KeyRound,
+  Service: Network,
+  Ingress: Globe,
+  PersistentVolumeClaim: HardDrive,
+  PersistentVolume: HardDrive,
+  StorageClass: Database,
+  Endpoints: Network,
+  Node: NodeIcon,
+  Event: Activity,
+  Namespace: FolderOpen,
+  CustomResourceDefinition: Puzzle,
+};
+
+/**
+ * Get the icon component for a resource kind
+ *
+ * @param kind - The resource kind
+ * @returns LucideIcon component for the resource, defaults to Box if not found
+ *
+ * @example
+ * const Icon = getResourceIcon("Pod"); // Box icon
+ * <Icon className="h-4 w-4" />
+ */
+export function getResourceIcon(kind: ResourceKind | string): LucideIcon {
+  return RESOURCE_ICONS[kind as ResourceKind] ?? Box;
 }

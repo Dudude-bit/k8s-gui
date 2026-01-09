@@ -11,11 +11,11 @@ import { useCallback, useMemo } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceList } from "./ResourceList";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { getResourceDetailUrl, getResourceListUrl } from "@/lib/navigation-utils";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
 import { useResourceList } from "@/hooks/useResource";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { MetricBadge } from "@/components/ui/metric-card";
 import {
   attachAggregatedPodMetrics,
   matchDeploymentPods,
@@ -26,10 +26,11 @@ import {
   createNamespaceColumn,
   createAgeColumn,
   createReplicasColumn,
+  createCpuColumn,
+  createMemoryColumn,
 } from "./columns";
 import type { DeploymentInfo } from "@/generated/types";
 import { commands } from "@/lib/commands";
-import { normalizeTauriError } from "@/lib/error-utils";
 import { MetricsStatusBanner } from "@/components/metrics";
 
 // Extended DeploymentInfo with metrics
@@ -50,18 +51,12 @@ export function DeploymentList() {
 
   const deploymentsQuery = useResourceList(
     [toPlural(ResourceType.Deployment), currentNamespace],
-    async () => {
-      try {
-        return await commands.listDeployments({
-          namespace: currentNamespace || null,
-          labelSelector: null,
-          fieldSelector: null,
-          limit: null,
-        });
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    }
+    () => commands.listDeployments({
+      namespace: currentNamespace || null,
+      labelSelector: null,
+      fieldSelector: null,
+      limit: null,
+    })
   );
 
   const deploymentsWithMetrics = useMemo(() => {
@@ -76,26 +71,12 @@ export function DeploymentList() {
     await Promise.all([deploymentsQuery.refetch(), refetchPods()]);
   }, [deploymentsQuery, refetchPods]);
 
-  const deploymentUrlPrefix = `/${toPlural(ResourceType.Deployment)}`;
-
   const columns = useMemo<ColumnDef<DeploymentInfoWithMetrics>[]>(
     () => [
-      createNameColumn<DeploymentInfoWithMetrics>(deploymentUrlPrefix, { disableLink: true }),
+      createNameColumn<DeploymentInfoWithMetrics>(getResourceListUrl(ResourceType.Deployment), { disableLink: true }),
       createNamespaceColumn<DeploymentInfoWithMetrics>(),
-      {
-        id: "cpu",
-        header: "CPU",
-        cell: ({ row }) => (
-          <MetricBadge used={row.original.cpuMillicores} type="cpu" />
-        ),
-      },
-      {
-        id: "memory",
-        header: "Memory",
-        cell: ({ row }) => (
-          <MetricBadge used={row.original.memoryBytes} type="memory" />
-        ),
-      },
+      createCpuColumn<DeploymentInfoWithMetrics>(),
+      createMemoryColumn<DeploymentInfoWithMetrics>(),
       createReplicasColumn<DeploymentInfoWithMetrics>(),
       {
         id: "strategy",
@@ -118,7 +99,7 @@ export function DeploymentList() {
       },
       createAgeColumn<DeploymentInfoWithMetrics>(),
     ],
-    [deploymentUrlPrefix]
+    []
   );
 
   return (
@@ -142,7 +123,7 @@ export function DeploymentList() {
               <ActionMenu>
                 <DropdownMenuItem asChild>
                   <Link
-                    to={`/${toPlural(ResourceType.Deployment)}/${row.original.namespace}/${row.original.name}`}
+                    to={getResourceDetailUrl(ResourceType.Deployment, row.original.name, row.original.namespace)}
                   >
                     <Eye className="mr-2 h-4 w-4" />
                     View Details
@@ -169,15 +150,9 @@ export function DeploymentList() {
           },
         ]}
         emptyStateLabel={toPlural(ResourceType.Deployment)}
-        getRowHref={(row) => `${deploymentUrlPrefix}/${row.namespace}/${row.name}`}
+        getRowHref={(row) => getResourceDetailUrl(ResourceType.Deployment, row.name, row.namespace)}
         deleteConfig={{
-          mutationFn: async (item) => {
-            try {
-              await commands.deleteDeployment(item.name, item.namespace);
-            } catch (err) {
-              throw new Error(normalizeTauriError(err));
-            }
-          },
+          mutationFn: (item) => commands.deleteDeployment(item.name, item.namespace),
           invalidateQueryKeys: [[toPlural(ResourceType.Deployment)]],
           resourceType: ResourceType.Deployment,
         }}

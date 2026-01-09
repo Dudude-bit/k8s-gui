@@ -98,6 +98,7 @@ rand = "0.8"
 sha2 = "0.10"
 tokio-util = { version = "0.7", features = ["io", "compat"] }
 urlencoding = "2.1"
+flate2 = "1.0"
 
 # gRPC client
 tonic = { version = "0.12", features = ["tls-native-roots"] }

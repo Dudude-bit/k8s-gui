@@ -11,8 +11,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { YamlEditor } from "@/components/yaml/YamlEditor";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { ResourceDetailLayout } from "@/components/resources/ResourceDetailLayout";
-import { formatAge } from "@/lib/utils";
-import { normalizeTauriError } from "@/lib/error-utils";
+import { RealtimeAge } from "@/components/ui/realtime";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
 import { useClusterStore } from "@/stores/clusterStore";
@@ -94,13 +93,7 @@ export function CustomResourceDetail() {
   // Fetch CRD info to get kind and other metadata
   const { data: crdInfo } = useQuery({
     queryKey: ["crd", decodedCrdName],
-    queryFn: async () => {
-      try {
-        return await commands.getCrd(decodedCrdName);
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
+    queryFn: () => commands.getCrd(decodedCrdName),
     enabled: isConnected && !!decodedCrdName,
   });
 
@@ -113,17 +106,11 @@ export function CustomResourceDetail() {
     refetch,
   } = useQuery({
     queryKey: ["custom-resource", decodedCrdName, namespace, name],
-    queryFn: async () => {
-      try {
-        return await commands.getCustomResource(
-          decodedCrdName,
-          name || "",
-          namespace || null
-        );
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
+    queryFn: () => commands.getCustomResource(
+      decodedCrdName,
+      name || "",
+      namespace || null
+    ),
     enabled: isConnected && !!decodedCrdName && !!name,
     staleTime: STALE_TIMES.resourceDetail,
     refetchInterval: REFRESH_INTERVALS.resourceDetail,
@@ -132,34 +119,22 @@ export function CustomResourceDetail() {
   // Fetch YAML
   const { data: yaml = "" } = useQuery({
     queryKey: ["custom-resource-yaml", decodedCrdName, namespace, name],
-    queryFn: async () => {
-      try {
-        return await commands.getCustomResourceYaml(
-          decodedCrdName,
-          name || "",
-          namespace || null
-        );
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
+    queryFn: () => commands.getCustomResourceYaml(
+      decodedCrdName,
+      name || "",
+      namespace || null
+    ),
     enabled: isConnected && !!decodedCrdName && !!name,
     staleTime: STALE_TIMES.resourceDetail,
   });
 
   // Delete mutation
   const deleteMutation = useMutation({
-    mutationFn: async () => {
-      try {
-        await commands.deleteCustomResource(
-          decodedCrdName,
-          name || "",
-          namespace || null
-        );
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
+    mutationFn: () => commands.deleteCustomResource(
+      decodedCrdName,
+      name || "",
+      namespace || null
+    ),
     onSuccess: () => {
       toast({
         title: `${crdInfo?.kind || "Resource"} deleted`,
@@ -234,9 +209,7 @@ export function CustomResourceDetail() {
                 )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Created</span>
-                  <span>
-                    {resource.createdAt ? formatAge(resource.createdAt) : "-"}
-                  </span>
+                  <RealtimeAge timestamp={resource.createdAt} fallback="-" />
                 </div>
               </CardContent>
             </Card>
@@ -347,21 +320,21 @@ export function CustomResourceDetail() {
     },
     ...(resource?.status != null
       ? [
-          {
-            id: "status",
-            label: "Status",
-            content: (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Status</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <JsonTreeViewer data={resource.status} />
-                </CardContent>
-              </Card>
-            ),
-          },
-        ]
+        {
+          id: "status",
+          label: "Status",
+          content: (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Status</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <JsonTreeViewer data={resource.status} />
+              </CardContent>
+            </Card>
+          ),
+        },
+      ]
       : []),
     {
       id: "yaml",

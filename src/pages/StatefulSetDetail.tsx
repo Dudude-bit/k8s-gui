@@ -6,14 +6,14 @@ import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatAge } from "@/lib/utils";
+import { RealtimeAge } from "@/components/ui/realtime";
 import { Trash2, Database, RefreshCw } from "lucide-react";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { EnvironmentVariables } from "@/components/resources/EnvironmentVariables";
 import { ResourceDetailLayout, InfoCard, InfoRow } from "@/components/resources/ResourceDetailLayout";
-import { normalizeTauriError } from "@/lib/error-utils";
+
 import { useResourceDetail } from "@/hooks";
 import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
 
@@ -34,20 +34,8 @@ export function StatefulSetDetail() {
     deleteMutation,
   } = useResourceDetail<StatefulSetDetailInfo>({
     resourceKind: ResourceType.StatefulSet,
-    fetchResource: async (name: string, ns: string | null) => {
-      try {
-        return await commands.getStatefulset(name, ns);
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
-    deleteResource: async (name: string, ns: string | null) => {
-      try {
-        await commands.deleteStatefulset(name, ns);
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
+    fetchResource: (name, ns) => commands.getStatefulset(name, ns),
+    deleteResource: (name, ns) => commands.deleteStatefulset(name, ns),
     defaultTab: "overview",
   });
 
@@ -108,11 +96,7 @@ export function StatefulSetDetail() {
                 />
                 <InfoRow
                   label="Created"
-                  value={
-                    statefulSet?.createdAt
-                      ? formatAge(statefulSet.createdAt)
-                      : "-"
-                  }
+                  value={<RealtimeAge timestamp={statefulSet?.createdAt} fallback="-" />}
                 />
               </div>
             </InfoCard>
@@ -218,7 +202,6 @@ export function StatefulSetDetail() {
                 const totalCount = pod.containers?.length ?? 0;
                 const readyText = `${readyCount}/${totalCount}`;
                 const status = pod.status?.phase || "Unknown";
-                const age = formatAge(pod.createdAt);
 
                 return (
                   <Link
@@ -243,7 +226,7 @@ export function StatefulSetDetail() {
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <span>Ready: {readyText}</span>
                       <span>Restarts: {pod.restartCount ?? 0}</span>
-                      <span>{age}</span>
+                      <RealtimeAge timestamp={pod.createdAt} />
                     </div>
                   </Link>
                 );

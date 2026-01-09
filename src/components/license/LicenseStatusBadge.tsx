@@ -5,10 +5,17 @@ import { LicenseInfoDialog } from "./LicenseInfoDialog";
 import { useState } from "react";
 import { Crown, Clock, XCircle, CheckCircle2 } from "lucide-react";
 import { AUTH_DISABLED } from "@/lib/flags";
+import { useRealtimeCountdown } from "@/hooks/useRealtimeAge";
 
 export function LicenseStatusBadge() {
   const { licenseStatus, hasValidLicense } = useLicense();
   const [showInfoDialog, setShowInfoDialog] = useState(false);
+
+  // Real-time countdown for license expiry
+  const { remainingSeconds, warningLevel } = useRealtimeCountdown(
+    licenseStatus?.expiresAt ?? null,
+    { warningThresholdDays: 7, criticalThresholdDays: 1 }
+  );
 
   if (AUTH_DISABLED) {
     return null;
@@ -22,6 +29,8 @@ export function LicenseStatusBadge() {
     );
   }
 
+  const daysUntilExpiry = Math.ceil(remainingSeconds / 86400);
+
   const getBadgeVariant = () => {
     if (hasValidLicense) {
       // Issue #16 Fix: Check if expiring soon (within 7 days)
@@ -29,12 +38,7 @@ export function LicenseStatusBadge() {
         licenseStatus.subscriptionType === "monthly" &&
         licenseStatus.expiresAt
       ) {
-        const expiresAt = new Date(licenseStatus.expiresAt);
-        const daysUntilExpiry = Math.ceil(
-          (expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-        );
-
-        if (daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
+        if (warningLevel !== "none" && daysUntilExpiry > 0) {
           return "secondary"; // Warning variant for expiring soon
         }
       }
@@ -53,12 +57,7 @@ export function LicenseStatusBadge() {
         licenseStatus.subscriptionType === "monthly" &&
         licenseStatus.expiresAt
       ) {
-        const expiresAt = new Date(licenseStatus.expiresAt);
-        const daysUntilExpiry = Math.ceil(
-          (expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-        );
-
-        if (daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
+        if (warningLevel !== "none" && daysUntilExpiry > 0) {
           return (
             <>
               <Clock className="h-3 w-3 mr-1" />

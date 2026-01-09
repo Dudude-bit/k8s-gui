@@ -112,6 +112,7 @@ export function ResourceList<T extends { name: string; namespace?: string | null
   const loading = isLoading ?? queryResult.isLoading;
   const fetching = isFetching ?? queryResult.isFetching;
   const refresh = onRefresh ?? queryResult.refetch;
+  const dataUpdatedAt = queryResult.dataUpdatedAt;
 
   // Delete mutation
   const deleteMutation = useMutation({
@@ -172,6 +173,7 @@ export function ResourceList<T extends { name: string; namespace?: string | null
           isLoading={loading}
           onRefresh={refresh}
           actions={headerActions}
+          dataUpdatedAt={dataUpdatedAt}
         />
       )}
       {headerContent}
@@ -179,7 +181,6 @@ export function ResourceList<T extends { name: string; namespace?: string | null
         columns={resolvedColumns}
         data={resources}
         isLoading={showSkeleton}
-        isFetching={fetching && !loading}
         searchKey={searchKey}
         searchPlaceholder={searchPlaceholder}
         getRowHref={getRowHref}

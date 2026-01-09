@@ -34,6 +34,7 @@ pub async fn get_service(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<ServiceInfo> {
+    crate::validation::validate_dns_label(&name)?;
     get_resource_info::<Service, ServiceInfo>(name, namespace, state).await
 }
 
@@ -44,5 +45,6 @@ pub async fn delete_service(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<()> {
+    crate::validation::validate_dns_label(&name)?;
     crate::commands::helpers::delete_resource::<Service>(name, namespace, state, None).await
 }

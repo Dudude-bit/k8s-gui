@@ -53,17 +53,47 @@ pub fn require_namespace(
 }
 
 // Compile regex patterns once at startup
-static K8S_NAME_REGEX: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-    Regex::new(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$").expect("Failed to compile Kubernetes name regex")
+// DNS-1123 label: lowercase alphanumeric or '-', must start/end with alphanumeric, max 63 chars
+static DNS_LABEL_REGEX: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$").expect("Failed to compile DNS label regex")
 });
 
-/// Check if a string is a valid Kubernetes name
-pub fn is_valid_k8s_name(name: &str) -> bool {
+// DNS-1123 subdomain: lowercase alphanumeric, '-', or '.', must start/end with alphanumeric, max 253 chars
+// Each segment between dots must be a valid DNS label (1-63 chars)
+static DNS_SUBDOMAIN_REGEX: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$")
+        .expect("Failed to compile DNS subdomain regex")
+});
+
+/// Check if a string is a valid DNS-1123 label (no dots allowed, max 63 chars)
+/// Used for: Pod, Deployment, Service, StatefulSet, DaemonSet, Job, CronJob, Namespace, Endpoints
+pub fn is_valid_dns_label(name: &str) -> bool {
+    if name.is_empty() || name.len() > 63 {
+        return false;
+    }
+    DNS_LABEL_REGEX.is_match(name)
+}
+
+/// Check if a string is a valid DNS-1123 subdomain (dots allowed, max 253 chars, each segment max 63 chars)
+/// Used for: CRD names, Node names, ConfigMap, Secret, PV, PVC, StorageClass, Ingress, Helm releases
+pub fn is_valid_dns_subdomain(name: &str) -> bool {
     if name.is_empty() || name.len() > 253 {
         return false;
     }
-
-    K8S_NAME_REGEX.is_match(name)
+    
+    // Check overall pattern
+    if !DNS_SUBDOMAIN_REGEX.is_match(name) {
+        return false;
+    }
+    
+    // Check each segment is <= 63 chars
+    for segment in name.split('.') {
+        if segment.len() > 63 {
+            return false;
+        }
+    }
+    
+    true
 }
 
 #[cfg(test)]
@@ -71,12 +101,47 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_is_valid_k8s_name() {
-        assert!(is_valid_k8s_name("my-app"));
-        assert!(is_valid_k8s_name("app123"));
-        assert!(!is_valid_k8s_name("My-App"));
-        assert!(!is_valid_k8s_name("-app"));
-        assert!(!is_valid_k8s_name(""));
+    fn test_is_valid_dns_label() {
+        // Valid DNS labels
+        assert!(is_valid_dns_label("my-app"));
+        assert!(is_valid_dns_label("app123"));
+        assert!(is_valid_dns_label("a"));
+        assert!(is_valid_dns_label("a-b-c"));
+        
+        // Invalid DNS labels
+        assert!(!is_valid_dns_label("My-App")); // uppercase
+        assert!(!is_valid_dns_label("-app")); // starts with dash
+        assert!(!is_valid_dns_label("app-")); // ends with dash
+        assert!(!is_valid_dns_label("")); // empty
+        assert!(!is_valid_dns_label("my.app")); // contains dot
+        assert!(!is_valid_dns_label(&"a".repeat(64))); // too long (> 63)
+    }
+
+    #[test]
+    fn test_is_valid_dns_subdomain() {
+        // Valid DNS subdomains
+        assert!(is_valid_dns_subdomain("my-app"));
+        assert!(is_valid_dns_subdomain("gateways.networking.istio.io"));
+        assert!(is_valid_dns_subdomain("node-1.example.com"));
+        assert!(is_valid_dns_subdomain("my.config.map"));
+        assert!(is_valid_dns_subdomain("a.b.c"));
+        
+        // Invalid DNS subdomains
+        assert!(!is_valid_dns_subdomain("")); // empty
+        assert!(!is_valid_dns_subdomain("My.App")); // uppercase
+        assert!(!is_valid_dns_subdomain(".app")); // starts with dot
+        assert!(!is_valid_dns_subdomain("app.")); // ends with dot
+        assert!(!is_valid_dns_subdomain("app..name")); // consecutive dots
+        assert!(!is_valid_dns_subdomain("-app.name")); // segment starts with dash
+        assert!(!is_valid_dns_subdomain("app-.name")); // segment ends with dash
+        
+        // Segment too long (> 63 chars)
+        let long_segment = "a".repeat(64);
+        assert!(!is_valid_dns_subdomain(&format!("{long_segment}.example.com")));
+        
+        // Total too long (> 253 chars)
+        let long_name = format!("{}.{}.{}", "a".repeat(63), "b".repeat(63), "c".repeat(128));
+        assert!(!is_valid_dns_subdomain(&long_name));
     }
 
     #[test]

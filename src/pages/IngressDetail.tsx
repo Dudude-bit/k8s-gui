@@ -113,10 +113,10 @@ export function IngressDetail() {
         queryFn: async () => {
             const filters: EventFilters = {
                 namespace: namespace || null,
-                involvedObjectName: name || null,
-                involvedObjectKind: ResourceType.Ingress,
-                eventType: null,
-                fieldSelector: null,
+                involved_object_name: name || null,
+                involved_object_kind: ResourceType.Ingress,
+                event_type: null,
+                field_selector: null,
                 limit: 100,
             };
             return await commands.listEvents(filters);

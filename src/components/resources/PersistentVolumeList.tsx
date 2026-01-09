@@ -18,9 +18,10 @@ import { ActionMenu } from "@/components/ui/action-menu";
 
 import type { PersistentVolumeInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import { STALE_TIMES } from "@/lib/refresh";
 
-const pvUrlPrefix = `/${toPlural(ResourceType.PersistentVolume)}`;
+
 
 const baseColumns: ColumnDef<PersistentVolumeInfo>[] = [
   {
@@ -104,7 +105,7 @@ export function PersistentVolumeList() {
             <ActionMenu>
               <DropdownMenuItem asChild>
                 <Link
-                  to={`/${toPlural(ResourceType.PersistentVolume)}/${row.original.name}`}
+                  to={getResourceDetailUrl(ResourceType.PersistentVolume, row.original.name)}
                 >
                   <Eye className="mr-2 h-4 w-4" />
                   View Details
@@ -130,7 +131,7 @@ export function PersistentVolumeList() {
       }}
       staleTime={STALE_TIMES.resourceList}
       searchKey="name"
-      getRowHref={(row) => `${pvUrlPrefix}/${row.name}`}
+      getRowHref={(row) => getResourceDetailUrl(ResourceType.PersistentVolume, row.name)}
     />
   );
 }

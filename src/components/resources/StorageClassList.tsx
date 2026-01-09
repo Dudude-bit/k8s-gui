@@ -16,9 +16,10 @@ import { ActionMenu } from "@/components/ui/action-menu";
 import { commands } from "@/lib/commands";
 import type { StorageClassInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import { STALE_TIMES } from "@/lib/refresh";
 
-const storageClassUrlPrefix = `/${toPlural(ResourceType.StorageClass)}`;
+
 
 const baseColumns: ColumnDef<StorageClassInfo>[] = [
   {
@@ -119,7 +120,7 @@ export function StorageClassList() {
             <ActionMenu>
               <DropdownMenuItem asChild>
                 <Link
-                  to={`/${toPlural(ResourceType.StorageClass)}/${row.original.name}`}
+                  to={getResourceDetailUrl(ResourceType.StorageClass, row.original.name)}
                 >
                   <Eye className="mr-2 h-4 w-4" />
                   View Details
@@ -145,7 +146,7 @@ export function StorageClassList() {
       }}
       staleTime={STALE_TIMES.resourceList}
       searchKey="name"
-      getRowHref={(row) => `${storageClassUrlPrefix}/${row.name}`}
+      getRowHref={(row) => getResourceDetailUrl(ResourceType.StorageClass, row.name)}
     />
   );
 }

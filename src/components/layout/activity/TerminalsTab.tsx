@@ -10,7 +10,7 @@ import {
 import { useTerminalSessionStore } from "@/stores/terminalSessionStore";
 import { useClusterStore } from "@/stores/clusterStore";
 import { cn } from "@/lib/utils";
-import { formatAge } from "@/lib/utils";
+import { RealtimeAge } from "@/components/ui/realtime";
 import { ResourceType } from "@/lib/resource-registry";
 
 interface TerminalsTabProps {
@@ -106,9 +106,10 @@ export function TerminalsTab({ onClose }: TerminalsTabProps) {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">
-                    {formatAge(session.createdAt)}
-                  </span>
+                  <RealtimeAge
+                    timestamp={session.createdAt}
+                    className="text-xs text-muted-foreground"
+                  />
                   <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
               </div>

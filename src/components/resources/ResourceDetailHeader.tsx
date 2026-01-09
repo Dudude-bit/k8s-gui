@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { RefreshButton } from "@/components/ui/refresh-button";
+import { DataFreshness } from "@/components/ui/realtime";
 
 interface ResourceDetailHeaderProps {
   title: string;
@@ -12,6 +13,8 @@ interface ResourceDetailHeaderProps {
   onRefresh?: () => void;
   isRefreshing?: boolean;
   icon?: ReactNode;
+  /** Timestamp when data was last fetched (from React Query's dataUpdatedAt) */
+  dataUpdatedAt?: number;
 }
 
 export function ResourceDetailHeader({
@@ -23,6 +26,7 @@ export function ResourceDetailHeader({
   onRefresh,
   isRefreshing,
   icon,
+  dataUpdatedAt,
 }: ResourceDetailHeaderProps) {
   return (
     <div className="flex items-center justify-between">
@@ -48,6 +52,7 @@ export function ResourceDetailHeader({
       </div>
       <div className="flex items-center gap-2">
         {actions}
+        <DataFreshness dataUpdatedAt={dataUpdatedAt} isFetching={isRefreshing} />
         {onRefresh && (
           <RefreshButton onRefresh={onRefresh} isRefreshing={isRefreshing} />
         )}

@@ -9,9 +9,8 @@ import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { useMemo } from "react";
 import { commands } from "@/lib/commands";
-import { normalizeTauriError } from "@/lib/error-utils";
 import { useResourceDetail } from "@/hooks";
-import { ResourceType } from "@/lib/resource-registry";
+import { ResourceType, getResourceIcon } from "@/lib/resource-registry";
 import { InfoRow, ResourceDetailLayout } from "@/components/resources/ResourceDetailLayout";
 import type { NodeInfo } from "@/generated/types";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
@@ -35,26 +34,16 @@ export function NodeDetail() {
   } = useResourceDetail<NodeInfo>({
     resourceKind: ResourceType.Node,
     isClusterScoped: true,
-    fetchResource: async (name) => {
-      try {
-        return await commands.getNode(name);
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
+    fetchResource: (name) => commands.getNode(name),
     defaultTab: "info",
   });
 
   const { data: podCount } = useQuery({
     queryKey: ["node-pods", name],
     queryFn: async () => {
-      try {
-        if (!name) return 0;
-        const pods = await commands.getNodePods(name);
-        return pods.length;
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
+      if (!name) return 0;
+      const pods = await commands.getNodePods(name);
+      return pods.length;
     },
     enabled: !!name,
     placeholderData: keepPreviousData,
@@ -157,7 +146,7 @@ export function NodeDetail() {
           </>
         )
       }
-      icon={<Server className="h-8 w-8 text-muted-foreground" />}
+      icon={(() => { const NodeIcon = getResourceIcon(ResourceType.Node); return <NodeIcon className="h-8 w-8 text-muted-foreground" />; })()}
       onBack={goBack}
       onRefresh={refetch}
       tabs={tabs}

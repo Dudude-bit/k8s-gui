@@ -5,6 +5,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
 import { Eye, Trash2, Globe, ExternalLink } from "lucide-react";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -20,7 +21,7 @@ import { ResourceList } from "@/components/resources/ResourceList";
 import type { IngressInfo } from "@/generated/types";
 import { STALE_TIMES } from "@/lib/refresh";
 
-const ingressUrlPrefix = `/${toPlural(ResourceType.Ingress)}`;
+
 
 const getIngressOpenUrl = (ingress: IngressInfo): string | null => {
   const host =
@@ -192,7 +193,7 @@ export function IngressList() {
               <ActionMenu>
                 <DropdownMenuItem asChild>
                   <Link
-                    to={`/${toPlural(ResourceType.Ingress)}/${row.original.namespace}/${row.original.name}`}
+                    to={getResourceDetailUrl(ResourceType.Ingress, row.original.name, row.original.namespace)}
                   >
                     <Eye className="mr-2 h-4 w-4" />
                     View Details
@@ -228,7 +229,7 @@ export function IngressList() {
       }}
       staleTime={STALE_TIMES.resourceList}
       searchKey="name"
-      getRowHref={(row) => `${ingressUrlPrefix}/${row.namespace}/${row.name}`}
+      getRowHref={(row) => getResourceDetailUrl(ResourceType.Ingress, row.name, row.namespace)}
     />
   );
 }

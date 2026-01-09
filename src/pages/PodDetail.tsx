@@ -549,11 +549,13 @@ export function PodDetail() {
           id: "logs",
           label: "Logs",
           content: pod ? (hasLicenseAccess ? (
-            <LogViewer
-              podName={pod.name}
-              namespace={pod.namespace}
-              containers={pod.containers.map((c) => c.name)}
-            />
+            <div className="h-[70vh] min-h-[400px]">
+              <LogViewer
+                podName={pod.name}
+                namespace={pod.namespace}
+                containers={pod.containers.map((c) => c.name)}
+              />
+            </div>
           ) : (
             <LicenseErrorBanner message="Logs are available for premium users only." />
           )) : null

@@ -57,7 +57,7 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
         cluster: ctx.cluster,
         user: ctx.user,
         namespace: ctx.namespace ?? undefined,
-        is_current: ctx.isCurrent,
+        is_current: ctx.is_current,
       }));
       const currentContext = await commands.getCurrentContext();
       set({ contexts, currentContext, isLoading: false });

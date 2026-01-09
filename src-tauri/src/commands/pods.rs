@@ -34,7 +34,7 @@ pub async fn get_pod(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<PodInfo> {
-    crate::validation::validate_resource_name(&name)?;
+    crate::validation::validate_dns_label(&name)?;
     get_resource_info::<Pod, PodInfo>(name, namespace, state).await
 }
 
@@ -46,7 +46,7 @@ pub async fn delete_pod(
     force: Option<bool>,
     state: State<'_, AppState>,
 ) -> Result<()> {
-    crate::validation::validate_resource_name(&name)?;
+    crate::validation::validate_dns_label(&name)?;
 
     let delete_params = if force.unwrap_or(false) {
         Some(kube::api::DeleteParams::default().grace_period(0))

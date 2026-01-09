@@ -167,7 +167,7 @@ export function YamlEditorDialog() {
         success: false,
         stdout: "",
         stderr: normalizeTauriError(error),
-        exitCode: 1,
+        exit_code: 1,
       });
     } finally {
       setIsValidating(false);
@@ -213,7 +213,7 @@ export function YamlEditorDialog() {
         success: false,
         stdout: "",
         stderr: errorMessage,
-        exitCode: 1,
+        exit_code: 1,
       };
       setApplyResult(errorResult);
       toast({

@@ -10,7 +10,7 @@ import { ResourceType } from "@/lib/resource-registry";
 import { HardDrive, Link as LinkIcon, Database } from "lucide-react";
 import { commands } from "@/lib/commands";
 import type { PersistentVolumeInfo } from "@/generated/types";
-import { normalizeTauriError } from "@/lib/error-utils";
+
 import { StatusBadge } from "@/components/ui/status-badge";
 
 export function PersistentVolumeDetail() {
@@ -29,20 +29,8 @@ export function PersistentVolumeDetail() {
     } = useResourceDetail<PersistentVolumeInfo>({
         resourceKind: ResourceType.PersistentVolume,
         isClusterScoped: true,
-        fetchResource: async (name) => {
-            try {
-                return await commands.getPersistentVolume(name);
-            } catch (err) {
-                throw new Error(normalizeTauriError(err));
-            }
-        },
-        deleteResource: async (name) => {
-            try {
-                await commands.deletePersistentVolume(name);
-            } catch (err) {
-                throw new Error(normalizeTauriError(err));
-            }
-        },
+        fetchResource: (name) => commands.getPersistentVolume(name),
+        deleteResource: (name) => commands.deletePersistentVolume(name),
         defaultTab: "details",
     });
 

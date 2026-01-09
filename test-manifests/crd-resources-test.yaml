@@ -1,0 +1,437 @@
+# =============================================================================
+# Sample Custom Resources for Traefik, Istio, Cert-Manager
+# Apply after CRDs: kubectl apply -f crds-traefik-istio.yaml
+# =============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: crd-test
+  labels:
+    istio-injection: enabled
+---
+# =============================================================================
+# Traefik Resources
+# =============================================================================
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-api-prefix
+  namespace: crd-test
+spec:
+  stripPrefix:
+    prefixes:
+      - /api
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: rate-limit
+  namespace: crd-test
+spec:
+  rateLimit:
+    average: 100
+    burst: 200
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: secure-headers
+  namespace: crd-test
+spec:
+  headers:
+    customResponseHeaders:
+      X-Frame-Options: DENY
+      X-Content-Type-Options: nosniff
+      X-XSS-Protection: "1; mode=block"
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: frontend-route
+  namespace: crd-test
+spec:
+  entryPoints:
+    - web
+    - websecure
+  routes:
+    - match: Host(`app.example.com`) && PathPrefix(`/`)
+      kind: Rule
+      services:
+        - name: frontend
+          port: 80
+      middlewares:
+        - name: secure-headers
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: api-route
+  namespace: crd-test
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`api.example.com`) && PathPrefix(`/api`)
+      kind: Rule
+      services:
+        - name: backend
+          port: 8080
+      middlewares:
+        - name: strip-api-prefix
+        - name: rate-limit
+  tls:
+    secretName: api-tls-cert
+---
+apiVersion: traefik.io/v1alpha1
+kind: TraefikService
+metadata:
+  name: canary-service
+  namespace: crd-test
+spec:
+  weighted:
+    services:
+      - name: backend-v1
+        port: 8080
+        weight: 90
+      - name: backend-v2
+        port: 8080
+        weight: 10
+---
+# =============================================================================
+# Istio Resources
+# =============================================================================
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: main-gateway
+  namespace: crd-test
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "*.example.com"
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      hosts:
+        - "*.example.com"
+      tls:
+        mode: SIMPLE
+        credentialName: wildcard-cert
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: frontend-vs
+  namespace: crd-test
+spec:
+  hosts:
+    - app.example.com
+  gateways:
+    - main-gateway
+  http:
+    - name: primary
+      match:
+        - uri:
+            prefix: /
+      route:
+        - destination:
+            host: frontend
+            port:
+              number: 80
+      timeout: 30s
+      retries:
+        attempts: 3
+        perTryTimeout: 10s
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: backend-vs
+  namespace: crd-test
+spec:
+  hosts:
+    - backend
+  http:
+    - name: canary
+      match:
+        - headers:
+            x-canary:
+              exact: "true"
+      route:
+        - destination:
+            host: backend
+            subset: v2
+    - name: default
+      route:
+        - destination:
+            host: backend
+            subset: v1
+            port:
+              number: 8080
+          weight: 90
+        - destination:
+            host: backend
+            subset: v2
+            port:
+              number: 8080
+          weight: 10
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: backend-dr
+  namespace: crd-test
+spec:
+  host: backend
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http2MaxRequests: 1000
+        http1MaxPendingRequests: 100
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 10s
+      baseEjectionTime: 30s
+  subsets:
+    - name: v1
+      labels:
+        version: v1
+      trafficPolicy:
+        loadBalancer:
+          simple: ROUND_ROBIN
+    - name: v2
+      labels:
+        version: v2
+      trafficPolicy:
+        loadBalancer:
+          simple: LEAST_REQUEST
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: external-api
+  namespace: crd-test
+spec:
+  hosts:
+    - api.external-service.com
+  location: MESH_EXTERNAL
+  ports:
+    - number: 443
+      name: https
+      protocol: HTTPS
+  resolution: DNS
+---
+# =============================================================================
+# Cert-Manager Resources
+# =============================================================================
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: admin@example.com
+    privateKeySecretRef:
+      name: letsencrypt-staging-account-key
+    solvers:
+      - http01:
+          ingress:
+            class: traefik
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: admin@example.com
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+      - http01:
+          ingress:
+            class: traefik
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: app-tls-cert
+  namespace: crd-test
+spec:
+  secretName: app-tls-secret
+  duration: 2160h # 90 days
+  renewBefore: 360h # 15 days
+  commonName: app.example.com
+  dnsNames:
+    - app.example.com
+    - www.app.example.com
+  issuerRef:
+    name: letsencrypt-staging
+    kind: ClusterIssuer
+    group: cert-manager.io
+  usages:
+    - server auth
+    - client auth
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: api-tls-cert
+  namespace: crd-test
+spec:
+  secretName: api-tls-secret
+  duration: 2160h
+  renewBefore: 360h
+  commonName: api.example.com
+  dnsNames:
+    - api.example.com
+    - "*.api.example.com"
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+  usages:
+    - server auth
+---
+# =============================================================================
+# Demo Workloads (targets for routing)
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: crd-test
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: crd-test
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-v1
+  namespace: crd-test
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: backend
+        version: v1
+    spec:
+      containers:
+        - name: echo
+          image: hashicorp/http-echo
+          args:
+            - "-text=Backend v1"
+          ports:
+            - containerPort: 5678
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-v2
+  namespace: crd-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: backend
+        version: v2
+    spec:
+      containers:
+        - name: echo
+          image: hashicorp/http-echo
+          args:
+            - "-text=Backend v2 (canary)"
+          ports:
+            - containerPort: 5678
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: crd-test
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 8080
+      targetPort: 5678
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-v1
+  namespace: crd-test
+spec:
+  selector:
+    app: backend
+    version: v1
+  ports:
+    - port: 8080
+      targetPort: 5678
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-v2
+  namespace: crd-test
+spec:
+  selector:
+    app: backend
+    version: v2
+  ports:
+    - port: 8080
+      targetPort: 5678

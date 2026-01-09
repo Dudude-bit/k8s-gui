@@ -10,7 +10,7 @@ import { ResourceType } from "@/lib/resource-registry";
 import { Layers, Star, Settings } from "lucide-react";
 import { commands } from "@/lib/commands";
 import type { StorageClassInfo } from "@/generated/types";
-import { normalizeTauriError } from "@/lib/error-utils";
+
 
 export function StorageClassDetail() {
     const {
@@ -28,20 +28,8 @@ export function StorageClassDetail() {
     } = useResourceDetail<StorageClassInfo>({
         resourceKind: ResourceType.StorageClass,
         isClusterScoped: true,
-        fetchResource: async (name) => {
-            try {
-                return await commands.getStorageClass(name);
-            } catch (err) {
-                throw new Error(normalizeTauriError(err));
-            }
-        },
-        deleteResource: async (name) => {
-            try {
-                await commands.deleteStorageClass(name);
-            } catch (err) {
-                throw new Error(normalizeTauriError(err));
-            }
-        },
+        fetchResource: (name) => commands.getStorageClass(name),
+        deleteResource: (name) => commands.deleteStorageClass(name),
         defaultTab: "details",
     });
 

@@ -15,9 +15,10 @@ import { commands } from "@/lib/commands";
 
 import type { EndpointsInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import { STALE_TIMES } from "@/lib/refresh";
 
-const endpointsUrlPrefix = `/${toPlural(ResourceType.Endpoints)}`;
+
 
 const columns: ColumnDef<EndpointsInfo>[] = [
   {
@@ -159,7 +160,7 @@ const columns: ColumnDef<EndpointsInfo>[] = [
       <ActionMenu>
         <DropdownMenuItem asChild>
           <Link
-            to={`/${toPlural(ResourceType.Endpoints)}/${row.original.namespace}/${row.original.name}`}
+            to={getResourceDetailUrl(ResourceType.Endpoints, row.original.name, row.original.namespace)}
           >
             <Eye className="mr-2 h-4 w-4" />
             View Details
@@ -190,7 +191,7 @@ export function EndpointsList() {
       emptyStateLabel={toPlural(ResourceType.Endpoints)}
       staleTime={STALE_TIMES.resourceList}
       searchKey="name"
-      getRowHref={(row) => `${endpointsUrlPrefix}/${row.namespace}/${row.name}`}
+      getRowHref={(row) => getResourceDetailUrl(ResourceType.Endpoints, row.name, row.namespace)}
     />
   );
 }

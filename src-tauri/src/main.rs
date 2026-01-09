@@ -248,8 +248,20 @@ fn main() {
             commands::terminal::close_terminal,
             commands::terminal::open_shell,
 
-            // Plugin commands
-            commands::plugins::list_helm_releases,
+            // Helm commands (native + CLI)
+            commands::helm::check_helm_availability,
+            commands::helm::list_helm_releases_native,
+            commands::helm::get_helm_release_detail,
+            commands::helm::get_helm_history,
+            commands::helm::helm_rollback,
+            commands::helm::helm_uninstall,
+            commands::helm::list_helm_repos,
+            commands::helm::add_helm_repo,
+            commands::helm::remove_helm_repo,
+            commands::helm::update_helm_repos,
+            commands::helm::helm_search_charts,
+            commands::helm::helm_install,
+            commands::helm::helm_upgrade,
 
             // Settings commands
             commands::settings::get_app_info,

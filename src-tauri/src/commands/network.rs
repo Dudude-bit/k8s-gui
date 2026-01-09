@@ -37,6 +37,7 @@ pub async fn get_ingress(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<IngressInfo> {
+    crate::validation::validate_dns_subdomain(&name)?;
     get_resource_info::<Ingress, IngressInfo>(name, namespace, state).await
 }
 
@@ -47,6 +48,7 @@ pub async fn delete_ingress(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<()> {
+    crate::validation::validate_dns_subdomain(&name)?;
     crate::commands::helpers::delete_resource::<Ingress>(name, namespace, state, None).await
 }
 
@@ -57,6 +59,7 @@ pub async fn get_endpoints(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<EndpointsInfo> {
+    crate::validation::validate_dns_label(&name)?;
     get_resource_info::<Endpoints, EndpointsInfo>(name, namespace, state).await
 }
 
@@ -67,5 +70,6 @@ pub async fn delete_endpoints(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<()> {
+    crate::validation::validate_dns_label(&name)?;
     crate::commands::helpers::delete_resource::<Endpoints>(name, namespace, state, None).await
 }

@@ -114,6 +114,98 @@ kubectl delete pv k8s-gui-test-pv
 - [ ] Service type filter — ClusterIP, NodePort, LoadBalancer
 - [ ] Secret type filter — Opaque, tls, dockerconfigjson
 
+---
+
+## Тестирование Helm
+
+### Установка тестовых Helm релизов
+
+```bash
+# Запустить скрипт для установки тестовых релизов
+./helm-test.sh
+
+# Или вручную:
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm repo update
+
+# Установить тестовые релизы
+helm install redis-test bitnami/redis -n helm-test --create-namespace \
+    --set architecture=standalone --set auth.enabled=false \
+    --set master.persistence.enabled=false
+
+helm install nginx-test bitnami/nginx -n helm-test \
+    --set replicaCount=2 --set service.type=ClusterIP
+```
+
+### Проверка в k8s-gui
+
+1. Откройте приложение
+2. Перейдите в **Plugins → Helm**
+3. Убедитесь что релизы отображаются
+4. Проверьте:
+   - [ ] Список релизов с фильтром по namespace
+   - [ ] Статусы (deployed, pending-install, failed)
+   - [ ] Детальная страница (клик на релиз)
+   - [ ] История ревизий
+   - [ ] Rollback (если несколько ревизий)
+   - [ ] Uninstall с подтверждением
+
+### Удаление тестовых релизов
+
+```bash
+helm uninstall redis-test nginx-test -n helm-test
+kubectl delete namespace helm-test
+```
+
+---
+
+## Тестирование CRDs (Traefik, Istio, Cert-Manager)
+
+### Установка CRD определений
+
+```bash
+# Применить CRD определения (без установки самих контроллеров)
+kubectl apply -f crds-traefik-istio.yaml
+```
+
+### Создание тестовых ресурсов
+
+```bash
+# Применить тестовые Custom Resources
+kubectl apply -f crd-resources-test.yaml
+```
+
+### Что создаётся
+
+| CRD Group | Resources |
+|-----------|-----------|
+| **traefik.io** | IngressRoute, Middleware, TraefikService |
+| **networking.istio.io** | VirtualService, DestinationRule, Gateway, ServiceEntry |
+| **cert-manager.io** | Certificate, ClusterIssuer |
+
+### Проверка в k8s-gui
+
+1. Перейдите в **Cluster → CRDs**
+2. Найдите установленные CRDs:
+   - `ingressroutes.traefik.io`
+   - `virtualservices.networking.istio.io`
+   - `certificates.cert-manager.io`
+3. Кликните на CRD для просмотра ресурсов
+4. Проверьте:
+   - [ ] Список всех CRD в кластере
+   - [ ] Фильтрация по группе (traefik.io, networking.istio.io)
+   - [ ] Просмотр Custom Resources внутри CRD
+   - [ ] Детали CR (YAML, metadata)
+
+### Удаление тестовых CRDs
+
+```bash
+kubectl delete -f crd-resources-test.yaml
+kubectl delete -f crds-traefik-istio.yaml
+```
+
+---
+
 ## Troubleshooting
 
 ### StatefulSet pending
@@ -144,3 +236,12 @@ minikube addons enable ingress
 # Для kind
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
 ```
+
+### Helm релизы не отображаются
+1. Проверьте что Helm CLI установлен: `helm version`
+2. Проверьте наличие секретов: `kubectl get secrets -l owner=helm --all-namespaces`
+3. Если секреты есть но релизы не видны — проверьте логи приложения
+
+### CRDs не отображаются
+1. Проверьте что CRDs созданы: `kubectl get crds`
+2. Убедитесь что у вас есть права на просмотр CRDs

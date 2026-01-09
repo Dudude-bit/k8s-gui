@@ -12,6 +12,8 @@ import { PurchaseLicenseDialog } from "./PurchaseLicenseDialog";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Crown, Clock, Infinity, Calendar } from "lucide-react";
+import { RealtimeCountdown } from "@/components/ui/realtime";
+
 // Format date helper
 // Issue #12 Fix: Handle null/undefined dates
 const formatDate = (dateString: string | null | undefined): string => {
@@ -142,12 +144,22 @@ export function LicenseInfoDialog({
                 </div>
 
                 {licenseStatus.expiresAt && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Expires At</span>
-                    <span className="text-sm">
-                      {formatDate(licenseStatus.expiresAt)}
-                    </span>
-                  </div>
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Expires At</span>
+                      <span className="text-sm">
+                        {formatDate(licenseStatus.expiresAt)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Time Remaining</span>
+                      <RealtimeCountdown
+                        target={licenseStatus.expiresAt}
+                        showWarningColors
+                        className="text-sm"
+                      />
+                    </div>
+                  </>
                 )}
 
                 {licenseStatus.licenseKey && (

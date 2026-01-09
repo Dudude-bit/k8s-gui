@@ -26,7 +26,7 @@ pub async fn get_deployment(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<DeploymentInfo> {
-    crate::validation::validate_resource_name(&name)?;
+    crate::validation::validate_dns_label(&name)?;
     get_resource_info::<Deployment, DeploymentInfo>(name, namespace, state).await
 }
 
@@ -37,7 +37,7 @@ pub async fn delete_deployment(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<()> {
-    crate::validation::validate_resource_name(&name)?;
+    crate::validation::validate_dns_label(&name)?;
     crate::commands::helpers::delete_resource::<Deployment>(name, namespace, state, None).await
 }
 

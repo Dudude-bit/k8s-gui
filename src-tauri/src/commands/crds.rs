@@ -441,7 +441,7 @@ pub async fn list_crds(
 /// Get CRD details by name
 #[tauri::command]
 pub async fn get_crd(name: String, state: State<'_, AppState>) -> Result<CrdDetailInfo> {
-    crate::validation::validate_resource_name(&name)?;
+    crate::validation::validate_dns_subdomain(&name)?;
     let crd: CustomResourceDefinition =
         crate::commands::helpers::get_cluster_resource(name, state).await?;
     Ok(CrdDetailInfo::from(&crd))
@@ -450,7 +450,7 @@ pub async fn get_crd(name: String, state: State<'_, AppState>) -> Result<CrdDeta
 /// Get CRD YAML
 #[tauri::command]
 pub async fn get_crd_yaml(name: String, state: State<'_, AppState>) -> Result<String> {
-    crate::validation::validate_resource_name(&name)?;
+    crate::validation::validate_dns_subdomain(&name)?;
     let ctx = ResourceContext::for_list(&state, None)?;
     let api: Api<CustomResourceDefinition> = ctx.cluster_api();
     let crd = api.get(&name).await?;
@@ -463,7 +463,7 @@ pub async fn get_crd_yaml(name: String, state: State<'_, AppState>) -> Result<St
 /// Delete a CRD
 #[tauri::command]
 pub async fn delete_crd(name: String, state: State<'_, AppState>) -> Result<()> {
-    crate::validation::validate_resource_name(&name)?;
+    crate::validation::validate_dns_subdomain(&name)?;
     crate::commands::helpers::delete_cluster_resource::<CustomResourceDefinition>(name, state, None)
         .await
 }
@@ -475,7 +475,7 @@ pub async fn get_crd_schema(
     version: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<serde_json::Value> {
-    crate::validation::validate_resource_name(&name)?;
+    crate::validation::validate_dns_subdomain(&name)?;
     let crd: CustomResourceDefinition =
         crate::commands::helpers::get_cluster_resource(name.clone(), state).await?;
 
@@ -596,7 +596,8 @@ pub async fn get_custom_resource(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<CustomResourceDetailInfo> {
-    crate::validation::validate_resource_name(&name)?;
+    crate::validation::validate_dns_subdomain(&crd_name)?;
+    crate::validation::validate_dns_subdomain(&name)?;
 
     let crd: CustomResourceDefinition =
         crate::commands::helpers::get_cluster_resource(crd_name.clone(), state.clone()).await?;
@@ -648,7 +649,8 @@ pub async fn get_custom_resource_yaml(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String> {
-    crate::validation::validate_resource_name(&name)?;
+    crate::validation::validate_dns_subdomain(&crd_name)?;
+    crate::validation::validate_dns_subdomain(&name)?;
 
     let crd: CustomResourceDefinition =
         crate::commands::helpers::get_cluster_resource(crd_name.clone(), state.clone()).await?;
@@ -701,7 +703,8 @@ pub async fn delete_custom_resource(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<()> {
-    crate::validation::validate_resource_name(&name)?;
+    crate::validation::validate_dns_subdomain(&crd_name)?;
+    crate::validation::validate_dns_subdomain(&name)?;
 
     let crd: CustomResourceDefinition =
         crate::commands::helpers::get_cluster_resource(crd_name.clone(), state.clone()).await?;

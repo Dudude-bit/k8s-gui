@@ -44,11 +44,11 @@ export function Events() {
       const limit = eventLimit === "all" ? null : Number(eventLimit);
       const filters: EventFilters = {
         namespace: currentNamespace,
-        eventType: eventType === "all" ? null : eventType,
+        event_type: eventType === "all" ? null : eventType,
         limit,
-        involvedObjectName: null,
-        involvedObjectKind: null,
-        fieldSelector: null,
+        involved_object_name: null,
+        involved_object_kind: null,
+        field_selector: null,
       };
       try {
         return await commands.listEvents(filters);
