@@ -7,6 +7,7 @@ import { MetricCard } from "@/components/ui/metric-card";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
+import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { useMemo } from "react";
 import { commands } from "@/lib/commands";
 import { useResourceDetail } from "@/hooks";
@@ -28,6 +29,8 @@ export function NodeDetail() {
     isFetching,
     error,
     refetch,
+    yaml: nodeYaml,
+    copyYaml,
     activeTab,
     setActiveTab,
     goBack,
@@ -123,6 +126,20 @@ export function NodeDetail() {
       id: "labels",
       label: "Labels",
       content: <LabelsDisplay labels={node?.labels || {}} title="Labels" />,
+    },
+    {
+      id: "yaml",
+      label: "YAML",
+      content: (
+        <YamlTabContent
+          title="Node YAML"
+          yaml={nodeYaml}
+          resourceKind={ResourceType.Node}
+          resourceName={name || ""}
+          namespace={undefined}
+          onCopy={copyYaml}
+        />
+      ),
     },
   ];
 

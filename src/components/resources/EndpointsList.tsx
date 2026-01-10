@@ -3,14 +3,14 @@ import { Badge } from "@/components/ui/badge";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
 import { Eye, Network, CircleDot } from "lucide-react";
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceList } from "@/components/resources/ResourceList";
+import { createNamespaceColumn, createAgeColumn } from "@/components/resources/columns";
+import type { QuickAction } from "@/components/ui/quick-actions";
 import { commands } from "@/lib/commands";
 
 import type { EndpointsInfo } from "@/generated/types";
@@ -36,10 +36,7 @@ const columns: ColumnDef<EndpointsInfo>[] = [
       </div>
     ),
   },
-  {
-    accessorKey: "namespace",
-    header: "Namespace",
-  },
+  createNamespaceColumn<EndpointsInfo>(),
   {
     id: "endpoints",
     header: "Endpoints",
@@ -155,25 +152,7 @@ const columns: ColumnDef<EndpointsInfo>[] = [
       );
     },
   },
-  {
-    accessorKey: "age",
-    header: "Age",
-  },
-  {
-    id: "actions",
-    cell: ({ row }) => (
-      <ActionMenu>
-        <DropdownMenuItem asChild>
-          <Link
-            to={getResourceDetailUrl(ResourceType.Endpoints, row.original.name, row.original.namespace)}
-          >
-            <Eye className="mr-2 h-4 w-4" />
-            View Details
-          </Link>
-        </DropdownMenuItem>
-      </ActionMenu>
-    ),
-  },
+  createAgeColumn<EndpointsInfo>(),
 ];
 
 export function EndpointsList() {
@@ -197,6 +176,13 @@ export function EndpointsList() {
       staleTime={STALE_TIMES.resourceList}
       searchKey="name"
       getRowHref={(row) => getResourceDetailUrl(ResourceType.Endpoints, row.name, row.namespace)}
+      quickActions={(): QuickAction<EndpointsInfo>[] => [
+        {
+          icon: Eye,
+          label: "View Details",
+          onClick: (item) => window.location.href = getResourceDetailUrl(ResourceType.Endpoints, item.name, item.namespace),
+        },
+      ]}
     />
   );
 }

@@ -33,6 +33,13 @@ try:
 except ImportError:
     HAS_BOTO3 = False
 
+# Check for yandex-s3
+try:
+    from s3 import S3Client as YandexS3Client
+    HAS_YANDEX_S3 = True
+except ImportError:
+    HAS_YANDEX_S3 = False
+
 
 @dataclass
 class Target:
@@ -278,7 +285,8 @@ def ask_s3_config() -> Optional[dict]:
     # Storage type
     storage_types = [
         "Cloudflare R2",
-        "AWS S3", 
+        "AWS S3",
+        "Yandex Cloud Object Storage",
         "MinIO (self-hosted)", 
         "Other S3-compatible"
     ]
@@ -340,6 +348,33 @@ def ask_s3_config() -> Optional[dict]:
             return None
         config["public_url"] = public_url_input.rstrip("/")
         
+    elif "Yandex Cloud" in storage_type:
+        print_info("\n📘 Yandex Cloud Object Storage Setup Guide:")
+        print_info("   1. Go to Yandex Cloud Console → Cloud → your folder")
+        print_info("   2. Create Object Storage bucket if you haven't already")
+        print_info("   3. Go to Service Accounts → Create service account")
+        print_info("   4. Assign role 'storage.editor' to the service account")
+        print_info("   5. Go to Service Account → Create new key → Create static access key")
+        print_info("   6. Copy Access Key ID and Secret Access Key")
+        print_info("   7. For public access: Bucket → ACL → Set read access\n")
+        
+        config["endpoint"] = "https://storage.yandexcloud.net"
+        default_region = s3_saved.get("region") or os.environ.get("YC_REGION", "ru-central1")
+        config["region"] = ask("Yandex Cloud Region", default_region)
+        config["account_id"] = None
+        
+        # Public URL for Yandex Cloud
+        print_info("\nPublic URL options for Yandex Cloud Object Storage:")
+        print_info("   • Default: https://storage.yandexcloud.net/<bucket>")
+        print_info("   • Custom domain: https://releases.yourdomain.com")
+        
+        default_public_url = s3_saved.get("public_url") or f"https://storage.yandexcloud.net/{config['bucket']}"
+        public_url_input = ask("Public base URL for downloads", default_public_url)
+        if not public_url_input:
+            print_error("Public URL is required")
+            return None
+        config["public_url"] = public_url_input.rstrip("/")
+        
     elif "MinIO" in storage_type or "Other" in storage_type:
         default_endpoint = s3_saved.get("endpoint") or os.environ.get("S3_ENDPOINT", "http://localhost:9000")
         config["endpoint"] = ask("Endpoint URL", default_endpoint)
@@ -368,6 +403,9 @@ def ask_s3_config() -> Optional[dict]:
         if "Cloudflare R2" in storage_type:
             print_info("\nR2 API Token credentials (from 'Manage R2 API Tokens'):")
             config["access_key"] = ask("Access Key ID", default_access)
+        elif "Yandex Cloud" in storage_type:
+            print_info("\nStatic access key credentials (from Service Account):")
+            config["access_key"] = ask("Access Key ID", default_access)
         else:
             config["access_key"] = ask("Access Key", default_access)
             
@@ -383,8 +421,8 @@ def ask_s3_config() -> Optional[dict]:
             config["access_key"] = None
             config["secret_key"] = None
     
-    # Public URL for non-R2 providers (R2 already asked above)
-    if "Cloudflare R2" not in storage_type:
+    # Public URL for providers that haven't set it above (R2 and Yandex Cloud already configured)
+    if "Cloudflare R2" not in storage_type and "Yandex Cloud" not in storage_type:
         print_info("\nPublic URL is used in update manifest for end-users to download updates.")
         print_info("This can be a CDN URL, custom domain, or the S3/MinIO public URL.")
         
@@ -398,13 +436,16 @@ def ask_s3_config() -> Optional[dict]:
         public_url_input = ask("Public base URL for downloads", default_public_url)
         config["public_url"] = public_url_input.rstrip("/") if public_url_input else default_public_url
     
+    # Add storage_type to config for later uploader selection
+    config["storage_type"] = storage_type
+    
     # Save Config
     build_config = load_build_config()
     build_config["s3"] = {
         "storage_type": storage_type,
         "bucket": config["bucket"],
         "prefix": config["prefix"],
-        "endpoint": config["endpoint"],
+        "endpoint": config.get("endpoint"),
         "region": config["region"],
         "access_key": config["access_key"],
         "secret_key": config["secret_key"],
@@ -413,7 +454,35 @@ def ask_s3_config() -> Optional[dict]:
     }
     save_build_config(build_config)
     
+    # Auto-update tauri.conf.json updater endpoint
+    update_tauri_updater_endpoint(config["public_url"], config["prefix"])
+    
     return config
+
+
+def update_tauri_updater_endpoint(public_url: str, prefix: str):
+    """Update tauri.conf.json updater endpoint to match S3 config"""
+    tauri_config_path = Path("src-tauri/tauri.conf.json")
+    if not tauri_config_path.exists():
+        return
+    
+    with open(tauri_config_path) as f:
+        tauri_config = json.load(f)
+    
+    # Build the new endpoint URL
+    new_endpoint = f"{public_url.rstrip('/')}/{prefix.strip('/')}/latest.json"
+    
+    # Update the endpoint
+    if "plugins" in tauri_config and "updater" in tauri_config["plugins"]:
+        old_endpoints = tauri_config["plugins"]["updater"].get("endpoints", [])
+        tauri_config["plugins"]["updater"]["endpoints"] = [new_endpoint]
+        
+        # Only save if changed
+        if old_endpoints != [new_endpoint]:
+            with open(tauri_config_path, "w") as f:
+                json.dump(tauri_config, f, indent=2)
+                f.write("\n")
+            print_info(f"Updated updater endpoint: {new_endpoint}")
 
 
 def ask_choice(prompt: str, choices: List[str], allow_multiple: bool = False) -> List[str]:
@@ -1653,12 +1722,25 @@ def collect_artifacts(target: Target, output_dir: Path) -> list[Path]:
     return artifacts
 
 
+def create_uploader(config: dict):
+    """Create the appropriate uploader based on storage type"""
+    storage_type = config.get("storage_type", "")
+    
+    # Remove storage_type from config copy to pass to uploader constructor
+    uploader_config = {k: v for k, v in config.items() if k != "storage_type"}
+    
+    if "Yandex Cloud" in storage_type:
+        return YandexCloudUploader(**uploader_config)
+    else:
+        return S3Uploader(**uploader_config)
+
+
 # =============================================================================
 # S3/MinIO Upload
 # =============================================================================
 
 class S3Uploader:
-    """S3-compatible uploader (works with AWS S3, MinIO, Cloudflare R2, etc.)"""
+    """S3-compatible uploader (works with AWS S3, MinIO, Cloudflare R2, Yandex Cloud Object Storage, etc.)"""
     
     def __init__(self, bucket: str, prefix: str, endpoint: str = None, 
                  access_key: str = None, secret_key: str = None, region: str = "us-east-1",
@@ -1680,7 +1762,6 @@ class S3Uploader:
         # Note: Some S3 providers (like Hostkey) require signature v2 ('s3') instead of v4 ('s3v4')
         boto_config = BotoConfig(
             s3={'addressing_style': 'path'},
-            signature_version='s3'  # v2 for better compatibility
         )
         
         config = {
@@ -1775,6 +1856,115 @@ class S3Uploader:
     def upload_manifest(self, manifest_path: Path) -> str:
         return self.upload_file(manifest_path, "latest.json", "application/json")
 
+
+class YandexCloudUploader:
+    """Native Yandex Cloud Object Storage uploader using yandex-s3 library"""
+    
+    def __init__(self, bucket: str, prefix: str, endpoint: str = None, 
+                 access_key: str = None, secret_key: str = None, region: str = "ru-central1",
+                 public_url: str = None, account_id: str = None):
+        if not HAS_YANDEX_S3:
+            raise BuildError("yandex-s3 not installed. Run: pip install yandex-s3")
+        
+        import asyncio
+        
+        # account_id and endpoint are unused for yandex-s3 (hardcoded to Yandex Cloud)
+        _ = account_id
+        _ = endpoint
+        
+        self.bucket = bucket
+        self.prefix = prefix.strip("/")
+        self.region = region
+        self.access_key = access_key
+        self.secret_key = secret_key
+        
+        # Public URL for downloads
+        if public_url:
+            self.base_url = public_url.rstrip("/")
+        else:
+            self.base_url = f"https://storage.yandexcloud.net/{bucket}"
+        
+        # Create event loop for sync wrapper
+        try:
+            self._loop = asyncio.get_event_loop()
+        except RuntimeError:
+            self._loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self._loop)
+        
+        # Initialize S3 client
+        self._client = YandexS3Client(
+            access_key=access_key,
+            secret_key=secret_key,
+            region=region,
+            s3_bucket=bucket
+        )
+    
+    def _run_async(self, coro):
+        """Run async coroutine synchronously"""
+        return self._loop.run_until_complete(coro)
+    
+    def upload_file(self, local_path: Path, s3_key: str, content_type: str = None) -> str:
+        full_key = f"{self.prefix}/{s3_key}"
+        
+        print(f"   ⬆️  {local_path.name} → {self.bucket}/{full_key}")
+        
+        # Read file content
+        with open(local_path, 'rb') as f:
+            content = f.read()
+        
+        # Upload using yandex-s3
+        self._run_async(self._client.upload(full_key, content))
+        
+        return f"{self.base_url}/{full_key}"
+    
+    def upload_artifacts(self, output_dir: Path, version: str) -> dict:
+        platforms = {}
+        
+        for target_name, target in TARGETS.items():
+            target_dir = output_dir / target_name
+            if not target_dir.exists():
+                continue
+            
+            main_artifact, signature = None, None
+            
+            for f in target_dir.iterdir():
+                if f.suffix == ".sig":
+                    signature = f
+                elif any(f.name.endswith(ext) for ext in [".app.tar.gz", ".AppImage", ".msi", ".nsis.zip"]):
+                    main_artifact = f
+            
+            if not main_artifact:
+                continue
+            
+            s3_subdir = f"{target.os}/{target.arch}"
+            url = self.upload_file(main_artifact, f"{version}/{s3_subdir}/{main_artifact.name}")
+            
+            sig_content = ""
+            if signature:
+                self.upload_file(signature, f"{version}/{s3_subdir}/{signature.name}")
+                sig_content = signature.read_text().strip()
+            
+            # Only upload additional files that match the current version
+            # Skip old version files and system files
+            for f in target_dir.iterdir():
+                if f in (main_artifact, signature):
+                    continue
+                # Skip hidden files and system files
+                if f.name.startswith('.') or f.name == '.DS_Store':
+                    continue
+                # Only upload files that contain current version in name (e.g. DMG installers)
+                # or don't have version numbers at all
+                if version in f.name or not any(c.isdigit() for c in f.name):
+                    self.upload_file(f, f"{version}/{s3_subdir}/{f.name}")
+                else:
+                    print(f"   ⏭️  Skipping old file: {f.name}")
+            
+            platforms[target.platform_key] = {"signature": sig_content, "url": url}
+        
+        return platforms
+    
+    def upload_manifest(self, manifest_path: Path) -> str:
+        return self.upload_file(manifest_path, "latest.json", "application/json")
 
 def generate_manifest(output_dir: Path, version: str, platforms: dict, base_url: str = None) -> Path:
     if not platforms:
@@ -1929,7 +2119,7 @@ def main():
             sys.exit(1)
         
         print_step("Uploading to S3/MinIO")
-        uploader = S3Uploader(**s3_config)
+        uploader = create_uploader(s3_config)
         platforms = uploader.upload_artifacts(output_dir, version)
         # Pass uploader's base_url for correct URL generation
         base_url = f"{uploader.base_url}/{s3_config.get('prefix', 'releases')}"
@@ -2122,7 +2312,7 @@ def main():
     if upload_s3 and succeeded:
         print_step("Uploading to S3")
         try:
-            uploader = S3Uploader(**s3_config)
+            uploader = create_uploader(s3_config)
             platforms = uploader.upload_artifacts(output_dir, version)
             # Pass uploader's base_url for correct URL generation
             base_url = f"{uploader.base_url}/{s3_config.get('prefix', 'releases')}"

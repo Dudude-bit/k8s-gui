@@ -47,7 +47,7 @@ pub struct IngressInfo {
     pub tls_configs: Vec<IngressTlsConfig>,
     pub labels: std::collections::BTreeMap<String, String>,
     pub annotations: std::collections::BTreeMap<String, String>,
-    pub age: String,
+    pub created_at: Option<String>,
 }
 
 impl From<&Ingress> for IngressInfo {
@@ -173,7 +173,11 @@ impl From<&Ingress> for IngressInfo {
             tls_configs,
             labels,
             annotations,
-            age: format_k8s_age(ingress.metadata.creation_timestamp.as_ref()),
+            created_at: ingress
+                .metadata
+                .creation_timestamp
+                .as_ref()
+                .map(|t| t.0.to_rfc3339()),
         }
     }
 }
@@ -222,14 +226,18 @@ pub struct EndpointsInfo {
     pub name: String,
     pub namespace: String,
     pub subsets: Vec<EndpointSubset>,
-    pub age: String,
+    pub created_at: Option<String>,
 }
 
 impl From<&Endpoints> for EndpointsInfo {
     fn from(ep: &Endpoints) -> Self {
         let name = ep.name_any();
         let ns = ep.namespace().unwrap_or_default();
-        let age = format_k8s_age(ep.metadata.creation_timestamp.as_ref());
+        let created_at = ep
+            .metadata
+            .creation_timestamp
+            .as_ref()
+            .map(|t| t.0.to_rfc3339());
 
         let subsets = ep
             .subsets
@@ -293,7 +301,7 @@ impl From<&Endpoints> for EndpointsInfo {
             name,
             namespace: ns,
             subsets,
-            age,
+            created_at,
         }
     }
 }

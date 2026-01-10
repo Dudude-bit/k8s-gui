@@ -7,22 +7,16 @@ import { DataTable } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
-import { HelmStatusBanner } from "@/components/helm/HelmStatusBanner";
+import {
+  HelmStatusBanner,
+  HelmInstallDialog,
+  HelmUpgradeDialog,
+  HelmAddRepoDialog,
+} from "@/components/helm";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DangerousConfirmDialog } from "@/components/ui/dangerous-confirm-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { ColumnDef } from "@tanstack/react-table";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -790,47 +784,16 @@ export function Helm() {
       </Tabs>
 
       {/* Add Repository Dialog */}
-      <Dialog open={addRepoDialogOpen} onOpenChange={setAddRepoDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Helm Repository</DialogTitle>
-            <DialogDescription>
-              Add a new Helm chart repository to search and install charts from.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="repo-name">Repository Name</Label>
-              <Input
-                id="repo-name"
-                placeholder="e.g., bitnami"
-                value={newRepoName}
-                onChange={(e) => setNewRepoName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="repo-url">Repository URL</Label>
-              <Input
-                id="repo-url"
-                placeholder="e.g., https://charts.bitnami.com/bitnami"
-                value={newRepoUrl}
-                onChange={(e) => setNewRepoUrl(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddRepoDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => addRepoMutation.mutate({ name: newRepoName, url: newRepoUrl })}
-              disabled={!newRepoName || !newRepoUrl || addRepoMutation.isPending}
-            >
-              {addRepoMutation.isPending ? "Adding..." : "Add Repository"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <HelmAddRepoDialog
+        open={addRepoDialogOpen}
+        onClose={() => setAddRepoDialogOpen(false)}
+        name={newRepoName}
+        onNameChange={setNewRepoName}
+        url={newRepoUrl}
+        onUrlChange={setNewRepoUrl}
+        onAdd={() => addRepoMutation.mutate({ name: newRepoName, url: newRepoUrl })}
+        isAdding={addRepoMutation.isPending}
+      />
 
       {/* Delete Repository Confirmation */}
       <ConfirmDialog
@@ -851,178 +814,65 @@ export function Helm() {
       />
 
       {/* Install Chart Dialog */}
-      <Dialog open={installChart !== null} onOpenChange={(open) => !open && setInstallChart(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Install Chart</DialogTitle>
-            <DialogDescription>
-              Install {installChart?.name} to your cluster
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="install-release-name">Release Name</Label>
-              <Input
-                id="install-release-name"
-                value={installReleaseName}
-                onChange={(e) => setInstallReleaseName(e.target.value)}
-                placeholder="my-release"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="install-namespace">Namespace</Label>
-              <Select value={installNamespace} onValueChange={setInstallNamespace}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select namespace" />
-                </SelectTrigger>
-                <SelectContent>
-                  {namespaces.map((ns) => (
-                    <SelectItem key={ns} value={ns}>
-                      {ns}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="install-version">Version (optional)</Label>
-              <Input
-                id="install-version"
-                value={installVersion}
-                onChange={(e) => setInstallVersion(e.target.value)}
-                placeholder={installChart?.version || "latest"}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="install-values">Values (YAML, optional)</Label>
-              <Textarea
-                id="install-values"
-                value={installValues}
-                onChange={(e) => setInstallValues(e.target.value)}
-                placeholder="# Custom values&#10;replicaCount: 2"
-                className="font-mono text-sm h-32"
-              />
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="install-create-ns"
-                  checked={installCreateNs}
-                  onCheckedChange={(checked) => setInstallCreateNs(checked === true)}
-                />
-                <Label htmlFor="install-create-ns" className="text-sm">Create namespace</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="install-wait"
-                  checked={installWait}
-                  onCheckedChange={(checked) => setInstallWait(checked === true)}
-                />
-                <Label htmlFor="install-wait" className="text-sm">Wait for ready</Label>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setInstallChart(null)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                if (installChart && installReleaseName && installNamespace) {
-                  installMutation.mutate({
-                    releaseName: installReleaseName,
-                    chart: installChart.name,
-                    namespace: installNamespace,
-                    version: installVersion || null,
-                    values: installValues || null,
-                    createNamespace: installCreateNs,
-                    wait: installWait,
-                    timeout: installWait ? "5m0s" : null,
-                  });
-                }
-              }}
-              disabled={!installReleaseName || !installNamespace || installMutation.isPending}
-            >
-              {installMutation.isPending ? "Installing..." : "Install"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <HelmInstallDialog
+        chart={installChart}
+        onClose={() => setInstallChart(null)}
+        namespaces={namespaces}
+        releaseName={installReleaseName}
+        onReleaseNameChange={setInstallReleaseName}
+        namespace={installNamespace}
+        onNamespaceChange={setInstallNamespace}
+        version={installVersion}
+        onVersionChange={setInstallVersion}
+        values={installValues}
+        onValuesChange={setInstallValues}
+        createNamespace={installCreateNs}
+        onCreateNamespaceChange={setInstallCreateNs}
+        wait={installWait}
+        onWaitChange={setInstallWait}
+        onInstall={() => {
+          if (installChart && installReleaseName && installNamespace) {
+            installMutation.mutate({
+              releaseName: installReleaseName,
+              chart: installChart.name,
+              namespace: installNamespace,
+              version: installVersion || null,
+              values: installValues || null,
+              createNamespace: installCreateNs,
+              wait: installWait,
+              timeout: installWait ? "5m0s" : null,
+            });
+          }
+        }}
+        isInstalling={installMutation.isPending}
+      />
 
       {/* Upgrade Release Dialog */}
-      <Dialog open={upgradeTarget !== null} onOpenChange={(open) => !open && setUpgradeTarget(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Upgrade Release</DialogTitle>
-            <DialogDescription>
-              Upgrade {upgradeTarget?.name} in namespace {upgradeTarget?.namespace}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-muted-foreground">Current Chart:</span>
-                <p className="font-medium">{upgradeTarget?.chart}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Revision:</span>
-                <p className="font-medium">{upgradeTarget?.revision}</p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="upgrade-version">New Version (optional)</Label>
-              <Input
-                id="upgrade-version"
-                value={upgradeVersion}
-                onChange={(e) => setUpgradeVersion(e.target.value)}
-                placeholder="Leave empty for latest"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="upgrade-values">Values (YAML, optional)</Label>
-              <Textarea
-                id="upgrade-values"
-                value={upgradeValues}
-                onChange={(e) => setUpgradeValues(e.target.value)}
-                placeholder="# Custom values to merge&#10;replicaCount: 3"
-                className="font-mono text-sm h-32"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="upgrade-wait"
-                checked={upgradeWait}
-                onCheckedChange={(checked) => setUpgradeWait(checked === true)}
-              />
-              <Label htmlFor="upgrade-wait" className="text-sm">Wait for ready</Label>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setUpgradeTarget(null)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                if (upgradeTarget) {
-                  upgradeMutation.mutate({
-                    releaseName: upgradeTarget.name,
-                    chart: upgradeTarget.chart,
-                    namespace: upgradeTarget.namespace,
-                    version: upgradeVersion || null,
-                    values: upgradeValues || null,
-                    createNamespace: false,
-                    wait: upgradeWait,
-                    timeout: upgradeWait ? "5m0s" : null,
-                  });
-                }
-              }}
-              disabled={upgradeMutation.isPending}
-            >
-              {upgradeMutation.isPending ? "Upgrading..." : "Upgrade"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <HelmUpgradeDialog
+        release={upgradeTarget}
+        onClose={() => setUpgradeTarget(null)}
+        version={upgradeVersion}
+        onVersionChange={setUpgradeVersion}
+        values={upgradeValues}
+        onValuesChange={setUpgradeValues}
+        wait={upgradeWait}
+        onWaitChange={setUpgradeWait}
+        onUpgrade={() => {
+          if (upgradeTarget) {
+            upgradeMutation.mutate({
+              releaseName: upgradeTarget.name,
+              chart: upgradeTarget.chart,
+              namespace: upgradeTarget.namespace,
+              version: upgradeVersion || null,
+              values: upgradeValues || null,
+              createNamespace: false,
+              wait: upgradeWait,
+              timeout: upgradeWait ? "5m0s" : null,
+            });
+          }
+        }}
+        isUpgrading={upgradeMutation.isPending}
+      />
 
       {/* History Dialog */}
       {historyDialog && (

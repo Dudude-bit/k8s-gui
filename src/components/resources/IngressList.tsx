@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/tooltip";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceList } from "@/components/resources/ResourceList";
+import { createNamespaceColumn, createAgeColumn } from "@/components/resources/columns";
+import type { QuickAction } from "@/components/ui/quick-actions";
 
 import type { IngressInfo } from "@/generated/types";
 import { STALE_TIMES } from "@/lib/refresh";
@@ -53,10 +55,7 @@ const baseColumns: ColumnDef<IngressInfo>[] = [
       </div>
     ),
   },
-  {
-    accessorKey: "namespace",
-    header: "Namespace",
-  },
+  createNamespaceColumn<IngressInfo>(),
   {
     accessorKey: "className",
     header: "Class",
@@ -167,10 +166,7 @@ const baseColumns: ColumnDef<IngressInfo>[] = [
       );
     },
   },
-  {
-    accessorKey: "age",
-    header: "Age",
-  },
+  createAgeColumn<IngressInfo>(),
 ];
 
 export function IngressList() {
@@ -235,6 +231,28 @@ export function IngressList() {
       staleTime={STALE_TIMES.resourceList}
       searchKey="name"
       getRowHref={(row) => getResourceDetailUrl(ResourceType.Ingress, row.name, row.namespace)}
+      quickActions={(setDeleteTarget): QuickAction<IngressInfo>[] => [
+        {
+          icon: Eye,
+          label: "View Details",
+          onClick: (item) => window.location.href = getResourceDetailUrl(ResourceType.Ingress, item.name, item.namespace),
+        },
+        {
+          icon: ExternalLink,
+          label: "Open in Browser",
+          onClick: (item) => {
+            const url = getIngressOpenUrl(item);
+            if (url) window.open(url, "_blank", "noreferrer");
+          },
+          hidden: (item) => !getIngressOpenUrl(item),
+        },
+        {
+          icon: Trash2,
+          label: "Delete",
+          onClick: setDeleteTarget,
+          variant: "destructive",
+        },
+      ]}
     />
   );
 }

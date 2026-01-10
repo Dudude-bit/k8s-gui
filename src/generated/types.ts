@@ -43,7 +43,7 @@ export interface EndpointsInfo {
   name: string;
   namespace: string;
   subsets: EndpointSubset[];
-  age: string;
+  createdAt: string | null;
 }
 
 export interface EndpointSubset {
@@ -81,7 +81,7 @@ export interface IngressInfo {
   tlsConfigs: IngressTlsConfig[];
   labels: Record<string, string>;
   annotations: Record<string, string>;
-  age: string;
+  createdAt: string | null;
 }
 
 export interface IngressTlsConfig {

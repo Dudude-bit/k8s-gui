@@ -116,6 +116,21 @@ export function createAgeColumn<T extends WithCreatedAt>(): ColumnDef<T> {
   };
 }
 
+interface WithAge {
+  age: string;
+}
+
+/**
+ * Creates an age column for resources that have pre-formatted 'age' string
+ * Note: This displays a static string, unlike createAgeColumn which auto-updates
+ */
+export function createStaticAgeColumn<T extends WithAge>(): ColumnDef<T> {
+  return {
+    accessorKey: "age",
+    header: "Age",
+  };
+}
+
 /**
  * Creates a generic time-ago column for any timestamp field
  * Uses RealtimeAge for auto-updating display
@@ -315,7 +330,7 @@ export function createActionsColumn<T extends BaseResource>(
     cell: ({ row }) => {
       const resolvedActions =
         typeof actions === "function"
-          ? actions(setDeleteTarget ?? (() => {}))
+          ? actions(setDeleteTarget ?? (() => { }))
           : actions;
 
       return (

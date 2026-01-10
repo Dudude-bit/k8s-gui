@@ -3,6 +3,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
+import { AnnotationsDisplay } from "@/components/resources/AnnotationsDisplay";
 import {
   InfoCard,
   ResourceDetailLayout,
@@ -100,27 +101,7 @@ export function ServiceDetail() {
       content: (
         <div className="space-y-4">
           <LabelsDisplay labels={labels} title="Labels" />
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Annotations</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {Object.entries(annotations).map(([key, value]) => (
-                  <div key={key} className="rounded-lg border p-2">
-                    <p className="text-xs font-medium text-muted-foreground">
-                      {key}
-                    </p>
-                    <p className="font-mono text-sm break-all">{value}</p>
-                  </div>
-                ))}
-                {Object.keys(annotations).length === 0 && (
-                  <p className="text-muted-foreground">No annotations</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <AnnotationsDisplay annotations={annotations} />
         </div>
       ),
     },
