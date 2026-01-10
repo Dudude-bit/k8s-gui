@@ -10,6 +10,7 @@ import { useResourceDetail } from "@/hooks";
 import { ResourceType } from "@/lib/resource-registry";
 import { REFRESH_INTERVALS } from "@/lib/refresh";
 import { Globe, ExternalLink, Shield, Network, Copy, Link2, Tag, FileText, ArrowRight, AlertTriangle, Info, Clock, Calendar } from "lucide-react";
+import { RealtimeAge } from "@/components/ui/realtime";
 import { commands } from "@/lib/commands";
 import type { IngressInfo, IngressRule, IngressTlsConfig, EventInfo, EventFilters } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
@@ -484,10 +485,10 @@ export function IngressDetail() {
                             TLS
                         </Badge>
                     )}
-                    {ingress?.age && (
+                    {ingress?.createdAt && (
                         <Badge variant="outline" className="gap-1">
                             <Calendar className="h-3 w-3" />
-                            {ingress.age}
+                            <RealtimeAge timestamp={ingress.createdAt} />
                         </Badge>
                     )}
                 </>
