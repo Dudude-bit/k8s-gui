@@ -17,9 +17,8 @@ import {
 } from "@/components/ui/tooltip";
 import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -35,13 +34,12 @@ import { Terminal } from "@/components/terminal/Terminal";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
-import { EnvironmentVariables } from "@/components/resources/EnvironmentVariables";
+import { ContainerCard } from "@/components/resources/ContainerCard";
 import { ResourceDetailLayout, InfoCard, InfoRow } from "@/components/resources/ResourceDetailLayout";
 import { useToast } from "@/components/ui/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { usePortForwardStore } from "@/stores/portForwardStore";
 import {
-  Terminal as TerminalIcon,
   RefreshCw,
   Activity,
   Trash2,
@@ -455,92 +453,14 @@ export function PodDetail() {
           content: pod ? (
             <div className="space-y-4">
               {pod.containers.map((container) => (
-                <Card key={container.name}>
-                  <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Activity className="h-4 w-4" />
-                      {container.name}
-                    </CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant={container.ready ? "success" : "destructive"}
-                      >
-                        {container.ready ? "Ready" : "Not Ready"}
-                      </Badge>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openTerminal(container.name)}
-                              disabled={!hasLicenseAccess}
-                            >
-                              {!hasLicenseAccess && (
-                                <Lock className="mr-2 h-4 w-4" />
-                              )}
-                              <TerminalIcon className="mr-2 h-4 w-4" />
-                              Shell
-                            </Button>
-                          </div>
-                        </TooltipTrigger>
-                        {!hasLicenseAccess && (
-                          <TooltipContent>
-                            Premium feature - requires license
-                          </TooltipContent>
-                        )}
-                      </Tooltip>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <span className="font-semibold block">Image:</span>
-                        <span className="break-all">{container.image}</span>
-                      </div>
-                      <div>
-                        <span className="font-semibold block">Restart Count:</span>
-                        <span>{container.restartCount}</span>
-                      </div>
-                    </div>
-                    {container.ports && container.ports.length > 0 && (
-                      <div>
-                        <span className="font-semibold block mb-1">Ports:</span>
-                        <div className="flex flex-wrap gap-2">
-                          {container.ports.map((port, i) => (
-                            <Badge key={i} variant="secondary">
-                              {port.containerPort}
-                              {port.protocol ? `/${port.protocol}` : ""}
-                              {port.name ? ` (${port.name})` : ""}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {/* State details */}
-                    <div>
-                      <span className="font-semibold block mb-1">State:</span>
-                      {container.state && (
-                        <div className="text-muted-foreground">
-                          {Object.entries(container.state).map(([status, details]) => (
-                            <div key={status}>
-                              <span className="capitalize">{status}</span>
-                              {/* @ts-expect-error details is unknown */}
-                              {details.reason && <span>: {details.reason}</span>}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    {/* Environment Variables */}
-                    <EnvironmentVariables
-                      env={container.env}
-                      envFrom={container.envFrom}
-                      containerName={container.name}
-                      namespace={namespace}
-                    />
-                  </CardContent>
-                </Card>
+                <ContainerCard
+                  key={container.name}
+                  container={container}
+                  namespace={namespace}
+                  showShell={true}
+                  hasLicense={hasLicenseAccess}
+                  onOpenShell={openTerminal}
+                />
               ))}
             </div>
           ) : null
@@ -669,6 +589,52 @@ export function PodDetail() {
                   </span>
                 </div>
               </div>
+
+              {/* Port Presets from Container Ports */}
+              {(() => {
+                const allPorts = pod.containers.flatMap((container) =>
+                  container.ports.map((port) => ({
+                    containerName: container.name,
+                    port: port.containerPort,
+                    name: port.name,
+                    protocol: port.protocol,
+                  }))
+                );
+
+                if (allPorts.length === 0) return null;
+
+                return (
+                  <div className="space-y-2">
+                    <Label>Quick presets</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {allPorts.map((p, idx) => (
+                        <Button
+                          key={`${p.containerName}-${p.port}-${idx}`}
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setPortForwardForm((prev) => ({
+                              ...prev,
+                              localPort: String(p.port),
+                              remotePort: String(p.port),
+                              name: p.name || `${pod.name}:${p.port}`,
+                            }))
+                          }
+                        >
+                          {p.name ? `${p.name} (${p.port})` : String(p.port)}
+                          <span className="ml-1 text-xs text-muted-foreground">
+                            {p.protocol}
+                          </span>
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Click to auto-fill local and remote ports
+                    </p>
+                  </div>
+                );
+              })()}
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="grid gap-2">
                   <Label htmlFor="pf-local-port">Local port</Label>

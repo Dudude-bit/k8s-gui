@@ -102,7 +102,7 @@ export function Helm() {
   const [historyDialog, setHistoryDialog] = useState<HelmRelease | null>(null);
   const [selectedNamespace, setSelectedNamespace] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<string>("releases");
-  
+
   // Repository dialog state
   const [addRepoDialogOpen, setAddRepoDialogOpen] = useState(false);
   const [newRepoName, setNewRepoName] = useState("");
@@ -636,6 +636,7 @@ export function Helm() {
             isLoading={isLoading}
             searchPlaceholder="Search releases..."
             searchKey="name"
+            getRowHref={(row) => `/helm/${row.source}/${row.namespace}/${row.name}`}
           />
         </TabsContent>
 

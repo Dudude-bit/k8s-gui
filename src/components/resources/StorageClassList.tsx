@@ -28,7 +28,12 @@ const baseColumns: ColumnDef<StorageClassInfo>[] = [
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
         <Layers className="h-4 w-4 text-muted-foreground" />
-        <span className="font-medium">{row.original.name}</span>
+        <Link
+          to={getResourceDetailUrl(ResourceType.StorageClass, row.original.name)}
+          className="font-medium hover:underline"
+        >
+          {row.original.name}
+        </Link>
         {row.original.isDefault && (
           <Tooltip>
             <TooltipTrigger>

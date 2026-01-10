@@ -261,6 +261,7 @@ export function Crds() {
                     isLoading={isLoading}
                     searchPlaceholder="Search CRDs..."
                     searchKey="kind"
+                    getRowHref={(row) => `/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(row.name)}`}
                   />
                 </div>
               )}

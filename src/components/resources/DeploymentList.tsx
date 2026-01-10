@@ -73,7 +73,7 @@ export function DeploymentList() {
 
   const columns = useMemo<ColumnDef<DeploymentInfoWithMetrics>[]>(
     () => [
-      createNameColumn<DeploymentInfoWithMetrics>(getResourceListUrl(ResourceType.Deployment), { disableLink: true }),
+      createNameColumn<DeploymentInfoWithMetrics>(getResourceListUrl(ResourceType.Deployment)),
       createNamespaceColumn<DeploymentInfoWithMetrics>(),
       createCpuColumn<DeploymentInfoWithMetrics>(),
       createMemoryColumn<DeploymentInfoWithMetrics>(),

@@ -46,7 +46,7 @@ export function PodList() {
   const columns = useMemo<ColumnDef<PodWithMetrics>[]>(
     () => [
       // Use disableLink since row is clickable
-      createNameColumn<PodWithMetrics>(getResourceListUrl(ResourceType.Pod), { disableLink: true }),
+      createNameColumn<PodWithMetrics>(getResourceListUrl(ResourceType.Pod)),
       createNamespaceColumn<PodWithMetrics>(),
       {
         id: "status",

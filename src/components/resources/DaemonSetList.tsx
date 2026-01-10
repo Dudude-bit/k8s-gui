@@ -70,7 +70,7 @@ export function DaemonSetList() {
 
   const columns = useMemo<ColumnDef<DaemonSetInfoWithMetrics>[]>(
     () => [
-      createNameColumn<DaemonSetInfoWithMetrics>(getResourceListUrl(ResourceType.DaemonSet), { disableLink: true }),
+      createNameColumn<DaemonSetInfoWithMetrics>(getResourceListUrl(ResourceType.DaemonSet)),
       createNamespaceColumn<DaemonSetInfoWithMetrics>(),
       createCpuColumn<DaemonSetInfoWithMetrics>(),
       createMemoryColumn<DaemonSetInfoWithMetrics>(),

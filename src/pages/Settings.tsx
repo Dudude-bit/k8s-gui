@@ -17,6 +17,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { PortForwardManager } from "@/components/port-forward/PortForwardManager";
 import { RegistrySettings } from "@/components/registry/RegistrySettings";
 import { CloudProfiles } from "@/components/settings/CloudProfiles";
+import { CliSettings } from "@/components/settings/CliSettings";
 import { LicenseSection } from "@/components/profile/LicenseSection";
 import { PremiumFeatureGuard } from "@/components/license/PremiumFeatureGuard";
 import { Link } from "react-router-dom";
@@ -189,6 +190,9 @@ export function Settings() {
 
       {/* Cloud Profiles */}
       <CloudProfiles />
+
+      {/* CLI Tools */}
+      <CliSettings />
 
       <RegistrySettings />
 

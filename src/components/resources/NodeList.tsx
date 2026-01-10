@@ -105,7 +105,12 @@ export function NodeList() {
         accessorKey: "name",
         header: "Name",
         cell: ({ row }) => (
-          <span className="font-medium">{row.original.name}</span>
+          <Link
+            to={getResourceDetailUrl(ResourceType.Node, row.original.name)}
+            className="font-medium hover:underline"
+          >
+            {row.original.name}
+          </Link>
         ),
       },
       {

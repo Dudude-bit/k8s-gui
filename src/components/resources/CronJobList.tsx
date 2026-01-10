@@ -72,7 +72,7 @@ export function CronJobList() {
 
   const columns = useMemo<ColumnDef<CronJobInfoWithMetrics>[]>(
     () => [
-      createNameColumn<CronJobInfoWithMetrics>(getResourceListUrl(ResourceType.CronJob), { disableLink: true }),
+      createNameColumn<CronJobInfoWithMetrics>(getResourceListUrl(ResourceType.CronJob)),
       createNamespaceColumn<CronJobInfoWithMetrics>(),
       createCpuColumn<CronJobInfoWithMetrics>(),
       createMemoryColumn<CronJobInfoWithMetrics>(),

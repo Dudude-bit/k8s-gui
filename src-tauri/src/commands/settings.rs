@@ -1,6 +1,6 @@
 //! Settings and configuration commands
 
-use crate::config::{AppConfig, GcpProfile, AzureProfile, ContextBinding};
+use crate::config::{AppConfig, GcpProfile, AzureProfile, ContextBinding, CliPathsConfig};
 use crate::error::Result;
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
@@ -326,6 +326,31 @@ pub fn save_context_binding(context: String, binding: ContextBinding) -> Result<
 pub fn delete_context_binding(context: String) -> Result<()> {
     let mut config = AppConfig::load()?;
     config.cloud.context_bindings.remove(&context);
+    save_config(&config)
+}
+
+// ============================================================================
+// CLI Paths
+// ============================================================================
+
+/// Get CLI paths configuration
+#[tauri::command]
+pub fn get_cli_paths() -> Result<CliPathsConfig> {
+    let config = AppConfig::load()?;
+    Ok(config.cli_paths)
+}
+
+/// Save CLI paths configuration
+#[tauri::command]
+pub fn save_cli_paths(cli_paths: CliPathsConfig) -> Result<()> {
+    let mut config = AppConfig::load()?;
+    
+    // Filter empty strings
+    let cleaned = CliPathsConfig {
+        helm_path: cli_paths.helm_path.filter(|s| !s.is_empty()),
+    };
+    
+    config.cli_paths = cleaned;
     save_config(&config)
 }
 

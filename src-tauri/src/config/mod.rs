@@ -35,6 +35,9 @@ pub struct AppConfig {
     /// Port-forward configuration
     #[serde(default)]
     pub port_forward: PortForwardConfigStore,
+    /// CLI tools paths
+    #[serde(default)]
+    pub cli_paths: CliPathsConfig,
 }
 
 /// Theme configuration
@@ -267,6 +270,15 @@ pub struct AuthTokensConfig {
     /// Refresh token for license server
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "refresh_token")]
     pub refresh_token: Option<String>,
+}
+
+/// CLI tools paths configuration
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct CliPathsConfig {
+    /// Custom path to helm binary (if not in PATH)
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "helm_path")]
+    pub helm_path: Option<String>,
 }
 
 /// Port-forward configuration store

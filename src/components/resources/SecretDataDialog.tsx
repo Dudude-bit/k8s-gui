@@ -9,10 +9,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TextSkeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/components/ui/use-toast";
-import { Copy } from "lucide-react";
+import { Copy, ShieldAlert } from "lucide-react";
+import { SecretKeyValueItem } from "@/components/ui/secret-value";
+import { useCopyToClipboard } from "@/hooks";
+import { Eye, EyeOff } from "lucide-react";
 
 interface SecretDataDialogProps {
   open: boolean;
@@ -27,16 +30,18 @@ export function SecretDataDialog({
   secretName,
   namespace,
 }: SecretDataDialogProps) {
-  const { toast } = useToast();
+  const copyToClipboard = useCopyToClipboard();
   const [data, setData] = useState<Record<string, string> | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [revealedKeys, setRevealedKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (open && secretName && namespace) {
       setIsLoading(true);
       setError(null);
       setData(null);
+      setRevealedKeys(new Set()); // Reset revealed state when dialog opens
 
       commands
         .getSecretData(secretName, namespace)
@@ -52,21 +57,34 @@ export function SecretDataDialog({
     }
   }, [open, secretName, namespace]);
 
-  const handleCopyValue = async (key: string, value: string) => {
-    await navigator.clipboard.writeText(value);
-    toast({
-      title: "Copied",
-      description: `Value for "${key}" copied to clipboard.`,
+  const toggleReveal = (key: string) => {
+    setRevealedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
     });
   };
 
-  const handleCopyAll = async () => {
+  const revealAll = () => {
+    if (data) {
+      setRevealedKeys(new Set(Object.keys(data)));
+    }
+  };
+
+  const hideAll = () => {
+    setRevealedKeys(new Set());
+  };
+
+  const handleCopyAll = () => {
     if (!data) return;
-    await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-    toast({
-      title: "Copied",
-      description: "All secret data copied as JSON.",
-    });
+    copyToClipboard(
+      JSON.stringify(data, null, 2),
+      "All secret data copied as JSON."
+    );
   };
 
   const entries = data ? Object.entries(data) : [];
@@ -75,7 +93,13 @@ export function SecretDataDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Secret Data: {secretName}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            Secret Data: {secretName}
+            <Badge variant="outline" className="text-xs">
+              <ShieldAlert className="h-3 w-3 mr-1" />
+              Sensitive
+            </Badge>
+          </DialogTitle>
           <DialogDescription>
             {namespace}/{secretName}
           </DialogDescription>
@@ -94,28 +118,27 @@ export function SecretDataDialog({
             </div>
           ) : (
             <div className="space-y-2 p-1">
+              {/* Reveal/Hide All buttons */}
+              <div className="flex items-center gap-2 mb-3">
+                <Button variant="outline" size="sm" onClick={revealAll}>
+                  <Eye className="h-4 w-4 mr-2" />
+                  Reveal All
+                </Button>
+                <Button variant="outline" size="sm" onClick={hideAll}>
+                  <EyeOff className="h-4 w-4 mr-2" />
+                  Hide All
+                </Button>
+              </div>
+
               {entries.map(([key, value]) => (
-                <div
+                <SecretKeyValueItem
                   key={key}
-                  className="flex items-start gap-2 rounded-md border p-3"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium text-muted-foreground mb-1">
-                      {key}
-                    </div>
-                    <pre className="text-sm font-mono whitespace-pre-wrap break-all">
-                      {value}
-                    </pre>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleCopyValue(key, value)}
-                    className="shrink-0"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
+                  keyName={key}
+                  value={value}
+                  isRevealed={revealedKeys.has(key)}
+                  onToggleReveal={() => toggleReveal(key)}
+                  isLoading={isLoading}
+                />
               ))}
             </div>
           )}

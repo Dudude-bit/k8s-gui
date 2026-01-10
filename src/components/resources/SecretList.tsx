@@ -9,11 +9,13 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useMemo, useCallback, useState } from "react";
+import { Link } from "react-router-dom";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { YamlEditorMenuAction } from "@/components/yaml";
 import type { SecretInfo } from "@/generated/types";
 import { ResourceList } from "./ResourceList";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import { useCopyToClipboard } from "@/hooks";
 import { STALE_TIMES } from "@/lib/refresh";
 import {
@@ -81,94 +83,103 @@ export function SecretList() {
 
   return (
     <>
-    <ResourceList<SecretInfo>
-      title="Secrets"
-      queryKey={[toPlural(ResourceType.Secret), currentNamespace]}
-      queryFn={async () => {
-        const result = await commands.listSecrets({
-          namespace: currentNamespace,
-          labelSelector: null,
-          fieldSelector: null,
-          secretType: null,
-          limit: null,
-        });
-        return result;
-      }}
-      columns={(setDeleteTarget) => [
-        ...columns,
-        {
-          id: "actions",
-          cell: ({ row }) => (
-            <ActionMenu>
-              <YamlEditorMenuAction
-                title={`Secret: ${row.original.name}`}
-                resourceKey={{
-                  kind: ResourceType.Secret,
-                  name: row.original.name,
-                  namespace: row.original.namespace,
-                }}
-                fetchYaml={() =>
-                  fetchResourceYaml(
-                    ResourceType.Secret,
-                    row.original.name,
-                    row.original.namespace
-                  )
-                }
-                readOnly
-                menuLabel="View YAML"
-              />
-              <YamlEditorMenuAction
-                title={`Edit Secret: ${row.original.name}`}
-                resourceKey={{
-                  kind: ResourceType.Secret,
-                  name: row.original.name,
-                  namespace: row.original.namespace,
-                }}
-                fetchYaml={() =>
-                  fetchResourceYaml(
-                    ResourceType.Secret,
-                    row.original.name,
-                    row.original.namespace
-                  )
-                }
-              />
-              <DropdownMenuItem onClick={() => setViewDataSecret(row.original)}>
-                <Eye className="mr-2 h-4 w-4" />
-                View Data
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleCopyKeys(row.original)}>
-                <Copy className="mr-2 h-4 w-4" />
-                Copy Keys
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => setDeleteTarget(row.original)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </ActionMenu>
-          ),
-        },
-      ]}
-      emptyStateLabel="Secrets"
-      deleteConfig={{
-        mutationFn: async (item) => {
-          await commands.deleteSecret(item.name, item.namespace);
-        },
-        invalidateQueryKeys: [[toPlural(ResourceType.Secret)]],
-        resourceType: ResourceType.Secret,
-      }}
-      staleTime={STALE_TIMES.resourceList}
-    />
+      <ResourceList<SecretInfo>
+        title="Secrets"
+        queryKey={[toPlural(ResourceType.Secret), currentNamespace]}
+        queryFn={async () => {
+          const result = await commands.listSecrets({
+            namespace: currentNamespace,
+            labelSelector: null,
+            fieldSelector: null,
+            secretType: null,
+            limit: null,
+          });
+          return result;
+        }}
+        columns={(setDeleteTarget) => [
+          ...columns,
+          {
+            id: "actions",
+            cell: ({ row }) => (
+              <ActionMenu>
+                <DropdownMenuItem asChild>
+                  <Link
+                    to={getResourceDetailUrl(ResourceType.Secret, row.original.name, row.original.namespace)}
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    View Details
+                  </Link>
+                </DropdownMenuItem>
+                <YamlEditorMenuAction
+                  title={`Secret: ${row.original.name}`}
+                  resourceKey={{
+                    kind: ResourceType.Secret,
+                    name: row.original.name,
+                    namespace: row.original.namespace,
+                  }}
+                  fetchYaml={() =>
+                    fetchResourceYaml(
+                      ResourceType.Secret,
+                      row.original.name,
+                      row.original.namespace
+                    )
+                  }
+                  readOnly
+                  menuLabel="View YAML"
+                />
+                <YamlEditorMenuAction
+                  title={`Edit Secret: ${row.original.name}`}
+                  resourceKey={{
+                    kind: ResourceType.Secret,
+                    name: row.original.name,
+                    namespace: row.original.namespace,
+                  }}
+                  fetchYaml={() =>
+                    fetchResourceYaml(
+                      ResourceType.Secret,
+                      row.original.name,
+                      row.original.namespace
+                    )
+                  }
+                />
+                <DropdownMenuItem onClick={() => setViewDataSecret(row.original)}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Data
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleCopyKeys(row.original)}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy Keys
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => setDeleteTarget(row.original)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </ActionMenu>
+            ),
+          },
+        ]}
+        emptyStateLabel="Secrets"
+        getRowHref={(row) => getResourceDetailUrl(ResourceType.Secret, row.name, row.namespace)}
+        deleteConfig={{
+          mutationFn: async (item) => {
+            await commands.deleteSecret(item.name, item.namespace);
+          },
+          invalidateQueryKeys: [[toPlural(ResourceType.Secret)]],
+          resourceType: ResourceType.Secret,
+        }}
+        staleTime={STALE_TIMES.resourceList}
+      />
 
-    <SecretDataDialog
-      open={viewDataSecret !== null}
-      onOpenChange={(open) => !open && setViewDataSecret(null)}
-      secretName={viewDataSecret?.name ?? ""}
-      namespace={viewDataSecret?.namespace ?? ""}
-    />
-  </>
+      <SecretDataDialog
+        open={viewDataSecret !== null}
+        onOpenChange={(open) => !open && setViewDataSecret(null)}
+        secretName={viewDataSecret?.name ?? ""}
+        namespace={viewDataSecret?.namespace ?? ""}
+      />
+    </>
   );
 }

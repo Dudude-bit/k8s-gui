@@ -27,7 +27,12 @@ const columns: ColumnDef<EndpointsInfo>[] = [
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
         <Network className="h-4 w-4 text-muted-foreground" />
-        <span className="font-medium">{row.original.name}</span>
+        <Link
+          to={getResourceDetailUrl(ResourceType.Endpoints, row.original.name, row.original.namespace)}
+          className="font-medium hover:underline"
+        >
+          {row.original.name}
+        </Link>
       </div>
     ),
   },

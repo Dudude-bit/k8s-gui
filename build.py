@@ -272,61 +272,86 @@ def save_build_config(config: dict):
 
 
 def ask_s3_config() -> Optional[dict]:
-    """Interactively ask for S3/MinIO configuration"""
-    print_step("S3/MinIO Configuration")
+    """Interactively ask for S3/MinIO/R2 configuration"""
+    print_step("Storage Configuration")
     
     # Storage type
-    # Storage type
-    storage_types = ["MinIO (self-hosted)", "AWS S3", "Other S3-compatible"]
+    storage_types = [
+        "Cloudflare R2",
+        "AWS S3", 
+        "MinIO (self-hosted)", 
+        "Other S3-compatible"
+    ]
     
-    # Try to find default from saved config
-    default_type_idx = 0
     build_config = load_build_config()
     saved_type = build_config.get("s3", {}).get("storage_type")
     
+    # Show saved type info
     if saved_type:
-        # Find index matching saved type string (or part of it)
-        for i, t in enumerate(storage_types):
-            if saved_type == t:
-                default_type_idx = i
-                break
-                
-    # We don't have a way to pass default index to ask_choice currently, but we can assume first is default or user picks.
-    # To improve, we can modify ask_choice to accept default index, but for now let's just proceed.
-    # Actually, let's just make the saved one the first option if we want? No, that confuses order.
-    # The Prompt doesn't support default selection well for choice list without code change to ask_choice.
-    # Let's just ask.
+        print_info(f"Previously used: {saved_type}")
+    
     storage_type = ask_choice("Select storage type:", storage_types)[0]
     
     config = {}
-    
-    # Bucket
-    # Bucket
-    build_config = load_build_config()
     s3_saved = build_config.get("s3", {})
     
+    # Bucket name
     default_bucket = s3_saved.get("bucket") or os.environ.get("S3_BUCKET", "")
     config["bucket"] = ask("Bucket name", default_bucket)
     if not config["bucket"]:
         print_error("Bucket name is required")
         return None
     
-    # Prefix
-    # Prefix
+    # Prefix (path inside bucket)
     default_prefix = s3_saved.get("prefix") or os.environ.get("S3_PREFIX", "releases")
-    config["prefix"] = ask("Key prefix", default_prefix)
+    config["prefix"] = ask("Key prefix (folder path)", default_prefix)
     
-    # Endpoint (for MinIO)
-    if "MinIO" in storage_type or "Other" in storage_type:
+    # Configure based on storage type
+    if "Cloudflare R2" in storage_type:
+        print_info("\n📘 Cloudflare R2 Setup Guide:")
+        print_info("   1. Go to Cloudflare Dashboard → R2 → Overview")
+        print_info("   2. Create a bucket if you haven't already")
+        print_info("   3. Go to R2 → Manage R2 API Tokens → Create API Token")
+        print_info("   4. Select 'Object Read & Write' permission for your bucket")
+        print_info("   5. Copy Account ID from R2 Overview page")
+        print_info("   6. For public access: R2 → Your Bucket → Settings → Public Access")
+        print_info("      Enable 'R2.dev subdomain' or connect a custom domain\n")
+        
+        # Account ID for R2 endpoint
+        default_account_id = s3_saved.get("account_id") or os.environ.get("CF_ACCOUNT_ID", "")
+        account_id = ask("Cloudflare Account ID", default_account_id)
+        if not account_id:
+            print_error("Account ID is required for R2")
+            return None
+        
+        config["account_id"] = account_id
+        config["endpoint"] = f"https://{account_id}.r2.cloudflarestorage.com"
+        config["region"] = "auto"  # R2 uses 'auto' region
+        
+        # Public URL - R2 has special options
+        print_info("\nPublic URL options for R2:")
+        print_info("   • r2.dev subdomain: https://pub-<hash>.r2.dev")
+        print_info("   • Custom domain: https://releases.yourdomain.com")
+        
+        default_public_url = s3_saved.get("public_url") or ""
+        public_url_input = ask("Public base URL for downloads", default_public_url)
+        if not public_url_input:
+            print_error("Public URL is required for R2 (enable public access in Cloudflare dashboard)")
+            return None
+        config["public_url"] = public_url_input.rstrip("/")
+        
+    elif "MinIO" in storage_type or "Other" in storage_type:
         default_endpoint = s3_saved.get("endpoint") or os.environ.get("S3_ENDPOINT", "http://localhost:9000")
         config["endpoint"] = ask("Endpoint URL", default_endpoint)
         if not config["endpoint"]:
-            print_error("Endpoint URL is required for MinIO")
+            print_error("Endpoint URL is required")
             return None
-        # MinIO doesn't care about region, but boto3 requires it
-        config["region"] = "us-east-1"
-    else:
+        config["region"] = "us-east-1"  # boto3 requires region
+        config["account_id"] = None
+        
+    else:  # AWS S3
         config["endpoint"] = None
+        config["account_id"] = None
         default_region = s3_saved.get("region") or os.environ.get("AWS_REGION", "us-east-1")
         config["region"] = ask("AWS Region", default_region)
     
@@ -336,28 +361,44 @@ def ask_s3_config() -> Optional[dict]:
         config["access_key"] = os.environ["AWS_ACCESS_KEY_ID"]
         config["secret_key"] = os.environ["AWS_SECRET_ACCESS_KEY"]
     else:
-        # Load from config if available (only access key, secrets usually not saved but we can for convenience)
+        # Load from config if available
         default_access = s3_saved.get("access_key") or os.environ.get("MINIO_ACCESS_KEY", "")
-        # Try to load secret key too if user permitted (we'll implement saving below)
         default_secret = s3_saved.get("secret_key")
 
-        config["access_key"] = ask("Access Key", default_access)
+        if "Cloudflare R2" in storage_type:
+            print_info("\nR2 API Token credentials (from 'Manage R2 API Tokens'):")
+            config["access_key"] = ask("Access Key ID", default_access)
+        else:
+            config["access_key"] = ask("Access Key", default_access)
+            
         if config["access_key"]:
-            # If we have a saved secret and the access key matches, we can suggest/use it
-            # But ask_secret doesn't typically show the default. 
-            # We can change logic: if we have a saved secret, ask if we want to use it
             if default_secret and config["access_key"] == default_access:
                 if ask_yes_no("Use saved secret key?", default=True):
                     config["secret_key"] = default_secret
                 else:
-                    config["secret_key"] = ask_secret("Secret Key")
+                    config["secret_key"] = ask_secret("Secret Access Key")
             else:
-                config["secret_key"] = ask_secret("Secret Key")
+                config["secret_key"] = ask_secret("Secret Access Key")
         else:
             config["access_key"] = None
             config["secret_key"] = None
     
-    # Save S3 Config
+    # Public URL for non-R2 providers (R2 already asked above)
+    if "Cloudflare R2" not in storage_type:
+        print_info("\nPublic URL is used in update manifest for end-users to download updates.")
+        print_info("This can be a CDN URL, custom domain, or the S3/MinIO public URL.")
+        
+        default_public_url = s3_saved.get("public_url") or ""
+        if not default_public_url:
+            if config.get("endpoint"):
+                default_public_url = f"{config['endpoint'].rstrip('/')}/{config['bucket']}"
+            else:
+                default_public_url = f"https://{config['bucket']}.s3.amazonaws.com"
+        
+        public_url_input = ask("Public base URL for downloads", default_public_url)
+        config["public_url"] = public_url_input.rstrip("/") if public_url_input else default_public_url
+    
+    # Save Config
     build_config = load_build_config()
     build_config["s3"] = {
         "storage_type": storage_type,
@@ -366,7 +407,9 @@ def ask_s3_config() -> Optional[dict]:
         "endpoint": config["endpoint"],
         "region": config["region"],
         "access_key": config["access_key"],
-        "secret_key": config["secret_key"] # Saving secret for convenience as requested
+        "secret_key": config["secret_key"],
+        "public_url": config["public_url"],
+        "account_id": config.get("account_id")
     }
     save_build_config(build_config)
     
@@ -1190,19 +1233,33 @@ def wait_for_windows_ssh_remote(linux_host: RemoteHost, timeout: int = 2400) -> 
     return False
 
 
-def build_docker_image() -> str:
-    """Build or ensure the Linux build Docker image exists"""
-    image_name = "k8s-gui-linux-builder"
+def build_docker_image(arch: str = None) -> str:
+    """Build or ensure the Linux build Docker image exists for given architecture"""
     dockerfile = Path("Dockerfile.linux-build")
     
     if not dockerfile.exists():
         raise BuildError("Dockerfile.linux-build not found")
     
-    print("   Building Docker image (this may take a few minutes first time)...")
-    result = subprocess.run(
-        ["docker", "build", "-t", image_name, "-f", str(dockerfile), "."],
-        capture_output=False
-    )
+    # Determine platform and image tag based on architecture
+    if arch == "x86_64":
+        platform = "linux/amd64"
+        image_name = "k8s-gui-linux-builder:amd64"
+    elif arch == "aarch64":
+        platform = "linux/arm64"
+        image_name = "k8s-gui-linux-builder:arm64"
+    else:
+        # Default to native architecture
+        platform = None
+        image_name = "k8s-gui-linux-builder"
+    
+    print(f"   Building Docker image for {arch or 'native'} (this may take a few minutes first time)...")
+    
+    cmd = ["docker", "build", "-t", image_name, "-f", str(dockerfile)]
+    if platform:
+        cmd.extend(["--platform", platform])
+    cmd.append(".")
+    
+    result = subprocess.run(cmd, capture_output=False)
     
     if result.returncode != 0:
         raise BuildError("Failed to build Docker image")
@@ -1217,7 +1274,7 @@ def build_target_docker(target: Target, env: dict):
     if target.os != "linux":
         raise BuildError(f"Docker build only supports Linux targets, got {target.os}")
     
-    image_name = build_docker_image()
+    image_name = build_docker_image(target.arch)
     
     # Prepare environment variables for Docker
     env_args = []
@@ -1230,9 +1287,17 @@ def build_target_docker(target: Target, env: dict):
     if "TAURI_SIGNING_PRIVATE_KEY_PASSWORD" in os.environ:
         env_args.extend(["-e", f"TAURI_SIGNING_PRIVATE_KEY_PASSWORD={os.environ['TAURI_SIGNING_PRIVATE_KEY_PASSWORD']}"])
     
+    # Set platform for Docker (important for cross-arch builds on Apple Silicon)
+    platform_arg = []
+    if target.arch == "x86_64":
+        platform_arg = ["--platform", "linux/amd64"]
+    elif target.arch == "aarch64":
+        platform_arg = ["--platform", "linux/arm64"]
+    
     # Run Docker build
     cmd = [
         "docker", "run", "--rm",
+        *platform_arg,
         "-v", f"{Path.cwd()}:/app",
         "-w", "/app",
         *env_args,
@@ -1593,19 +1658,35 @@ def collect_artifacts(target: Target, output_dir: Path) -> list[Path]:
 # =============================================================================
 
 class S3Uploader:
-    """S3-compatible uploader (works with AWS S3, MinIO, etc.)"""
+    """S3-compatible uploader (works with AWS S3, MinIO, Cloudflare R2, etc.)"""
     
     def __init__(self, bucket: str, prefix: str, endpoint: str = None, 
-                 access_key: str = None, secret_key: str = None, region: str = "us-east-1"):
+                 access_key: str = None, secret_key: str = None, region: str = "us-east-1",
+                 public_url: str = None, account_id: str = None):
         if not HAS_BOTO3:
             raise BuildError("boto3 not installed. Run: pip install boto3")
+        
+        from botocore.config import Config as BotoConfig
+        
+        # account_id is used for R2 endpoint construction but not needed after that
+        _ = account_id  # suppress unused warning
         
         self.bucket = bucket
         self.prefix = prefix.strip("/")
         self.endpoint = endpoint
+        self.public_url = public_url
         
-        # Build client config
-        config = {"region_name": region}
+        # Build client config - use path-style addressing and signature v2 for compatibility
+        # Note: Some S3 providers (like Hostkey) require signature v2 ('s3') instead of v4 ('s3v4')
+        boto_config = BotoConfig(
+            s3={'addressing_style': 'path'},
+            signature_version='s3'  # v2 for better compatibility
+        )
+        
+        config = {
+            "region_name": region,
+            "config": boto_config
+        }
         
         if endpoint:
             config["endpoint_url"] = endpoint
@@ -1616,8 +1697,10 @@ class S3Uploader:
         
         self.s3 = boto3.client("s3", **config)
         
-        # Base URL for public access
-        if endpoint:
+        # Base URL for public access (use custom public_url if provided)
+        if public_url:
+            self.base_url = public_url.rstrip("/")
+        elif endpoint:
             # MinIO/custom S3: endpoint/bucket/key
             self.base_url = f"{endpoint.rstrip('/')}/{bucket}"
         else:
@@ -1625,11 +1708,21 @@ class S3Uploader:
             self.base_url = f"https://{bucket}.s3.amazonaws.com"
     
     def upload_file(self, local_path: Path, s3_key: str, content_type: str = None) -> str:
-        extra_args = {"ContentType": content_type} if content_type else {}
         full_key = f"{self.prefix}/{s3_key}"
         
         print(f"   ⬆️  {local_path.name} → {self.bucket}/{full_key}")
-        self.s3.upload_file(str(local_path), self.bucket, full_key, ExtraArgs=extra_args)
+        
+        # Use simple PUT instead of multipart upload (better compatibility with some S3 providers)
+        with open(local_path, 'rb') as f:
+            extra_args = {}
+            if content_type:
+                extra_args['ContentType'] = content_type
+            self.s3.put_object(
+                Bucket=self.bucket,
+                Key=full_key,
+                Body=f,
+                **extra_args
+            )
         
         return f"{self.base_url}/{full_key}"
     
@@ -1660,9 +1753,20 @@ class S3Uploader:
                 self.upload_file(signature, f"{version}/{s3_subdir}/{signature.name}")
                 sig_content = signature.read_text().strip()
             
+            # Only upload additional files that match the current version
+            # Skip old version files and system files
             for f in target_dir.iterdir():
-                if f not in (main_artifact, signature):
+                if f in (main_artifact, signature):
+                    continue
+                # Skip hidden files and system files
+                if f.name.startswith('.') or f.name == '.DS_Store':
+                    continue
+                # Only upload files that contain current version in name (e.g. DMG installers)
+                # or don't have version numbers at all
+                if version in f.name or not any(c.isdigit() for c in f.name):
                     self.upload_file(f, f"{version}/{s3_subdir}/{f.name}")
+                else:
+                    print(f"   ⏭️  Skipping old file: {f.name}")
             
             platforms[target.platform_key] = {"signature": sig_content, "url": url}
         

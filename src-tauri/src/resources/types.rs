@@ -865,6 +865,7 @@ pub struct ConfigMapInfo {
     pub uid: String,
     pub data_keys: Vec<String>,
     pub labels: BTreeMap<String, String>,
+    pub annotations: BTreeMap<String, String>,
     pub created_at: Option<DateTime<Utc>>,
 }
 
@@ -880,6 +881,7 @@ impl From<&ConfigMap> for ConfigMapInfo {
                 .map(|d| d.keys().cloned().collect())
                 .unwrap_or_default(),
             labels: cm.labels().clone(),
+            annotations: cm.annotations().clone(),
             created_at: cm.creation_timestamp().map(|t| t.0),
         }
     }
@@ -895,6 +897,7 @@ pub struct SecretInfo {
     pub type_: String,
     pub data_keys: Vec<String>,
     pub labels: BTreeMap<String, String>,
+    pub annotations: BTreeMap<String, String>,
     pub created_at: Option<DateTime<Utc>>,
 }
 
@@ -911,6 +914,7 @@ impl From<&Secret> for SecretInfo {
                 .map(|d| d.keys().cloned().collect())
                 .unwrap_or_default(),
             labels: secret.labels().clone(),
+            annotations: secret.annotations().clone(),
             created_at: secret.creation_timestamp().map(|t| t.0),
         }
     }

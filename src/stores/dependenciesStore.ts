@@ -15,6 +15,10 @@ export interface HelmAvailability {
   available: boolean;
   version: string | null;
   error: string | null;
+  /** Path where helm was found (if available) */
+  path: string | null;
+  /** List of paths that were searched */
+  searchedPaths: string[];
 }
 
 /** Dependencies store state */
@@ -48,6 +52,8 @@ export const useDependenciesStore = create<DependenciesState>((set, get) => ({
           available: false,
           version: null,
           error: error instanceof Error ? error.message : String(error),
+          path: null,
+          searchedPaths: [],
         },
         isChecking: false,
         lastChecked: new Date(),

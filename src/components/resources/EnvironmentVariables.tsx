@@ -19,6 +19,7 @@ import {
 import { ChevronDown, ChevronRight, Lock, FileKey, Settings, Box, Loader2 } from "lucide-react";
 import type { EnvVarInfo, EnvFromInfo, EnvVarSourceType } from "@/generated/types";
 import { commands } from "@/lib/commands";
+import { SecretValueInline } from "@/components/ui/secret-value";
 
 interface EnvironmentVariablesProps {
   env: EnvVarInfo[];
@@ -78,6 +79,7 @@ export function EnvironmentVariables({
   namespace,
 }: EnvironmentVariablesProps) {
   const [showSecrets, setShowSecrets] = useState(false);
+  const [revealedSecrets, setRevealedSecrets] = useState<Set<string>>(new Set());
   const [isExpanded, setIsExpanded] = useState(true);
   const [secretCache, setSecretCache] = useState<DataCache>({});
   const [configMapCache, setConfigMapCache] = useState<DataCache>({});
@@ -200,11 +202,19 @@ export function EnvironmentVariables({
                 <Switch
                   id={`show-secrets-${containerName}`}
                   checked={showSecrets}
-                  onCheckedChange={setShowSecrets}
+                  onCheckedChange={(checked) => {
+                    setShowSecrets(checked);
+                    // When enabling, reveal all secrets; when disabling, hide all
+                    if (checked) {
+                      setRevealedSecrets(new Set(secretEnvVars.map(e => e.name)));
+                    } else {
+                      setRevealedSecrets(new Set());
+                    }
+                  }}
                   disabled={loadingSecrets}
                 />
                 <Label htmlFor={`show-secrets-${containerName}`} className="text-sm">
-                  Show secrets
+                  Show all secrets
                 </Label>
               </div>
             )}
@@ -266,6 +276,7 @@ export function EnvironmentVariables({
                           <TableHead className="w-[200px]">Name</TableHead>
                           <TableHead>Value</TableHead>
                           <TableHead className="w-[180px]">Source</TableHead>
+                          <TableHead className="w-[60px]"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -274,13 +285,27 @@ export function EnvironmentVariables({
                             envVar.valueFrom?.sourceType === "secretKeyRef";
                           const isFromConfigMap =
                             envVar.valueFrom?.sourceType === "configMapKeyRef";
+                          const isRevealed = revealedSecrets.has(envVar.name);
+
+                          const toggleReveal = () => {
+                            setRevealedSecrets((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(envVar.name)) {
+                                next.delete(envVar.name);
+                              } else {
+                                next.add(envVar.name);
+                              }
+                              return next;
+                            });
+                          };
+
                           const displayValue = (() => {
                             if (envVar.valueFrom) {
-                              if (isFromSecret && !showSecrets) {
+                              if (isFromSecret && !isRevealed) {
                                 return "••••••••";
                               }
                               // For secret refs, try to get the actual value from cache
-                              if (isFromSecret && showSecrets && envVar.valueFrom.name && envVar.valueFrom.key) {
+                              if (isFromSecret && isRevealed && envVar.valueFrom.name && envVar.valueFrom.key) {
                                 const secretData = secretCache[envVar.valueFrom.name];
                                 if (secretData && envVar.valueFrom.key in secretData) {
                                   return secretData[envVar.valueFrom.key];
@@ -320,11 +345,10 @@ export function EnvironmentVariables({
                                 {envVar.name}
                               </TableCell>
                               <TableCell
-                                className={`font-mono text-xs ${
-                                  isFromSecret && !showSecrets
-                                    ? "text-muted-foreground italic"
-                                    : ""
-                                }`}
+                                className={`font-mono text-xs ${isFromSecret && !isRevealed
+                                  ? "text-muted-foreground italic"
+                                  : ""
+                                  }`}
                               >
                                 <span className="break-all">{displayValue}</span>
                               </TableCell>
@@ -348,6 +372,15 @@ export function EnvironmentVariables({
                                   <span className="text-muted-foreground text-xs">
                                     Direct value
                                   </span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {isFromSecret && (
+                                  <SecretValueInline
+                                    isRevealed={isRevealed}
+                                    onToggleReveal={toggleReveal}
+                                    isLoading={loadingSecrets}
+                                  />
                                 )}
                               </TableCell>
                             </TableRow>

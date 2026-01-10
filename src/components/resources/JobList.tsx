@@ -71,7 +71,7 @@ export function JobList() {
 
   const columns = useMemo<ColumnDef<JobInfoWithMetrics>[]>(
     () => [
-      createNameColumn<JobInfoWithMetrics>(getResourceListUrl(ResourceType.Job), { disableLink: true }),
+      createNameColumn<JobInfoWithMetrics>(getResourceListUrl(ResourceType.Job)),
       createNamespaceColumn<JobInfoWithMetrics>(),
       createCpuColumn<JobInfoWithMetrics>(),
       createMemoryColumn<JobInfoWithMetrics>(),

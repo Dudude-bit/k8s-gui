@@ -71,7 +71,7 @@ export function StatefulSetList() {
 
   const columns = useMemo<ColumnDef<StatefulSetInfoWithMetrics>[]>(
     () => [
-      createNameColumn<StatefulSetInfoWithMetrics>(getResourceListUrl(ResourceType.StatefulSet), { disableLink: true }),
+      createNameColumn<StatefulSetInfoWithMetrics>(getResourceListUrl(ResourceType.StatefulSet)),
       createNamespaceColumn<StatefulSetInfoWithMetrics>(),
       createCpuColumn<StatefulSetInfoWithMetrics>(),
       createMemoryColumn<StatefulSetInfoWithMetrics>(),

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "K8s GUI",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "identifier": "com.k8s-gui.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -77,7 +77,7 @@
       "open": true
     },
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM5RTI0MjBDNjEwNDdEOTcKUldTWGZRUmhERUxpT2NQaGlHS1dSVU10N0Z0TnVPNGhQaU5NbytsUjhRSVczQTNmTHFIcHM0enIK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJDQzVCRjcxMTNCRTdDNjIKUldSaWZMNFRjYi9GdktzRG55YVUxNlV3U0x3VkF1N25Xa2xERmJtZVdOSWxDMXhobFptbTlGcEIK",
       "endpoints": [
         "https://minio.kirillin.tech/k8s-gui-releases/releases/latest.json"
       ]

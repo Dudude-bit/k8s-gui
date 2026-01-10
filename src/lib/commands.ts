@@ -4,8 +4,8 @@ import { normalizeTauriError } from "@/lib/error-utils";
 type AsyncFn = (...args: unknown[]) => Promise<unknown>;
 type Wrapped<T> = {
   [K in keyof T]: T[K] extends AsyncFn
-    ? (...args: Parameters<T[K]>) => ReturnType<T[K]>
-    : T[K];
+  ? (...args: Parameters<T[K]>) => ReturnType<T[K]>
+  : T[K];
 };
 
 export function wrapCommand<T extends AsyncFn>(
@@ -24,26 +24,31 @@ export function wrapCommand<T extends AsyncFn>(
   }) as T;
 }
 
-export function createCommandsProxy<T extends Record<string, unknown>>(
+/**
+ * Eagerly wraps all command functions with error normalization.
+ * 
+ * Note: We use eager wrapping instead of a Proxy because in production builds,
+ * module namespace objects have non-configurable, non-writable properties.
+ * A Proxy's 'get' handler that returns a different value (wrapped function)
+ * violates the Proxy invariant and throws:
+ * "Proxy handler's 'get' result of a non-configurable and non-writable 
+ * property should be the same value as the target's property"
+ */
+function wrapAllCommands<T extends Record<string, unknown>>(
   commands: T
 ): Wrapped<T> {
-  const wrapped = new Map<PropertyKey, unknown>();
+  const result = {} as Record<string, unknown>;
 
-  return new Proxy(commands, {
-    get(target, prop, receiver) {
-      const value = Reflect.get(target, prop, receiver);
-      if (typeof value !== "function") {
-        return value;
-      }
-      if (wrapped.has(prop)) {
-        return wrapped.get(prop);
-      }
-      const name = typeof prop === "string" ? prop : undefined;
-      const wrappedFn = wrapCommand(value as AsyncFn, name);
-      wrapped.set(prop, wrappedFn);
-      return wrappedFn;
-    },
-  }) as Wrapped<T>;
+  for (const key of Object.keys(commands)) {
+    const value = commands[key];
+    if (typeof value === "function") {
+      result[key] = wrapCommand(value as AsyncFn, key);
+    } else {
+      result[key] = value;
+    }
+  }
+
+  return result as Wrapped<T>;
 }
 
-export const commands = createCommandsProxy(generatedCommands);
+export const commands = wrapAllCommands(generatedCommands);

@@ -103,6 +103,12 @@ const CrdDetail = lazy(() =>
 const CustomResourceDetail = lazy(() =>
   import("@/pages/CustomResourceDetail").then((m) => ({ default: m.CustomResourceDetail }))
 );
+const ConfigMapDetail = lazy(() =>
+  import("@/pages/ConfigMapDetail").then((m) => ({ default: m.ConfigMapDetail }))
+);
+const SecretDetail = lazy(() =>
+  import("@/pages/SecretDetail").then((m) => ({ default: m.SecretDetail }))
+);
 const Login = lazy(() =>
   import("@/pages/Login").then((m) => ({ default: m.Login }))
 );
@@ -228,6 +234,8 @@ export default function App() {
             <Route path={`${toPlural(ResourceType.DaemonSet)}/:namespace/:name`} element={<DaemonSetDetail />} />
             <Route path={`${toPlural(ResourceType.Job)}/:namespace/:name`} element={<JobDetail />} />
             <Route path={`${toPlural(ResourceType.CronJob)}/:namespace/:name`} element={<CronJobDetail />} />
+            <Route path={`${toPlural(ResourceType.ConfigMap)}/:namespace/:name`} element={<ConfigMapDetail />} />
+            <Route path={`${toPlural(ResourceType.Secret)}/:namespace/:name`} element={<SecretDetail />} />
             {/* CRD Routes */}
             <Route path={toPlural(ResourceType.CustomResourceDefinition)} element={<Crds />} />
             <Route path={`${toPlural(ResourceType.CustomResourceDefinition)}/:name`} element={<CrdDetail />} />

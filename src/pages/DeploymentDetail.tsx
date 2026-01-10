@@ -34,7 +34,6 @@ import {
   Trash2,
   RefreshCw,
   Scale,
-  ImageIcon,
   RotateCcw,
   FileText,
   Rocket,
@@ -45,7 +44,7 @@ import { MetricsStatusBanner } from "@/components/metrics";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
-import { EnvironmentVariables } from "@/components/resources/EnvironmentVariables";
+import { ContainerCard } from "@/components/resources/ContainerCard";
 import { MetricPair } from "@/components/ui/metric-card";
 import { ResourceDetailLayout } from "@/components/resources/ResourceDetailLayout";
 import {
@@ -376,67 +375,18 @@ export function DeploymentDetail() {
       ),
     },
     {
-      id: "containers",
-      label: "Containers",
+      id: "container-template",
+      label: "Container Template",
       content: (
         <div className="space-y-4">
           {(deployment?.containers || []).map((container) => (
-            <Card key={container.name}>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-lg">{container.name}</CardTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    openImageDialog(container.name, container.image)
-                  }
-                >
-                  <ImageIcon className="mr-2 h-4 w-4" />
-                  Update Image
-                </Button>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Image</span>
-                  <span className="font-mono text-xs">{container.image}</span>
-                </div>
-                {container.ports.length > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Ports</span>
-                    <span>{container.ports.join(", ")}</span>
-                  </div>
-                )}
-                {container.resources.requests &&
-                  Object.keys(container.resources.requests).length > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Requests</span>
-                      <span>
-                        {Object.entries(container.resources.requests)
-                          .map(([k, v]) => `${k}: ${v}`)
-                          .join(", ")}
-                      </span>
-                    </div>
-                  )}
-                {container.resources.limits &&
-                  Object.keys(container.resources.limits).length > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Limits</span>
-                      <span>
-                        {Object.entries(container.resources.limits)
-                          .map(([k, v]) => `${k}: ${v}`)
-                          .join(", ")}
-                      </span>
-                    </div>
-                  )}
-                {/* Environment Variables */}
-                <EnvironmentVariables
-                  env={container.env}
-                  envFrom={container.envFrom}
-                  containerName={container.name}
-                  namespace={namespace}
-                />
-              </CardContent>
-            </Card>
+            <ContainerCard
+              key={container.name}
+              container={container}
+              namespace={namespace}
+              showUpdateImage={true}
+              onUpdateImage={openImageDialog}
+            />
           ))}
         </div>
       ),

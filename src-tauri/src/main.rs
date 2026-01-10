@@ -283,6 +283,9 @@ fn main() {
             commands::settings::get_context_binding,
             commands::settings::save_context_binding,
             commands::settings::delete_context_binding,
+            // CLI paths
+            commands::settings::get_cli_paths,
+            commands::settings::save_cli_paths,
 
             // Registry commands
             commands::registry::set_registry_credentials,

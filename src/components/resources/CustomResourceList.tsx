@@ -63,7 +63,12 @@ export function CustomResourceList({
       accessorKey: "name",
       header: "Name",
       cell: ({ row }) => (
-        <span className="font-medium">{row.original.name}</span>
+        <Link
+          to={getDetailPath(row.original)}
+          className="font-medium hover:underline"
+        >
+          {row.original.name}
+        </Link>
       ),
     });
 

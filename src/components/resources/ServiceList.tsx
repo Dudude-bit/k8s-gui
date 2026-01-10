@@ -40,7 +40,7 @@ export function ServiceList() {
 
   const columns = useMemo<ColumnDef<ServiceInfo>[]>(
     () => [
-      createNameColumn<ServiceInfo>(getResourceListUrl(ResourceType.Service), { disableLink: true }),
+      createNameColumn<ServiceInfo>(getResourceListUrl(ResourceType.Service)),
       createNamespaceColumn<ServiceInfo>(),
       createTypeBadgeColumn<ServiceInfo>(),
       {

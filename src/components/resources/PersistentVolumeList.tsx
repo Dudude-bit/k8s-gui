@@ -30,7 +30,12 @@ const baseColumns: ColumnDef<PersistentVolumeInfo>[] = [
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
         <HardDrive className="h-4 w-4 text-muted-foreground" />
-        <span className="font-medium">{row.original.name}</span>
+        <Link
+          to={getResourceDetailUrl(ResourceType.PersistentVolume, row.original.name)}
+          className="font-medium hover:underline"
+        >
+          {row.original.name}
+        </Link>
       </div>
     ),
   },

@@ -75,6 +75,10 @@ pub struct HelmAvailability {
     pub available: bool,
     pub version: Option<String>,
     pub error: Option<String>,
+    /// Path where helm was found (if available)
+    pub path: Option<String>,
+    /// List of paths that were searched
+    pub searched_paths: Vec<String>,
 }
 
 /// Helm repository info
@@ -175,41 +179,99 @@ fn decode_helm_release(data: &[u8]) -> Result<HelmSecretRelease> {
         .map_err(|e| Error::Plugin(PluginError::ExecutionFailed(format!("JSON parse error: {e}"))))
 }
 
-/// Check if Helm CLI is available
-#[tauri::command]
-pub async fn check_helm_availability() -> Result<HelmAvailability> {
-    let result = Command::new("helm")
+/// Get the list of common helm installation paths to search
+fn get_helm_search_paths() -> Vec<String> {
+    let mut paths = Vec::new();
+    
+    // Common installation paths
+    paths.push("/usr/local/bin/helm".to_string());
+    paths.push("/opt/homebrew/bin/helm".to_string()); // ARM macOS Homebrew
+    paths.push("/snap/bin/helm".to_string()); // Snap on Linux
+    paths.push("/usr/bin/helm".to_string());
+    
+    // User local bin
+    if let Some(home) = dirs::home_dir() {
+        paths.push(home.join(".local/bin/helm").to_string_lossy().to_string());
+        // asdf version manager
+        paths.push(home.join(".asdf/shims/helm").to_string_lossy().to_string());
+    }
+    
+    // Just "helm" for PATH lookup (last resort)
+    paths.push("helm".to_string());
+    
+    paths
+}
+
+/// Try to run helm version with a specific path
+async fn try_helm_path(path: &str) -> Option<String> {
+    let result = Command::new(path)
         .arg("version")
         .arg("--short")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
         .await;
-
+    
     match result {
-        Ok(output) => {
-            if output.status.success() {
-                let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                Ok(HelmAvailability {
-                    available: true,
-                    version: Some(version),
-                    error: None,
-                })
-            } else {
-                let error = String::from_utf8_lossy(&output.stderr).trim().to_string();
-                Ok(HelmAvailability {
-                    available: false,
-                    version: None,
-                    error: Some(error),
-                })
+        Ok(output) if output.status.success() => {
+            Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        }
+        _ => None,
+    }
+}
+
+/// Check if Helm CLI is available
+/// 
+/// Searches for helm in the following order:
+/// 1. Custom path from config (if set)
+/// 2. Common installation paths (/usr/local/bin, /opt/homebrew/bin, ~/.local/bin, etc.)
+/// 3. PATH environment variable
+#[tauri::command]
+pub async fn check_helm_availability() -> Result<HelmAvailability> {
+    use crate::config::AppConfig;
+    
+    let mut searched_paths = Vec::new();
+    
+    // First, try custom path from config if set
+    if let Ok(config) = AppConfig::load() {
+        if let Some(custom_path) = &config.cli_paths.helm_path {
+            if !custom_path.is_empty() {
+                searched_paths.push(custom_path.clone());
+                if let Some(version) = try_helm_path(custom_path).await {
+                    return Ok(HelmAvailability {
+                        available: true,
+                        version: Some(version),
+                        error: None,
+                        path: Some(custom_path.clone()),
+                        searched_paths,
+                    });
+                }
             }
         }
-        Err(e) => Ok(HelmAvailability {
-            available: false,
-            version: None,
-            error: Some(format!("Helm CLI not found: {e}")),
-        }),
     }
+    
+    // Try common installation paths
+    for path in get_helm_search_paths() {
+        searched_paths.push(path.clone());
+        if let Some(version) = try_helm_path(&path).await {
+            return Ok(HelmAvailability {
+                available: true,
+                version: Some(version),
+                error: None,
+                path: Some(path),
+                searched_paths,
+            });
+        }
+    }
+    
+    // Helm not found in any path
+    Ok(HelmAvailability {
+        available: false,
+        version: None,
+        error: Some("Helm CLI not found in any of the searched paths. You can specify a custom path in Settings.".to_string()),
+        path: None,
+        searched_paths,
+    })
 }
 
 /// List Helm releases using native Kubernetes API (reads Helm secrets directly)

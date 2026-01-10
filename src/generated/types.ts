@@ -102,6 +102,10 @@ export interface IngressPath {
   resourceBackend: string | null;
 }
 
+export interface CliPathsConfig {
+  helmPath: string | null;
+}
+
 export interface ContextBinding {
   gcpProfile: string | null;
   azureProfile: string | null;
@@ -568,6 +572,8 @@ export interface HelmAvailability {
   available: boolean;
   version: string | null;
   error: string | null;
+  path: string | null;
+  searchedPaths: string[];
 }
 
 export interface PodInfo {
@@ -625,6 +631,7 @@ export interface SecretInfo {
   type: string;
   dataKeys: string[];
   labels: Record<string, string>;
+  annotations: Record<string, string>;
   createdAt: string | null;
 }
 
@@ -638,6 +645,7 @@ export interface ConfigMapInfo {
   uid: string;
   dataKeys: string[];
   labels: Record<string, string>;
+  annotations: Record<string, string>;
   createdAt: string | null;
 }
 
