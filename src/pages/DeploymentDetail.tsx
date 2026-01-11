@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
 import { commands } from "@/lib/commands";
 import { useState, useEffect, useMemo } from "react";
 import {
@@ -578,7 +579,7 @@ export function DeploymentDetail() {
             onClick={() => restartMutation.mutate()}
             disabled={restartMutation.isPending}
           >
-            <RefreshCw className="mr-2 h-4 w-4" />
+            <RefreshCw className={cn("mr-2 h-4 w-4", restartMutation.isPending && "animate-spin")} />
             Restart
           </Button>
           <Button

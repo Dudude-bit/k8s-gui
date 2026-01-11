@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
 import { commands } from "@/lib/commands";
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useMetrics, useResourceDetail } from "@/hooks";
@@ -422,7 +423,7 @@ export function PodDetail() {
             onClick={() => restartMutation.mutate()}
             disabled={restartMutation.isPending || !pod}
           >
-            <RefreshCw className="mr-2 h-4 w-4" />
+            <RefreshCw className={cn("mr-2 h-4 w-4", restartMutation.isPending && "animate-spin")} />
             Restart
           </Button>
           <Button
