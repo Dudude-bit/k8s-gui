@@ -286,6 +286,21 @@ fn main() {
             // CLI paths
             commands::settings::get_cli_paths,
             commands::settings::save_cli_paths,
+            // Registry configurations
+            commands::settings::list_registry_configs,
+            commands::settings::save_registry_config,
+            commands::settings::delete_registry_config,
+            // Theme configuration
+            commands::settings::get_theme_config,
+            commands::settings::save_theme_config,
+            // YAML editor history
+            commands::settings::get_yaml_history,
+            commands::settings::add_yaml_history_entry,
+            commands::settings::get_all_yaml_history,
+            // Infrastructure builder state
+            commands::settings::get_infrastructure_state,
+            commands::settings::save_infrastructure_state,
+            commands::settings::clear_infrastructure_state,
 
             // Registry commands
             commands::registry::set_registry_credentials,

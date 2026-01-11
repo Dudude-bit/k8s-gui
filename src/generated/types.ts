@@ -102,6 +102,41 @@ export interface IngressPath {
   resourceBackend: string | null;
 }
 
+export interface InfrastructureBuilderStateDto {
+  nodes: unknown[];
+  edges: unknown[];
+  yamlText: string;
+  extraManifests: unknown[];
+}
+
+export interface YamlHistoryEntryDto {
+  timestamp: number;
+  content: string;
+  label: string | null;
+}
+
+export interface ThemeConfig {
+  theme: string;
+  accentColor: string;
+  fontSize: number;
+  compact: boolean;
+}
+
+export interface RegistryConfigInfo {
+  id: string;
+  label: string;
+  provider: string;
+  baseUrl: string | null;
+  host: string | null;
+  project: string | null;
+  accountId: string | null;
+  region: string | null;
+  authType: string;
+  username: string | null;
+  password: string | null;
+  token: string | null;
+}
+
 export interface CliPathsConfig {
   helmPath: string | null;
 }

@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import yaml from "js-yaml";
+import { commands } from "@/lib/commands";
 import type { ManifestResult } from "@/generated/types";
 
 export interface HistoryEntry {
@@ -58,19 +58,80 @@ interface YamlEditorState {
   getResourceHistory: () => HistoryEntry[];
   resetToOriginal: () => void;
   formatYaml: () => void;
+  loadHistory: () => Promise<void>;
 }
-
-const MAX_HISTORY_ENTRIES = 20;
 
 function getResourceKeyString(key: ResourceKey | null): string {
   if (!key) return "";
   return `${key.kind}:${key.namespace || "cluster"}:${key.name}`;
 }
 
-export const useYamlEditorStore = create<YamlEditorState>()(
-  persist(
-    (set, get) => ({
-      // Initial state
+export const useYamlEditorStore = create<YamlEditorState>((set, get) => ({
+  // Initial state
+  open: false,
+  title: "",
+  resourceKey: null,
+  readOnly: false,
+  originalContent: "",
+  editedContent: "",
+  isLoading: false,
+  isValidating: false,
+  isApplying: false,
+  showDiff: false,
+  validationResult: null,
+  applyResult: null,
+  history: {},
+
+  openEditor: async ({ title, resourceKey, fetchYaml, readOnly = false }) => {
+    set({
+      open: true,
+      title,
+      resourceKey,
+      readOnly,
+      originalContent: "",
+      editedContent: "",
+      isLoading: true,
+      validationResult: null,
+      applyResult: null,
+      showDiff: false,
+    });
+
+    try {
+      // Load history for this resource from backend
+      const key = getResourceKeyString(resourceKey);
+      if (key) {
+        try {
+          const entries = await commands.getYamlHistory(key);
+          const history = entries.map((e) => ({
+            timestamp: e.timestamp,
+            content: e.content,
+            label: e.label ?? undefined,
+          }));
+          set((state) => ({
+            history: { ...state.history, [key]: history },
+          }));
+        } catch (error) {
+          console.error("Failed to load YAML history:", error);
+        }
+      }
+
+      const content = await fetchYaml();
+      set({
+        originalContent: content,
+        editedContent: content,
+        isLoading: false,
+      });
+    } catch (error) {
+      set({
+        open: false,
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  closeEditor: () => {
+    set({
       open: false,
       title: "",
       resourceKey: null,
@@ -80,169 +141,137 @@ export const useYamlEditorStore = create<YamlEditorState>()(
       isLoading: false,
       isValidating: false,
       isApplying: false,
-      showDiff: false,
       validationResult: null,
       applyResult: null,
-      history: {},
+      showDiff: false,
+    });
+  },
 
-      openEditor: async ({ title, resourceKey, fetchYaml, readOnly = false }) => {
-        set({
-          open: true,
-          title,
-          resourceKey,
-          readOnly,
-          originalContent: "",
-          editedContent: "",
-          isLoading: true,
-          validationResult: null,
-          applyResult: null,
-          showDiff: false,
-        });
+  setEditedContent: (content) => {
+    set({
+      editedContent: content,
+      validationResult: null,
+      applyResult: null,
+    });
+  },
 
-        try {
-          const content = await fetchYaml();
-          set({
-            originalContent: content,
-            editedContent: content,
-            isLoading: false,
-          });
-        } catch (error) {
-          set({
-            open: false,
-            isLoading: false,
-          });
-          throw error;
-        }
+  setShowDiff: (show) => {
+    set({ showDiff: show });
+  },
+
+  setValidationResult: (result) => {
+    set({ validationResult: result });
+  },
+
+  setApplyResult: (result) => {
+    set({ applyResult: result });
+  },
+
+  setIsValidating: (validating) => {
+    set({ isValidating: validating });
+  },
+
+  setIsApplying: (applying) => {
+    set({ isApplying: applying });
+  },
+
+  addHistoryEntry: (content, label) => {
+    const { resourceKey, history } = get();
+    const key = getResourceKeyString(resourceKey);
+    if (!key) return;
+
+    const newEntry: HistoryEntry = {
+      timestamp: Date.now(),
+      content,
+      label,
+    };
+
+    const currentHistory = history[key] || [];
+    // Add to front, limit size
+    const updatedHistory = [newEntry, ...currentHistory].slice(0, 20);
+
+    set({
+      history: {
+        ...history,
+        [key]: updatedHistory,
       },
+    });
 
-      closeEditor: () => {
-        set({
-          open: false,
-          title: "",
-          resourceKey: null,
-          readOnly: false,
-          originalContent: "",
-          editedContent: "",
-          isLoading: false,
-          isValidating: false,
-          isApplying: false,
-          validationResult: null,
-          applyResult: null,
-          showDiff: false,
-        });
-      },
+    // Save to backend (fire and forget)
+    commands.addYamlHistoryEntry(key, {
+      timestamp: newEntry.timestamp,
+      content: newEntry.content,
+      label: newEntry.label ?? null,
+    }).catch((error) => {
+      console.error("Failed to save YAML history entry:", error);
+    });
+  },
 
-      setEditedContent: (content) => {
-        set({
-          editedContent: content,
-          validationResult: null,
-          applyResult: null,
-        });
-      },
+  restoreFromHistory: (timestamp) => {
+    const { resourceKey, history } = get();
+    const key = getResourceKeyString(resourceKey);
+    if (!key) return;
 
-      setShowDiff: (show) => {
-        set({ showDiff: show });
-      },
-
-      setValidationResult: (result) => {
-        set({ validationResult: result });
-      },
-
-      setApplyResult: (result) => {
-        set({ applyResult: result });
-      },
-
-      setIsValidating: (validating) => {
-        set({ isValidating: validating });
-      },
-
-      setIsApplying: (applying) => {
-        set({ isApplying: applying });
-      },
-
-      addHistoryEntry: (content, label) => {
-        const { resourceKey, history } = get();
-        const key = getResourceKeyString(resourceKey);
-        if (!key) return;
-
-        const currentHistory = history[key] || [];
-        const newEntry: HistoryEntry = {
-          timestamp: Date.now(),
-          content,
-          label,
-        };
-
-        // Add to front, limit size
-        const updatedHistory = [newEntry, ...currentHistory].slice(
-          0,
-          MAX_HISTORY_ENTRIES
-        );
-
-        set({
-          history: {
-            ...history,
-            [key]: updatedHistory,
-          },
-        });
-      },
-
-      restoreFromHistory: (timestamp) => {
-        const { resourceKey, history } = get();
-        const key = getResourceKeyString(resourceKey);
-        if (!key) return;
-
-        const entry = history[key]?.find((e) => e.timestamp === timestamp);
-        if (entry) {
-          set({
-            editedContent: entry.content,
-            validationResult: null,
-            applyResult: null,
-          });
-        }
-      },
-
-      getResourceHistory: () => {
-        const { resourceKey, history } = get();
-        const key = getResourceKeyString(resourceKey);
-        if (!key) return [];
-        return history[key] || [];
-      },
-
-      resetToOriginal: () => {
-        const { originalContent } = get();
-        set({
-          editedContent: originalContent,
-          validationResult: null,
-          applyResult: null,
-        });
-      },
-
-      formatYaml: () => {
-        const { editedContent } = get();
-        try {
-          const parsed = yaml.load(editedContent);
-          const formatted = yaml.dump(parsed, {
-            indent: 2,
-            lineWidth: -1, // No line wrapping
-            noRefs: true,
-            sortKeys: false,
-          });
-          set({
-            editedContent: formatted,
-            validationResult: null,
-            applyResult: null,
-          });
-        } catch {
-          // If parsing fails, keep original content
-        }
-      },
-    }),
-    {
-      name: "k8s-gui-yaml-editor",
-      partialize: (state) => ({
-        // Only persist history, not current editor state
-        history: state.history,
-      }),
+    const entry = history[key]?.find((e) => e.timestamp === timestamp);
+    if (entry) {
+      set({
+        editedContent: entry.content,
+        validationResult: null,
+        applyResult: null,
+      });
     }
-  )
-);
+  },
+
+  getResourceHistory: () => {
+    const { resourceKey, history } = get();
+    const key = getResourceKeyString(resourceKey);
+    if (!key) return [];
+    return history[key] || [];
+  },
+
+  resetToOriginal: () => {
+    const { originalContent } = get();
+    set({
+      editedContent: originalContent,
+      validationResult: null,
+      applyResult: null,
+    });
+  },
+
+  formatYaml: () => {
+    const { editedContent } = get();
+    try {
+      const parsed = yaml.load(editedContent);
+      const formatted = yaml.dump(parsed, {
+        indent: 2,
+        lineWidth: -1, // No line wrapping
+        noRefs: true,
+        sortKeys: false,
+      });
+      set({
+        editedContent: formatted,
+        validationResult: null,
+        applyResult: null,
+      });
+    } catch {
+      // If parsing fails, keep original content
+    }
+  },
+
+  loadHistory: async () => {
+    try {
+      const allHistory = await commands.getAllYamlHistory();
+      const history: Record<string, HistoryEntry[]> = {};
+      for (const [key, entries] of Object.entries(allHistory)) {
+        history[key] = entries.map((e) => ({
+          timestamp: e.timestamp,
+          content: e.content,
+          label: e.label ?? undefined,
+        }));
+      }
+      set({ history });
+    } catch (error) {
+      console.error("Failed to load all YAML history:", error);
+    }
+  },
+}));

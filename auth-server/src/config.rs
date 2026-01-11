@@ -9,8 +9,8 @@ use std::env;
 /// Default JWT access token expiry time in seconds (1 hour)
 const DEFAULT_JWT_EXPIRY: u64 = 3600;
 
-/// Default refresh token expiry time in seconds (30 days)
-const DEFAULT_REFRESH_TOKEN_EXPIRY: u64 = 2592000;
+/// Default refresh token expiry time in seconds (60 days)
+const DEFAULT_REFRESH_TOKEN_EXPIRY: u64 = 5184000;
 
 /// Default server host address
 const DEFAULT_HOST: &str = "127.0.0.1";
@@ -30,7 +30,7 @@ pub struct Config {
     pub jwt_secret: String,
     /// JWT access token expiry time in seconds (default: 3600)
     pub jwt_expiry: u64,
-    /// Refresh token expiry time in seconds (default: 2592000 = 30 days)
+    /// Refresh token expiry time in seconds (default: 5184000 = 60 days)
     pub refresh_token_expiry: u64,
     /// Server host address (default: 127.0.0.1)
     pub host: String,

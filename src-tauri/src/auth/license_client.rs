@@ -189,48 +189,56 @@ pub struct LicenseClient {
     endpoint: String,
     access_token: Arc<RwLock<Option<String>>>,
     refresh_token: Arc<RwLock<Option<String>>>,
+    /// Token expiration time (Unix timestamp)
+    token_expires_at: Arc<RwLock<Option<i64>>>,
     cached_status: CachedLicenseStatus,
 }
+
+/// Buffer time before token expiration to trigger proactive refresh (5 minutes)
+const TOKEN_REFRESH_BUFFER_SECS: i64 = 300;
 
 impl LicenseClient {
     #[must_use]
     pub fn new(endpoint: String) -> Self {
-        let (access_token, refresh_token) = Self::load_tokens_from_config();
+        let (access_token, refresh_token, expires_at) = Self::load_tokens_from_config();
 
         Self {
             endpoint,
             access_token: Arc::new(RwLock::new(access_token)),
             refresh_token: Arc::new(RwLock::new(refresh_token)),
+            token_expires_at: Arc::new(RwLock::new(expires_at)),
             cached_status: Arc::new(RwLock::new(None)),
         }
     }
 
-    fn load_tokens_from_config() -> (Option<String>, Option<String>) {
+    fn load_tokens_from_config() -> (Option<String>, Option<String>, Option<i64>) {
         match AppConfig::load() {
             Ok(config) => {
                 let access_token = config.auth_tokens.access_token;
                 let refresh_token = config.auth_tokens.refresh_token;
+                let expires_at = config.auth_tokens.expires_at;
                 if access_token.is_some() {
                     tracing::info!("Restored access token from config");
                 }
-                (access_token, refresh_token)
+                (access_token, refresh_token, expires_at)
             }
             Err(e) => {
                 tracing::error!("Failed to load config for auth tokens: {}", e);
-                (None, None)
+                (None, None, None)
             }
         }
     }
 
-    fn save_tokens_to_config(access_token: &str, refresh_token: &str) {
+    fn save_tokens_to_config(access_token: &str, refresh_token: &str, expires_at: Option<i64>) {
         match AppConfig::load() {
             Ok(mut config) => {
                 config.auth_tokens.access_token = Some(access_token.to_string());
                 config.auth_tokens.refresh_token = Some(refresh_token.to_string());
+                config.auth_tokens.expires_at = expires_at;
                 if let Err(e) = crate::commands::settings::save_config(&config) {
                     tracing::error!("Failed to save auth tokens to config: {}", e);
                 } else {
-                    tracing::info!("Tokens saved to config");
+                    tracing::info!("Tokens saved to config (expires_at: {:?})", expires_at);
                 }
             }
             Err(e) => {
@@ -244,6 +252,7 @@ impl LicenseClient {
             Ok(mut config) => {
                 config.auth_tokens.access_token = None;
                 config.auth_tokens.refresh_token = None;
+                config.auth_tokens.expires_at = None;
                 if let Err(e) = crate::commands::settings::save_config(&config) {
                     tracing::error!("Failed to clear auth tokens from config: {}", e);
                 }
@@ -310,9 +319,18 @@ impl LicenseClient {
 
         let tokens: AuthTokens = response.into_inner().into();
 
+        // Calculate expiration timestamp
+        let now = chrono::Utc::now().timestamp();
+        let expires_at = if tokens.expires_in > 0 {
+            Some(now + tokens.expires_in)
+        } else {
+            None
+        };
+
         *self.access_token.write().await = Some(tokens.access_token.clone());
         *self.refresh_token.write().await = Some(tokens.refresh_token.clone());
-        Self::save_tokens_to_config(&tokens.access_token, &tokens.refresh_token);
+        *self.token_expires_at.write().await = expires_at;
+        Self::save_tokens_to_config(&tokens.access_token, &tokens.refresh_token, expires_at);
 
         Ok(tokens)
     }
@@ -353,9 +371,18 @@ impl LicenseClient {
 
         let tokens: AuthTokens = response.into_inner().into();
 
+        // Calculate expiration timestamp
+        let now = chrono::Utc::now().timestamp();
+        let expires_at = if tokens.expires_in > 0 {
+            Some(now + tokens.expires_in)
+        } else {
+            None
+        };
+
         *self.access_token.write().await = Some(tokens.access_token.clone());
         *self.refresh_token.write().await = Some(tokens.refresh_token.clone());
-        Self::save_tokens_to_config(&tokens.access_token, &tokens.refresh_token);
+        *self.token_expires_at.write().await = expires_at;
+        Self::save_tokens_to_config(&tokens.access_token, &tokens.refresh_token, expires_at);
 
         Ok(tokens)
     }
@@ -364,25 +391,53 @@ impl LicenseClient {
         if auth_disabled() {
             return;
         }
-        Self::save_tokens_to_config(&access_token, &refresh_token);
+        // When setting tokens externally, we don't know expiration, so set None
+        // This will trigger a refresh on next check
+        Self::save_tokens_to_config(&access_token, &refresh_token, None);
         *self.access_token.write().await = Some(access_token);
         *self.refresh_token.write().await = Some(refresh_token);
+        *self.token_expires_at.write().await = None;
     }
 
     async fn ensure_token_valid(&self) -> Result<()> {
         if auth_disabled() {
             return Ok(());
         }
+        
         let access_token = self.access_token.read().await.clone();
-        if access_token.is_some() {
-            return Ok(());
-        }
-
-        let refresh_token = self.refresh_token.read().await.clone();
-        if let Some(ref token) = refresh_token {
-            self.refresh_access_token(token).await?;
-        } else {
-            return Err(Error::Internal("Not authenticated".to_string()));
+        let expires_at = *self.token_expires_at.read().await;
+        
+        // Check if we need to refresh:
+        // 1. No access token
+        // 2. Token is expired or will expire soon
+        let needs_refresh = match (access_token.as_ref(), expires_at) {
+            (None, _) => true,
+            (Some(_), Some(exp)) => {
+                let now = chrono::Utc::now().timestamp();
+                // Refresh if token expires within the buffer time
+                now >= exp - TOKEN_REFRESH_BUFFER_SECS
+            }
+            (Some(_), None) => false, // We have a token but don't know expiration, assume valid
+        };
+        
+        if needs_refresh {
+            tracing::info!("Token needs refresh (expires_at: {:?})", expires_at);
+            let refresh_token = self.refresh_token.read().await.clone();
+            if let Some(ref token) = refresh_token {
+                match self.refresh_access_token(token).await {
+                    Ok(()) => {
+                        tracing::info!("Token refreshed successfully");
+                    }
+                    Err(e) => {
+                        // Refresh failed - clear invalid tokens and return error
+                        tracing::error!("Token refresh failed: {}, clearing tokens", e);
+                        self.clear_auth();
+                        return Err(Error::Internal("Session expired. Please log in again.".to_string()));
+                    }
+                }
+            } else {
+                return Err(Error::Internal("Not authenticated".to_string()));
+            }
         }
 
         Ok(())
@@ -403,9 +458,18 @@ impl LicenseClient {
 
         let tokens: AuthTokens = response.into_inner().into();
 
+        // Calculate expiration timestamp
+        let now = chrono::Utc::now().timestamp();
+        let expires_at = if tokens.expires_in > 0 {
+            Some(now + tokens.expires_in)
+        } else {
+            None
+        };
+
         *self.access_token.write().await = Some(tokens.access_token.clone());
         *self.refresh_token.write().await = Some(tokens.refresh_token.clone());
-        Self::save_tokens_to_config(&tokens.access_token, &tokens.refresh_token);
+        *self.token_expires_at.write().await = expires_at;
+        Self::save_tokens_to_config(&tokens.access_token, &tokens.refresh_token, expires_at);
 
         Ok(())
     }

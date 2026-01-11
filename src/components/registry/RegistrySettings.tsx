@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,8 +19,6 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import {
   DEFAULT_REGISTRIES,
-  RegistryAuth,
-  RegistryAuthStatus,
   RegistryConfig,
   RegistryProvider,
   useRegistryStore,
@@ -40,6 +38,7 @@ export function RegistrySettings() {
   const addRegistry = useRegistryStore((state) => state.addRegistry);
   const updateRegistry = useRegistryStore((state) => state.updateRegistry);
   const removeRegistry = useRegistryStore((state) => state.removeRegistry);
+  const refreshRegistries = useRegistryStore((state) => state.refreshRegistries);
   const ensureRegistryUrl = useRegistryStore(
     (state) => state.ensureRegistryUrl
   );
@@ -54,14 +53,12 @@ export function RegistrySettings() {
   const [newRegistryAccountId, setNewRegistryAccountId] = useState("");
   const [newRegistryRegion, setNewRegistryRegion] = useState("");
   const [registryEditorError, setRegistryEditorError] = useState("");
-  const [authByRegistry, setAuthByRegistry] = useState<
-    Record<string, RegistryAuth>
-  >({});
-  const [savedAuthByRegistry, setSavedAuthByRegistry] = useState<
-    Record<string, RegistryAuthStatus | null>
-  >({});
-  const [authStatusMessage, setAuthStatusMessage] = useState("");
   const [importing, setImporting] = useState(false);
+
+  // Local auth state for editing (password/token aren't returned from backend)
+  const [editPassword, setEditPassword] = useState("");
+  const [editToken, setEditToken] = useState("");
+  const [authStatusMessage, setAuthStatusMessage] = useState("");
 
   const selectedRegistry = useMemo(() => {
     return (
@@ -70,64 +67,7 @@ export function RegistrySettings() {
     );
   }, [registries, selectedRegistryId]);
 
-  const registryAuth = useMemo(
-    () => authByRegistry[selectedRegistryId] ?? { authType: "none" },
-    [authByRegistry, selectedRegistryId]
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-    setAuthStatusMessage("");
-    commands
-      .getRegistryAuthStatus(selectedRegistryId)
-      .then((status) => {
-        if (cancelled) {
-          return;
-        }
-        setSavedAuthByRegistry((prev) => ({
-          ...prev,
-          [selectedRegistryId]: status
-            ? {
-                authType: status.authType as RegistryAuth["authType"],
-                username: status.username ?? undefined,
-                hasCredentials: status.hasCredentials,
-              }
-            : null,
-        }));
-        if (status?.hasCredentials) {
-          setAuthByRegistry((prev) => {
-            if (prev[selectedRegistryId]) {
-              return prev;
-            }
-            return {
-              ...prev,
-              [selectedRegistryId]: {
-                authType: status.authType as RegistryAuth["authType"],
-                username: status.username ?? undefined,
-              },
-            };
-          });
-        }
-      })
-      .catch(() => {
-        if (cancelled) {
-          return;
-        }
-        setSavedAuthByRegistry((prev) => ({
-          ...prev,
-          [selectedRegistryId]: null,
-        }));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedRegistryId]);
-
-  const updateRegistryAuth = (nextAuth: RegistryAuth) => {
-    setAuthByRegistry((prev) => ({ ...prev, [selectedRegistryId]: nextAuth }));
-  };
-
-  const handleRegistrySave = () => {
+  const handleRegistrySave = async () => {
     const labelValue = newRegistryLabel.trim();
     if (newRegistryProvider === "docker-hub") {
       setRegistryEditorError("Docker Hub is already available.");
@@ -147,11 +87,12 @@ export function RegistrySettings() {
         label: labelValue || urlValue,
         provider: newRegistryProvider,
         baseUrl,
+        authType: "none",
       };
       if (newRegistryProvider === "harbor" && newRegistryProject.trim()) {
         nextRegistry.project = newRegistryProject.trim();
       }
-      addRegistry(nextRegistry);
+      await addRegistry(nextRegistry);
       setShowRegistryEditor(false);
       setNewRegistryLabel("");
       setNewRegistryUrl("");
@@ -161,11 +102,12 @@ export function RegistrySettings() {
     }
     if (newRegistryProvider === "gcr") {
       const hostValue = newRegistryHost.trim() || "gcr.io";
-      addRegistry({
+      await addRegistry({
         label: labelValue || hostValue,
         provider: "gcr",
         host: hostValue,
         project: newRegistryProject.trim() || undefined,
+        authType: "none",
       });
       setShowRegistryEditor(false);
       setNewRegistryLabel("");
@@ -181,11 +123,12 @@ export function RegistrySettings() {
         setRegistryEditorError("ECR account ID and region are required.");
         return;
       }
-      addRegistry({
+      await addRegistry({
         label: labelValue || `${accountId}.dkr.ecr.${region}.amazonaws.com`,
         provider: "ecr",
         accountId,
         region,
+        authType: "none",
       });
       setShowRegistryEditor(false);
       setNewRegistryLabel("");
@@ -245,15 +188,12 @@ export function RegistrySettings() {
 
       let added = 0;
       let updated = 0;
-      let credentialsSaved = 0;
-      let credentialsFailed = 0;
 
       for (const entry of entries) {
         if (!entry.host) {
           continue;
         }
         const host = normalizeHost(entry.host);
-        let registryId = "docker-hub";
 
         if (!entry.isDockerHub) {
           const current = useRegistryStore
@@ -263,52 +203,47 @@ export function RegistrySettings() {
                 normalizeHost(registry.baseUrl ?? registry.host) === host
             );
           if (current) {
-            registryId = current.id;
-            if (!current.baseUrl && entry.baseUrl) {
-              updateRegistry(current.id, { baseUrl: entry.baseUrl });
-            }
+            // Update existing: update baseUrl and credentials
+            await updateRegistry(current.id, {
+              baseUrl: entry.baseUrl || current.baseUrl,
+              authType: entry.auth?.authType as RegistryConfig["authType"] ?? current.authType,
+              username: entry.auth?.username ?? current.username,
+              password: entry.auth?.password ?? current.password,
+              token: entry.auth?.token ?? current.token,
+            });
             updated += 1;
           } else {
-            const created = addRegistry({
+            // Add new registry with credentials
+            await addRegistry({
               label: entry.host,
               provider: "registry-v2",
               baseUrl: entry.baseUrl,
+              authType: entry.auth?.authType as RegistryConfig["authType"] ?? "none",
+              username: entry.auth?.username ?? undefined,
+              password: entry.auth?.password ?? undefined,
+              token: entry.auth?.token ?? undefined,
             });
-            registryId = created.id;
             added += 1;
           }
-        }
-
-        if (entry.auth && entry.auth.authType !== "none") {
-          try {
-            await commands.setRegistryCredentials(registryId, entry.auth);
-            setSavedAuthByRegistry((prev) => ({
-              ...prev,
-              [registryId]: {
-                authType:
-                  (entry.auth?.authType as RegistryAuth["authType"]) ?? "none",
-                username: entry.auth?.username || undefined,
-                hasCredentials: true,
-              },
-            }));
-            setAuthByRegistry((prev) => ({
-              ...prev,
-              [registryId]: {
-                authType:
-                  (entry.auth?.authType as RegistryAuth["authType"]) ?? "none",
-                username: entry.auth?.username || undefined,
-              },
-            }));
-            credentialsSaved += 1;
-          } catch {
-            credentialsFailed += 1;
+        } else {
+          // Docker Hub - update credentials on existing docker-hub registry
+          if (entry.auth && entry.auth.authType !== "none") {
+            await updateRegistry("docker-hub", {
+              authType: entry.auth.authType as RegistryConfig["authType"],
+              username: entry.auth.username ?? undefined,
+              password: entry.auth.password ?? undefined,
+              token: entry.auth.token ?? undefined,
+            });
+            updated += 1;
           }
         }
       }
 
+      await refreshRegistries();
+
       toast({
         title: "Docker config imported",
-        description: `Added ${added}, updated ${updated}. Saved ${credentialsSaved} credentials${credentialsFailed ? ` (${credentialsFailed} failed)` : ""}.`,
+        description: `Added ${added}, updated ${updated} registries with credentials.`,
       });
     } catch (error) {
       toast({
@@ -319,6 +254,48 @@ export function RegistrySettings() {
     } finally {
       setSelectedRegistryId(previousSelection);
       setImporting(false);
+    }
+  };
+
+  const handleAuthSave = async () => {
+    setAuthStatusMessage("");
+    try {
+      const updates: Partial<RegistryConfig> = {
+        authType: selectedRegistry.authType,
+        username: selectedRegistry.username,
+      };
+
+      // Only update password/token if they were changed
+      if (selectedRegistry.authType === "basic" && editPassword) {
+        updates.password = editPassword;
+      }
+      if (selectedRegistry.authType === "bearer" && editToken) {
+        updates.token = editToken;
+      }
+
+      await updateRegistry(selectedRegistryId, updates);
+      setEditPassword("");
+      setEditToken("");
+      setAuthStatusMessage("Credentials saved.");
+    } catch {
+      setAuthStatusMessage("Failed to save credentials.");
+    }
+  };
+
+  const handleAuthClear = async () => {
+    setAuthStatusMessage("");
+    try {
+      await updateRegistry(selectedRegistryId, {
+        authType: "none",
+        username: undefined,
+        password: undefined,
+        token: undefined,
+      });
+      setEditPassword("");
+      setEditToken("");
+      setAuthStatusMessage("Credentials cleared.");
+    } catch {
+      setAuthStatusMessage("Failed to clear credentials.");
     }
   };
 
@@ -410,17 +387,17 @@ export function RegistrySettings() {
             </div>
             {(newRegistryProvider === "registry-v2" ||
               newRegistryProvider === "harbor") && (
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">
-                  Registry URL
-                </Label>
-                <Input
-                  placeholder="registry.example.com"
-                  value={newRegistryUrl}
-                  onChange={(event) => setNewRegistryUrl(event.target.value)}
-                />
-              </div>
-            )}
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">
+                    Registry URL
+                  </Label>
+                  <Input
+                    placeholder="registry.example.com"
+                    value={newRegistryUrl}
+                    onChange={(event) => setNewRegistryUrl(event.target.value)}
+                  />
+                </div>
+              )}
             {newRegistryProvider === "harbor" && (
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">
@@ -523,21 +500,21 @@ export function RegistrySettings() {
             </div>
             {(selectedRegistry.provider === "registry-v2" ||
               selectedRegistry.provider === "harbor") && (
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">
-                  Registry URL
-                </Label>
-                <Input
-                  placeholder="registry.example.com"
-                  value={selectedRegistry.baseUrl ?? ""}
-                  onChange={(event) =>
-                    updateRegistry(selectedRegistry.id, {
-                      baseUrl: event.target.value,
-                    })
-                  }
-                />
-              </div>
-            )}
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">
+                    Registry URL
+                  </Label>
+                  <Input
+                    placeholder="registry.example.com"
+                    value={selectedRegistry.baseUrl ?? ""}
+                    onChange={(event) =>
+                      updateRegistry(selectedRegistry.id, {
+                        baseUrl: event.target.value,
+                      })
+                    }
+                  />
+                </div>
+              )}
             {selectedRegistry.provider === "harbor" && (
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">
@@ -623,11 +600,10 @@ export function RegistrySettings() {
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Auth</Label>
             <Select
-              value={registryAuth.authType}
+              value={selectedRegistry.authType}
               onValueChange={(nextValue) =>
-                updateRegistryAuth({
-                  ...registryAuth,
-                  authType: nextValue as RegistryAuth["authType"],
+                updateRegistry(selectedRegistryId, {
+                  authType: nextValue as RegistryConfig["authType"],
                 })
               }
             >
@@ -641,14 +617,13 @@ export function RegistrySettings() {
               </SelectContent>
             </Select>
           </div>
-          {registryAuth.authType === "basic" && (
+          {selectedRegistry.authType === "basic" && (
             <div className="grid gap-2 sm:grid-cols-2">
               <Input
                 placeholder="Username"
-                value={registryAuth.username ?? ""}
+                value={selectedRegistry.username ?? ""}
                 onChange={(event) =>
-                  updateRegistryAuth({
-                    ...registryAuth,
+                  updateRegistry(selectedRegistryId, {
                     username: event.target.value,
                   })
                 }
@@ -656,62 +631,32 @@ export function RegistrySettings() {
               <Input
                 type="password"
                 placeholder="Password"
-                value={registryAuth.password ?? ""}
-                onChange={(event) =>
-                  updateRegistryAuth({
-                    ...registryAuth,
-                    password: event.target.value,
-                  })
-                }
+                value={editPassword}
+                onChange={(event) => setEditPassword(event.target.value)}
               />
             </div>
           )}
-          {registryAuth.authType === "bearer" && (
+          {selectedRegistry.authType === "bearer" && (
             <Input
               type="password"
               placeholder="Token"
-              value={registryAuth.token ?? ""}
-              onChange={(event) =>
-                updateRegistryAuth({
-                  ...registryAuth,
-                  token: event.target.value,
-                })
-              }
+              value={editToken}
+              onChange={(event) => setEditToken(event.target.value)}
             />
           )}
-          {savedAuthByRegistry[selectedRegistryId]?.hasCredentials && (
+          {selectedRegistry.authType !== "none" && (selectedRegistry.username || selectedRegistry.authType === "bearer") && (
             <div className="text-xs text-muted-foreground">
-              Saved credentials:{" "}
-              {savedAuthByRegistry[selectedRegistryId]?.authType}
+              {selectedRegistry.authType === "basic" && selectedRegistry.username
+                ? `Saved: ${selectedRegistry.username}`
+                : "Credentials configured"}
             </div>
           )}
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
               size="sm"
-              onClick={async () => {
-                setAuthStatusMessage("");
-                try {
-                  await commands.setRegistryCredentials(selectedRegistryId, {
-                    ...registryAuth,
-                    username: registryAuth.username ?? null,
-                    password: registryAuth.password ?? null,
-                    token: registryAuth.token ?? null,
-                  });
-                  setSavedAuthByRegistry((prev) => ({
-                    ...prev,
-                    [selectedRegistryId]: {
-                      authType: registryAuth.authType,
-                      username: registryAuth.username,
-                      hasCredentials: registryAuth.authType !== "none",
-                    },
-                  }));
-                  setAuthStatusMessage("Credentials saved.");
-                } catch {
-                  setAuthStatusMessage("Failed to save credentials.");
-                }
-              }}
-              disabled={registryAuth.authType === "none"}
+              onClick={handleAuthSave}
+              disabled={selectedRegistry.authType === "none"}
             >
               Save credentials
             </Button>
@@ -719,21 +664,9 @@ export function RegistrySettings() {
               type="button"
               variant="ghost"
               size="sm"
-              onClick={async () => {
-                setAuthStatusMessage("");
-                try {
-                  await commands.deleteRegistryCredentials(selectedRegistryId);
-                  setSavedAuthByRegistry((prev) => ({
-                    ...prev,
-                    [selectedRegistryId]: null,
-                  }));
-                  setAuthStatusMessage("Credentials removed.");
-                } catch {
-                  setAuthStatusMessage("Failed to remove credentials.");
-                }
-              }}
+              onClick={handleAuthClear}
             >
-              Forget
+              Clear
             </Button>
           </div>
           {authStatusMessage && (

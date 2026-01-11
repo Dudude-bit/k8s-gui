@@ -26,9 +26,6 @@ pub struct AppConfig {
     /// Cloud provider configuration
     #[serde(default)]
     pub cloud: CloudConfig,
-    /// Registry credentials
-    #[serde(default)]
-    pub registry_credentials: RegistryCredentialsConfig,
     /// Authentication tokens (license server)
     #[serde(default)]
     pub auth_tokens: AuthTokensConfig,
@@ -38,14 +35,23 @@ pub struct AppConfig {
     /// CLI tools paths
     #[serde(default)]
     pub cli_paths: CliPathsConfig,
+    /// Registry configurations (connection settings, not credentials)
+    #[serde(default)]
+    pub registries: RegistriesConfig,
+    /// YAML editor history
+    #[serde(default)]
+    pub yaml_editor: YamlEditorConfig,
+    /// Infrastructure builder state per context
+    #[serde(default)]
+    pub infrastructure_builder: InfrastructureBuilderConfig,
 }
 
 /// Theme configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeConfig {
-    /// Dark mode enabled
-    #[serde(default = "default_dark_mode")]
-    pub dark_mode: bool,
+    /// Theme mode (light, dark, system)
+    #[serde(default = "default_theme")]
+    pub theme: String,
     /// Accent color
     #[serde(default = "default_accent_color")]
     pub accent_color: String,
@@ -57,8 +63,8 @@ pub struct ThemeConfig {
     pub compact: bool,
 }
 
-fn default_dark_mode() -> bool {
-    true
+fn default_theme() -> String {
+    "dark".to_string()
 }
 fn default_accent_color() -> String {
     "#3b82f6".to_string()
@@ -70,7 +76,7 @@ fn default_font_size() -> u8 {
 impl Default for ThemeConfig {
     fn default() -> Self {
         Self {
-            dark_mode: default_dark_mode(),
+            theme: default_theme(),
             accent_color: default_accent_color(),
             font_size: default_font_size(),
             compact: false,
@@ -233,32 +239,6 @@ pub struct CloudConfig {
     pub context_bindings: std::collections::HashMap<String, ContextBinding>,
 }
 
-/// Registry credentials configuration
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct RegistryCredentialsConfig {
-    /// Registry credentials (key = registry ID)
-    #[serde(default)]
-    pub registries: std::collections::HashMap<String, RegistryCredential>,
-}
-
-/// Stored registry credential
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RegistryCredential {
-    /// Auth type (basic, token, none)
-    #[serde(alias = "auth_type")]
-    pub auth_type: String,
-    /// Username for basic auth
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub username: Option<String>,
-    /// Password for basic auth (stored in plain text - consider using keyring for sensitive data)
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub password: Option<String>,
-    /// Token for token auth
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub token: Option<String>,
-}
 
 /// Authentication tokens configuration
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -270,6 +250,9 @@ pub struct AuthTokensConfig {
     /// Refresh token for license server
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "refresh_token")]
     pub refresh_token: Option<String>,
+    /// Token expiration time (Unix timestamp)
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "expires_at")]
+    pub expires_at: Option<i64>,
 }
 
 /// CLI tools paths configuration
@@ -463,6 +446,119 @@ impl AppConfig {
 
         Ok(config_dir.join("k8s-gui").join("config.toml"))
     }
+}
+
+// ============================================================================
+// Registry configurations (connection settings)
+// ============================================================================
+
+/// Registry configurations storage
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RegistriesConfig {
+    /// Registry configurations (key = registry ID)
+    #[serde(default)]
+    pub registries: std::collections::HashMap<String, RegistryConfigEntry>,
+}
+
+/// Stored registry configuration (unified: connection settings + credentials)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegistryConfigEntry {
+    /// Display label
+    pub label: String,
+    /// Provider type (docker-hub, registry-v2, harbor, gcr, ecr)
+    pub provider: String,
+    /// Base URL for API access
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
+    /// Host for the registry
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host: Option<String>,
+    /// Project (for GCR, Harbor)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
+    /// AWS Account ID (for ECR)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account_id: Option<String>,
+    /// AWS Region (for ECR)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub region: Option<String>,
+    
+    // Credentials (merged from RegistryCredential)
+    /// Auth type (none, basic, bearer)
+    #[serde(default = "default_auth_type")]
+    pub auth_type: String,
+    /// Username for basic auth
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
+    /// Password for basic auth
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub password: Option<String>,
+    /// Token for bearer auth
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
+}
+
+fn default_auth_type() -> String {
+    "none".to_string()
+}
+
+// ============================================================================
+// YAML Editor History
+// ============================================================================
+
+/// YAML editor configuration
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct YamlEditorConfig {
+    /// History entries by resource key (kind:namespace:name)
+    #[serde(default)]
+    pub history: std::collections::HashMap<String, Vec<YamlHistoryEntry>>,
+}
+
+/// YAML history entry
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct YamlHistoryEntry {
+    /// Timestamp in milliseconds
+    pub timestamp: i64,
+    /// YAML content
+    pub content: String,
+    /// Optional label
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+}
+
+// ============================================================================
+// Infrastructure Builder State
+// ============================================================================
+
+/// Infrastructure builder configuration
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct InfrastructureBuilderConfig {
+    /// State per context
+    #[serde(default)]
+    pub contexts: std::collections::HashMap<String, InfrastructureBuilderState>,
+}
+
+/// Infrastructure builder state for a context
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct InfrastructureBuilderState {
+    /// ReactFlow nodes as JSON
+    #[serde(default)]
+    pub nodes: Vec<serde_json::Value>,
+    /// ReactFlow edges as JSON
+    #[serde(default)]
+    pub edges: Vec<serde_json::Value>,
+    /// YAML text content
+    #[serde(default)]
+    pub yaml_text: String,
+    /// Extra manifests that couldn't be parsed
+    #[serde(default)]
+    pub extra_manifests: Vec<serde_json::Value>,
 }
 
 #[cfg(test)]

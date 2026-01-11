@@ -10,7 +10,7 @@ use tauri::State;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ThemeConfig {
-    pub dark_mode: bool,
+    pub theme: String,
     pub accent_color: String,
     pub font_size: u8,
     pub compact: bool,
@@ -374,4 +374,258 @@ pub fn save_config(config: &AppConfig) -> Result<()> {
         .map_err(|e| Error::Config(format!("Failed to write config file: {e}")))?;
     
     Ok(())
+}
+
+// ============================================================================
+// Registry Configurations
+// ============================================================================
+
+use crate::config::{
+    RegistryConfigEntry, YamlHistoryEntry,
+    InfrastructureBuilderState as ConfigBuilderState,
+};
+
+/// Registry config info for frontend
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegistryConfigInfo {
+    pub id: String,
+    pub label: String,
+    pub provider: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub host: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub region: Option<String>,
+    // Credentials
+    pub auth_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub password: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
+}
+
+/// List all registry configurations
+#[tauri::command]
+pub fn list_registry_configs() -> Result<Vec<RegistryConfigInfo>> {
+    let config = AppConfig::load()?;
+    Ok(config.registries.registries
+        .into_iter()
+        .map(|(id, entry)| RegistryConfigInfo {
+            id,
+            label: entry.label,
+            provider: entry.provider,
+            base_url: entry.base_url,
+            host: entry.host,
+            project: entry.project,
+            account_id: entry.account_id,
+            region: entry.region,
+            auth_type: entry.auth_type,
+            username: entry.username,
+            password: None, // Don't expose password in list
+            token: None, // Don't expose token in list
+        })
+        .collect())
+}
+
+/// Save a registry configuration
+#[tauri::command]
+pub fn save_registry_config(id: String, config_entry: RegistryConfigInfo) -> Result<()> {
+    let mut config = AppConfig::load()?;
+    
+    // Preserve existing credentials if not provided
+    let existing = config.registries.registries.get(&id);
+    let (auth_type, username, password, token) = if config_entry.auth_type == "none" {
+        ("none".to_string(), None, None, None)
+    } else {
+        (
+            config_entry.auth_type,
+            config_entry.username.filter(|s| !s.is_empty()),
+            config_entry.password.filter(|s| !s.is_empty()).or_else(|| existing.and_then(|e| e.password.clone())),
+            config_entry.token.filter(|s| !s.is_empty()).or_else(|| existing.and_then(|e| e.token.clone())),
+        )
+    };
+    
+    let entry = RegistryConfigEntry {
+        label: config_entry.label,
+        provider: config_entry.provider,
+        base_url: config_entry.base_url.filter(|s| !s.is_empty()),
+        host: config_entry.host.filter(|s| !s.is_empty()),
+        project: config_entry.project.filter(|s| !s.is_empty()),
+        account_id: config_entry.account_id.filter(|s| !s.is_empty()),
+        region: config_entry.region.filter(|s| !s.is_empty()),
+        auth_type,
+        username,
+        password,
+        token,
+    };
+    
+    config.registries.registries.insert(id, entry);
+    save_config(&config)
+}
+
+/// Delete a registry configuration
+#[tauri::command]
+pub fn delete_registry_config(id: String) -> Result<()> {
+    let mut config = AppConfig::load()?;
+    config.registries.registries.remove(&id);
+    save_config(&config)
+}
+
+// ============================================================================
+// Theme Configuration
+// ============================================================================
+
+/// Get theme configuration
+#[tauri::command]
+pub fn get_theme_config() -> Result<ThemeConfig> {
+    let config = AppConfig::load()?;
+    Ok(ThemeConfig {
+        theme: config.theme.theme,
+        accent_color: config.theme.accent_color,
+        font_size: config.theme.font_size,
+        compact: config.theme.compact,
+    })
+}
+
+/// Save theme configuration
+#[tauri::command]
+pub fn save_theme_config(theme: ThemeConfig) -> Result<()> {
+    let mut config = AppConfig::load()?;
+    config.theme.theme = theme.theme;
+    config.theme.accent_color = theme.accent_color;
+    config.theme.font_size = theme.font_size;
+    config.theme.compact = theme.compact;
+    save_config(&config)
+}
+
+// ============================================================================
+// YAML Editor History
+// ============================================================================
+
+/// YAML history entry for frontend
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct YamlHistoryEntryDto {
+    pub timestamp: i64,
+    pub content: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+}
+
+/// Get YAML history for a resource
+#[tauri::command]
+pub fn get_yaml_history(resource_key: String) -> Result<Vec<YamlHistoryEntryDto>> {
+    let config = AppConfig::load()?;
+    let entries = config.yaml_editor.history
+        .get(&resource_key)
+        .cloned()
+        .unwrap_or_default();
+    
+    Ok(entries.into_iter().map(|e| YamlHistoryEntryDto {
+        timestamp: e.timestamp,
+        content: e.content,
+        label: e.label,
+    }).collect())
+}
+
+/// Add a YAML history entry
+#[tauri::command]
+pub fn add_yaml_history_entry(resource_key: String, entry: YamlHistoryEntryDto) -> Result<()> {
+    let mut config = AppConfig::load()?;
+    
+    let history_entry = YamlHistoryEntry {
+        timestamp: entry.timestamp,
+        content: entry.content,
+        label: entry.label,
+    };
+    
+    let entries = config.yaml_editor.history
+        .entry(resource_key)
+        .or_default();
+    
+    // Add to front, limit to 20 entries
+    entries.insert(0, history_entry);
+    entries.truncate(20);
+    
+    save_config(&config)
+}
+
+/// Get all YAML history
+#[tauri::command]
+pub fn get_all_yaml_history() -> Result<std::collections::HashMap<String, Vec<YamlHistoryEntryDto>>> {
+    let config = AppConfig::load()?;
+    Ok(config.yaml_editor.history
+        .into_iter()
+        .map(|(k, v)| {
+            let entries = v.into_iter().map(|e| YamlHistoryEntryDto {
+                timestamp: e.timestamp,
+                content: e.content,
+                label: e.label,
+            }).collect();
+            (k, entries)
+        })
+        .collect())
+}
+
+// ============================================================================
+// Infrastructure Builder State
+// ============================================================================
+
+/// Infrastructure builder state for frontend
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InfrastructureBuilderStateDto {
+    pub nodes: Vec<serde_json::Value>,
+    pub edges: Vec<serde_json::Value>,
+    pub yaml_text: String,
+    pub extra_manifests: Vec<serde_json::Value>,
+}
+
+/// Get infrastructure builder state for a context
+#[tauri::command]
+pub fn get_infrastructure_state(context: String) -> Result<InfrastructureBuilderStateDto> {
+    let config = AppConfig::load()?;
+    let state = config.infrastructure_builder.contexts
+        .get(&context)
+        .cloned()
+        .unwrap_or_default();
+    
+    Ok(InfrastructureBuilderStateDto {
+        nodes: state.nodes,
+        edges: state.edges,
+        yaml_text: state.yaml_text,
+        extra_manifests: state.extra_manifests,
+    })
+}
+
+/// Save infrastructure builder state for a context
+#[tauri::command]
+pub fn save_infrastructure_state(context: String, state: InfrastructureBuilderStateDto) -> Result<()> {
+    let mut config = AppConfig::load()?;
+    
+    let builder_state = ConfigBuilderState {
+        nodes: state.nodes,
+        edges: state.edges,
+        yaml_text: state.yaml_text,
+        extra_manifests: state.extra_manifests,
+    };
+    
+    config.infrastructure_builder.contexts.insert(context, builder_state);
+    save_config(&config)
+}
+
+/// Clear infrastructure builder state for a context
+#[tauri::command]
+pub fn clear_infrastructure_state(context: String) -> Result<()> {
+    let mut config = AppConfig::load()?;
+    config.infrastructure_builder.contexts.remove(&context);
+    save_config(&config)
 }

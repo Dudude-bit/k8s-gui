@@ -1,6 +1,6 @@
 //! Registry search and credential storage commands.
 
-use crate::config::{AppConfig, RegistryCredential};
+use crate::config::AppConfig;
 use crate::error::{Error, Result};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use dirs::home_dir;
@@ -164,13 +164,17 @@ fn decode_basic_auth(encoded: &str) -> Option<(String, String)> {
 
 fn load_saved_auth(registry_id: &str) -> Result<Option<RegistryAuth>> {
     let config = AppConfig::load()?;
-    if let Some(cred) = config.registry_credentials.registries.get(registry_id) {
-        Ok(Some(RegistryAuth {
-            auth_type: cred.auth_type.clone(),
-            username: cred.username.clone(),
-            password: cred.password.clone(),
-            token: cred.token.clone(),
-        }))
+    if let Some(entry) = config.registries.registries.get(registry_id) {
+        if entry.auth_type != "none" {
+            Ok(Some(RegistryAuth {
+                auth_type: entry.auth_type.clone(),
+                username: entry.username.clone(),
+                password: entry.password.clone(),
+                token: entry.token.clone(),
+            }))
+        } else {
+            Ok(None)
+        }
     } else {
         Ok(None)
     }
@@ -178,21 +182,49 @@ fn load_saved_auth(registry_id: &str) -> Result<Option<RegistryAuth>> {
 
 fn save_registry_auth(registry_id: &str, auth: &RegistryAuth) -> Result<()> {
     let mut config = AppConfig::load()?;
-    config.registry_credentials.registries.insert(
-        registry_id.to_string(),
-        RegistryCredential {
-            auth_type: auth.auth_type.clone(),
-            username: auth.username.clone(),
-            password: auth.password.clone(),
-            token: auth.token.clone(),
-        },
-    );
+    
+    if let Some(entry) = config.registries.registries.get_mut(registry_id) {
+        // Update existing entry
+        entry.auth_type = auth.auth_type.clone();
+        entry.username = auth.username.clone();
+        entry.password = auth.password.clone();
+        entry.token = auth.token.clone();
+    } else {
+        // Registry doesn't exist - this shouldn't happen normally
+        // but we handle it gracefully by creating a minimal entry
+        use crate::config::RegistryConfigEntry;
+        config.registries.registries.insert(
+            registry_id.to_string(),
+            RegistryConfigEntry {
+                label: registry_id.to_string(),
+                provider: "registry-v2".to_string(),
+                base_url: None,
+                host: None,
+                project: None,
+                account_id: None,
+                region: None,
+                auth_type: auth.auth_type.clone(),
+                username: auth.username.clone(),
+                password: auth.password.clone(),
+                token: auth.token.clone(),
+            },
+        );
+    }
+    
     super::settings::save_config(&config)
 }
 
 fn delete_registry_auth(registry_id: &str) -> Result<()> {
     let mut config = AppConfig::load()?;
-    config.registry_credentials.registries.remove(registry_id);
+    
+    if let Some(entry) = config.registries.registries.get_mut(registry_id) {
+        // Just clear the auth, don't delete the registry config
+        entry.auth_type = "none".to_string();
+        entry.username = None;
+        entry.password = None;
+        entry.token = None;
+    }
+    
     super::settings::save_config(&config)
 }
 

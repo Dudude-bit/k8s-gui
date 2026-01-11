@@ -10,6 +10,7 @@ import {
   Connection,
   XYPosition,
 } from "reactflow";
+import { commands } from "@/lib/commands";
 import {
   buildEdgesFromResources,
   buildManifestYaml,
@@ -21,7 +22,6 @@ import {
   ResourceNodeData,
 } from "@/features/infrastructure/types";
 
-const STORAGE_PREFIX = "k8s-gui.infrastructure-builder";
 const GRID_SPACING_X = 260;
 const GRID_SPACING_Y = 180;
 
@@ -40,6 +40,7 @@ interface SyncResult {
 interface InfrastructureBuilderState extends StoredBuilderState {
   context: string | null;
   selectedNodeId: string | null;
+  loading: boolean;
   setContext: (context: string | null) => void;
   setYamlText: (text: string) => void;
   setNodes: (nodes: Node<ResourceNodeData>[]) => void;
@@ -61,8 +62,6 @@ interface InfrastructureBuilderState extends StoredBuilderState {
   replaceResources: (nodes: Node<ResourceNodeData>[], edges: Edge[]) => void;
 }
 
-const storageKey = (context: string) => `${STORAGE_PREFIX}.${context}`;
-
 const emptyState: StoredBuilderState = {
   nodes: [],
   edges: [],
@@ -70,23 +69,14 @@ const emptyState: StoredBuilderState = {
   extraManifests: [],
 };
 
-const loadState = (context: string): StoredBuilderState => {
-  if (typeof window === "undefined") {
-    return emptyState;
-  }
+const loadState = async (context: string): Promise<StoredBuilderState> => {
   try {
-    const raw = window.localStorage.getItem(storageKey(context));
-    if (!raw) {
-      return emptyState;
-    }
-    const parsed = JSON.parse(raw) as StoredBuilderState;
+    const state = await commands.getInfrastructureState(context);
     return {
-      nodes: Array.isArray(parsed.nodes) ? parsed.nodes : [],
-      edges: Array.isArray(parsed.edges) ? parsed.edges : [],
-      yamlText: typeof parsed.yamlText === "string" ? parsed.yamlText : "",
-      extraManifests: Array.isArray(parsed.extraManifests)
-        ? parsed.extraManifests
-        : [],
+      nodes: (state.nodes || []) as Node<ResourceNodeData>[],
+      edges: (state.edges || []) as Edge[],
+      yamlText: state.yamlText || "",
+      extraManifests: state.extraManifests || [],
     };
   } catch (error) {
     console.warn("Failed to load infrastructure builder state:", error);
@@ -94,21 +84,17 @@ const loadState = (context: string): StoredBuilderState => {
   }
 };
 
-const persistState = (state: InfrastructureBuilderState) => {
-  if (!state.context || typeof window === "undefined") {
+const persistState = async (state: InfrastructureBuilderState) => {
+  if (!state.context) {
     return;
   }
-  const payload: StoredBuilderState = {
-    nodes: state.nodes,
-    edges: state.edges,
-    yamlText: state.yamlText,
-    extraManifests: state.extraManifests,
-  };
   try {
-    window.localStorage.setItem(
-      storageKey(state.context),
-      JSON.stringify(payload)
-    );
+    await commands.saveInfrastructureState(state.context, {
+      nodes: state.nodes as unknown[],
+      edges: state.edges as unknown[],
+      yamlText: state.yamlText,
+      extraManifests: state.extraManifests as unknown[],
+    });
   } catch (error) {
     console.warn("Failed to persist infrastructure builder state:", error);
   }
@@ -144,28 +130,32 @@ export const useInfrastructureBuilderStore = create<InfrastructureBuilderState>(
   (set, get) => ({
     context: null,
     selectedNodeId: null,
+    loading: false,
     ...emptyState,
 
     setContext: (context) => {
-      set((state) => {
-        if (!context) {
-          return {
-            ...state,
-            context: null,
-            selectedNodeId: null,
-            ...emptyState,
-          };
-        }
-        if (state.context === context) {
-          return state;
-        }
-        const stored = loadState(context);
-        return {
-          ...state,
-          context,
+      if (!context) {
+        set({
+          context: null,
           selectedNodeId: null,
+          ...emptyState,
+        });
+        return;
+      }
+
+      if (get().context === context) {
+        return;
+      }
+
+      set({ context, loading: true });
+
+      // Load state from backend
+      loadState(context).then((stored) => {
+        set({
+          selectedNodeId: null,
+          loading: false,
           ...stored,
-        };
+        });
       });
     },
 
@@ -253,9 +243,9 @@ export const useInfrastructureBuilderStore = create<InfrastructureBuilderState>(
         const nodes = state.nodes.map((node) =>
           node.id === nodeId
             ? {
-                ...node,
-                data: { ...node.data, ...updates } as ResourceNodeData,
-              }
+              ...node,
+              data: { ...node.data, ...updates } as ResourceNodeData,
+            }
             : node
         );
         const next = { ...state, nodes };
@@ -277,6 +267,7 @@ export const useInfrastructureBuilderStore = create<InfrastructureBuilderState>(
     },
 
     clearCanvas: () => {
+      const context = get().context;
       set((state) => {
         const next = {
           ...state,
@@ -286,7 +277,9 @@ export const useInfrastructureBuilderStore = create<InfrastructureBuilderState>(
           extraManifests: [],
           selectedNodeId: null,
         };
-        persistState(next);
+        if (context) {
+          commands.clearInfrastructureState(context).catch(console.error);
+        }
         return next;
       });
     },
