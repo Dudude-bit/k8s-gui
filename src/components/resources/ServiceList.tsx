@@ -21,6 +21,7 @@ import {
   createAgeColumn,
   createTypeBadgeColumn,
 } from "./columns";
+import { getResourceRowId } from "@/lib/table-utils";
 
 // Format port for display
 function formatPort(port: ServicePortInfo): string {
@@ -94,6 +95,7 @@ export function ServiceList() {
     <ResourceList<ServiceInfo>
       title="Services"
       queryKey={[toPlural(ResourceType.Service), currentNamespace]}
+      getRowId={getResourceRowId}
       queryFn={async () => {
         const result = await commands.listServices({
           namespace: currentNamespace,

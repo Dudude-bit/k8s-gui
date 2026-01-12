@@ -20,6 +20,7 @@ import type { PersistentVolumeInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import { STALE_TIMES } from "@/lib/refresh";
+import { getResourceRowId } from "@/lib/table-utils";
 
 
 
@@ -101,6 +102,7 @@ export function PersistentVolumeList() {
       title="Persistent Volumes"
       description="Cluster-wide storage resources provisioned by an administrator"
       queryKey={[toPlural(ResourceType.PersistentVolume)]}
+      getRowId={getResourceRowId}
       queryFn={() => commands.listPersistentVolumes(null)}
       columns={(setDeleteTarget) => [
         ...baseColumns,

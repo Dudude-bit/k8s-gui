@@ -18,8 +18,7 @@ export function EndpointsDetail() {
         namespace,
         resource: endpoints,
         isLoading,
-        isFetching,
-        error,
+                error,
         refetch,
         yaml: endpointsYaml,
         copyYaml,
@@ -157,7 +156,6 @@ export function EndpointsDetail() {
         <ResourceDetailLayout
             resource={endpoints}
             isLoading={isLoading}
-            isFetching={isFetching}
             error={error}
             resourceKind={ResourceType.Endpoints}
             title={endpoints?.name || name || ""}

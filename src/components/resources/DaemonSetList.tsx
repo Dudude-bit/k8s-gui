@@ -29,6 +29,7 @@ import {
   createCpuColumn,
   createMemoryColumn,
 } from "./columns";
+import { getResourceRowId } from "@/lib/table-utils";
 
 // Extended Info with metrics
 type DaemonSetInfoWithMetrics = DaemonSetInfo & ResourceMetrics;
@@ -42,7 +43,6 @@ export function DaemonSetList() {
     data: podsWithMetrics,
     podStatus,
     isLoading: isLoadingPods,
-    isFetching: isFetchingPods,
     refetch: refetchPods,
   } = usePodsWithMetrics();
 
@@ -113,11 +113,9 @@ export function DaemonSetList() {
       <ResourceList<DaemonSetInfoWithMetrics>
         title="DaemonSets"
         data={daemonSetsWithMetrics}
-        isLoading={daemonSetsQuery.isLoading}
-        isFetching={
-          daemonSetsQuery.isFetching || isFetchingPods || isLoadingPods
-        }
+        isLoading={daemonSetsQuery.isLoading || isLoadingPods}
         onRefresh={refetch}
+        getRowId={getResourceRowId}
         columns={(setDeleteTarget) => [
           ...columns,
           {

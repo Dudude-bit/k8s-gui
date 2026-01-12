@@ -11,7 +11,6 @@ interface ResourceDetailHeaderProps {
   actions?: ReactNode;
   onBack: () => void;
   onRefresh?: () => void;
-  isRefreshing?: boolean;
   icon?: ReactNode;
   /** Timestamp when data was last fetched (from React Query's dataUpdatedAt) */
   dataUpdatedAt?: number;
@@ -24,7 +23,6 @@ export function ResourceDetailHeader({
   actions,
   onBack,
   onRefresh,
-  isRefreshing,
   icon,
   dataUpdatedAt,
 }: ResourceDetailHeaderProps) {
@@ -52,9 +50,9 @@ export function ResourceDetailHeader({
       </div>
       <div className="flex items-center gap-2">
         {actions}
-        <DataFreshness dataUpdatedAt={dataUpdatedAt} isFetching={isRefreshing} />
+        <DataFreshness dataUpdatedAt={dataUpdatedAt} />
         {onRefresh && (
-          <RefreshButton onRefresh={onRefresh} isRefreshing={isRefreshing} />
+          <RefreshButton onRefresh={onRefresh} />
         )}
       </div>
     </div>

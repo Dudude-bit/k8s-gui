@@ -39,7 +39,6 @@ interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   isLoading?: boolean;
-  isFetching?: boolean;
   searchKey?: string;
   searchPlaceholder?: string;
   /** Enable virtual scrolling for large datasets (default: true for >100 rows) */
@@ -54,6 +53,8 @@ interface DataTableProps<TData, TValue> {
   quickActions?: QuickAction<TData>[];
   /** Enable keyboard navigation (default: true if getRowHref or onRowClick provided) */
   enableKeyboardNav?: boolean;
+  /** Function to get unique row ID (for stable keys during data updates) */
+  getRowId?: (row: TData, index: number) => string;
 }
 
 // Extended page size options for large datasets
@@ -65,7 +66,6 @@ export function DataTable<TData, TValue>({
   columns,
   data,
   isLoading = false,
-  isFetching = false,
   searchKey,
   searchPlaceholder = "Search...",
   enableVirtualScroll,
@@ -74,6 +74,7 @@ export function DataTable<TData, TValue>({
   onRowClick,
   quickActions,
   enableKeyboardNav,
+  getRowId,
 }: DataTableProps<TData, TValue>) {
   const navigate = useNavigate();
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -99,6 +100,7 @@ export function DataTable<TData, TValue>({
   const table = useReactTable({
     data,
     columns,
+    getRowId,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -217,11 +219,7 @@ export function DataTable<TData, TValue>({
       </div>
       <div
         ref={containerRef}
-        className={cn(
-          "rounded-md border transition-opacity duration-200",
-          isFetching && "opacity-60"
-        )}
-        aria-busy={isFetching}
+        className="rounded-md border"
         role={keyboardNavEnabled ? "grid" : undefined}
         aria-label={keyboardNavEnabled ? "Data table" : undefined}
       >

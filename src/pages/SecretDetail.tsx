@@ -34,8 +34,7 @@ export function SecretDetail() {
         namespace,
         resource: secret,
         isLoading,
-        isFetching,
-        error,
+                error,
         refetch,
         yaml: secretYaml,
         copyYaml,
@@ -112,7 +111,6 @@ export function SecretDetail() {
         <ResourceDetailLayout
             resource={secret}
             isLoading={isLoading}
-            isFetching={isFetching}
             error={error}
             resourceKind={ResourceType.Secret}
             title={secret?.name || ""}

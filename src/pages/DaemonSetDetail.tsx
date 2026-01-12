@@ -23,7 +23,6 @@ export function DaemonSetDetail() {
     namespace,
     resource: daemonSet,
     isLoading,
-    isFetching,
     error,
     refetch,
     yaml,
@@ -256,7 +255,6 @@ export function DaemonSetDetail() {
     <ResourceDetailLayout
       resource={daemonSet}
       isLoading={isLoading}
-      isFetching={isFetching}
       error={error}
       resourceKind="DaemonSet"
       title={name || ""}
@@ -275,11 +273,8 @@ export function DaemonSetDetail() {
             variant="outline"
             size="sm"
             onClick={() => refetch()}
-            disabled={isFetching}
           >
-            <RefreshCw
-              className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`}
-            />
+            <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
           <Button

@@ -53,7 +53,6 @@ export interface UseResourceDetailResult<T> {
   // Resource data
   resource: T | undefined;
   isLoading: boolean;
-  isFetching: boolean;
   error: Error | null;
   refetch: () => void;
 
@@ -114,7 +113,6 @@ export function useResourceDetail<T>(
   const {
     data: resource,
     isLoading,
-    isFetching,
     error,
     refetch,
   } = useQuery({
@@ -181,7 +179,6 @@ export function useResourceDetail<T>(
     namespace,
     resource,
     isLoading,
-    isFetching,
     error: error as Error | null,
     refetch,
     yaml,

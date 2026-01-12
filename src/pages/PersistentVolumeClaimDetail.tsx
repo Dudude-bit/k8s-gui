@@ -19,8 +19,7 @@ export function PersistentVolumeClaimDetail() {
         namespace,
         resource: pvc,
         isLoading,
-        isFetching,
-        error,
+                error,
         refetch,
         yaml: pvcYaml,
         copyYaml,
@@ -98,7 +97,6 @@ export function PersistentVolumeClaimDetail() {
         <ResourceDetailLayout
             resource={pvc}
             isLoading={isLoading}
-            isFetching={isFetching}
             error={error}
             resourceKind={ResourceType.PersistentVolumeClaim}
             title={pvc?.name || name || ""}

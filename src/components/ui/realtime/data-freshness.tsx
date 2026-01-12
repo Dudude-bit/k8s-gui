@@ -16,13 +16,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Loader2 } from "lucide-react";
 
 export interface DataFreshnessProps {
   /** Timestamp when data was last fetched (from React Query's dataUpdatedAt) */
   dataUpdatedAt: number | undefined;
-  /** Whether data is currently being fetched */
-  isFetching?: boolean;
   /** Additional CSS classes */
   className?: string;
   /** Whether to show the label text (default: true) */
@@ -40,18 +37,17 @@ const DOT_COLORS: Record<FreshnessColor, string> = {
  *
  * @example
  * ```tsx
- * const { dataUpdatedAt, isFetching } = useQuery(...);
- * <DataFreshness dataUpdatedAt={dataUpdatedAt} isFetching={isFetching} />
+ * const { dataUpdatedAt } = useQuery(...);
+ * <DataFreshness dataUpdatedAt={dataUpdatedAt} />
  * // Renders: ● 3s with green dot
  * ```
  */
 export const DataFreshness = memo(function DataFreshness({
   dataUpdatedAt,
-  isFetching = false,
   className,
   showLabel = true,
 }: DataFreshnessProps) {
-  const { label, color, tooltip } = useDataFreshness(dataUpdatedAt, isFetching);
+  const { label, color, tooltip } = useDataFreshness(dataUpdatedAt);
 
   return (
     <TooltipProvider>
@@ -63,16 +59,12 @@ export const DataFreshness = memo(function DataFreshness({
               className
             )}
           >
-            {isFetching ? (
-              <Loader2 className="h-2.5 w-2.5 animate-spin" />
-            ) : (
-              <span
-                className={cn(
-                  "h-2 w-2 rounded-full shrink-0",
-                  DOT_COLORS[color]
-                )}
-              />
-            )}
+            <span
+              className={cn(
+                "h-2 w-2 rounded-full shrink-0",
+                DOT_COLORS[color]
+              )}
+            />
             {showLabel && (
               <span className="tabular-nums">{label}</span>
             )}

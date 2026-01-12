@@ -31,6 +31,7 @@ import {
   createCpuColumn,
   createMemoryColumn,
 } from "./columns";
+import { getResourceRowId } from "@/lib/table-utils";
 
 // Extended Info with metrics
 type CronJobInfoWithMetrics = CronJobInfo & ResourceMetrics;
@@ -44,7 +45,6 @@ export function CronJobList() {
     data: podsWithMetrics,
     podStatus,
     isLoading: isLoadingPods,
-    isFetching: isFetchingPods,
     refetch: refetchPods,
   } = usePodsWithMetrics();
 
@@ -114,9 +114,9 @@ export function CronJobList() {
       <ResourceList<CronJobInfoWithMetrics>
         title="CronJobs"
         data={cronJobsWithMetrics}
-        isLoading={cronJobsQuery.isLoading}
-        isFetching={cronJobsQuery.isFetching || isFetchingPods || isLoadingPods}
+        isLoading={cronJobsQuery.isLoading || isLoadingPods}
         onRefresh={refetch}
+        getRowId={getResourceRowId}
         columns={(setDeleteTarget) => [
           ...columns,
           {

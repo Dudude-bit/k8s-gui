@@ -5,6 +5,7 @@ import type { ButtonProps } from "@/components/ui/button";
 
 interface RefreshButtonProps extends Omit<ButtonProps, "onClick"> {
   onRefresh: () => void;
+  /** Show spinning animation and disable button (for manual refresh actions) */
   isRefreshing?: boolean;
 }
 

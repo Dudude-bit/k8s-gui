@@ -29,7 +29,6 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
   const {
     data: pods = [],
     isLoading: isLoadingPods,
-    isFetching: isFetchingPods,
     refetch: refetchPods,
   } = useQuery({
     queryKey: ["pods", currentNamespace],
@@ -59,7 +58,6 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
     podMetricsQuery,
     podMetricsQuery: {
       isLoading: isLoadingMetrics,
-      isFetching: isFetchingMetrics,
     },
   } = useMetrics({
     namespace: currentNamespace || null,
@@ -83,7 +81,6 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
     podMetrics,
     podStatus,
     isLoading: isLoadingPods || isLoadingMetrics,
-    isFetching: isFetchingPods || isFetchingMetrics,
     refetch,
   };
 }

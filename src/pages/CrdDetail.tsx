@@ -35,8 +35,7 @@ export function CrdDetail() {
   const {
     data: crd,
     isLoading,
-    isFetching,
-    error,
+        error,
     refetch,
   } = useQuery({
     queryKey: ["crd", decodedName],
@@ -344,7 +343,6 @@ export function CrdDetail() {
       <ResourceDetailLayout
         resource={crd}
         isLoading={isLoading}
-        isFetching={isFetching}
         error={error}
         resourceKind="CustomResourceDefinition"
         title={crd?.kind || ""}

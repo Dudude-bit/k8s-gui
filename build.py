@@ -1855,6 +1855,19 @@ class S3Uploader:
     
     def upload_manifest(self, manifest_path: Path) -> str:
         return self.upload_file(manifest_path, "latest.json", "application/json")
+    
+    def get_existing_manifest(self) -> Optional[dict]:
+        """Fetch existing latest.json from S3, returns None if not exists"""
+        full_key = f"{self.prefix}/latest.json"
+        try:
+            response = self.s3.get_object(Bucket=self.bucket, Key=full_key)
+            content = response['Body'].read().decode('utf-8')
+            return json.loads(content)
+        except self.s3.exceptions.NoSuchKey:
+            return None
+        except Exception as e:
+            print_warning(f"Could not fetch existing manifest: {e}")
+            return None
 
 
 class YandexCloudUploader:
@@ -1965,8 +1978,23 @@ class YandexCloudUploader:
     
     def upload_manifest(self, manifest_path: Path) -> str:
         return self.upload_file(manifest_path, "latest.json", "application/json")
+    
+    def get_existing_manifest(self) -> Optional[dict]:
+        """Fetch existing latest.json from Yandex Cloud, returns None if not exists"""
+        full_key = f"{self.prefix}/latest.json"
+        try:
+            content = self._run_async(self._client.download(full_key))
+            if content:
+                return json.loads(content.decode('utf-8'))
+            return None
+        except Exception as e:
+            # File doesn't exist or other error
+            if "NoSuchKey" in str(e) or "404" in str(e):
+                return None
+            print_warning(f"Could not fetch existing manifest: {e}")
+            return None
 
-def generate_manifest(output_dir: Path, version: str, platforms: dict, base_url: str = None) -> Path:
+def generate_manifest(output_dir: Path, version: str, platforms: dict, base_url: str = None, existing_manifest: dict = None) -> Path:
     if not platforms:
         for target_name, target in TARGETS.items():
             target_dir = output_dir / target_name
@@ -1983,11 +2011,24 @@ def generate_manifest(output_dir: Path, version: str, platforms: dict, base_url:
                     "url": f"{url_base}/{version}/{target.os}/{target.arch}/{artifact_name}",
                 }
     
+    # Merge with existing manifest if same version
+    merged_platforms = {}
+    if existing_manifest and existing_manifest.get("version") == version:
+        # Start with existing platforms
+        merged_platforms = existing_manifest.get("platforms", {}).copy()
+        print_info(f"Merging with existing manifest (version {version}, {len(merged_platforms)} existing platform(s))")
+    
+    # Override/add new platforms
+    merged_platforms.update(platforms)
+    
+    if len(merged_platforms) > len(platforms):
+        print_info(f"Final manifest will have {len(merged_platforms)} platform(s)")
+    
     manifest = {
         "version": version,
         "notes": f"Update to version {version}",
         "pub_date": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "platforms": platforms,
+        "platforms": merged_platforms,
     }
     
     manifest_path = output_dir / "latest.json"
@@ -2120,10 +2161,14 @@ def main():
         
         print_step("Uploading to S3/MinIO")
         uploader = create_uploader(s3_config)
+        
+        # Fetch existing manifest to merge platforms
+        existing_manifest = uploader.get_existing_manifest()
+        
         platforms = uploader.upload_artifacts(output_dir, version)
         # Pass uploader's base_url for correct URL generation
         base_url = f"{uploader.base_url}/{s3_config.get('prefix', 'releases')}"
-        manifest = generate_manifest(output_dir, version, platforms, base_url)
+        manifest = generate_manifest(output_dir, version, platforms, base_url, existing_manifest)
         uploader.upload_manifest(manifest)
         
         print_success("Upload complete!")
@@ -2313,10 +2358,14 @@ def main():
         print_step("Uploading to S3")
         try:
             uploader = create_uploader(s3_config)
+            
+            # Fetch existing manifest to merge platforms
+            existing_manifest = uploader.get_existing_manifest()
+            
             platforms = uploader.upload_artifacts(output_dir, version)
             # Pass uploader's base_url for correct URL generation
             base_url = f"{uploader.base_url}/{s3_config.get('prefix', 'releases')}"
-            manifest = generate_manifest(output_dir, version, platforms, base_url)
+            manifest = generate_manifest(output_dir, version, platforms, base_url, existing_manifest)
             uploader.upload_manifest(manifest)
             print_success("Upload complete!")
         except Exception as e:

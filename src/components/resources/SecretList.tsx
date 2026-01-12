@@ -24,6 +24,7 @@ import {
   createDataKeysColumn,
 } from "./columns";
 import { SecretDataDialog } from "./SecretDataDialog";
+import { getResourceRowId } from "@/lib/table-utils";
 
 const getSecretTypeColor = (type: string): string => {
   switch (type) {
@@ -86,6 +87,7 @@ export function SecretList() {
       <ResourceList<SecretInfo>
         title="Secrets"
         queryKey={[toPlural(ResourceType.Secret), currentNamespace]}
+        getRowId={getResourceRowId}
         queryFn={async () => {
           const result = await commands.listSecrets({
             namespace: currentNamespace,

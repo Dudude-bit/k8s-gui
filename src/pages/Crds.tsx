@@ -30,6 +30,9 @@ import { commands } from "@/lib/commands";
 import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
 import type { CrdInfo } from "@/generated/types";
 
+// Generate stable row ID for CRDs (cluster-scoped, so name is unique)
+const getCrdRowId = (row: CrdListItem) => row.name;
+
 // Extend CrdInfo with a namespace field for ResourceList compatibility
 type CrdListItem = CrdInfo & { namespace: string };
 
@@ -43,7 +46,6 @@ export function Crds() {
   const {
     data: crdGroups = [],
     isLoading,
-    isFetching,
     refetch,
   } = useQuery({
     queryKey: ["crds", "grouped"],
@@ -204,8 +206,6 @@ export function Crds() {
     <div className="space-y-4">
       <ResourceListHeader
         title={`Custom Resource Definitions (${totalCrds})`}
-        isLoading={isLoading}
-        isFetching={isFetching}
         onRefresh={() => refetch()}
       />
 
@@ -261,6 +261,7 @@ export function Crds() {
                     isLoading={isLoading}
                     searchPlaceholder="Search CRDs..."
                     searchKey="kind"
+                    getRowId={getCrdRowId}
                     getRowHref={(row) => `/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(row.name)}`}
                   />
                 </div>

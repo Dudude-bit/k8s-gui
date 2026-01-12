@@ -58,6 +58,9 @@ import type { HelmRelease, HelmRevision, HelmChartSearchResult, HelmInstallOptio
 import { normalizeTauriError } from "@/lib/error-utils";
 import { cn } from "@/lib/utils";
 
+// Generate stable row ID for Helm releases
+const getHelmReleaseRowId = (row: HelmRelease) => `${row.source}-${row.namespace}-${row.name}`;
+
 // Source icon component
 function SourceIcon({ source }: { source: string }) {
   if (source === "flux") {
@@ -630,6 +633,7 @@ export function Helm() {
             isLoading={isLoading}
             searchPlaceholder="Search releases..."
             searchKey="name"
+            getRowId={getHelmReleaseRowId}
             getRowHref={(row) => `/helm/${row.source}/${row.namespace}/${row.name}`}
           />
         </TabsContent>

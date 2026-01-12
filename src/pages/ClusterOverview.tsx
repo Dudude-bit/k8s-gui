@@ -68,7 +68,6 @@ export function ClusterOverview() {
   const {
     data: stats,
     isLoading: isLoadingStats,
-    isFetching,
   } = useQuery({
     queryKey: ["overview-stats", currentContext, currentNamespace],
     queryFn: async () => {
@@ -309,12 +308,11 @@ export function ClusterOverview() {
       <OverviewHeader
         title={currentContext || "Cluster Overview"}
         subtitle={overviewSubtitle}
-        isFetching={isFetching}
       />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {resourceStats.map((stat) => (
-          <ResourceStatCard key={stat.id} {...stat} dimmed={isFetching} />
+          <ResourceStatCard key={stat.id} {...stat} />
         ))}
       </div>
 

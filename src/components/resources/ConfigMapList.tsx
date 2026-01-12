@@ -24,6 +24,7 @@ import {
   createDataKeysColumn,
 } from "./columns";
 import { ConfigMapDataDialog } from "./ConfigMapDataDialog";
+import { getResourceRowId } from "@/lib/table-utils";
 
 export function ConfigMapList() {
   const { currentNamespace } = useClusterStore();
@@ -60,6 +61,7 @@ export function ConfigMapList() {
       <ResourceList<ConfigMapInfo>
         title="ConfigMaps"
         queryKey={[toPlural(ResourceType.ConfigMap), currentNamespace]}
+        getRowId={getResourceRowId}
         queryFn={async () => {
           const result = await commands.listConfigmaps({
             namespace: currentNamespace,

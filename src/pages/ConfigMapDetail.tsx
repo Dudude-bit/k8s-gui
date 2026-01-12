@@ -26,8 +26,7 @@ export function ConfigMapDetail() {
         namespace,
         resource: configMap,
         isLoading,
-        isFetching,
-        error,
+                error,
         refetch,
         yaml: configMapYaml,
         copyYaml,
@@ -184,7 +183,6 @@ export function ConfigMapDetail() {
         <ResourceDetailLayout
             resource={configMap}
             isLoading={isLoading}
-            isFetching={isFetching}
             error={error}
             resourceKind={ResourceType.ConfigMap}
             title={configMap?.name || ""}

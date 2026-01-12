@@ -24,6 +24,7 @@ import { ResourceList } from "@/components/resources/ResourceList";
 import type { NodeInfo } from "@/generated/types";
 import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
 import { RealtimeAge } from "@/components/ui/realtime";
+import { getResourceRowId } from "@/lib/table-utils";
 
 export function NodeList() {
   const { isConnected } = useClusterStore();
@@ -259,6 +260,7 @@ export function NodeList() {
     <ResourceList<NodeInfo>
       title="Nodes"
       queryKey={[toPlural(ResourceType.Node)]}
+      getRowId={getResourceRowId}
       queryFn={() => commands.listNodes(null)}
       columns={columns}
       emptyStateLabel={toPlural(ResourceType.Node)}

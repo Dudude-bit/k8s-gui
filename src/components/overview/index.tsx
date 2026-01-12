@@ -56,34 +56,22 @@ export type QuickActionTileProps = {
 // Components
 
 import { cn } from "@/lib/utils";
-import { Spinner } from "@/components/ui/spinner";
 
 export type OverviewHeaderProps = {
     title: string;
     subtitle: string;
-    isFetching: boolean;
 };
 
-export function OverviewHeader({ title, subtitle, isFetching }: OverviewHeaderProps) {
+export function OverviewHeader({ title, subtitle }: OverviewHeaderProps) {
     return (
         <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
                 <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
                 <p className="text-sm text-muted-foreground">{subtitle}</p>
             </div>
-            {isFetching && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Spinner size="sm" className="text-muted-foreground" />
-                    <span>Updating</span>
-                </div>
-            )}
         </div>
     );
 }
-
-export type ResourceStatCardProps = ResourceStatCardData & {
-    dimmed?: boolean;
-};
 
 export function ResourceStatCard({
     title,
@@ -91,9 +79,8 @@ export function ResourceStatCard({
     value,
     badges,
     description,
-    dimmed,
     href,
-}: ResourceStatCardProps) {
+}: ResourceStatCardData) {
     const visibleBadges =
         badges?.filter((badge) => !badge.hideWhenZero || badge.value > 0) ?? [];
 
@@ -101,7 +88,6 @@ export function ResourceStatCard({
         <Card
             className={cn(
                 "transition-all duration-200",
-                dimmed && "opacity-70",
                 href && "group-hover:bg-accent"
             )}
         >

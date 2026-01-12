@@ -26,8 +26,7 @@ export function NodeDetail() {
     name,
     resource: node,
     isLoading,
-    isFetching,
-    error,
+        error,
     refetch,
     yaml: nodeYaml,
     copyYaml,
@@ -147,7 +146,6 @@ export function NodeDetail() {
     <ResourceDetailLayout
       resource={node}
       isLoading={isLoading}
-      isFetching={isFetching}
       error={error}
       resourceKind={ResourceType.Node}
       title={node?.name || ""}

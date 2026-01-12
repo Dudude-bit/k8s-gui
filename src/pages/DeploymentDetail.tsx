@@ -71,8 +71,7 @@ export function DeploymentDetail() {
     namespace,
     resource: deployment,
     isLoading,
-    isFetching,
-    error,
+        error,
     refetch,
     yaml: deploymentYaml,
     copyYaml,
@@ -537,7 +536,6 @@ export function DeploymentDetail() {
     <ResourceDetailLayout
       resource={deployment}
       isLoading={isLoading}
-      isFetching={isFetching}
       error={error}
       resourceKind={ResourceType.Deployment}
       title={deployment?.name || ""}

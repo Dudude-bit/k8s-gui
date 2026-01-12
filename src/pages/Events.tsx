@@ -4,7 +4,6 @@ import { Badge } from "@/components/ui/badge";
 import { RefreshButton } from "@/components/ui/refresh-button";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ListSkeleton } from "@/components/ui/skeleton";
-import { Spinner } from "@/components/ui/spinner";
 import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
 import {
   Card,
@@ -36,7 +35,6 @@ export function Events() {
   const {
     data: events = [],
     isLoading,
-    isFetching,
     refetch,
   } = useQuery({
     queryKey: [toPlural(ResourceType.Event), currentNamespace, eventType, eventLimit],
@@ -77,9 +75,6 @@ export function Events() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">Events</h1>
-          {isFetching && !isLoading && (
-            <Spinner size="sm" className="text-muted-foreground" />
-          )}
         </div>
         <div className="flex items-center gap-2">
           <Select value={eventType} onValueChange={setEventType}>
@@ -106,7 +101,6 @@ export function Events() {
           </Select>
           <RefreshButton
             onRefresh={() => refetch()}
-            isRefreshing={isFetching}
             variant="outline"
             size="icon"
           />
@@ -126,12 +120,7 @@ export function Events() {
       </div>
 
       {/* Events List */}
-      <Card
-        className={cn(
-          "transition-opacity duration-200",
-          isFetching && "opacity-70"
-        )}
-      >
+      <Card>
         <CardHeader>
           <CardTitle>Recent Events</CardTitle>
           <CardDescription>

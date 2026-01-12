@@ -20,6 +20,7 @@ import type { PersistentVolumeClaimInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import { STALE_TIMES } from "@/lib/refresh";
+import { getResourceRowId } from "@/lib/table-utils";
 
 
 
@@ -102,6 +103,7 @@ export function PersistentVolumeClaimList() {
       title="Persistent Volume Claims"
       description={`Requests for storage by pods in ${currentNamespace || "all namespaces"}`}
       queryKey={[toPlural(ResourceType.PersistentVolumeClaim), currentNamespace]}
+      getRowId={getResourceRowId}
       queryFn={() =>
         commands.listPersistentVolumeClaims({
           namespace: currentNamespace || null,

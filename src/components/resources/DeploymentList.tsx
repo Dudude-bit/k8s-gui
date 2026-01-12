@@ -32,6 +32,7 @@ import {
 import type { DeploymentInfo } from "@/generated/types";
 import { commands } from "@/lib/commands";
 import { MetricsStatusBanner } from "@/components/metrics";
+import { getResourceRowId } from "@/lib/table-utils";
 
 // Extended DeploymentInfo with metrics
 type DeploymentInfoWithMetrics = DeploymentInfo & ResourceMetrics;
@@ -45,7 +46,6 @@ export function DeploymentList() {
     data: podsWithMetrics,
     podStatus,
     isLoading: isLoadingPods,
-    isFetching: isFetchingPods,
     refetch: refetchPods,
   } = usePodsWithMetrics();
 
@@ -110,11 +110,9 @@ export function DeploymentList() {
       <ResourceList<DeploymentInfoWithMetrics>
         title="Deployments"
         data={deploymentsWithMetrics}
-        isLoading={deploymentsQuery.isLoading}
-        isFetching={
-          deploymentsQuery.isFetching || isFetchingPods || isLoadingPods
-        }
+        isLoading={deploymentsQuery.isLoading || isLoadingPods}
         onRefresh={refetch}
+        getRowId={getResourceRowId}
         columns={(setDeleteTarget) => [
           ...columns,
           {

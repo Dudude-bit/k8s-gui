@@ -17,8 +17,7 @@ export function StorageClassDetail() {
         name,
         resource: sc,
         isLoading,
-        isFetching,
-        error,
+                error,
         refetch,
         yaml: scYaml,
         copyYaml,
@@ -129,7 +128,6 @@ export function StorageClassDetail() {
         <ResourceDetailLayout
             resource={sc}
             isLoading={isLoading}
-            isFetching={isFetching}
             error={error}
             resourceKind={ResourceType.StorageClass}
             title={sc?.name || name || ""}

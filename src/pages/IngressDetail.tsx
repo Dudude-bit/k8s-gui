@@ -73,8 +73,7 @@ export function IngressDetail() {
         namespace,
         resource: ingress,
         isLoading,
-        isFetching,
-        error,
+                error,
         refetch,
         yaml: ingressYaml,
         copyYaml,
@@ -471,7 +470,6 @@ export function IngressDetail() {
         <ResourceDetailLayout
             resource={ingress}
             isLoading={isLoading}
-            isFetching={isFetching}
             error={error}
             resourceKind={ResourceType.Ingress}
             title={ingress?.name || name || ""}

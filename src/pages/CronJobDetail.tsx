@@ -22,7 +22,6 @@ export function CronJobDetail() {
     namespace,
     resource: cronJob,
     isLoading,
-    isFetching,
     error,
     refetch,
     yaml,
@@ -282,7 +281,6 @@ export function CronJobDetail() {
     <ResourceDetailLayout
       resource={cronJob}
       isLoading={isLoading}
-      isFetching={isFetching}
       error={error}
       resourceKind="CronJob"
       title={name || ""}
@@ -305,11 +303,8 @@ export function CronJobDetail() {
             variant="outline"
             size="sm"
             onClick={() => refetch()}
-            disabled={isFetching}
           >
-            <RefreshCw
-              className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`}
-            />
+            <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
           <Button

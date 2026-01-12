@@ -50,19 +50,17 @@ function getFreshnessColor(seconds: number): FreshnessColor {
  * Hook for tracking data freshness with real-time updates
  *
  * @param dataUpdatedAt - Timestamp when data was last fetched (from React Query)
- * @param isFetching - Whether data is currently being fetched
  * @returns Freshness information including seconds, label, color, and tooltip
  *
  * @example
  * ```tsx
- * const { data, dataUpdatedAt, isFetching } = useQuery(...);
- * const freshness = useDataFreshness(dataUpdatedAt, isFetching);
- * return <DataFreshnessBadge {...freshness} isFetching={isFetching} />;
+ * const { data, dataUpdatedAt } = useQuery(...);
+ * const freshness = useDataFreshness(dataUpdatedAt);
+ * return <DataFreshnessBadge {...freshness} />;
  * ```
  */
 export function useDataFreshness(
-  dataUpdatedAt: number | undefined,
-  isFetching?: boolean
+  dataUpdatedAt: number | undefined
 ): DataFreshnessResult {
   // Always use fast channel for freshness indicator
   const subscribe = useCallback(
@@ -90,12 +88,10 @@ export function useDataFreshness(
     }
 
     const seconds = Math.floor((Date.now() - dataUpdatedAt) / 1000);
-    const label = isFetching ? "..." : formatFreshnessLabel(seconds);
-    const color = isFetching ? "green" : getFreshnessColor(seconds);
-    const tooltip = isFetching
-      ? "Updating..."
-      : `Last updated ${seconds} second${seconds !== 1 ? "s" : ""} ago`;
+    const label = formatFreshnessLabel(seconds);
+    const color = getFreshnessColor(seconds);
+    const tooltip = `Last updated ${seconds} second${seconds !== 1 ? "s" : ""} ago`;
 
     return { seconds, label, color, tooltip };
-  }, [dataUpdatedAt, isFetching]);
+  }, [dataUpdatedAt]);
 }

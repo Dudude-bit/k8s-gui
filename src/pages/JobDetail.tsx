@@ -23,7 +23,6 @@ export function JobDetail() {
     namespace,
     resource: job,
     isLoading,
-    isFetching,
     error,
     refetch,
     yaml,
@@ -297,7 +296,6 @@ export function JobDetail() {
     <ResourceDetailLayout
       resource={job}
       isLoading={isLoading}
-      isFetching={isFetching}
       error={error}
       resourceKind="Job"
       title={name || ""}
@@ -316,11 +314,8 @@ export function JobDetail() {
             variant="outline"
             size="sm"
             onClick={() => refetch()}
-            disabled={isFetching}
           >
-            <RefreshCw
-              className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`}
-            />
+            <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
           <Button

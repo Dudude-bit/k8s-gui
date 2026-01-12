@@ -30,6 +30,7 @@ import {
   createCpuColumn,
   createMemoryColumn,
 } from "./columns";
+import { getResourceRowId } from "@/lib/table-utils";
 
 // Extended Info with metrics
 type JobInfoWithMetrics = JobInfo & ResourceMetrics;
@@ -43,7 +44,6 @@ export function JobList() {
     data: podsWithMetrics,
     podStatus,
     isLoading: isLoadingPods,
-    isFetching: isFetchingPods,
     refetch: refetchPods,
   } = usePodsWithMetrics();
 
@@ -99,9 +99,9 @@ export function JobList() {
       <ResourceList<JobInfoWithMetrics>
         title="Jobs"
         data={jobsWithMetrics}
-        isLoading={jobsQuery.isLoading}
-        isFetching={jobsQuery.isFetching || isFetchingPods || isLoadingPods}
+        isLoading={jobsQuery.isLoading || isLoadingPods}
         onRefresh={refetch}
+        getRowId={getResourceRowId}
         columns={(setDeleteTarget) => [
           ...columns,
           {

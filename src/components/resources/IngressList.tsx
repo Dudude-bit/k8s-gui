@@ -22,6 +22,7 @@ import type { QuickAction } from "@/components/ui/quick-actions";
 
 import type { IngressInfo } from "@/generated/types";
 import { STALE_TIMES } from "@/lib/refresh";
+import { getResourceRowId } from "@/lib/table-utils";
 
 
 
@@ -176,6 +177,7 @@ export function IngressList() {
     <ResourceList<IngressInfo>
       title="Ingresses"
       queryKey={[toPlural(ResourceType.Ingress), currentNamespace]}
+      getRowId={getResourceRowId}
       queryFn={() =>
         commands.listIngresses({
           namespace: currentNamespace || null,

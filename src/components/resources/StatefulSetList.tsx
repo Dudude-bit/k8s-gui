@@ -30,6 +30,7 @@ import {
   createMemoryColumn,
   createReplicasColumn,
 } from "./columns";
+import { getResourceRowId } from "@/lib/table-utils";
 
 // Extended Info with metrics
 type StatefulSetInfoWithMetrics = StatefulSetInfo & ResourceMetrics;
@@ -43,7 +44,6 @@ export function StatefulSetList() {
     data: podsWithMetrics,
     podStatus,
     isLoading: isLoadingPods,
-    isFetching: isFetchingPods,
     refetch: refetchPods,
   } = usePodsWithMetrics();
 
@@ -89,11 +89,9 @@ export function StatefulSetList() {
       <ResourceList<StatefulSetInfoWithMetrics>
         title="StatefulSets"
         data={statefulSetsWithMetrics}
-        isLoading={statefulSetsQuery.isLoading}
-        isFetching={
-          statefulSetsQuery.isFetching || isFetchingPods || isLoadingPods
-        }
+        isLoading={statefulSetsQuery.isLoading || isLoadingPods}
         onRefresh={refetch}
+        getRowId={getResourceRowId}
         columns={(setDeleteTarget) => [
           ...columns,
           {

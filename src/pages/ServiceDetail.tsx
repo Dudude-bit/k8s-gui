@@ -21,8 +21,7 @@ export function ServiceDetail() {
     namespace,
     resource: service,
     isLoading,
-    isFetching,
-    error,
+        error,
     refetch,
     yaml: serviceYaml,
     copyYaml,
@@ -125,7 +124,6 @@ export function ServiceDetail() {
     <ResourceDetailLayout
       resource={service}
       isLoading={isLoading}
-      isFetching={isFetching}
       error={error}
       resourceKind={ResourceType.Service}
       title={service?.name || ""}

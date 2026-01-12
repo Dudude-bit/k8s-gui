@@ -109,7 +109,6 @@ export function PodDetail() {
   const {
     resource: pod,
     isLoading,
-    isFetching,
     error,
     name,
     namespace,
@@ -360,7 +359,6 @@ export function PodDetail() {
     <ResourceDetailLayout
       resource={pod}
       isLoading={isLoading}
-      isFetching={isFetching}
       error={error}
       resourceKind={ResourceType.Pod}
       title={pod?.name || name || "Pod"}

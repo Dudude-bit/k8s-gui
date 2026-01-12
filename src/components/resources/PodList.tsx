@@ -26,6 +26,7 @@ import { ResourceList } from "./ResourceList";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { getResourceDetailUrl, getResourceListUrl } from "@/lib/navigation-utils";
 import { MetricsStatusBanner } from "@/components/metrics";
+import { getResourceRowId } from "@/lib/table-utils";
 
 // Helper to format ready containers count
 function formatReady(containers: ContainerInfo[]): string {
@@ -39,7 +40,6 @@ export function PodList() {
     data: podsWithMetrics,
     podStatus,
     isLoading,
-    isFetching,
     refetch,
   } = usePodsWithMetrics();
 
@@ -95,8 +95,8 @@ export function PodList() {
         title="Pods"
         data={podsWithMetrics}
         isLoading={isLoading}
-        isFetching={isFetching}
         onRefresh={refetch}
+        getRowId={getResourceRowId}
         columns={(setDeleteTarget) => [
           ...columns,
           {

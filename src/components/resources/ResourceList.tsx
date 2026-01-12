@@ -36,8 +36,6 @@ export interface ResourceListProps<
   data?: T[];
   /** Optional loading state when using data override */
   isLoading?: boolean;
-  /** Optional fetching state when using data override */
-  isFetching?: boolean;
   /** Optional refresh handler when using data override */
   onRefresh?: () => void;
   /** Table column definitions - can use setDeleteTarget from useResourceListDelete hook */
@@ -68,6 +66,8 @@ export interface ResourceListProps<
   quickActions?:
     | QuickAction<T>[]
     | ((setDeleteTarget: (item: T) => void) => QuickAction<T>[]);
+  /** Function to get unique row ID (for stable keys during data updates) */
+  getRowId?: (row: T, index: number) => string;
 }
 
 export function ResourceList<T extends { name: string; namespace?: string | null }>({
@@ -77,7 +77,6 @@ export function ResourceList<T extends { name: string; namespace?: string | null
   queryFn,
   data,
   isLoading,
-  isFetching,
   onRefresh,
   columns,
   emptyStateLabel,
@@ -91,6 +90,7 @@ export function ResourceList<T extends { name: string; namespace?: string | null
   searchPlaceholder,
   getRowHref,
   quickActions,
+  getRowId,
 }: ResourceListProps<T>) {
   const { isConnected } = useClusterStore();
   const { toast } = useToast();
@@ -110,7 +110,6 @@ export function ResourceList<T extends { name: string; namespace?: string | null
 
   const resources = data ?? queryResult.data ?? [];
   const loading = isLoading ?? queryResult.isLoading;
-  const fetching = isFetching ?? queryResult.isFetching;
   const refresh = onRefresh ?? queryResult.refetch;
   const dataUpdatedAt = queryResult.dataUpdatedAt;
 
@@ -169,8 +168,6 @@ export function ResourceList<T extends { name: string; namespace?: string | null
         <ResourceListHeader
           title={resolvedTitle}
           description={description}
-          isFetching={fetching}
-          isLoading={loading}
           onRefresh={refresh}
           actions={headerActions}
           dataUpdatedAt={dataUpdatedAt}
@@ -185,6 +182,7 @@ export function ResourceList<T extends { name: string; namespace?: string | null
         searchPlaceholder={searchPlaceholder}
         getRowHref={getRowHref}
         quickActions={resolvedQuickActions}
+        getRowId={getRowId}
       />
       {deleteConfig && (
         <ConfirmDialog

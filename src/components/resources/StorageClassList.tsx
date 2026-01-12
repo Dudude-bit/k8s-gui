@@ -18,6 +18,7 @@ import type { StorageClassInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import { STALE_TIMES } from "@/lib/refresh";
+import { getResourceRowId } from "@/lib/table-utils";
 
 
 
@@ -116,6 +117,7 @@ export function StorageClassList() {
       title="Storage Classes"
       description="Describes the classes of storage available in the cluster"
       queryKey={[toPlural(ResourceType.StorageClass)]}
+      getRowId={getResourceRowId}
       queryFn={() => commands.listStorageClasses(null)}
       columns={(setDeleteTarget) => [
         ...baseColumns,

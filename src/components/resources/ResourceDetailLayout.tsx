@@ -156,8 +156,6 @@ interface ResourceDetailLayoutProps {
   resource: unknown;
   /** Is loading */
   isLoading: boolean;
-  /** Is fetching (background refresh) */
-  isFetching?: boolean;
   /** Error state */
   error: Error | string | null;
   /** Resource kind for display */
@@ -209,7 +207,6 @@ interface ResourceDetailLayoutProps {
 export function ResourceDetailLayout({
   resource,
   isLoading,
-  isFetching,
   error,
   resourceKind,
   title,
@@ -266,7 +263,6 @@ export function ResourceDetailLayout({
         actions={actions}
         onBack={onBack}
         onRefresh={onRefresh}
-        isRefreshing={isFetching}
         icon={icon}
       />
 

@@ -23,7 +23,6 @@ export function StatefulSetDetail() {
     namespace,
     resource: statefulSet,
     isLoading,
-    isFetching,
     error,
     refetch,
     yaml,
@@ -268,7 +267,6 @@ export function StatefulSetDetail() {
     <ResourceDetailLayout
       resource={statefulSet}
       isLoading={isLoading}
-      isFetching={isFetching}
       error={error}
       resourceKind="StatefulSet"
       title={name || ""}
@@ -287,11 +285,8 @@ export function StatefulSetDetail() {
             variant="outline"
             size="sm"
             onClick={() => refetch()}
-            disabled={isFetching}
           >
-            <RefreshCw
-              className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`}
-            />
+            <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
           <Button

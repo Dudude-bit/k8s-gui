@@ -18,8 +18,7 @@ export function PersistentVolumeDetail() {
         name,
         resource: pv,
         isLoading,
-        isFetching,
-        error,
+                error,
         refetch,
         yaml: pvYaml,
         copyYaml,
@@ -104,7 +103,6 @@ export function PersistentVolumeDetail() {
         <ResourceDetailLayout
             resource={pv}
             isLoading={isLoading}
-            isFetching={isFetching}
             error={error}
             resourceKind={ResourceType.PersistentVolume}
             title={pv?.name || name || ""}

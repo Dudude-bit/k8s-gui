@@ -18,6 +18,7 @@ import { commands } from "@/lib/commands";
 import { ResourceList } from "@/components/resources/ResourceList";
 import type { CustomResourceInfo, PrinterColumn } from "@/generated/types";
 import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
+import { getResourceRowId } from "@/lib/table-utils";
 
 interface CustomResourceListProps {
   crdName: string;
@@ -132,6 +133,7 @@ export function CustomResourceList({
     <ResourceList<CustomResourceListItem>
       title={(count) => `${crdKind} Instances (${count})`}
       queryKey={["custom-resources", crdName, namespace ?? "all"]}
+      getRowId={getResourceRowId}
       queryFn={async () => {
         const result = await commands.listCustomResources(
           crdName,
