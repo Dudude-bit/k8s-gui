@@ -106,6 +106,7 @@ export function DebugNodeDialog({
       targetContainer: null,
       command: null,
       shareProcesses: false,
+      timeoutSeconds: 120,
     };
 
     await startNodeDebug(nodeName, namespace, config);

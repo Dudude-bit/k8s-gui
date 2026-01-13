@@ -54,19 +54,19 @@ export function useDebugOperation({
 
         if (isCancelledRef.current) return;
 
-        if (status.type === "Ready") {
+        if (status.type === "ready") {
           cleanup();
           setState("ready");
           onReady(status.result);
-        } else if (status.type === "Failed") {
+        } else if (status.type === "failed") {
           cleanup();
           setState("failed");
           onError(status.error);
-        } else if (status.type === "Timeout") {
+        } else if (status.type === "timeout") {
           cleanup();
           setState("timeout");
           onTimeout(op);
-        } else if (status.type === "Pending") {
+        } else if (status.type === "pending") {
           setStatusReason(status.reason);
         }
       } catch (err) {
@@ -157,7 +157,7 @@ export function useDebugOperation({
     if (operation) {
       try {
         // Extend timeout on backend before resuming polling
-        await commands.extendDebugTimeout(operation.id);
+        await commands.extendDebugTimeout(operation.id, null);
         setElapsedSeconds(0);
         setState("polling");
         startPolling(operation);

@@ -384,27 +384,24 @@ export async function debugNode(nodeName: string, namespace: string | null, conf
   return invoke<DebugOperation>("debug_node", { nodeName, namespace, config });
 }
 
-export async function getDebugStatus(operationId: string): Promise<DebugStatus> {
-  return invoke<DebugStatus>("get_debug_status", { operationId });
-}
-
-export async function cancelDebugOperation(operationId: string): Promise<void> {
-  return invoke<void>("cancel_debug_operation", { operationId });
-}
-
-export async function extendDebugTimeout(
-  operationId: string,
-  additionalSeconds?: number
-): Promise<void> {
-  return invoke<void>("extend_debug_timeout", { operationId, additionalSeconds });
-}
-
 export async function deleteDebugPod(podName: string, namespace: string | null): Promise<void> {
   return invoke<void>("delete_debug_pod", { podName, namespace });
 }
 
 export async function listDebugPods(namespace: string | null): Promise<DebugResult[]> {
   return invoke<DebugResult[]>("list_debug_pods", { namespace });
+}
+
+export async function getDebugStatus(operationId: string): Promise<DebugStatus> {
+  return invoke<DebugStatus>("get_debug_status", { operationId });
+}
+
+export async function extendDebugTimeout(operationId: string, additionalSeconds: number | null): Promise<void> {
+  return invoke<void>("extend_debug_timeout", { operationId, additionalSeconds });
+}
+
+export async function cancelDebugOperation(operationId: string): Promise<void> {
+  return invoke<void>("cancel_debug_operation", { operationId });
 }
 
 export async function loginUser(email: string, password: string): Promise<void> {

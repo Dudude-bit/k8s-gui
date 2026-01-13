@@ -11,10 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Layers } from "lucide-react";
 import { getResourceIcon } from "@/lib/resource-registry";
 import { getResourceDetailUrl } from "@/lib/navigation-utils";
-import type { OwnerReferenceInfo } from "@/generated/types";
+import type { OwnerReference } from "@/generated/types";
 
 interface RelatedResourcesProps {
-  ownerReferences: OwnerReferenceInfo[];
+  ownerReferences: OwnerReference[];
   namespace?: string;
 }
 
@@ -69,7 +69,7 @@ export function RelatedResources({ ownerReferences, namespace }: RelatedResource
 }
 
 interface OwnerLinkProps {
-  owner: OwnerReferenceInfo;
+  owner: OwnerReference;
   namespace?: string;
 }
 

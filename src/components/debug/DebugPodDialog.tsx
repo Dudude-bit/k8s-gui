@@ -131,6 +131,7 @@ export function DebugPodDialog({
       targetContainer: mode === "ephemeralContainer" ? targetContainer : null,
       command: null,
       shareProcesses: mode === "copyPod" ? shareProcesses : false,
+      timeoutSeconds: 120,
     };
 
     if (mode === "ephemeralContainer") {

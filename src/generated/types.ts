@@ -102,6 +102,14 @@ export interface IngressPath {
   resourceBackend: string | null;
 }
 
+export interface RecentItem {
+  name: string;
+  namespace: string | null;
+  kind: string;
+  path: string;
+  timestamp: number;
+}
+
 export interface InfrastructureBuilderStateDto {
   nodes: unknown[];
   edges: unknown[];
@@ -113,14 +121,6 @@ export interface YamlHistoryEntryDto {
   timestamp: number;
   content: string;
   label: string | null;
-}
-
-export interface RecentItem {
-  name: string;
-  namespace: string | null;
-  kind: string;
-  path: string;
-  timestamp: number;
 }
 
 export interface ThemeConfig {
@@ -220,7 +220,16 @@ export interface DeploymentInfo {
   annotations: Record<string, string>;
   createdAt: string | null;
   conditions: ConditionInfo[];
-  ownerReferences: OwnerReferenceInfo[];
+  ownerReferences: OwnerReference[];
+}
+
+export interface OwnerReference {
+  api_version: string;
+  kind: string;
+  name: string;
+  uid: string;
+  controller: boolean | null;
+  block_owner_deletion: boolean | null;
 }
 
 export interface ConditionInfo {
@@ -439,14 +448,6 @@ export interface DebugResult {
   isNewPod: boolean;
 }
 
-export interface DebugConfig {
-  image: string;
-  targetContainer: string | null;
-  command: string[] | null;
-  shareProcesses: boolean;
-  timeoutSeconds?: number | null;
-}
-
 export interface DebugOperation {
   id: string;
   operationType: DebugOperationType;
@@ -457,13 +458,13 @@ export interface DebugOperation {
   timeoutSeconds: number;
 }
 
-export type DebugOperationType = "ephemeral" | "copyPod" | "nodeDebug";
-
-export type DebugStatus =
-  | { type: "Pending"; reason: string }
-  | { type: "Ready"; result: DebugResult }
-  | { type: "Failed"; error: string }
-  | { type: "Timeout" };
+export interface DebugConfig {
+  image: string;
+  targetContainer: string | null;
+  command: string[] | null;
+  shareProcesses: boolean;
+  timeoutSeconds: number | null;
+}
 
 export interface ClusterStats {
   pods: PodStats;
@@ -670,7 +671,7 @@ export interface PodInfo {
   cpuLimits: string | null;
   memoryRequests: string | null;
   memoryLimits: string | null;
-  ownerReferences: OwnerReferenceInfo[];
+  ownerReferences: OwnerReference[];
 }
 
 export interface ContainerInfo {
@@ -947,7 +948,7 @@ export interface CronJobDetailInfo {
   containers: DeploymentContainerInfo[];
   labels: Record<string, string>;
   annotations: Record<string, string>;
-  ownerReferences: OwnerReferenceInfo[];
+  ownerReferences: OwnerReference[];
   createdAt: string | null;
 }
 
@@ -979,7 +980,7 @@ export interface JobDetailInfo {
   labels: Record<string, string>;
   annotations: Record<string, string>;
   conditions: ConditionInfo[];
-  ownerReferences: OwnerReferenceInfo[];
+  ownerReferences: OwnerReference[];
   createdAt: string | null;
 }
 
@@ -1009,7 +1010,7 @@ export interface DaemonSetDetailInfo {
   annotations: Record<string, string>;
   selector: Record<string, string>;
   conditions: ConditionInfo[];
-  ownerReferences: OwnerReferenceInfo[];
+  ownerReferences: OwnerReference[];
   createdAt: string | null;
 }
 
@@ -1034,7 +1035,7 @@ export interface StatefulSetDetailInfo {
   labels: Record<string, string>;
   annotations: Record<string, string>;
   conditions: ConditionInfo[];
-  ownerReferences: OwnerReferenceInfo[];
+  ownerReferences: OwnerReference[];
   createdAt: string | null;
 }
 
@@ -1078,6 +1079,17 @@ export type EnvVarSourceType =
   | "secretKeyRef"
   | "fieldRef"
   | "resourceFieldRef";
+
+export type DebugStatus =
+  | { type: "pending", reason: string }
+  | { type: "ready", result: DebugResult }
+  | { type: "failed", error: string }
+  | { type: "timeout" };
+
+export type DebugOperationType =
+  | "ephemeral"
+  | "copyPod"
+  | "nodeDebug";
 
 export type ContainerState =
   | { type: "running" }
