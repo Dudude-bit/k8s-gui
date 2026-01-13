@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useClusterStore } from "@/stores/clusterStore";
 import { ColumnDef } from "@tanstack/react-table";
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { ResourceList } from "./ResourceList";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
 import { useResourceList } from "@/hooks/useResource";
@@ -43,7 +43,6 @@ export function DaemonSetList() {
     data: podsWithMetrics,
     podStatus,
     isLoading: isLoadingPods,
-    refetch: refetchPods,
   } = usePodsWithMetrics();
 
   const daemonSetsQuery = useResourceList(
@@ -63,10 +62,6 @@ export function DaemonSetList() {
       matchDaemonSetPods
     );
   }, [daemonSetsQuery.data, podsWithMetrics]);
-
-  const refetch = useCallback(async () => {
-    await Promise.all([daemonSetsQuery.refetch(), refetchPods()]);
-  }, [daemonSetsQuery, refetchPods]);
 
   const columns = useMemo<ColumnDef<DaemonSetInfoWithMetrics>[]>(
     () => [
@@ -114,7 +109,6 @@ export function DaemonSetList() {
         title="DaemonSets"
         data={daemonSetsWithMetrics}
         isLoading={daemonSetsQuery.isLoading || isLoadingPods}
-        onRefresh={refetch}
         getRowId={getResourceRowId}
         columns={(setDeleteTarget) => [
           ...columns,

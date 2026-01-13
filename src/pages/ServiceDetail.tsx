@@ -22,7 +22,6 @@ export function ServiceDetail() {
     resource: service,
     isLoading,
         error,
-    refetch,
     yaml: serviceYaml,
     copyYaml,
     activeTab,
@@ -131,7 +130,6 @@ export function ServiceDetail() {
       statusBadge={service && <StatusBadge status={service.type} />}
       icon={<Network className="h-8 w-8 text-muted-foreground" />}
       onBack={goBack}
-      onRefresh={refetch}
       tabs={tabs}
       activeTab={activeTab}
       onTabChange={setActiveTab}

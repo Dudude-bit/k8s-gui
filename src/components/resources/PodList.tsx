@@ -40,7 +40,6 @@ export function PodList() {
     data: podsWithMetrics,
     podStatus,
     isLoading,
-    refetch,
   } = usePodsWithMetrics();
 
   const columns = useMemo<ColumnDef<PodWithMetrics>[]>(
@@ -95,7 +94,6 @@ export function PodList() {
         title="Pods"
         data={podsWithMetrics}
         isLoading={isLoading}
-        onRefresh={refetch}
         getRowId={getResourceRowId}
         columns={(setDeleteTarget) => [
           ...columns,

@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceList } from "./ResourceList";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
@@ -46,7 +46,6 @@ export function DeploymentList() {
     data: podsWithMetrics,
     podStatus,
     isLoading: isLoadingPods,
-    refetch: refetchPods,
   } = usePodsWithMetrics();
 
   const deploymentsQuery = useResourceList(
@@ -66,10 +65,6 @@ export function DeploymentList() {
       matchDeploymentPods
     );
   }, [deploymentsQuery.data, podsWithMetrics]);
-
-  const refetch = useCallback(async () => {
-    await Promise.all([deploymentsQuery.refetch(), refetchPods()]);
-  }, [deploymentsQuery, refetchPods]);
 
   const columns = useMemo<ColumnDef<DeploymentInfoWithMetrics>[]>(
     () => [
@@ -111,7 +106,6 @@ export function DeploymentList() {
         title="Deployments"
         data={deploymentsWithMetrics}
         isLoading={deploymentsQuery.isLoading || isLoadingPods}
-        onRefresh={refetch}
         getRowId={getResourceRowId}
         columns={(setDeleteTarget) => [
           ...columns,

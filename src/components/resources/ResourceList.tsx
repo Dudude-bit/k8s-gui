@@ -36,8 +36,6 @@ export interface ResourceListProps<
   data?: T[];
   /** Optional loading state when using data override */
   isLoading?: boolean;
-  /** Optional refresh handler when using data override */
-  onRefresh?: () => void;
   /** Table column definitions - can use setDeleteTarget from useResourceListDelete hook */
   columns:
   | ColumnDef<T>[]
@@ -77,7 +75,6 @@ export function ResourceList<T extends { name: string; namespace?: string | null
   queryFn,
   data,
   isLoading,
-  onRefresh,
   columns,
   emptyStateLabel,
   deleteConfig,
@@ -110,7 +107,6 @@ export function ResourceList<T extends { name: string; namespace?: string | null
 
   const resources = data ?? queryResult.data ?? [];
   const loading = isLoading ?? queryResult.isLoading;
-  const refresh = onRefresh ?? queryResult.refetch;
   const dataUpdatedAt = queryResult.dataUpdatedAt;
 
   // Delete mutation
@@ -168,7 +164,6 @@ export function ResourceList<T extends { name: string; namespace?: string | null
         <ResourceListHeader
           title={resolvedTitle}
           description={description}
-          onRefresh={refresh}
           actions={headerActions}
           dataUpdatedAt={dataUpdatedAt}
         />

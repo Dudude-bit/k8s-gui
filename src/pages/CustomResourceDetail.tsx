@@ -102,7 +102,6 @@ export function CustomResourceDetail() {
     data: resource,
     isLoading,
         error,
-    refetch,
   } = useQuery({
     queryKey: ["custom-resource", decodedCrdName, namespace, name],
     queryFn: () => commands.getCustomResource(
@@ -373,7 +372,6 @@ export function CustomResourceDetail() {
         }
         icon={<Box className="h-8 w-8 text-muted-foreground" />}
         onBack={goBack}
-        onRefresh={refetch}
         actions={
           <Button
             variant="destructive"

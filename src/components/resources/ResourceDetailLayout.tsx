@@ -176,8 +176,6 @@ interface ResourceDetailLayoutProps {
 
   /** Go back callback */
   onBack: () => void;
-  /** Refresh callback */
-  onRefresh?: () => void;
   /** Find replacement callback (for pods) */
   onFindReplacement?: () => void;
   /** Is searching for replacement */
@@ -216,7 +214,6 @@ export function ResourceDetailLayout({
   actions,
   icon,
   onBack,
-  onRefresh,
   onFindReplacement,
   isSearchingReplacement,
   tabs,
@@ -262,7 +259,6 @@ export function ResourceDetailLayout({
         badges={allBadges}
         actions={actions}
         onBack={onBack}
-        onRefresh={onRefresh}
         icon={icon}
       />
 

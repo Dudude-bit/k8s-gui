@@ -189,6 +189,13 @@ fn main() {
             commands::pods::delete_pod,
             commands::pods::restart_pod,
 
+            // Debug commands
+            commands::debug::debug_pod_ephemeral,
+            commands::debug::debug_pod_copy,
+            commands::debug::debug_node,
+            commands::debug::delete_debug_pod,
+            commands::debug::list_debug_pods,
+
             // Deployment commands
             commands::deployments::list_deployments,
             commands::deployments::get_deployment,

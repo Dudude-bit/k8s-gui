@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useClusterStore } from "@/stores/clusterStore";
 import { ColumnDef } from "@tanstack/react-table";
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { ResourceList } from "./ResourceList";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
 import { useResourceList } from "@/hooks/useResource";
@@ -44,7 +44,6 @@ export function StatefulSetList() {
     data: podsWithMetrics,
     podStatus,
     isLoading: isLoadingPods,
-    refetch: refetchPods,
   } = usePodsWithMetrics();
 
   const statefulSetsQuery = useResourceList(
@@ -64,10 +63,6 @@ export function StatefulSetList() {
       matchStatefulSetPods
     );
   }, [statefulSetsQuery.data, podsWithMetrics]);
-
-  const refetch = useCallback(async () => {
-    await Promise.all([statefulSetsQuery.refetch(), refetchPods()]);
-  }, [statefulSetsQuery, refetchPods]);
 
   const columns = useMemo<ColumnDef<StatefulSetInfoWithMetrics>[]>(
     () => [
@@ -90,7 +85,6 @@ export function StatefulSetList() {
         title="StatefulSets"
         data={statefulSetsWithMetrics}
         isLoading={statefulSetsQuery.isLoading || isLoadingPods}
-        onRefresh={refetch}
         getRowId={getResourceRowId}
         columns={(setDeleteTarget) => [
           ...columns,

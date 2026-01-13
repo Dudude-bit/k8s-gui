@@ -27,7 +27,6 @@ export function ConfigMapDetail() {
         resource: configMap,
         isLoading,
                 error,
-        refetch,
         yaml: configMapYaml,
         copyYaml,
         activeTab,
@@ -189,7 +188,6 @@ export function ConfigMapDetail() {
             namespace={configMap?.namespace}
             icon={<FileText className="h-8 w-8 text-muted-foreground" />}
             onBack={goBack}
-            onRefresh={refetch}
             tabs={tabs}
             activeTab={activeTab}
             onTabChange={setActiveTab}

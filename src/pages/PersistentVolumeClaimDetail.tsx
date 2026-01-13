@@ -20,7 +20,6 @@ export function PersistentVolumeClaimDetail() {
         resource: pvc,
         isLoading,
                 error,
-        refetch,
         yaml: pvcYaml,
         copyYaml,
         activeTab,
@@ -104,7 +103,6 @@ export function PersistentVolumeClaimDetail() {
             badges={<StatusBadge status={pvc?.status || ""} />}
             icon={<Database className="h-8 w-8 text-muted-foreground" />}
             onBack={goBack}
-            onRefresh={() => refetch()}
             activeTab={activeTab}
             onTabChange={setActiveTab}
             tabs={tabs}

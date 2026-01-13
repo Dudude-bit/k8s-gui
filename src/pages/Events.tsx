@@ -1,7 +1,6 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
-import { RefreshButton } from "@/components/ui/refresh-button";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
@@ -35,7 +34,6 @@ export function Events() {
   const {
     data: events = [],
     isLoading,
-    refetch,
   } = useQuery({
     queryKey: [toPlural(ResourceType.Event), currentNamespace, eventType, eventLimit],
     queryFn: async () => {
@@ -99,11 +97,6 @@ export function Events() {
               <SelectItem value="all">All</SelectItem>
             </SelectContent>
           </Select>
-          <RefreshButton
-            onRefresh={() => refetch()}
-            variant="outline"
-            size="icon"
-          />
         </div>
       </div>
 

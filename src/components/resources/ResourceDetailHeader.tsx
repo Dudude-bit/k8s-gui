@@ -1,7 +1,6 @@
 import { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
-import { RefreshButton } from "@/components/ui/refresh-button";
 import { DataFreshness } from "@/components/ui/realtime";
 
 interface ResourceDetailHeaderProps {
@@ -10,7 +9,6 @@ interface ResourceDetailHeaderProps {
   badges?: ReactNode;
   actions?: ReactNode;
   onBack: () => void;
-  onRefresh?: () => void;
   icon?: ReactNode;
   /** Timestamp when data was last fetched (from React Query's dataUpdatedAt) */
   dataUpdatedAt?: number;
@@ -22,7 +20,6 @@ export function ResourceDetailHeader({
   badges,
   actions,
   onBack,
-  onRefresh,
   icon,
   dataUpdatedAt,
 }: ResourceDetailHeaderProps) {
@@ -51,9 +48,6 @@ export function ResourceDetailHeader({
       <div className="flex items-center gap-2">
         {actions}
         <DataFreshness dataUpdatedAt={dataUpdatedAt} />
-        {onRefresh && (
-          <RefreshButton onRefresh={onRefresh} />
-        )}
       </div>
     </div>
   );

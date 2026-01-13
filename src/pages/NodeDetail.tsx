@@ -1,33 +1,40 @@
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Server, Cpu, HardDrive, MemoryStick, Lock } from "lucide-react";
+import { Server, Cpu, HardDrive, MemoryStick, Lock, Bug } from "lucide-react";
 import { formatKubernetesBytes, parseCPU, parseMemory } from "@/lib/k8s-quantity";
 import { MetricCard } from "@/components/ui/metric-card";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { commands } from "@/lib/commands";
 import { useResourceDetail } from "@/hooks";
-import { ResourceType, getResourceIcon } from "@/lib/resource-registry";
+import { ResourceType, getResourceIcon, toPlural } from "@/lib/resource-registry";
 import { InfoRow, ResourceDetailLayout } from "@/components/resources/ResourceDetailLayout";
-import type { NodeInfo } from "@/generated/types";
+import type { NodeInfo, DebugResult } from "@/generated/types";
+import { DebugNodeDialog } from "@/components/debug";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useToast } from "@/components/ui/use-toast";
+import { useNavigate } from "react-router-dom";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useMetrics } from "@/hooks/useMetrics";
 import { MetricsStatusBanner } from "@/components/metrics";
 import { mergeNodesWithMetrics } from "@/lib/metrics";
 
 export function NodeDetail() {
-  const { hasAccess } = usePremiumFeature();
+  const { hasAccess, checkLicense } = usePremiumFeature();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const [debugDialogOpen, setDebugDialogOpen] = useState(false);
 
   const {
     name,
     resource: node,
     isLoading,
         error,
-    refetch,
     yaml: nodeYaml,
     copyYaml,
     activeTab,
@@ -64,6 +71,31 @@ export function NodeDetail() {
   if (!node && !isLoading && !error) {
     return null;
   }
+
+  const openDebugDialog = async () => {
+    if (!node) return;
+    if (!hasAccess) {
+      const hasLicenseAccess = await checkLicense();
+      if (!hasLicenseAccess) {
+        toast({
+          title: "Premium Feature",
+          description:
+            "Node debug requires a premium license. Please activate your license.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    setDebugDialogOpen(true);
+  };
+
+  const handleDebugStart = (result: DebugResult) => {
+    // Navigate to the debug pod
+    navigate(
+      `/${toPlural(ResourceType.Pod)}/${result.namespace}/${result.podName}`,
+      { replace: false }
+    );
+  };
 
   const getInternalIP = () => {
     const internal = node?.status.addresses.find((a) => a.type === "InternalIP");
@@ -163,10 +195,32 @@ export function NodeDetail() {
       }
       icon={(() => { const NodeIcon = getResourceIcon(ResourceType.Node); return <NodeIcon className="h-8 w-8 text-muted-foreground" />; })()}
       onBack={goBack}
-      onRefresh={refetch}
       tabs={tabs}
       activeTab={activeTab}
       onTabChange={setActiveTab}
+      actions={
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={openDebugDialog}
+                disabled={!hasAccess || !node}
+              >
+                {!hasAccess && <Lock className="mr-2 h-4 w-4" />}
+                <Bug className="mr-2 h-4 w-4" />
+                Debug Node
+              </Button>
+            </span>
+          </TooltipTrigger>
+          {!hasAccess && (
+            <TooltipContent>
+              Premium feature - requires license
+            </TooltipContent>
+          )}
+        </Tooltip>
+      }
     >
       {hasAccess && nodeStatus?.status !== "available" && (
         <MetricsStatusBanner status={nodeStatus} />
@@ -240,6 +294,16 @@ export function NodeDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Debug Node Dialog */}
+      {node && (
+        <DebugNodeDialog
+          open={debugDialogOpen}
+          onOpenChange={setDebugDialogOpen}
+          nodeName={node.name}
+          onDebugStart={handleDebugStart}
+        />
+      )}
     </ResourceDetailLayout>
   );
 }

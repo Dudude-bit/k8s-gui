@@ -74,7 +74,6 @@ export function IngressDetail() {
         resource: ingress,
         isLoading,
                 error,
-        refetch,
         yaml: ingressYaml,
         copyYaml,
         activeTab,
@@ -493,7 +492,6 @@ export function IngressDetail() {
             }
             icon={<Globe className="h-8 w-8 text-muted-foreground" />}
             onBack={goBack}
-            onRefresh={() => refetch()}
             activeTab={activeTab}
             onTabChange={setActiveTab}
             tabs={tabs}

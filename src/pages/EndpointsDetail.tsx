@@ -19,7 +19,6 @@ export function EndpointsDetail() {
         resource: endpoints,
         isLoading,
                 error,
-        refetch,
         yaml: endpointsYaml,
         copyYaml,
         activeTab,
@@ -176,7 +175,6 @@ export function EndpointsDetail() {
             }
             icon={<Network className="h-8 w-8 text-muted-foreground" />}
             onBack={goBack}
-            onRefresh={() => refetch()}
             activeTab={activeTab}
             onTabChange={setActiveTab}
             tabs={tabs}

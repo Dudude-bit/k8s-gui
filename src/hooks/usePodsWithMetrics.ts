@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { commands } from "@/lib/commands";
 import { useClusterStore } from "@/stores/clusterStore";
@@ -29,7 +29,6 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
   const {
     data: pods = [],
     isLoading: isLoadingPods,
-    refetch: refetchPods,
   } = useQuery({
     queryKey: ["pods", currentNamespace],
     queryFn: async () => {
@@ -55,7 +54,6 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
   const {
     podMetrics,
     podStatus,
-    podMetricsQuery,
     podMetricsQuery: {
       isLoading: isLoadingMetrics,
     },
@@ -71,16 +69,11 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
     return mergePodsWithMetrics(pods, podMetrics);
   }, [pods, podMetrics]);
 
-  const refetch = useCallback(async () => {
-    await Promise.all([refetchPods(), podMetricsQuery.refetch()]);
-  }, [podMetricsQuery, refetchPods]);
-
   return {
     data: podsWithMetrics,
     pods,
     podMetrics,
     podStatus,
     isLoading: isLoadingPods || isLoadingMetrics,
-    refetch,
   };
 }

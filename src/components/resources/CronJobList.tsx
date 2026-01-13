@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
 import { ColumnDef } from "@tanstack/react-table";
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { ResourceList } from "./ResourceList";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
 import { useResourceList } from "@/hooks/useResource";
@@ -45,7 +45,6 @@ export function CronJobList() {
     data: podsWithMetrics,
     podStatus,
     isLoading: isLoadingPods,
-    refetch: refetchPods,
   } = usePodsWithMetrics();
 
   const cronJobsQuery = useResourceList(
@@ -65,10 +64,6 @@ export function CronJobList() {
       matchCronJobPods
     );
   }, [cronJobsQuery.data, podsWithMetrics]);
-
-  const refetch = useCallback(async () => {
-    await Promise.all([cronJobsQuery.refetch(), refetchPods()]);
-  }, [cronJobsQuery, refetchPods]);
 
   const columns = useMemo<ColumnDef<CronJobInfoWithMetrics>[]>(
     () => [
@@ -115,7 +110,6 @@ export function CronJobList() {
         title="CronJobs"
         data={cronJobsWithMetrics}
         isLoading={cronJobsQuery.isLoading || isLoadingPods}
-        onRefresh={refetch}
         getRowId={getResourceRowId}
         columns={(setDeleteTarget) => [
           ...columns,

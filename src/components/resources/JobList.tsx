@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useClusterStore } from "@/stores/clusterStore";
 import { ColumnDef } from "@tanstack/react-table";
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { ResourceList } from "./ResourceList";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
 import { useResourceList } from "@/hooks/useResource";
@@ -44,7 +44,6 @@ export function JobList() {
     data: podsWithMetrics,
     podStatus,
     isLoading: isLoadingPods,
-    refetch: refetchPods,
   } = usePodsWithMetrics();
 
   const jobsQuery = useResourceList(
@@ -64,10 +63,6 @@ export function JobList() {
       matchJobPods
     );
   }, [jobsQuery.data, podsWithMetrics]);
-
-  const refetch = useCallback(async () => {
-    await Promise.all([jobsQuery.refetch(), refetchPods()]);
-  }, [jobsQuery, refetchPods]);
 
   const columns = useMemo<ColumnDef<JobInfoWithMetrics>[]>(
     () => [
@@ -100,7 +95,6 @@ export function JobList() {
         title="Jobs"
         data={jobsWithMetrics}
         isLoading={jobsQuery.isLoading || isLoadingPods}
-        onRefresh={refetch}
         getRowId={getResourceRowId}
         columns={(setDeleteTarget) => [
           ...columns,

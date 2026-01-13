@@ -1,14 +1,12 @@
 /**
  * DataFreshness Component
  *
- * Displays a real-time indicator of how old the fetched data is.
- * Shows a colored dot and time label with tooltip.
+ * Displays a "Live" indicator showing data is being updated in real-time.
  *
  * @module components/ui/realtime/data-freshness
  */
 
 import { memo } from "react";
-import { useDataFreshness, type FreshnessColor } from "@/hooks/useDataFreshness";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -19,35 +17,28 @@ import {
 
 export interface DataFreshnessProps {
   /** Timestamp when data was last fetched (from React Query's dataUpdatedAt) */
-  dataUpdatedAt: number | undefined;
+  dataUpdatedAt?: number;
   /** Additional CSS classes */
   className?: string;
-  /** Whether to show the label text (default: true) */
-  showLabel?: boolean;
 }
 
-const DOT_COLORS: Record<FreshnessColor, string> = {
-  green: "bg-green-500",
-  yellow: "bg-yellow-500",
-  gray: "bg-muted-foreground/50",
-};
-
 /**
- * Data freshness indicator component
+ * Live data indicator component
  *
  * @example
  * ```tsx
- * const { dataUpdatedAt } = useQuery(...);
  * <DataFreshness dataUpdatedAt={dataUpdatedAt} />
- * // Renders: ● 3s with green dot
+ * // Renders: ● Live
  * ```
  */
 export const DataFreshness = memo(function DataFreshness({
   dataUpdatedAt,
   className,
-  showLabel = true,
 }: DataFreshnessProps) {
-  const { label, color, tooltip } = useDataFreshness(dataUpdatedAt);
+  // Don't show if no data has been loaded yet
+  if (!dataUpdatedAt) {
+    return null;
+  }
 
   return (
     <TooltipProvider>
@@ -59,19 +50,12 @@ export const DataFreshness = memo(function DataFreshness({
               className
             )}
           >
-            <span
-              className={cn(
-                "h-2 w-2 rounded-full shrink-0",
-                DOT_COLORS[color]
-              )}
-            />
-            {showLabel && (
-              <span className="tabular-nums">{label}</span>
-            )}
+            <span className="h-2 w-2 rounded-full shrink-0 bg-green-500" />
+            <span>Live</span>
           </div>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          <p>{tooltip}</p>
+          <p>Data updates automatically</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

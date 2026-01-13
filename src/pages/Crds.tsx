@@ -46,7 +46,6 @@ export function Crds() {
   const {
     data: crdGroups = [],
     isLoading,
-    refetch,
   } = useQuery({
     queryKey: ["crds", "grouped"],
     queryFn: async () => {
@@ -206,7 +205,6 @@ export function Crds() {
     <div className="space-y-4">
       <ResourceListHeader
         title={`Custom Resource Definitions (${totalCrds})`}
-        onRefresh={() => refetch()}
       />
 
       {/* Group controls */}

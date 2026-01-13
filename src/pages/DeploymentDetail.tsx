@@ -72,7 +72,6 @@ export function DeploymentDetail() {
     resource: deployment,
     isLoading,
         error,
-    refetch,
     yaml: deploymentYaml,
     copyYaml,
     activeTab,
@@ -564,7 +563,6 @@ export function DeploymentDetail() {
       }
       icon={<Rocket className="h-8 w-8 text-muted-foreground" />}
       onBack={goBack}
-      onRefresh={refetch}
       actions={
         <>
           <Button variant="outline" size="sm" onClick={openScaleDialog}>

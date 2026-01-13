@@ -3,20 +3,21 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { commands } from "@/lib/commands";
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { useMetrics, useResourceDetail } from "@/hooks";
+import { useMetrics, useResourceDetail, useClusterInfo } from "@/hooks";
 import { mergePodsWithMetrics } from "@/lib/metrics";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { useClusterStore } from "@/stores/clusterStore";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { LicenseErrorBanner } from "@/components/license/LicenseErrorBanner";
 import { MetricsStatusBanner } from "@/components/metrics";
-import type { PodInfo } from "@/generated/types";
+import type { PodInfo, DebugResult } from "@/generated/types";
+import { DebugPodDialog } from "@/components/debug";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Lock } from "lucide-react";
+import { Lock, Bug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -87,6 +88,9 @@ export function PodDetail() {
   const portForwardStatusBySession = usePortForwardStore(
     (state) => state.statusBySession
   );
+  // Fetch cluster info for K8s version detection
+  const { data: clusterInfo } = useClusterInfo();
+
   const [showTerminal, setShowTerminal] = useState(false);
   const [selectedContainer, setSelectedContainer] = useState<string | null>(
     null
@@ -97,6 +101,7 @@ export function PodDetail() {
   );
   const [portForwardOpen, setPortForwardOpen] = useState(false);
   const [portForwardBusy, setPortForwardBusy] = useState(false);
+  const [debugDialogOpen, setDebugDialogOpen] = useState(false);
   const [portForwardForm, setPortForwardForm] = useState<PortForwardFormState>({
     name: "",
     localPort: "",
@@ -246,6 +251,37 @@ export function PodDetail() {
     setShowTerminal(true);
   };
 
+  const handleDebugStart = async (result: DebugResult) => {
+    if (result.isNewPod) {
+      // Navigate to the new debug pod
+      navigate(
+        `/${toPlural(ResourceType.Pod)}/${result.namespace}/${result.podName}`,
+        { replace: false }
+      );
+    } else {
+      // Open terminal to the debug container in the current pod
+      setSelectedContainer(result.containerName);
+      setShowTerminal(true);
+    }
+  };
+
+  const openDebugDialog = async () => {
+    if (!pod) return;
+    if (!hasLicenseAccess) {
+      const hasAccess = await checkLicense();
+      if (!hasAccess) {
+        toast({
+          title: "Premium Feature",
+          description:
+            "Debug requires a premium license. Please activate your license.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    setDebugDialogOpen(true);
+  };
+
   const openPortForwardDialog = async () => {
     if (!pod) {
       return;
@@ -364,7 +400,6 @@ export function PodDetail() {
       title={pod?.name || name || "Pod"}
       namespace={pod?.namespace || namespace}
       onBack={() => navigate(-1)}
-      onRefresh={refetch}
       activeTab={activeTab}
       onTabChange={setActiveTab}
       badges={pod?.status.phase ? <StatusBadge status={pod.status.phase} /> : null}
@@ -395,6 +430,27 @@ export function PodDetail() {
 
       actions={
         <>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={openDebugDialog}
+                  disabled={!currentContext || !hasLicenseAccess || !pod}
+                >
+                  {!hasLicenseAccess && <Lock className="mr-2 h-4 w-4" />}
+                  <Bug className="mr-2 h-4 w-4" />
+                  Debug
+                </Button>
+              </span>
+            </TooltipTrigger>
+            {!hasLicenseAccess && (
+              <TooltipContent>
+                Premium feature - requires license
+              </TooltipContent>
+            )}
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <span>
@@ -784,6 +840,19 @@ export function PodDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Debug Pod Dialog */}
+      {pod && (
+        <DebugPodDialog
+          open={debugDialogOpen}
+          onOpenChange={setDebugDialogOpen}
+          podName={pod.name}
+          namespace={pod.namespace}
+          containers={pod.containers.map((c) => c.name)}
+          kubernetesVersion={clusterInfo?.git_version}
+          onDebugStart={handleDebugStart}
+        />
+      )}
 
       {/* Terminal Panel */}
       {showTerminal && selectedContainer && pod && (

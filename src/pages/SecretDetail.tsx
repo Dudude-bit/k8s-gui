@@ -35,7 +35,6 @@ export function SecretDetail() {
         resource: secret,
         isLoading,
                 error,
-        refetch,
         yaml: secretYaml,
         copyYaml,
         activeTab,
@@ -124,7 +123,6 @@ export function SecretDetail() {
             }
             icon={<Lock className="h-8 w-8 text-muted-foreground" />}
             onBack={goBack}
-            onRefresh={refetch}
             tabs={tabs}
             activeTab={activeTab}
             onTabChange={setActiveTab}

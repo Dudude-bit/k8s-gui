@@ -36,7 +36,6 @@ export function CrdDetail() {
     data: crd,
     isLoading,
         error,
-    refetch,
   } = useQuery({
     queryKey: ["crd", decodedName],
     queryFn: async () => {
@@ -361,7 +360,6 @@ export function CrdDetail() {
         }
         icon={<Puzzle className="h-8 w-8 text-muted-foreground" />}
         onBack={goBack}
-        onRefresh={refetch}
         actions={
           <>
             <Button variant="outline" size="sm" asChild>

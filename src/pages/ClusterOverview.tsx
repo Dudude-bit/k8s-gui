@@ -20,8 +20,7 @@ import {
   Layers,
   Package,
 } from "lucide-react";
-import { useMetrics } from "@/hooks/useMetrics";
-import { usePremiumFeature } from "@/hooks/usePremiumFeature";
+import { useMetrics, usePremiumFeature, useClusterInfo } from "@/hooks";
 import { MetricCard } from "@/components/ui/metric-card";
 import { LicenseErrorBanner } from "@/components/license/LicenseErrorBanner";
 import { MetricsStatusBanner } from "@/components/metrics";
@@ -47,22 +46,7 @@ import {
 export function ClusterOverview() {
   const { isConnected, currentContext, currentNamespace } = useClusterStore();
 
-  const { data: clusterInfo, isLoading: isLoadingCluster } = useQuery({
-    queryKey: ["cluster-info", currentContext],
-    queryFn: async () => {
-      try {
-        if (!currentContext) return null;
-        return await commands.getClusterInfo(currentContext);
-      } catch (err) {
-        throw new Error(normalizeTauriError(err));
-      }
-    },
-    enabled: isConnected && !!currentContext,
-    placeholderData: keepPreviousData,
-    staleTime: STALE_TIMES.overview,
-    refetchInterval: REFRESH_INTERVALS.overview,
-    refetchOnWindowFocus: false,
-  });
+  const { data: clusterInfo, isLoading: isLoadingCluster } = useClusterInfo();
 
   // Single efficient stats call with smooth transitions
   const {

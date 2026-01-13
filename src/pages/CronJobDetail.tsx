@@ -320,7 +320,6 @@ export function CronJobDetail() {
       }
       icon={<CalendarClock className="h-5 w-5" />}
       onBack={goBack}
-      onRefresh={refetch}
       tabs={tabs}
       activeTab={activeTab}
       onTabChange={setActiveTab}

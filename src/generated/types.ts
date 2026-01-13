@@ -423,6 +423,20 @@ export interface LicenseStatus {
   isValid: boolean;
 }
 
+export interface DebugResult {
+  podName: string;
+  containerName: string;
+  namespace: string;
+  isNewPod: boolean;
+}
+
+export interface DebugConfig {
+  image: string;
+  targetContainer: string | null;
+  command: string[] | null;
+  shareProcesses: boolean;
+}
+
 export interface ClusterStats {
   pods: PodStats;
   deployments: DeploymentStats;

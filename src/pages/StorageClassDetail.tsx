@@ -18,7 +18,6 @@ export function StorageClassDetail() {
         resource: sc,
         isLoading,
                 error,
-        refetch,
         yaml: scYaml,
         copyYaml,
         activeTab,
@@ -147,7 +146,6 @@ export function StorageClassDetail() {
             }
             icon={<Layers className="h-8 w-8 text-muted-foreground" />}
             onBack={goBack}
-            onRefresh={() => refetch()}
             activeTab={activeTab}
             onTabChange={setActiveTab}
             tabs={tabs}

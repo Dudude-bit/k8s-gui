@@ -290,7 +290,6 @@ export function DaemonSetDetail() {
       }
       icon={<Server className="h-5 w-5" />}
       onBack={goBack}
-      onRefresh={refetch}
       tabs={tabs}
       activeTab={activeTab}
       onTabChange={setActiveTab}

@@ -38,5 +38,6 @@ export { useTerminalSession } from "./useTerminalSession";
 // Real-time updates
 export { useRealtimeAge, useRealtimeCountdown } from "./useRealtimeAge";
 export type { CountdownResult } from "./useRealtimeAge";
-export { useDataFreshness } from "./useDataFreshness";
-export type { DataFreshnessResult, FreshnessColor } from "./useDataFreshness";
+
+// Cluster info
+export { useClusterInfo } from "./useClusterInfo";

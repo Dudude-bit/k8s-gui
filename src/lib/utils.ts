@@ -74,3 +74,28 @@ export function daysUntil(dateValue: unknown): number | null {
     return null;
   }
 }
+
+/**
+ * Parse Kubernetes version string and check if it meets minimum version requirement
+ *
+ * @param version - Kubernetes version string (e.g., "v1.28.0", "1.25.3")
+ * @param minMajor - Minimum required major version
+ * @param minMinor - Minimum required minor version
+ * @returns true if version meets requirement, true if version is unknown (assume supported)
+ *
+ * @example
+ * isK8sVersionAtLeast("v1.28.0", 1, 25) // true
+ * isK8sVersionAtLeast("v1.24.0", 1, 25) // false
+ */
+export function isK8sVersionAtLeast(
+  version: string | undefined | null,
+  minMajor: number,
+  minMinor: number
+): boolean {
+  if (!version) return true; // If unknown, assume supported
+  const match = version.match(/v?(\d+)\.(\d+)/);
+  if (!match) return true;
+  const major = parseInt(match[1], 10);
+  const minor = parseInt(match[2], 10);
+  return major > minMajor || (major === minMajor && minor >= minMinor);
+}

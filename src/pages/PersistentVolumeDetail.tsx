@@ -19,7 +19,6 @@ export function PersistentVolumeDetail() {
         resource: pv,
         isLoading,
                 error,
-        refetch,
         yaml: pvYaml,
         copyYaml,
         activeTab,
@@ -110,7 +109,6 @@ export function PersistentVolumeDetail() {
             badges={<StatusBadge status={pv?.status || ""} />}
             icon={<HardDrive className="h-8 w-8 text-muted-foreground" />}
             onBack={goBack}
-            onRefresh={() => refetch()}
             activeTab={activeTab}
             onTabChange={setActiveTab}
             tabs={tabs}
