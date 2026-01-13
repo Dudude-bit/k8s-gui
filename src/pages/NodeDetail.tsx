@@ -13,7 +13,7 @@ import { commands } from "@/lib/commands";
 import { useResourceDetail } from "@/hooks";
 import { ResourceType, getResourceIcon, toPlural } from "@/lib/resource-registry";
 import { InfoRow, ResourceDetailLayout } from "@/components/resources/ResourceDetailLayout";
-import type { NodeInfo, DebugOperation } from "@/generated/types";
+import type { NodeInfo, DebugResult } from "@/generated/types";
 import { DebugNodeDialog } from "@/components/debug";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -89,10 +89,10 @@ export function NodeDetail() {
     setDebugDialogOpen(true);
   };
 
-  const handleDebugStart = (operation: DebugOperation) => {
+  const handleDebugStart = (result: DebugResult) => {
     // Navigate to the debug pod
     navigate(
-      `/${toPlural(ResourceType.Pod)}/${operation.namespace}/${operation.podName}`,
+      `/${toPlural(ResourceType.Pod)}/${result.namespace}/${result.podName}`,
       { replace: false }
     );
   };

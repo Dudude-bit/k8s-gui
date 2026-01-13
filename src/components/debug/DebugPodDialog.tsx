@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -20,13 +20,14 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Bug, Copy, Info } from "lucide-react";
-import type { DebugConfig, DebugOperation } from "@/generated/types";
+import { Bug, Copy, Info, AlertTriangle, Clock, Loader2 } from "lucide-react";
+import type { DebugConfig, DebugOperation, DebugResult } from "@/generated/types";
 import { commands } from "@/lib/commands";
 import { useToast } from "@/components/ui/use-toast";
-import { Spinner } from "@/components/ui/spinner";
 import { isK8sVersionAtLeast } from "@/lib/utils";
 import { DEBUG_IMAGES } from "./constants";
+import { useDebugOperation } from "@/hooks";
+import { Progress } from "@/components/ui/progress";
 
 /** Debug mode - frontend only, backend has separate commands for each mode */
 type DebugMode = "ephemeralContainer" | "copyPod";
@@ -39,7 +40,7 @@ export interface DebugPodDialogProps {
   containers: string[];
   /** Kubernetes version (e.g., "v1.28.0") for feature detection */
   kubernetesVersion?: string;
-  onDebugStart: (operation: DebugOperation) => void;
+  onDebugStart: (result: DebugResult) => void;
 }
 
 export function DebugPodDialog({
@@ -66,10 +67,54 @@ export function DebugPodDialog({
   const [customImage, setCustomImage] = useState("");
   const [targetContainer, setTargetContainer] = useState<string>(containers[0] || "");
   const [shareProcesses, setShareProcesses] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
 
   const image = selectedImage === "custom" ? customImage : selectedImage;
   const isImageValid = image.trim().length > 0;
+
+  // Timeout dialog state
+  const [showTimeoutDialog, setShowTimeoutDialog] = useState(false);
+  const [timeoutOperation, setTimeoutOperation] = useState<DebugOperation | null>(null);
+
+  const handleReady = useCallback((result: DebugResult) => {
+    toast({
+      title: "Debug container ready",
+      description: `Container "${result.containerName}" is ready in pod "${result.podName}"`,
+    });
+    onDebugStart(result);
+    onOpenChange(false);
+  }, [toast, onDebugStart, onOpenChange]);
+
+  const handleError = useCallback((error: string) => {
+    toast({
+      title: "Debug failed",
+      description: error,
+      variant: "destructive",
+    });
+  }, [toast]);
+
+  const handleTimeout = useCallback((operation: DebugOperation) => {
+    setTimeoutOperation(operation);
+    setShowTimeoutDialog(true);
+  }, []);
+
+  const {
+    state,
+    operation,
+    statusReason,
+    elapsedSeconds,
+    startEphemeral,
+    startCopyPod,
+    cancel,
+    continueWaiting,
+  } = useDebugOperation({
+    onReady: handleReady,
+    onError: handleError,
+    onTimeout: handleTimeout,
+  });
+
+  const isPolling = state === "creating" || state === "polling";
+  const timeoutSeconds = operation?.timeoutSeconds ?? 120;
+  const progressPercent = Math.min((elapsedSeconds / timeoutSeconds) * 100, 100);
 
   const handleDebug = async () => {
     if (!isImageValid) {
@@ -81,43 +126,160 @@ export function DebugPodDialog({
       return;
     }
 
-    setIsLoading(true);
-    try {
-      const config: DebugConfig = {
-        image,
-        targetContainer: mode === "ephemeralContainer" ? targetContainer : null,
-        command: null,
-        shareProcesses: mode === "copyPod" ? shareProcesses : false,
-      };
+    const config: DebugConfig = {
+      image,
+      targetContainer: mode === "ephemeralContainer" ? targetContainer : null,
+      command: null,
+      shareProcesses: mode === "copyPod" ? shareProcesses : false,
+    };
 
-      let operation: DebugOperation;
-
-      if (mode === "ephemeralContainer") {
-        operation = await commands.debugPodEphemeral(podName, namespace, config);
-      } else {
-        operation = await commands.debugPodCopy(podName, namespace, config);
-      }
-
-      toast({
-        title: "Debug container ready",
-        description: `Container "${operation.containerName}" is ready in pod "${operation.podName}"`,
-      });
-
-      onDebugStart(operation);
-      onOpenChange(false);
-    } catch (error) {
-      toast({
-        title: "Debug failed",
-        description: String(error),
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+    if (mode === "ephemeralContainer") {
+      await startEphemeral(podName, namespace, config);
+    } else {
+      await startCopyPod(podName, namespace, config);
     }
   };
 
+  const handleCancel = async () => {
+    await cancel();
+  };
+
+  const handleDialogOpenChange = (newOpen: boolean) => {
+    if (!newOpen && isPolling) {
+      // Don't close during polling - user must explicitly cancel
+      return;
+    }
+    onOpenChange(newOpen);
+  };
+
+  // Timeout dialog handlers
+  const handleKeepWaiting = () => {
+    setShowTimeoutDialog(false);
+    setTimeoutOperation(null);
+    continueWaiting();
+  };
+
+  const handleDeletePod = async () => {
+    if (timeoutOperation) {
+      try {
+        await commands.deleteDebugPod(timeoutOperation.podName, timeoutOperation.namespace);
+        toast({
+          title: "Debug pod deleted",
+          description: `Pod "${timeoutOperation.podName}" has been deleted`,
+        });
+      } catch (err) {
+        toast({
+          title: "Failed to delete pod",
+          description: String(err),
+          variant: "destructive",
+        });
+      }
+    }
+    setShowTimeoutDialog(false);
+    setTimeoutOperation(null);
+    onOpenChange(false);
+  };
+
+  const handleLeave = () => {
+    setShowTimeoutDialog(false);
+    setTimeoutOperation(null);
+    onOpenChange(false);
+  };
+
+  // Render timeout dialog
+  if (showTimeoutDialog && timeoutOperation) {
+    return (
+      <Dialog open={open} onOpenChange={() => {}}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              Container Not Ready
+            </DialogTitle>
+            <DialogDescription>
+              The debug container in pod{" "}
+              <span className="font-medium">{timeoutOperation.podName}</span> did not
+              become ready within the timeout period.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            {statusReason && (
+              <div className="rounded-md border p-3 bg-muted/30">
+                <div className="flex items-center gap-2 text-sm">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Last status:</span>
+                  <span className="font-medium">{statusReason}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={handleLeave}>
+              Leave
+            </Button>
+            <Button variant="destructive" onClick={handleDeletePod}>
+              Delete Pod
+            </Button>
+            <Button onClick={handleKeepWaiting}>
+              Keep Waiting
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Render polling UI
+  if (isPolling) {
+    return (
+      <Dialog open={open} onOpenChange={handleDialogOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              {state === "creating" ? "Creating debug container..." : "Waiting for container..."}
+            </DialogTitle>
+            <DialogDescription>
+              Debug container for pod <span className="font-medium">{podName}</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Status */}
+            <div className="rounded-md border p-3 bg-muted/30">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Status</span>
+                <span className="font-medium">{statusReason || "Initializing..."}</span>
+              </div>
+            </div>
+
+            {/* Progress */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Elapsed</span>
+                <span className="font-medium">
+                  {elapsedSeconds}s / {timeoutSeconds}s
+                </span>
+              </div>
+              <Progress value={progressPercent} className="h-2" />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCancel}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Render main configuration dialog
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -262,9 +424,8 @@ export function DebugPodDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleDebug} disabled={isLoading || !isImageValid}>
-            {isLoading && <Spinner size="sm" className="mr-2" />}
-            {isLoading ? "Starting..." : "Start Debug"}
+          <Button onClick={handleDebug} disabled={!isImageValid}>
+            Start Debug
           </Button>
         </DialogFooter>
       </DialogContent>
