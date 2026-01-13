@@ -512,6 +512,7 @@ export function PodDetail() {
                   key={container.name}
                   container={container}
                   namespace={namespace}
+                  podName={pod.name}
                   showShell={true}
                   hasLicense={hasLicenseAccess}
                   onOpenShell={openTerminal}

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { EnvironmentVariables } from "@/components/resources/EnvironmentVariables";
+import { ClickablePorts } from "@/components/ui/clickable-port";
 import {
     Activity,
     Terminal as TerminalIcon,
@@ -30,6 +31,8 @@ interface ContainerCardProps {
     container: ContainerInfo | DeploymentContainerInfo;
     /** Namespace for environment variable lookups */
     namespace?: string;
+    /** Pod name for port forwarding */
+    podName?: string;
     /** Show shell button (only for runtime containers) */
     showShell?: boolean;
     /** Whether user has license for premium features */
@@ -45,6 +48,7 @@ interface ContainerCardProps {
 export function ContainerCard({
     container,
     namespace,
+    podName,
     showShell = false,
     hasLicense = true,
     onOpenShell,
@@ -132,15 +136,23 @@ export function ContainerCard({
                 {ports && ports.length > 0 && (
                     <div>
                         <span className="font-semibold block mb-1">Ports:</span>
-                        <div className="flex flex-wrap gap-2">
-                            {ports.map((port, i) => (
-                                <Badge key={i} variant="secondary">
-                                    {port.containerPort}
-                                    {port.protocol ? `/${port.protocol}` : ""}
-                                    {port.name ? ` (${port.name})` : ""}
-                                </Badge>
-                            ))}
-                        </div>
+                        {isRuntime && podName && namespace ? (
+                            <ClickablePorts
+                                ports={ports}
+                                podName={podName}
+                                podNamespace={namespace}
+                            />
+                        ) : (
+                            <div className="flex flex-wrap gap-2">
+                                {ports.map((port, i) => (
+                                    <Badge key={i} variant="secondary">
+                                        {port.containerPort}
+                                        {port.protocol ? `/${port.protocol}` : ""}
+                                        {port.name ? ` (${port.name})` : ""}
+                                    </Badge>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
 
