@@ -454,6 +454,22 @@ impl LogStreamer {
         let value: Value = serde_json::from_str(trimmed).ok()?;
         let object = value.as_object()?;
 
+        // Require at least one common log field to consider this structured JSON
+        let has_log_fields = object.contains_key("msg")
+            || object.contains_key("message")
+            || object.contains_key("level")
+            || object.contains_key("lvl")
+            || object.contains_key("severity")
+            || object.contains_key("time")
+            || object.contains_key("ts")
+            || object.contains_key("timestamp")
+            || object.contains_key("@timestamp")
+            || object.contains_key("log");
+
+        if !has_log_fields {
+            return None;
+        }
+
         let mut fields = BTreeMap::new();
         for (key, value) in object {
             let entry = match value {
@@ -819,5 +835,18 @@ mod tests {
         let filtered = filter.apply(&logs);
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].message, "ERROR: failed");
+    }
+
+    #[test]
+    fn test_json_detection_requires_log_fields() {
+        // Valid structured log - should detect as JSON
+        let valid = r#"{"msg":"hello","level":"info"}"#;
+        let (format, _, _, _) = LogStreamer::parse_structured_message(valid);
+        assert_eq!(format, LogFormat::Json);
+
+        // Arbitrary JSON without log fields - should NOT detect as JSON
+        let arbitrary = r#"{"foo":"bar","count":42}"#;
+        let (format, _, _, _) = LogStreamer::parse_structured_message(arbitrary);
+        assert_eq!(format, LogFormat::Plain);
     }
 }
