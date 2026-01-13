@@ -227,7 +227,7 @@ pub async fn debug_pod_copy(
     namespace: Option<String>,
     config: DebugConfig,
     state: State<'_, AppState>,
-) -> Result<DebugResult> {
+) -> Result<DebugOperation> {
     crate::validation::validate_dns_label(&pod_name)?;
 
     let ctx = ResourceContext::for_command(&state, namespace)?;
@@ -275,12 +275,25 @@ pub async fn debug_pod_copy(
     // Set restart policy to Never for debug pods
     new_spec.restart_policy = Some("Never".to_string());
 
+    // Add TTL - auto-terminate after 1 hour
+    new_spec.active_deadline_seconds = Some(3600);
+
+    // Get current timestamp for labels
+    let created_at = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+
     // Create labels for the debug pod
     let mut labels = BTreeMap::new();
     labels.insert("k8s-gui/debug-pod".to_string(), "true".to_string());
     labels.insert(
         "k8s-gui/debug-source".to_string(),
         pod_name.clone(),
+    );
+    labels.insert(
+        "k8s-gui/created-at".to_string(),
+        created_at.to_string(),
     );
 
     // Create the debug pod
@@ -299,12 +312,23 @@ pub async fn debug_pod_copy(
     // Create the pod
     api.create(&PostParams::default(), &debug_pod).await?;
 
-    Ok(DebugResult {
+    // Create and store the debug operation
+    let operation_id = format!("debug-{}", uuid::Uuid::new_v4());
+    let timeout_seconds = config.timeout_seconds.unwrap_or(120);
+
+    let operation = DebugOperation {
+        id: operation_id.clone(),
+        operation_type: DebugOperationType::CopyPod,
         pod_name: debug_pod_name,
         container_name,
         namespace: ns,
-        is_new_pod: true,
-    })
+        created_at,
+        timeout_seconds,
+    };
+
+    state.debug_operations.insert(operation_id, operation.clone());
+
+    Ok(operation)
 }
 
 /// Create a privileged debug pod on a specific node
@@ -314,7 +338,7 @@ pub async fn debug_node(
     namespace: Option<String>,
     config: DebugConfig,
     state: State<'_, AppState>,
-) -> Result<DebugResult> {
+) -> Result<DebugOperation> {
     crate::validation::validate_dns_label(&node_name)?;
 
     let ctx = ResourceContext::for_command(&state, namespace)?;
@@ -327,10 +351,20 @@ pub async fn debug_node(
     // Build command - default to shell if not specified
     let command = config.command.unwrap_or_else(|| vec!["/bin/sh".to_string()]);
 
+    // Get current timestamp for labels and operation tracking
+    let created_at = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+
     // Create labels
     let mut labels = BTreeMap::new();
     labels.insert("k8s-gui/debug-pod".to_string(), "true".to_string());
     labels.insert("k8s-gui/debug-node".to_string(), node_name.clone());
+    labels.insert(
+        "k8s-gui/created-at".to_string(),
+        created_at.to_string(),
+    );
 
     // Create the privileged debug pod
     let debug_pod = Pod {
@@ -372,6 +406,8 @@ pub async fn debug_node(
                 ..Default::default()
             }]),
             restart_policy: Some("Never".to_string()),
+            // Add TTL - auto-terminate after 1 hour
+            active_deadline_seconds: Some(3600),
             // Tolerate all taints to run on any node
             tolerations: Some(vec![Toleration {
                 operator: Some("Exists".to_string()),
@@ -385,12 +421,23 @@ pub async fn debug_node(
     // Create the pod
     api.create(&PostParams::default(), &debug_pod).await?;
 
-    Ok(DebugResult {
+    // Create and store the debug operation
+    let operation_id = format!("debug-{}", uuid::Uuid::new_v4());
+    let timeout_seconds = config.timeout_seconds.unwrap_or(120);
+
+    let operation = DebugOperation {
+        id: operation_id.clone(),
+        operation_type: DebugOperationType::NodeDebug,
         pod_name: debug_pod_name,
         container_name,
         namespace: ns,
-        is_new_pod: true,
-    })
+        created_at,
+        timeout_seconds,
+    };
+
+    state.debug_operations.insert(operation_id, operation.clone());
+
+    Ok(operation)
 }
 
 /// Delete a debug pod
