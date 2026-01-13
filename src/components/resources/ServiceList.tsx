@@ -2,14 +2,8 @@ import { commands } from "@/lib/commands";
 import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
 import { ColumnDef } from "@tanstack/react-table";
-import { Link } from "react-router-dom";
 import { Eye, Trash2, ExternalLink } from "lucide-react";
-import {
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
 import { useMemo } from "react";
-import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceList } from "./ResourceList";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { queryKeys } from "@/lib/query-keys";
@@ -23,6 +17,8 @@ import {
   createTypeBadgeColumn,
 } from "./columns";
 import { getResourceRowId } from "@/lib/table-utils";
+import type { QuickAction } from "@/components/ui/quick-actions";
+import { useNavigate } from "react-router-dom";
 
 // Format port for display
 function formatPort(port: ServicePortInfo): string {
@@ -39,6 +35,7 @@ function formatPort(port: ServicePortInfo): string {
 
 export function ServiceList() {
   const { currentNamespace } = useClusterStore();
+  const navigate = useNavigate();
 
   const columns = useMemo<ColumnDef<ServiceInfo>[]>(
     () => [
@@ -92,6 +89,23 @@ export function ServiceList() {
     []
   );
 
+  const quickActions = useMemo<(setDeleteTarget: (item: ServiceInfo) => void) => QuickAction<ServiceInfo>[]>(
+    () => (setDeleteTarget) => [
+      {
+        icon: Eye,
+        label: "View Details",
+        onClick: (item) => navigate(getResourceDetailUrl(ResourceType.Service, item.name, item.namespace)),
+      },
+      {
+        icon: Trash2,
+        label: "Delete",
+        onClick: (item) => setDeleteTarget(item),
+        variant: "destructive",
+      },
+    ],
+    [navigate]
+  );
+
   return (
     <ResourceList<ServiceInfo>
       title="Services"
@@ -107,32 +121,8 @@ export function ServiceList() {
         });
         return result;
       }}
-      columns={(setDeleteTarget) => [
-        ...columns,
-        {
-          id: "actions",
-          cell: ({ row }) => (
-            <ActionMenu>
-              <DropdownMenuItem asChild>
-                <Link
-                  to={getResourceDetailUrl(ResourceType.Service, row.original.name, row.original.namespace)}
-                >
-                  <Eye className="mr-2 h-4 w-4" />
-                  View Details
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => setDeleteTarget(row.original)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </ActionMenu>
-          ),
-        },
-      ]}
+      columns={columns}
+      quickActions={quickActions}
       emptyStateLabel={toPlural(ResourceType.Service)}
       getRowHref={(row) => getResourceDetailUrl(ResourceType.Service, row.name, row.namespace)}
       deleteConfig={{

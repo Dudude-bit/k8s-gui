@@ -1,18 +1,15 @@
+import { useMemo } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { ColumnDef } from "@tanstack/react-table";
-import { Link } from "react-router-dom";
 import { Eye, Trash2, Layers, Star } from "lucide-react";
 import { ResourceList } from "@/components/resources/ResourceList";
-import {
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ActionMenu } from "@/components/ui/action-menu";
+import type { QuickAction } from "@/components/ui/quick-actions";
 import { commands } from "@/lib/commands";
 import type { StorageClassInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
@@ -23,7 +20,7 @@ import { getResourceRowId } from "@/lib/table-utils";
 
 
 
-const baseColumns: ColumnDef<StorageClassInfo>[] = [
+const columns: ColumnDef<StorageClassInfo>[] = [
   {
     accessorKey: "name",
     header: "Name",
@@ -113,6 +110,25 @@ const baseColumns: ColumnDef<StorageClassInfo>[] = [
 ];
 
 export function StorageClassList() {
+  const navigate = useNavigate();
+
+  const quickActions = useMemo<(setDeleteTarget: (item: StorageClassInfo) => void) => QuickAction<StorageClassInfo>[]>(
+    () => (setDeleteTarget) => [
+      {
+        icon: Eye,
+        label: "View Details",
+        onClick: (item) => navigate(getResourceDetailUrl(ResourceType.StorageClass, item.name)),
+      },
+      {
+        icon: Trash2,
+        label: "Delete",
+        onClick: (item) => setDeleteTarget(item),
+        variant: "destructive",
+      },
+    ],
+    [navigate]
+  );
+
   return (
     <ResourceList<StorageClassInfo>
       title="Storage Classes"
@@ -120,32 +136,8 @@ export function StorageClassList() {
       queryKey={queryKeys.resources(ResourceType.StorageClass, null)}
       getRowId={getResourceRowId}
       queryFn={() => commands.listStorageClasses(null)}
-      columns={(setDeleteTarget) => [
-        ...baseColumns,
-        {
-          id: "actions",
-          cell: ({ row }) => (
-            <ActionMenu>
-              <DropdownMenuItem asChild>
-                <Link
-                  to={getResourceDetailUrl(ResourceType.StorageClass, row.original.name)}
-                >
-                  <Eye className="mr-2 h-4 w-4" />
-                  View Details
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => setDeleteTarget(row.original)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </ActionMenu>
-          ),
-        },
-      ]}
+      columns={columns}
+      quickActions={quickActions}
       emptyStateLabel={toPlural(ResourceType.StorageClass)}
       deleteConfig={{
         mutationFn: (item) => commands.deleteStorageClass(item.name),

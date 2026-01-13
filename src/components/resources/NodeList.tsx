@@ -3,15 +3,11 @@ import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ColumnDef } from "@tanstack/react-table";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Eye, Shield, ShieldOff, AlertTriangle, Lock } from "lucide-react";
-import {
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
-import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import type { QuickAction } from "@/components/ui/quick-actions";
 import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import { MetricBadge } from "@/components/ui/metric-card";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
@@ -31,6 +27,7 @@ export function NodeList() {
   const { isConnected } = useClusterStore();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { hasAccess } = usePremiumFeature();
 
   const { nodeMetrics, nodeStatus } = useMetrics({
@@ -210,51 +207,35 @@ export function NodeList() {
         header: "Age",
         cell: ({ row }) => <RealtimeAge timestamp={row.original.createdAt} />,
       },
+    ],
+    [hasAccess, nodeMetricsByName]
+  );
+
+  const quickActions = useMemo<QuickAction<NodeInfo>[]>(
+    () => [
       {
-        id: "actions",
-        cell: ({ row }) => (
-          <ActionMenu>
-            <DropdownMenuItem asChild>
-              <Link to={getResourceDetailUrl(ResourceType.Node, row.original.name)}>
-                <Eye className="mr-2 h-4 w-4" />
-                View Details
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            {/* Note: Simplified check as 'isSchedulable' might not be directly exposed or named differently in generated types if it was a computed field. 
-              Usually untainted nodes are schedulable or check Ready condition. 
-              The manual type had 'is_schedulable'. The generated one has 'taints'. 
-          */}
-            <DropdownMenuItem
-              onClick={() => cordonMutation.mutate(row.original.name)}
-            >
-              <ShieldOff className="mr-2 h-4 w-4" />
-              Cordon
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => uncordonMutation.mutate(row.original.name)}
-            >
-              <Shield className="mr-2 h-4 w-4" />
-              Uncordon
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={() => drainMutation.mutate(row.original.name)}
-            >
-              <AlertTriangle className="mr-2 h-4 w-4" />
-              Drain
-            </DropdownMenuItem>
-          </ActionMenu>
-        ),
+        icon: Eye,
+        label: "View Details",
+        onClick: (item) => navigate(getResourceDetailUrl(ResourceType.Node, item.name)),
+      },
+      {
+        icon: ShieldOff,
+        label: "Cordon",
+        onClick: (item) => cordonMutation.mutate(item.name),
+      },
+      {
+        icon: Shield,
+        label: "Uncordon",
+        onClick: (item) => uncordonMutation.mutate(item.name),
+      },
+      {
+        icon: AlertTriangle,
+        label: "Drain",
+        onClick: (item) => drainMutation.mutate(item.name),
+        variant: "destructive",
       },
     ],
-    [
-      cordonMutation,
-      uncordonMutation,
-      drainMutation,
-      hasAccess,
-      nodeMetricsByName,
-    ]
+    [navigate, cordonMutation, uncordonMutation, drainMutation]
   );
 
   return (
@@ -264,6 +245,7 @@ export function NodeList() {
       getRowId={getResourceRowId}
       queryFn={() => commands.listNodes(null)}
       columns={columns}
+      quickActions={quickActions}
       emptyStateLabel={toPlural(ResourceType.Node)}
       staleTime={STALE_TIMES.resourceList}
       refetchInterval={REFRESH_INTERVALS.resourceList}

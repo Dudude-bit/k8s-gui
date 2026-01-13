@@ -1,20 +1,17 @@
+import { useMemo } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { commands } from "@/lib/commands";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ColumnDef } from "@tanstack/react-table";
-import { Link } from "react-router-dom";
 import { Eye, Trash2, HardDrive } from "lucide-react";
 import { ResourceList } from "@/components/resources/ResourceList";
-import {
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ActionMenu } from "@/components/ui/action-menu";
+import type { QuickAction } from "@/components/ui/quick-actions";
 
 import type { PersistentVolumeInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
@@ -25,7 +22,7 @@ import { getResourceRowId } from "@/lib/table-utils";
 
 
 
-const baseColumns: ColumnDef<PersistentVolumeInfo>[] = [
+const columns: ColumnDef<PersistentVolumeInfo>[] = [
   {
     accessorKey: "name",
     header: "Name",
@@ -98,6 +95,25 @@ const baseColumns: ColumnDef<PersistentVolumeInfo>[] = [
 ];
 
 export function PersistentVolumeList() {
+  const navigate = useNavigate();
+
+  const quickActions = useMemo<(setDeleteTarget: (item: PersistentVolumeInfo) => void) => QuickAction<PersistentVolumeInfo>[]>(
+    () => (setDeleteTarget) => [
+      {
+        icon: Eye,
+        label: "View Details",
+        onClick: (item) => navigate(getResourceDetailUrl(ResourceType.PersistentVolume, item.name)),
+      },
+      {
+        icon: Trash2,
+        label: "Delete",
+        onClick: (item) => setDeleteTarget(item),
+        variant: "destructive",
+      },
+    ],
+    [navigate]
+  );
+
   return (
     <ResourceList<PersistentVolumeInfo>
       title="Persistent Volumes"
@@ -105,32 +121,8 @@ export function PersistentVolumeList() {
       queryKey={queryKeys.resources(ResourceType.PersistentVolume, null)}
       getRowId={getResourceRowId}
       queryFn={() => commands.listPersistentVolumes(null)}
-      columns={(setDeleteTarget) => [
-        ...baseColumns,
-        {
-          id: "actions",
-          cell: ({ row }) => (
-            <ActionMenu>
-              <DropdownMenuItem asChild>
-                <Link
-                  to={getResourceDetailUrl(ResourceType.PersistentVolume, row.original.name)}
-                >
-                  <Eye className="mr-2 h-4 w-4" />
-                  View Details
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => setDeleteTarget(row.original)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </ActionMenu>
-          ),
-        },
-      ]}
+      columns={columns}
+      quickActions={quickActions}
       emptyStateLabel={toPlural(ResourceType.PersistentVolume)}
       deleteConfig={{
         mutationFn: (item) => commands.deletePersistentVolume(item.name),

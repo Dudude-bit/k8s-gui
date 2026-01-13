@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useClusterStore } from "@/stores/clusterStore";
 import { ColumnDef } from "@tanstack/react-table";
 import { useMemo } from "react";
@@ -16,11 +16,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { getResourceDetailUrl, getResourceListUrl } from "@/lib/navigation-utils";
 import type { DaemonSetInfo } from "@/generated/types";
 import { commands } from "@/lib/commands";
-import { ActionMenu } from "@/components/ui/action-menu";
-import {
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+import type { QuickAction } from "@/components/ui/quick-actions";
 import { Eye, Trash2 } from "lucide-react";
 import { MetricsStatusBanner } from "@/components/metrics";
 import {
@@ -38,6 +34,7 @@ type DaemonSetInfoWithMetrics = DaemonSetInfo & ResourceMetrics;
 export function DaemonSetList() {
   const { currentNamespace } = useClusterStore();
   const { hasAccess } = usePremiumFeature();
+  const navigate = useNavigate();
 
   // Use centralized pods with metrics hook
   const {
@@ -101,6 +98,23 @@ export function DaemonSetList() {
     []
   );
 
+  const quickActions = useMemo<(setDeleteTarget: (item: DaemonSetInfoWithMetrics) => void) => QuickAction<DaemonSetInfoWithMetrics>[]>(
+    () => (setDeleteTarget) => [
+      {
+        icon: Eye,
+        label: "View Details",
+        onClick: (item) => navigate(getResourceDetailUrl(ResourceType.DaemonSet, item.name, item.namespace)),
+      },
+      {
+        icon: Trash2,
+        label: "Delete",
+        onClick: (item) => setDeleteTarget(item),
+        variant: "destructive",
+      },
+    ],
+    [navigate]
+  );
+
   return (
     <div className="space-y-4">
       {hasAccess && podStatus?.status !== "available" && (
@@ -111,32 +125,8 @@ export function DaemonSetList() {
         data={daemonSetsWithMetrics}
         isLoading={daemonSetsQuery.isLoading || isLoadingPods}
         getRowId={getResourceRowId}
-        columns={(setDeleteTarget) => [
-          ...columns,
-          {
-            id: "actions",
-            cell: ({ row }) => (
-              <ActionMenu>
-                <DropdownMenuItem asChild>
-                  <Link
-                    to={getResourceDetailUrl(ResourceType.DaemonSet, row.original.name, row.original.namespace)}
-                  >
-                    <Eye className="mr-2 h-4 w-4" />
-                    View Details
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onClick={() => setDeleteTarget(row.original)}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              </ActionMenu>
-            ),
-          },
-        ]}
+        columns={columns}
+        quickActions={quickActions}
         deleteConfig={{
           mutationFn: async (item) => {
             await commands.deleteDaemonset(item.name, item.namespace);

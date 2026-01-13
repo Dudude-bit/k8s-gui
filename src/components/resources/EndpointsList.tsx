@@ -1,7 +1,8 @@
 import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
 import { ColumnDef } from "@tanstack/react-table";
-import { Link } from "react-router-dom";
+import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Eye, Network, CircleDot } from "lucide-react";
 import {
   Tooltip,
@@ -29,12 +30,7 @@ const columns: ColumnDef<EndpointsInfo>[] = [
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
         <Network className="h-4 w-4 text-muted-foreground" />
-        <Link
-          to={getResourceDetailUrl(ResourceType.Endpoints, row.original.name, row.original.namespace)}
-          className="font-medium hover:underline"
-        >
-          {row.original.name}
-        </Link>
+        <span className="font-medium">{row.original.name}</span>
       </div>
     ),
   },
@@ -159,6 +155,18 @@ const columns: ColumnDef<EndpointsInfo>[] = [
 
 export function EndpointsList() {
   const { currentNamespace } = useClusterStore();
+  const navigate = useNavigate();
+
+  const quickActions = useMemo<() => QuickAction<EndpointsInfo>[]>(
+    () => () => [
+      {
+        icon: Eye,
+        label: "View Details",
+        onClick: (item) => navigate(getResourceDetailUrl(ResourceType.Endpoints, item.name, item.namespace)),
+      },
+    ],
+    [navigate]
+  );
 
   return (
     <ResourceList<EndpointsInfo>
@@ -175,17 +183,11 @@ export function EndpointsList() {
         })
       }
       columns={columns}
+      quickActions={quickActions}
       emptyStateLabel={toPlural(ResourceType.Endpoints)}
       staleTime={STALE_TIMES.resourceList}
       searchKey="name"
       getRowHref={(row) => getResourceDetailUrl(ResourceType.Endpoints, row.name, row.namespace)}
-      quickActions={(): QuickAction<EndpointsInfo>[] => [
-        {
-          icon: Eye,
-          label: "View Details",
-          onClick: (item) => window.location.href = getResourceDetailUrl(ResourceType.Endpoints, item.name, item.namespace),
-        },
-      ]}
     />
   );
 }

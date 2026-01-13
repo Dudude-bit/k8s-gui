@@ -10,6 +10,7 @@ import {
   type ColumnDef,
   type SortingState,
   type ColumnFiltersState,
+  type Row,
 } from "@tanstack/react-table";
 import {
   Table,
@@ -62,6 +63,33 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 200, 500];
 const LARGE_DATASET_THRESHOLD = 100;
 const VIRTUAL_SCROLL_DEFAULT_HEIGHT = 600;
 
+// Create actions column for quick actions
+function createActionsColumn<TData, TValue>(
+  quickActions: QuickAction<TData>[],
+  hoveredRowIndex: number | null,
+  focusedRowIndex: number
+): ColumnDef<TData, TValue> {
+  return {
+    id: "_actions",
+    header: () => null,
+    cell: ({ row }: { row: Row<TData> }) => {
+      const isVisible = hoveredRowIndex === row.index || focusedRowIndex === row.index;
+      return (
+        <div data-quick-actions className="flex justify-end">
+          <QuickActions
+            item={row.original}
+            actions={quickActions}
+            visible={isVisible}
+          />
+        </div>
+      );
+    },
+    size: 120,
+    enableSorting: false,
+    enableHiding: false,
+  };
+}
+
 export function DataTable<TData, TValue>({
   columns,
   data,
@@ -97,9 +125,36 @@ export function DataTable<TData, TValue>({
   const showLargeDatasetWarning =
     isShowingAllRows && data.length > LARGE_DATASET_THRESHOLD;
 
+  // Keyboard navigation setup (need focusedRowIndex before creating columns)
+  const keyboardNavEnabled = enableKeyboardNav ?? !!(getRowHref || onRowClick);
+
+  const { containerRef, focusedRowIndex, getRowProps } = useTableKeyboardNav({
+    rowCount: data.length,
+    getRowHref: undefined, // Will be set properly after table is created
+    onRowAction: undefined,
+    enabled: keyboardNavEnabled,
+  });
+
+  // Add actions column if quickActions provided
+  const columnsWithActions = React.useMemo(() => {
+    if (!quickActions || quickActions.length === 0) {
+      return columns;
+    }
+    // Filter out any existing "_actions" or "actions" columns to avoid duplicates
+    const filteredColumns = columns.filter(
+      (col) => col.id !== "_actions" && col.id !== "actions"
+    );
+    const actionsColumn = createActionsColumn<TData, TValue>(
+      quickActions,
+      hoveredRowIndex,
+      focusedRowIndex
+    );
+    return [...filteredColumns, actionsColumn];
+  }, [columns, quickActions, hoveredRowIndex, focusedRowIndex]);
+
   const table = useReactTable({
     data,
-    columns,
+    columns: columnsWithActions,
     getRowId,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -119,25 +174,6 @@ export function DataTable<TData, TValue>({
 
   const rows = table.getRowModel().rows;
   const isClickable = !!(getRowHref || onRowClick);
-  const keyboardNavEnabled = enableKeyboardNav ?? isClickable;
-
-  // Keyboard navigation
-  const { containerRef, focusedRowIndex, getRowProps } = useTableKeyboardNav({
-    rowCount: rows.length,
-    getRowHref: getRowHref
-      ? (index) => {
-          const row = rows[index];
-          return row ? getRowHref(row.original) : undefined;
-        }
-      : undefined,
-    onRowAction: onRowClick
-      ? (index) => {
-          const row = rows[index];
-          if (row) onRowClick(row.original);
-        }
-      : undefined,
-    enabled: keyboardNavEnabled,
-  });
 
   React.useEffect(() => {
     const searchColumn = searchKey ? table.getColumn(searchKey) : undefined;
@@ -266,7 +302,6 @@ export function DataTable<TData, TValue>({
                 rows.map((row, index) => {
                   const rowProps = keyboardNavEnabled ? getRowProps(index) : {};
                   const isFocused = focusedRowIndex === index;
-                  const isHovered = hoveredRowIndex === index;
 
                   return (
                     <TableRow
@@ -282,26 +317,12 @@ export function DataTable<TData, TValue>({
                       onMouseEnter={() => setHoveredRowIndex(index)}
                       onMouseLeave={() => setHoveredRowIndex(null)}
                     >
-                      {row.getVisibleCells().map((cell, cellIndex) => (
-                        <TableCell key={cell.id} className="relative">
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>
                           {flexRender(
                             cell.column.columnDef.cell,
                             cell.getContext()
                           )}
-                          {/* Render quick actions in the last cell before actions column */}
-                          {quickActions &&
-                            cellIndex === row.getVisibleCells().length - 2 && (
-                              <div
-                                data-quick-actions
-                                className="absolute right-0 top-1/2 -translate-y-1/2 pr-2"
-                              >
-                                <QuickActions
-                                  item={row.original}
-                                  actions={quickActions}
-                                  visible={isHovered || isFocused}
-                                />
-                              </div>
-                            )}
                         </TableCell>
                       ))}
                     </TableRow>
@@ -310,7 +331,7 @@ export function DataTable<TData, TValue>({
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={columns.length}
+                    colSpan={columnsWithActions.length}
                     className="h-24 text-center"
                   >
                     No results.

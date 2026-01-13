@@ -1,12 +1,7 @@
 import { ColumnDef } from "@tanstack/react-table";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Eye, Trash2, Terminal, FileText } from "lucide-react";
-import {
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
 import { useMemo } from "react";
-import { ActionMenu } from "@/components/ui/action-menu";
 import {
   usePodsWithMetrics,
   type PodWithMetrics,
@@ -28,6 +23,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { getResourceDetailUrl, getResourceListUrl } from "@/lib/navigation-utils";
 import { MetricsStatusBanner } from "@/components/metrics";
 import { getResourceRowId } from "@/lib/table-utils";
+import type { QuickAction } from "@/components/ui/quick-actions";
 
 // Helper to format ready containers count
 function formatReady(containers: ContainerInfo[]): string {
@@ -37,6 +33,7 @@ function formatReady(containers: ContainerInfo[]): string {
 
 export function PodList() {
   const { hasAccess } = usePremiumFeature();
+  const navigate = useNavigate();
   const {
     data: podsWithMetrics,
     podStatus,
@@ -86,6 +83,33 @@ export function PodList() {
     []
   );
 
+  const quickActions = useMemo<(setDeleteTarget: (item: PodWithMetrics) => void) => QuickAction<PodWithMetrics>[]>(
+    () => (setDeleteTarget) => [
+      {
+        icon: Eye,
+        label: "View Details",
+        onClick: (item) => navigate(getResourceDetailUrl(ResourceType.Pod, item.name, item.namespace)),
+      },
+      {
+        icon: FileText,
+        label: "View Logs",
+        onClick: (item) => navigate(`${getResourceDetailUrl(ResourceType.Pod, item.name, item.namespace)}?tab=logs`),
+      },
+      {
+        icon: Terminal,
+        label: "Shell",
+        onClick: (item) => navigate(`${getResourceDetailUrl(ResourceType.Pod, item.name, item.namespace)}?tab=terminal`),
+      },
+      {
+        icon: Trash2,
+        label: "Delete",
+        onClick: (item) => setDeleteTarget(item),
+        variant: "destructive",
+      },
+    ],
+    [navigate]
+  );
+
   return (
     <div className="space-y-4">
       {hasAccess && podStatus?.status !== "available" && (
@@ -96,40 +120,8 @@ export function PodList() {
         data={podsWithMetrics}
         isLoading={isLoading}
         getRowId={getResourceRowId}
-        columns={(setDeleteTarget) => [
-          ...columns,
-          {
-            id: "actions",
-            cell: ({ row }) => (
-              <ActionMenu>
-                <DropdownMenuItem asChild>
-                  <Link
-                    to={getResourceDetailUrl(ResourceType.Pod, row.original.name, row.original.namespace)}
-                  >
-                    <Eye className="mr-2 h-4 w-4" />
-                    View Details
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <FileText className="mr-2 h-4 w-4" />
-                  View Logs
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Terminal className="mr-2 h-4 w-4" />
-                  Shell
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onClick={() => setDeleteTarget(row.original)}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              </ActionMenu>
-            ),
-          },
-        ]}
+        columns={columns}
+        quickActions={quickActions}
         emptyStateLabel={toPlural(ResourceType.Pod)}
         getRowHref={(row) => getResourceDetailUrl(ResourceType.Pod, row.name, row.namespace)}
         deleteConfig={{

@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useClusterStore } from "@/stores/clusterStore";
 import { ColumnDef } from "@tanstack/react-table";
 import { useMemo } from "react";
@@ -17,11 +17,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { getResourceDetailUrl, getResourceListUrl } from "@/lib/navigation-utils";
 import type { JobInfo } from "@/generated/types";
 import { commands } from "@/lib/commands";
-import { ActionMenu } from "@/components/ui/action-menu";
-import {
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+import type { QuickAction } from "@/components/ui/quick-actions";
 import { Eye, Trash2 } from "lucide-react";
 import { MetricsStatusBanner } from "@/components/metrics";
 import {
@@ -39,6 +35,7 @@ type JobInfoWithMetrics = JobInfo & ResourceMetrics;
 export function JobList() {
   const { currentNamespace } = useClusterStore();
   const { hasAccess } = usePremiumFeature();
+  const navigate = useNavigate();
 
   // Use centralized pods with metrics hook
   const {
@@ -87,6 +84,23 @@ export function JobList() {
     []
   );
 
+  const quickActions = useMemo<(setDeleteTarget: (item: JobInfoWithMetrics) => void) => QuickAction<JobInfoWithMetrics>[]>(
+    () => (setDeleteTarget) => [
+      {
+        icon: Eye,
+        label: "View Details",
+        onClick: (item) => navigate(getResourceDetailUrl(ResourceType.Job, item.name, item.namespace)),
+      },
+      {
+        icon: Trash2,
+        label: "Delete",
+        onClick: (item) => setDeleteTarget(item),
+        variant: "destructive",
+      },
+    ],
+    [navigate]
+  );
+
   return (
     <div className="space-y-4">
       {hasAccess && podStatus?.status !== "available" && (
@@ -97,32 +111,8 @@ export function JobList() {
         data={jobsWithMetrics}
         isLoading={jobsQuery.isLoading || isLoadingPods}
         getRowId={getResourceRowId}
-        columns={(setDeleteTarget) => [
-          ...columns,
-          {
-            id: "actions",
-            cell: ({ row }) => (
-              <ActionMenu>
-                <DropdownMenuItem asChild>
-                  <Link
-                    to={getResourceDetailUrl(ResourceType.Job, row.original.name, row.original.namespace)}
-                  >
-                    <Eye className="mr-2 h-4 w-4" />
-                    View Details
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onClick={() => setDeleteTarget(row.original)}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              </ActionMenu>
-            ),
-          },
-        ]}
+        columns={columns}
+        quickActions={quickActions}
         deleteConfig={{
           mutationFn: async (item) => {
             await commands.deleteJob(item.name, item.namespace);

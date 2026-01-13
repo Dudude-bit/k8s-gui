@@ -1,14 +1,9 @@
 import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
 import { ColumnDef } from "@tanstack/react-table";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Eye, Trash2, RotateCw, Scale } from "lucide-react";
-import {
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
 import { useMemo } from "react";
-import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceList } from "./ResourceList";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { queryKeys } from "@/lib/query-keys";
@@ -34,6 +29,7 @@ import type { DeploymentInfo } from "@/generated/types";
 import { commands } from "@/lib/commands";
 import { MetricsStatusBanner } from "@/components/metrics";
 import { getResourceRowId } from "@/lib/table-utils";
+import type { QuickAction } from "@/components/ui/quick-actions";
 
 // Extended DeploymentInfo with metrics
 type DeploymentInfoWithMetrics = DeploymentInfo & ResourceMetrics;
@@ -41,6 +37,7 @@ type DeploymentInfoWithMetrics = DeploymentInfo & ResourceMetrics;
 export function DeploymentList() {
   const { currentNamespace } = useClusterStore();
   const { hasAccess } = usePremiumFeature();
+  const navigate = useNavigate();
 
   // Use centralized pods with metrics hook
   const {
@@ -98,6 +95,33 @@ export function DeploymentList() {
     []
   );
 
+  const quickActions = useMemo<(setDeleteTarget: (item: DeploymentInfoWithMetrics) => void) => QuickAction<DeploymentInfoWithMetrics>[]>(
+    () => (setDeleteTarget) => [
+      {
+        icon: Eye,
+        label: "View Details",
+        onClick: (item) => navigate(getResourceDetailUrl(ResourceType.Deployment, item.name, item.namespace)),
+      },
+      {
+        icon: Scale,
+        label: "Scale",
+        onClick: (item) => navigate(`${getResourceDetailUrl(ResourceType.Deployment, item.name, item.namespace)}?action=scale`),
+      },
+      {
+        icon: RotateCw,
+        label: "Restart",
+        onClick: (item) => navigate(`${getResourceDetailUrl(ResourceType.Deployment, item.name, item.namespace)}?action=restart`),
+      },
+      {
+        icon: Trash2,
+        label: "Delete",
+        onClick: (item) => setDeleteTarget(item),
+        variant: "destructive",
+      },
+    ],
+    [navigate]
+  );
+
   return (
     <div className="space-y-4">
       {hasAccess && podStatus?.status !== "available" && (
@@ -108,40 +132,8 @@ export function DeploymentList() {
         data={deploymentsWithMetrics}
         isLoading={deploymentsQuery.isLoading || isLoadingPods}
         getRowId={getResourceRowId}
-        columns={(setDeleteTarget) => [
-          ...columns,
-          {
-            id: "actions",
-            cell: ({ row }) => (
-              <ActionMenu>
-                <DropdownMenuItem asChild>
-                  <Link
-                    to={getResourceDetailUrl(ResourceType.Deployment, row.original.name, row.original.namespace)}
-                  >
-                    <Eye className="mr-2 h-4 w-4" />
-                    View Details
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Scale className="mr-2 h-4 w-4" />
-                  Scale
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <RotateCw className="mr-2 h-4 w-4" />
-                  Restart
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onClick={() => setDeleteTarget(row.original)}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              </ActionMenu>
-            ),
-          },
-        ]}
+        columns={columns}
+        quickActions={quickActions}
         emptyStateLabel={toPlural(ResourceType.Deployment)}
         getRowHref={(row) => getResourceDetailUrl(ResourceType.Deployment, row.name, row.namespace)}
         deleteConfig={{

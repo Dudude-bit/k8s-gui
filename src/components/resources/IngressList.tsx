@@ -2,21 +2,17 @@ import { commands } from "@/lib/commands";
 import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
 import { ColumnDef } from "@tanstack/react-table";
-import { Link } from "react-router-dom";
+import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Eye, Trash2, Globe, ExternalLink } from "lucide-react";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { queryKeys } from "@/lib/query-keys";
 import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import {
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
-import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceList } from "@/components/resources/ResourceList";
 import { createNamespaceColumn, createAgeColumn } from "@/components/resources/columns";
 import type { QuickAction } from "@/components/ui/quick-actions";
@@ -48,12 +44,7 @@ const baseColumns: ColumnDef<IngressInfo>[] = [
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
         <Globe className="h-4 w-4 text-muted-foreground" />
-        <Link
-          to={getResourceDetailUrl(ResourceType.Ingress, row.original.name, row.original.namespace)}
-          className="font-medium hover:underline"
-        >
-          {row.original.name}
-        </Link>
+        <span className="font-medium">{row.original.name}</span>
       </div>
     ),
   },
@@ -173,6 +164,33 @@ const baseColumns: ColumnDef<IngressInfo>[] = [
 
 export function IngressList() {
   const { currentNamespace } = useClusterStore();
+  const navigate = useNavigate();
+
+  const quickActions = useMemo<(setDeleteTarget: (item: IngressInfo) => void) => QuickAction<IngressInfo>[]>(
+    () => (setDeleteTarget) => [
+      {
+        icon: Eye,
+        label: "View Details",
+        onClick: (item) => navigate(getResourceDetailUrl(ResourceType.Ingress, item.name, item.namespace)),
+      },
+      {
+        icon: ExternalLink,
+        label: "Open in Browser",
+        onClick: (item) => {
+          const url = getIngressOpenUrl(item);
+          if (url) window.open(url, "_blank", "noreferrer");
+        },
+        hidden: (item) => !getIngressOpenUrl(item),
+      },
+      {
+        icon: Trash2,
+        label: "Delete",
+        onClick: (item) => setDeleteTarget(item),
+        variant: "destructive",
+      },
+    ],
+    [navigate]
+  );
 
   return (
     <ResourceList<IngressInfo>
@@ -187,43 +205,8 @@ export function IngressList() {
           limit: null,
         })
       }
-      columns={(setDeleteTarget) => [
-        ...baseColumns,
-        {
-          id: "actions",
-          cell: ({ row }) => {
-            const openUrl = getIngressOpenUrl(row.original);
-            return (
-              <ActionMenu>
-                <DropdownMenuItem asChild>
-                  <Link
-                    to={getResourceDetailUrl(ResourceType.Ingress, row.original.name, row.original.namespace)}
-                  >
-                    <Eye className="mr-2 h-4 w-4" />
-                    View Details
-                  </Link>
-                </DropdownMenuItem>
-                {openUrl && (
-                  <DropdownMenuItem
-                    onClick={() => window.open(openUrl, "_blank", "noreferrer")}
-                  >
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Open in Browser
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onClick={() => setDeleteTarget(row.original)}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              </ActionMenu>
-            );
-          },
-        },
-      ]}
+      columns={baseColumns}
+      quickActions={quickActions}
       emptyStateLabel={toPlural(ResourceType.Ingress)}
       deleteConfig={{
         mutationFn: (item) =>
@@ -234,28 +217,6 @@ export function IngressList() {
       staleTime={STALE_TIMES.resourceList}
       searchKey="name"
       getRowHref={(row) => getResourceDetailUrl(ResourceType.Ingress, row.name, row.namespace)}
-      quickActions={(setDeleteTarget): QuickAction<IngressInfo>[] => [
-        {
-          icon: Eye,
-          label: "View Details",
-          onClick: (item) => window.location.href = getResourceDetailUrl(ResourceType.Ingress, item.name, item.namespace),
-        },
-        {
-          icon: ExternalLink,
-          label: "Open in Browser",
-          onClick: (item) => {
-            const url = getIngressOpenUrl(item);
-            if (url) window.open(url, "_blank", "noreferrer");
-          },
-          hidden: (item) => !getIngressOpenUrl(item),
-        },
-        {
-          icon: Trash2,
-          label: "Delete",
-          onClick: setDeleteTarget,
-          variant: "destructive",
-        },
-      ]}
     />
   );
 }

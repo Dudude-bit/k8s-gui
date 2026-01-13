@@ -1,13 +1,9 @@
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ColumnDef } from "@tanstack/react-table";
 import { Eye, Trash2 } from "lucide-react";
-import {
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { ActionMenu } from "@/components/ui/action-menu";
+import type { QuickAction } from "@/components/ui/quick-actions";
 import { useClusterStore } from "@/stores/clusterStore";
 import { createAgeColumn, createNamespaceColumn } from "./columns";
 import { RealtimeAge } from "@/components/ui/realtime";
@@ -47,6 +43,7 @@ export function CustomResourceList({
   // Get plugin for this CRD (if any)
   const plugin = usePlugin(crdGroup, crdKind, crdPlural);
 
+  const navigate = useNavigate();
   const namespace = scope === "Namespaced" ? currentNamespace : null;
 
   // Generate detail path for a custom resource
@@ -54,6 +51,23 @@ export function CustomResourceList({
     scope === "Namespaced"
       ? `/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(crdName)}/instances/${item.namespace}/${item.name}`
       : `/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(crdName)}/instances/${item.name}`;
+
+  const quickActions = useMemo<(setDeleteTarget: (item: CustomResourceListItem) => void) => QuickAction<CustomResourceListItem>[]>(
+    () => (setDeleteTarget) => [
+      {
+        icon: Eye,
+        label: "View Details",
+        onClick: (item) => navigate(getDetailPath(item)),
+      },
+      {
+        icon: Trash2,
+        label: "Delete",
+        onClick: (item) => setDeleteTarget(item),
+        variant: "destructive",
+      },
+    ],
+    [navigate, scope, crdName]
+  );
 
   // Build columns from printer columns and plugin
   const baseColumns = useMemo<ColumnDef<CustomResourceListItem>[]>(() => {
@@ -146,38 +160,8 @@ export function CustomResourceList({
           namespace: r.namespace || "",
         }));
       }}
-      columns={(setDeleteTarget) => [
-        ...baseColumns,
-        {
-          id: "actions",
-          cell: ({ row }) => {
-            const item = row.original;
-            const detailPath =
-              scope === "Namespaced"
-                ? `/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(crdName)}/instances/${item.namespace}/${item.name}`
-                : `/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(crdName)}/instances/${item.name}`;
-
-            return (
-              <ActionMenu>
-                <DropdownMenuItem asChild>
-                  <Link to={detailPath}>
-                    <Eye className="mr-2 h-4 w-4" />
-                    View Details
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onClick={() => setDeleteTarget(item)}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              </ActionMenu>
-            );
-          },
-        },
-      ]}
+      columns={baseColumns}
+      quickActions={quickActions}
       emptyStateLabel={crdPlural}
       deleteConfig={{
         mutationFn: (item) => commands.deleteCustomResource(

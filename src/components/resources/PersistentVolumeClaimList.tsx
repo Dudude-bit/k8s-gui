@@ -1,20 +1,17 @@
+import { useMemo } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ColumnDef } from "@tanstack/react-table";
-import { Link } from "react-router-dom";
 import { Eye, Trash2, Database } from "lucide-react";
 import { ResourceList } from "@/components/resources/ResourceList";
-import {
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ActionMenu } from "@/components/ui/action-menu";
+import type { QuickAction } from "@/components/ui/quick-actions";
 import { commands } from "@/lib/commands";
 import type { PersistentVolumeClaimInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
@@ -25,7 +22,7 @@ import { getResourceRowId } from "@/lib/table-utils";
 
 
 
-const baseColumns: ColumnDef<PersistentVolumeClaimInfo>[] = [
+const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
   {
     accessorKey: "name",
     header: "Name",
@@ -98,6 +95,24 @@ const baseColumns: ColumnDef<PersistentVolumeClaimInfo>[] = [
 
 export function PersistentVolumeClaimList() {
   const { currentNamespace } = useClusterStore();
+  const navigate = useNavigate();
+
+  const quickActions = useMemo<(setDeleteTarget: (item: PersistentVolumeClaimInfo) => void) => QuickAction<PersistentVolumeClaimInfo>[]>(
+    () => (setDeleteTarget) => [
+      {
+        icon: Eye,
+        label: "View Details",
+        onClick: (item) => navigate(getResourceDetailUrl(ResourceType.PersistentVolumeClaim, item.name, item.namespace)),
+      },
+      {
+        icon: Trash2,
+        label: "Delete",
+        onClick: (item) => setDeleteTarget(item),
+        variant: "destructive",
+      },
+    ],
+    [navigate]
+  );
 
   return (
     <ResourceList<PersistentVolumeClaimInfo>
@@ -113,32 +128,8 @@ export function PersistentVolumeClaimList() {
           limit: null,
         })
       }
-      columns={(setDeleteTarget) => [
-        ...baseColumns,
-        {
-          id: "actions",
-          cell: ({ row }) => (
-            <ActionMenu>
-              <DropdownMenuItem asChild>
-                <Link
-                  to={getResourceDetailUrl(ResourceType.PersistentVolumeClaim, row.original.name, row.original.namespace)}
-                >
-                  <Eye className="mr-2 h-4 w-4" />
-                  View Details
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => setDeleteTarget(row.original)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </ActionMenu>
-          ),
-        },
-      ]}
+      columns={columns}
+      quickActions={quickActions}
       emptyStateLabel={toPlural(ResourceType.PersistentVolumeClaim)}
       deleteConfig={{
         mutationFn: (item) =>
