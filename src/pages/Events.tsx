@@ -25,6 +25,7 @@ import { commands } from "@/lib/commands";
 import type { EventInfo, EventFilters } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { DataFreshness } from "@/components/ui/realtime";
 
 export function Events() {
   const { isConnected, currentNamespace } = useClusterStore();
@@ -34,6 +35,7 @@ export function Events() {
   const {
     data: events = [],
     isLoading,
+    dataUpdatedAt,
   } = useQuery({
     queryKey: [toPlural(ResourceType.Event), currentNamespace, eventType, eventLimit],
     queryFn: async () => {
@@ -97,6 +99,7 @@ export function Events() {
               <SelectItem value="all">All</SelectItem>
             </SelectContent>
           </Select>
+          <DataFreshness dataUpdatedAt={dataUpdatedAt} />
         </div>
       </div>
 

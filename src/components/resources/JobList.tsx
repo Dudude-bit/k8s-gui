@@ -110,6 +110,7 @@ export function JobList() {
         title="Jobs"
         data={jobsWithMetrics}
         isLoading={jobsQuery.isLoading || isLoadingPods}
+        dataUpdatedAt={jobsQuery.dataUpdatedAt}
         getRowId={getResourceRowId}
         columns={columns}
         quickActions={quickActions}

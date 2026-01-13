@@ -1,4 +1,5 @@
 import { useThemeStore } from "@/stores/themeStore";
+import { useUpdaterStore } from "@/stores/updaterStore";
 import {
   Card,
   CardContent,
@@ -11,6 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { commands } from "@/lib/commands";
 import { useToast } from "@/components/ui/use-toast";
@@ -23,12 +25,22 @@ import { PremiumFeatureGuard } from "@/components/license/PremiumFeatureGuard";
 import { Link } from "react-router-dom";
 import { User, Download, RefreshCw, AlertCircle } from "lucide-react";
 import { normalizeTauriError } from "@/lib/error-utils";
-import { useUpdater } from "@/hooks/useUpdater";
 
 export function Settings() {
   const { theme, setTheme } = useThemeStore();
   const { toast } = useToast();
-  const { status: updateStatus, checkForUpdates, downloadAndInstall } = useUpdater();
+  const {
+    available: updateAvailable,
+    version: updateVersion,
+    checking: updateChecking,
+    downloading: updateDownloading,
+    progress: updateProgress,
+    error: updateError,
+    autoCheckEnabled,
+    setAutoCheckEnabled,
+    checkForUpdates,
+    downloadAndInstall,
+  } = useUpdaterStore();
 
   const { data: appInfo } = useQuery({
     queryKey: ["appInfo"],
@@ -228,20 +240,20 @@ export function Settings() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium">Updates</p>
-                {updateStatus.available && updateStatus.version && (
+                {updateAvailable && updateVersion && (
                   <p className="text-sm text-muted-foreground">
-                    Version {updateStatus.version} available
+                    Version {updateVersion} available
                   </p>
                 )}
-                {updateStatus.error && (
+                {updateError && (
                   <p className="text-sm text-destructive flex items-center gap-1">
                     <AlertCircle className="h-3 w-3" />
-                    {updateStatus.error}
+                    {updateError}
                   </p>
                 )}
               </div>
               <div className="flex gap-2">
-                {!updateStatus.available && (
+                {!updateAvailable && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -252,16 +264,16 @@ export function Settings() {
                           title: "Update available",
                           description: `Version ${update.version} is ready to download`,
                         });
-                      } else if (!updateStatus.error) {
+                      } else if (!updateError) {
                         toast({
                           title: "No updates",
                           description: "You're running the latest version",
                         });
                       }
                     }}
-                    disabled={updateStatus.checking}
+                    disabled={updateChecking}
                   >
-                    {updateStatus.checking ? (
+                    {updateChecking ? (
                       <>
                         <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                         Checking...
@@ -274,7 +286,7 @@ export function Settings() {
                     )}
                   </Button>
                 )}
-                {updateStatus.available && !updateStatus.downloading && (
+                {updateAvailable && !updateDownloading && (
                   <Button
                     size="sm"
                     onClick={() => {
@@ -292,15 +304,31 @@ export function Settings() {
               </div>
             </div>
 
-            {updateStatus.downloading && (
+            {updateDownloading && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Downloading...</span>
-                  <span className="font-mono">{updateStatus.progress}%</span>
+                  <span className="font-mono">{updateProgress}%</span>
                 </div>
-                <Progress value={updateStatus.progress} className="h-2" />
+                <Progress value={updateProgress} className="h-2" />
               </div>
             )}
+
+            <Separator />
+
+            {/* Auto-check toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Automatic Updates</p>
+                <p className="text-sm text-muted-foreground">
+                  Check for updates on startup and every 30 minutes
+                </p>
+              </div>
+              <Switch
+                checked={autoCheckEnabled}
+                onCheckedChange={setAutoCheckEnabled}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>

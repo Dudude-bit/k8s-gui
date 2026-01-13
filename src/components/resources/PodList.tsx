@@ -38,6 +38,7 @@ export function PodList() {
     data: podsWithMetrics,
     podStatus,
     isLoading,
+    dataUpdatedAt,
   } = usePodsWithMetrics();
 
   const columns = useMemo<ColumnDef<PodWithMetrics>[]>(
@@ -119,6 +120,7 @@ export function PodList() {
         title="Pods"
         data={podsWithMetrics}
         isLoading={isLoading}
+        dataUpdatedAt={dataUpdatedAt}
         getRowId={getResourceRowId}
         columns={columns}
         quickActions={quickActions}

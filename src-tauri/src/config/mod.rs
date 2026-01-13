@@ -47,6 +47,9 @@ pub struct AppConfig {
     /// Recent items for command palette
     #[serde(default)]
     pub recent_items: RecentItemsConfig,
+    /// Updater configuration
+    #[serde(default)]
+    pub updater: UpdaterConfig,
 }
 
 /// Theme configuration
@@ -606,6 +609,27 @@ impl RecentItemsConfig {
         self.items.insert(0, item);
         // Truncate to max
         self.items.truncate(MAX_RECENT_ITEMS);
+    }
+}
+
+// ============================================================================
+// Updater Configuration
+// ============================================================================
+
+/// Updater configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdaterConfig {
+    /// Enable automatic update checks
+    #[serde(default = "default_true")]
+    pub auto_check_enabled: bool,
+}
+
+impl Default for UpdaterConfig {
+    fn default() -> Self {
+        Self {
+            auto_check_enabled: true,
+        }
     }
 }
 

@@ -16,7 +16,8 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { commands } from "@/lib/commands";
 import { useEffect, useState } from "react";
-import { ResourceType, toPlural, getDisplayPlural } from "@/lib/resource-registry";
+import { ResourceType, getDisplayPlural, getResourceListUrl } from "@/lib/resource-registry";
+import { useUpdaterStore } from "@/stores/updaterStore";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Overview", path: "/" },
@@ -25,12 +26,12 @@ const navItems = [
     label: "Workloads",
     path: "/workloads",
     children: [
-      { label: getDisplayPlural(ResourceType.Pod), path: `/workloads/${toPlural(ResourceType.Pod)}` },
-      { label: getDisplayPlural(ResourceType.Deployment), path: `/workloads/${toPlural(ResourceType.Deployment)}` },
-      { label: getDisplayPlural(ResourceType.StatefulSet), path: `/workloads/${toPlural(ResourceType.StatefulSet)}` },
-      { label: getDisplayPlural(ResourceType.DaemonSet), path: `/workloads/${toPlural(ResourceType.DaemonSet)}` },
-      { label: getDisplayPlural(ResourceType.Job), path: `/workloads/${toPlural(ResourceType.Job)}` },
-      { label: getDisplayPlural(ResourceType.CronJob), path: `/workloads/${toPlural(ResourceType.CronJob)}` },
+      { label: getDisplayPlural(ResourceType.Pod), path: getResourceListUrl(ResourceType.Pod) },
+      { label: getDisplayPlural(ResourceType.Deployment), path: getResourceListUrl(ResourceType.Deployment) },
+      { label: getDisplayPlural(ResourceType.StatefulSet), path: getResourceListUrl(ResourceType.StatefulSet) },
+      { label: getDisplayPlural(ResourceType.DaemonSet), path: getResourceListUrl(ResourceType.DaemonSet) },
+      { label: getDisplayPlural(ResourceType.Job), path: getResourceListUrl(ResourceType.Job) },
+      { label: getDisplayPlural(ResourceType.CronJob), path: getResourceListUrl(ResourceType.CronJob) },
     ],
   },
   {
@@ -38,9 +39,9 @@ const navItems = [
     label: "Network",
     path: "/network",
     children: [
-      { label: getDisplayPlural(ResourceType.Service), path: `/network/${toPlural(ResourceType.Service)}` },
-      { label: getDisplayPlural(ResourceType.Ingress), path: `/network/${toPlural(ResourceType.Ingress)}` },
-      { label: getDisplayPlural(ResourceType.Endpoints), path: `/network/${toPlural(ResourceType.Endpoints)}` },
+      { label: getDisplayPlural(ResourceType.Service), path: getResourceListUrl(ResourceType.Service) },
+      { label: getDisplayPlural(ResourceType.Ingress), path: getResourceListUrl(ResourceType.Ingress) },
+      { label: getDisplayPlural(ResourceType.Endpoints), path: getResourceListUrl(ResourceType.Endpoints) },
     ],
   },
   {
@@ -48,9 +49,9 @@ const navItems = [
     label: "Storage",
     path: "/storage",
     children: [
-      { label: getDisplayPlural(ResourceType.PersistentVolume), path: `/storage/${toPlural(ResourceType.PersistentVolume)}` },
-      { label: getDisplayPlural(ResourceType.PersistentVolumeClaim), path: `/storage/${toPlural(ResourceType.PersistentVolumeClaim)}` },
-      { label: getDisplayPlural(ResourceType.StorageClass), path: `/storage/${toPlural(ResourceType.StorageClass)}` },
+      { label: getDisplayPlural(ResourceType.PersistentVolume), path: getResourceListUrl(ResourceType.PersistentVolume) },
+      { label: getDisplayPlural(ResourceType.PersistentVolumeClaim), path: getResourceListUrl(ResourceType.PersistentVolumeClaim) },
+      { label: getDisplayPlural(ResourceType.StorageClass), path: getResourceListUrl(ResourceType.StorageClass) },
     ],
   },
   {
@@ -58,14 +59,14 @@ const navItems = [
     label: "Configuration",
     path: "/configuration",
     children: [
-      { label: getDisplayPlural(ResourceType.ConfigMap), path: `/configuration/${toPlural(ResourceType.ConfigMap)}` },
-      { label: getDisplayPlural(ResourceType.Secret), path: `/configuration/${toPlural(ResourceType.Secret)}` },
+      { label: getDisplayPlural(ResourceType.ConfigMap), path: getResourceListUrl(ResourceType.ConfigMap) },
+      { label: getDisplayPlural(ResourceType.Secret), path: getResourceListUrl(ResourceType.Secret) },
       { label: "Builder", path: "/configuration/builder" },
     ],
   },
-  { icon: Server, label: getDisplayPlural(ResourceType.Node), path: `/${toPlural(ResourceType.Node)}` },
-  { icon: Activity, label: getDisplayPlural(ResourceType.Event), path: `/${toPlural(ResourceType.Event)}` },
-  { icon: Puzzle, label: getDisplayPlural(ResourceType.CustomResourceDefinition), path: `/${toPlural(ResourceType.CustomResourceDefinition)}` },
+  { icon: Server, label: getDisplayPlural(ResourceType.Node), path: getResourceListUrl(ResourceType.Node) },
+  { icon: Activity, label: getDisplayPlural(ResourceType.Event), path: getResourceListUrl(ResourceType.Event) },
+  { icon: Puzzle, label: getDisplayPlural(ResourceType.CustomResourceDefinition), path: getResourceListUrl(ResourceType.CustomResourceDefinition) },
   { icon: Package, label: "Helm", path: "/helm" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
@@ -73,6 +74,7 @@ const navItems = [
 export function Sidebar() {
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const location = useLocation();
+  const updateAvailable = useUpdaterStore((state) => state.available);
   const { data: appInfo } = useQuery({
     queryKey: ["appInfo"],
     queryFn: commands.getAppInfo,
@@ -176,7 +178,12 @@ export function Sidebar() {
                   )
                 }
               >
-                <item.icon className="h-4 w-4" />
+                <div className="relative">
+                  <item.icon className="h-4 w-4" />
+                  {item.label === "Settings" && updateAvailable && (
+                    <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500" />
+                  )}
+                </div>
                 {item.label}
               </NavLink>
             )}

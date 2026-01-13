@@ -30,6 +30,7 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
   const {
     data: pods = [],
     isLoading: isLoadingPods,
+    dataUpdatedAt,
   } = useQuery({
     queryKey: queryKeys.pods(currentNamespace),
     queryFn: async () => {
@@ -76,5 +77,6 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
     podMetrics,
     podStatus,
     isLoading: isLoadingPods || isLoadingMetrics,
+    dataUpdatedAt,
   };
 }

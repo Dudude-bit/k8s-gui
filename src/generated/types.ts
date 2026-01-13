@@ -102,6 +102,10 @@ export interface IngressPath {
   resourceBackend: string | null;
 }
 
+export interface UpdaterConfig {
+  autoCheckEnabled: boolean;
+}
+
 export interface RecentItem {
   name: string;
   namespace: string | null;

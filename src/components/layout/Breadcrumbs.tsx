@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { ChevronRight, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getDisplayPlural } from "@/lib/resource-registry";
+import { getDisplayPlural, getResourceListUrl, isResourceType } from "@/lib/resource-registry";
 
 interface BreadcrumbItem {
   label: string;
@@ -22,7 +22,6 @@ function generateBreadcrumbsFromPath(pathname: string): BreadcrumbItem[] {
   if (segments.length === 0) return [];
 
   const items: BreadcrumbItem[] = [];
-  let currentPath = "";
 
   // Map for non-resource navigation paths
   const navLabels: Record<string, string> = {
@@ -41,20 +40,40 @@ function generateBreadcrumbsFromPath(pathname: string): BreadcrumbItem[] {
     return navLabels[lower] ?? getDisplayPlural(lower);
   };
 
-  segments.forEach((segment, index) => {
-    currentPath += `/${segment}`;
+  // Check if first segment is a resource type (detail page pattern)
+  const firstSegment = segments[0].toLowerCase();
+  const isResource = isResourceType(firstSegment);
 
-    // For the last segment, don't add href (current page)
-    const isLast = index === segments.length - 1;
-
-    // Get display label
-    const label = getLabel(segment);
-
+  if (isResource && segments.length > 1) {
+    // This is a detail page like /pods/namespace/name
+    // First item: resource type -> links to category list
     items.push({
-      label,
-      href: isLast ? undefined : currentPath,
+      label: getDisplayPlural(firstSegment),
+      href: getResourceListUrl(firstSegment),
     });
-  });
+
+    // Remaining segments (namespace, name, etc.)
+    for (let i = 1; i < segments.length; i++) {
+      const isLast = i === segments.length - 1;
+      items.push({
+        label: segments[i],
+        href: isLast ? undefined : undefined, // No links for namespace segments
+      });
+    }
+  } else {
+    // Standard path like /workloads/pods or /settings
+    let currentPath = "";
+    segments.forEach((segment, index) => {
+      currentPath += `/${segment}`;
+      const isLast = index === segments.length - 1;
+      const label = getLabel(segment);
+
+      items.push({
+        label,
+        href: isLast ? undefined : currentPath,
+      });
+    });
+  }
 
   return items;
 }

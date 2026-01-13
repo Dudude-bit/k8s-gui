@@ -124,6 +124,7 @@ export function DaemonSetList() {
         title="DaemonSets"
         data={daemonSetsWithMetrics}
         isLoading={daemonSetsQuery.isLoading || isLoadingPods}
+        dataUpdatedAt={daemonSetsQuery.dataUpdatedAt}
         getRowId={getResourceRowId}
         columns={columns}
         quickActions={quickActions}

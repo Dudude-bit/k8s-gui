@@ -314,6 +314,9 @@ fn main() {
             // Recent items
             commands::settings::get_recent_items,
             commands::settings::add_recent_item,
+            // Updater settings
+            commands::settings::get_updater_settings,
+            commands::settings::save_updater_settings,
 
             // Registry commands
             commands::registry::set_registry_credentials,

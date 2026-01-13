@@ -131,6 +131,7 @@ export function DeploymentList() {
         title="Deployments"
         data={deploymentsWithMetrics}
         isLoading={deploymentsQuery.isLoading || isLoadingPods}
+        dataUpdatedAt={deploymentsQuery.dataUpdatedAt}
         getRowId={getResourceRowId}
         columns={columns}
         quickActions={quickActions}

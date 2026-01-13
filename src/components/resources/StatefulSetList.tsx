@@ -100,6 +100,7 @@ export function StatefulSetList() {
         title="StatefulSets"
         data={statefulSetsWithMetrics}
         isLoading={statefulSetsQuery.isLoading || isLoadingPods}
+        dataUpdatedAt={statefulSetsQuery.dataUpdatedAt}
         getRowId={getResourceRowId}
         columns={columns}
         quickActions={quickActions}

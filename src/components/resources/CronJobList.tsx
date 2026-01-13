@@ -125,6 +125,7 @@ export function CronJobList() {
         title="CronJobs"
         data={cronJobsWithMetrics}
         isLoading={cronJobsQuery.isLoading || isLoadingPods}
+        dataUpdatedAt={cronJobsQuery.dataUpdatedAt}
         getRowId={getResourceRowId}
         columns={columns}
         quickActions={quickActions}

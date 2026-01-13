@@ -11,6 +11,7 @@ import { ErrorProvider } from "@/contexts/error-context";
 import { useAuthFlowEvents } from "@/hooks/useAuthFlowEvents";
 import { usePortForwardEvents } from "@/hooks/usePortForwardEvents";
 import { usePortForwardAutoStart } from "@/hooks/usePortForwardAutoStart";
+import { useAutoUpdater } from "@/hooks/useAutoUpdater";
 import { usePortForwardStore } from "@/stores/portForwardStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { setupFrontendLogger } from "@/lib/frontend-logger";
@@ -131,6 +132,8 @@ export default function App() {
   usePortForwardAutoStart();
   // Initialize license check on app start
   useLicense();
+  // Initialize auto-updater
+  useAutoUpdater();
 
   useEffect(() => {
     const cleanup = setupFrontendLogger();

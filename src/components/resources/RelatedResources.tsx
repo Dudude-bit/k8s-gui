@@ -9,7 +9,7 @@ import { Link } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Layers } from "lucide-react";
-import { getResourceIcon } from "@/lib/resource-registry";
+import { getResourceIcon, isResourceType } from "@/lib/resource-registry";
 import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import type { OwnerReference } from "@/generated/types";
 
@@ -75,17 +75,28 @@ interface OwnerLinkProps {
 
 function OwnerLink({ owner, namespace }: OwnerLinkProps) {
   const Icon = getResourceIcon(owner.kind);
-  const path = getResourceDetailUrl(owner.kind, owner.name, namespace);
+  const isSupported = isResourceType(owner.kind);
 
-  return (
-    <Link to={path} className="block">
-      <div className="flex items-center gap-2 rounded-md border p-2 text-sm hover:bg-accent transition-colors">
-        <Icon className="h-4 w-4 text-muted-foreground" />
-        <span className="font-medium">{owner.name}</span>
-        <Badge variant="outline" className="ml-auto text-xs">
-          {owner.kind}
-        </Badge>
-      </div>
-    </Link>
+  const content = (
+    <div className={`flex items-center gap-2 rounded-md border p-2 text-sm ${isSupported ? "hover:bg-accent cursor-pointer" : ""} transition-colors`}>
+      <Icon className="h-4 w-4 text-muted-foreground" />
+      <span className="font-medium">{owner.name}</span>
+      <Badge variant="outline" className="ml-auto text-xs">
+        {owner.kind}
+      </Badge>
+    </div>
   );
+
+  // Only make it a link if we have a route for this resource type
+  if (isSupported) {
+    const path = getResourceDetailUrl(owner.kind, owner.name, namespace);
+    return (
+      <Link to={path} className="block">
+        {content}
+      </Link>
+    );
+  }
+
+  // Otherwise just show the info without navigation
+  return <div className="block">{content}</div>;
 }

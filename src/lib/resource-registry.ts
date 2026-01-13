@@ -17,26 +17,27 @@ import {
 } from "lucide-react";
 
 export type ResourceScope = "namespaced" | "cluster";
+export type ResourceCategory = "workloads" | "network" | "storage" | "configuration" | null;
 
 export const RESOURCE_REGISTRY = [
-  { kind: "Pod", plural: "pods", displayPlural: "Pods", icon: Box, apiVersion: "v1", scope: "namespaced" },
-  { kind: "Deployment", plural: "deployments", displayPlural: "Deployments", icon: Layers, apiVersion: "apps/v1", scope: "namespaced" },
-  { kind: "StatefulSet", plural: "statefulsets", displayPlural: "StatefulSets", icon: Database, apiVersion: "apps/v1", scope: "namespaced" },
-  { kind: "DaemonSet", plural: "daemonsets", displayPlural: "DaemonSets", icon: Server, apiVersion: "apps/v1", scope: "namespaced" },
-  { kind: "Job", plural: "jobs", displayPlural: "Jobs", icon: Briefcase, apiVersion: "batch/v1", scope: "namespaced" },
-  { kind: "CronJob", plural: "cronjobs", displayPlural: "CronJobs", icon: CalendarClock, apiVersion: "batch/v1", scope: "namespaced" },
-  { kind: "ConfigMap", plural: "configmaps", displayPlural: "ConfigMaps", icon: FileText, apiVersion: "v1", scope: "namespaced" },
-  { kind: "Secret", plural: "secrets", displayPlural: "Secrets", icon: KeyRound, apiVersion: "v1", scope: "namespaced" },
-  { kind: "Service", plural: "services", displayPlural: "Services", icon: Network, apiVersion: "v1", scope: "namespaced" },
-  { kind: "Ingress", plural: "ingresses", displayPlural: "Ingresses", icon: Globe, apiVersion: "networking.k8s.io/v1", scope: "namespaced" },
-  { kind: "PersistentVolumeClaim", plural: "persistentvolumeclaims", displayPlural: "PVCs", icon: HardDrive, apiVersion: "v1", scope: "namespaced" },
-  { kind: "PersistentVolume", plural: "persistentvolumes", displayPlural: "Persistent Volumes", icon: HardDrive, apiVersion: "v1", scope: "cluster" },
-  { kind: "StorageClass", plural: "storageclasses", displayPlural: "Storage Classes", icon: Database, apiVersion: "storage.k8s.io/v1", scope: "cluster" },
-  { kind: "Endpoints", plural: "endpoints", displayPlural: "Endpoints", icon: Network, apiVersion: "v1", scope: "namespaced" },
-  { kind: "Node", plural: "nodes", displayPlural: "Nodes", icon: Server, apiVersion: "v1", scope: "cluster" },
-  { kind: "Event", plural: "events", displayPlural: "Events", icon: Activity, apiVersion: "v1", scope: "namespaced" },
-  { kind: "Namespace", plural: "namespaces", displayPlural: "Namespaces", icon: FolderOpen, apiVersion: "v1", scope: "cluster" },
-  { kind: "CustomResourceDefinition", plural: "customresourcedefinitions", displayPlural: "CRDs", icon: Puzzle, apiVersion: "apiextensions.k8s.io/v1", scope: "cluster" },
+  { kind: "Pod", plural: "pods", displayPlural: "Pods", icon: Box, apiVersion: "v1", scope: "namespaced", category: "workloads" },
+  { kind: "Deployment", plural: "deployments", displayPlural: "Deployments", icon: Layers, apiVersion: "apps/v1", scope: "namespaced", category: "workloads" },
+  { kind: "StatefulSet", plural: "statefulsets", displayPlural: "StatefulSets", icon: Database, apiVersion: "apps/v1", scope: "namespaced", category: "workloads" },
+  { kind: "DaemonSet", plural: "daemonsets", displayPlural: "DaemonSets", icon: Server, apiVersion: "apps/v1", scope: "namespaced", category: "workloads" },
+  { kind: "Job", plural: "jobs", displayPlural: "Jobs", icon: Briefcase, apiVersion: "batch/v1", scope: "namespaced", category: "workloads" },
+  { kind: "CronJob", plural: "cronjobs", displayPlural: "CronJobs", icon: CalendarClock, apiVersion: "batch/v1", scope: "namespaced", category: "workloads" },
+  { kind: "ConfigMap", plural: "configmaps", displayPlural: "ConfigMaps", icon: FileText, apiVersion: "v1", scope: "namespaced", category: "configuration" },
+  { kind: "Secret", plural: "secrets", displayPlural: "Secrets", icon: KeyRound, apiVersion: "v1", scope: "namespaced", category: "configuration" },
+  { kind: "Service", plural: "services", displayPlural: "Services", icon: Network, apiVersion: "v1", scope: "namespaced", category: "network" },
+  { kind: "Ingress", plural: "ingresses", displayPlural: "Ingresses", icon: Globe, apiVersion: "networking.k8s.io/v1", scope: "namespaced", category: "network" },
+  { kind: "PersistentVolumeClaim", plural: "persistentvolumeclaims", displayPlural: "PVCs", icon: HardDrive, apiVersion: "v1", scope: "namespaced", category: "storage" },
+  { kind: "PersistentVolume", plural: "persistentvolumes", displayPlural: "Persistent Volumes", icon: HardDrive, apiVersion: "v1", scope: "cluster", category: "storage" },
+  { kind: "StorageClass", plural: "storageclasses", displayPlural: "Storage Classes", icon: Database, apiVersion: "storage.k8s.io/v1", scope: "cluster", category: "storage" },
+  { kind: "Endpoints", plural: "endpoints", displayPlural: "Endpoints", icon: Network, apiVersion: "v1", scope: "namespaced", category: "network" },
+  { kind: "Node", plural: "nodes", displayPlural: "Nodes", icon: Server, apiVersion: "v1", scope: "cluster", category: null },
+  { kind: "Event", plural: "events", displayPlural: "Events", icon: Activity, apiVersion: "v1", scope: "namespaced", category: null },
+  { kind: "Namespace", plural: "namespaces", displayPlural: "Namespaces", icon: FolderOpen, apiVersion: "v1", scope: "cluster", category: null },
+  { kind: "CustomResourceDefinition", plural: "customresourcedefinitions", displayPlural: "CRDs", icon: Puzzle, apiVersion: "apiextensions.k8s.io/v1", scope: "cluster", category: null },
 ] as const;
 
 export type ResourceKind = (typeof RESOURCE_REGISTRY)[number]["kind"];
@@ -101,4 +102,32 @@ export function getResourceIcon(kind: ResourceKind | string): LucideIcon {
     RESOURCE_BY_KIND.get(kind as ResourceKind) ??
     RESOURCE_BY_PLURAL.get(kind.toLowerCase());
   return def?.icon ?? Box;
+}
+
+export function getCategory(resourceKindOrPlural: string): ResourceCategory {
+  const def =
+    RESOURCE_BY_KIND.get(resourceKindOrPlural as ResourceKind) ??
+    RESOURCE_BY_PLURAL.get(resourceKindOrPlural.toLowerCase());
+  return def?.category ?? null;
+}
+
+/**
+ * Get the URL for a resource list page (respects category structure)
+ * @example getResourceListUrl("Pod") // "/workloads/pods"
+ * @example getResourceListUrl("pods") // "/workloads/pods"
+ * @example getResourceListUrl("Node") // "/nodes"
+ */
+export function getResourceListUrl(resourceKindOrPlural: string): string {
+  const def =
+    RESOURCE_BY_KIND.get(resourceKindOrPlural as ResourceKind) ??
+    RESOURCE_BY_PLURAL.get(resourceKindOrPlural.toLowerCase());
+
+  if (!def) {
+    return `/${resourceKindOrPlural.toLowerCase()}`;
+  }
+
+  if (def.category) {
+    return `/${def.category}/${def.plural}`;
+  }
+  return `/${def.plural}`;
 }

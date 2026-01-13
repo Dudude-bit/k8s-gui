@@ -648,3 +648,24 @@ pub fn add_recent_item(item: RecentItem) -> Result<()> {
     config.recent_items.add_item(item);
     save_config(&config)
 }
+
+// ============================================================================
+// Updater Settings
+// ============================================================================
+
+use crate::config::UpdaterConfig;
+
+/// Get updater settings
+#[tauri::command]
+pub fn get_updater_settings() -> Result<UpdaterConfig> {
+    let config = AppConfig::load()?;
+    Ok(config.updater)
+}
+
+/// Save updater settings
+#[tauri::command]
+pub fn save_updater_settings(settings: UpdaterConfig) -> Result<()> {
+    let mut config = AppConfig::load()?;
+    config.updater = settings;
+    save_config(&config)
+}
