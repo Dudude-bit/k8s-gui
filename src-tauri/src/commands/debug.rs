@@ -534,8 +534,7 @@ pub async fn get_debug_status(
         .as_secs();
 
     if now > operation.created_at + operation.timeout_seconds as u64 {
-        // Remove from storage on timeout
-        state.debug_operations.remove(&operation_id);
+        // Don't remove on timeout - user may choose "Keep Waiting"
         return Ok(DebugStatus::Timeout);
     }
 
@@ -574,6 +573,36 @@ pub async fn get_debug_status(
     }
 
     Ok(status)
+}
+
+/// Extend debug operation timeout (for "Keep Waiting" action)
+#[tauri::command]
+pub async fn extend_debug_timeout(
+    operation_id: String,
+    additional_seconds: Option<u32>,
+    state: State<'_, AppState>,
+) -> Result<()> {
+    let additional = additional_seconds.unwrap_or(120);
+
+    // Update the operation's created_at to effectively extend the timeout
+    if let Some(mut operation) = state.debug_operations.get_mut(&operation_id) {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        // Reset created_at to now, so timeout_seconds applies from now
+        operation.created_at = now;
+        // Optionally update timeout if provided
+        if additional_seconds.is_some() {
+            operation.timeout_seconds = additional;
+        }
+        Ok(())
+    } else {
+        Err(Error::InvalidInput(format!(
+            "Operation {} not found",
+            operation_id
+        )))
+    }
 }
 
 /// Check ephemeral container status

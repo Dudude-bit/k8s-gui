@@ -153,12 +153,20 @@ export function useDebugOperation({
     setElapsedSeconds(0);
   }, [operation, cleanup]);
 
-  const continueWaiting = useCallback(() => {
+  const continueWaiting = useCallback(async () => {
     if (operation) {
-      setState("polling");
-      startPolling(operation);
+      try {
+        // Extend timeout on backend before resuming polling
+        await commands.extendDebugTimeout(operation.id);
+        setElapsedSeconds(0);
+        setState("polling");
+        startPolling(operation);
+      } catch (error) {
+        console.error("Failed to extend timeout:", error);
+        onError(String(error));
+      }
     }
-  }, [operation, startPolling]);
+  }, [operation, startPolling, onError]);
 
   useEffect(() => {
     return () => {

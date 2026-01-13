@@ -392,6 +392,13 @@ export async function cancelDebugOperation(operationId: string): Promise<void> {
   return invoke<void>("cancel_debug_operation", { operationId });
 }
 
+export async function extendDebugTimeout(
+  operationId: string,
+  additionalSeconds?: number
+): Promise<void> {
+  return invoke<void>("extend_debug_timeout", { operationId, additionalSeconds });
+}
+
 export async function deleteDebugPod(podName: string, namespace: string | null): Promise<void> {
   return invoke<void>("delete_debug_pod", { podName, namespace });
 }

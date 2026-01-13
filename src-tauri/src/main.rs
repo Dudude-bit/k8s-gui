@@ -197,6 +197,7 @@ fn main() {
             commands::debug::list_debug_pods,
             commands::debug::get_debug_status,
             commands::debug::cancel_debug_operation,
+            commands::debug::extend_debug_timeout,
 
             // Deployment commands
             commands::deployments::list_deployments,
