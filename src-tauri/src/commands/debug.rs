@@ -260,6 +260,9 @@ pub async fn debug_pod_copy(
     // Clone and modify the pod spec
     let mut new_spec = original_pod.spec.clone().unwrap_or_default();
 
+    // Clear ephemeral containers - cannot be set on pod creation
+    new_spec.ephemeral_containers = None;
+
     // Clear scheduling constraints to allow rescheduling
     new_spec.node_name = None;
     new_spec.node_selector = None;
