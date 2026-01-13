@@ -267,6 +267,47 @@ export function PodDetail() {
     }
   };
 
+  // Check if current pod is a debug pod (created by copy/node debug)
+  const isDebugPod = pod?.labels?.["k8s-gui/debug-pod"] === "true";
+
+  const handleTerminalClose = useCallback(() => {
+    setShowTerminal(false);
+
+    // Show reminder toast for debug pods (copy/node)
+    if (isDebugPod && pod) {
+      toast({
+        title: "Debug pod still running",
+        description: "Delete when done to free cluster resources",
+        action: (
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={async () => {
+              try {
+                await commands.deleteDebugPod(pod.name, pod.namespace);
+                toast({
+                  title: "Debug pod deleted",
+                  description: pod.name,
+                });
+                // Navigate back after deletion
+                navigate(-1);
+              } catch (err) {
+                toast({
+                  title: "Failed to delete",
+                  description: normalizeTauriError(err),
+                  variant: "destructive",
+                });
+              }
+            }}
+          >
+            Delete Now
+          </Button>
+        ),
+        duration: 10000,
+      });
+    }
+  }, [isDebugPod, pod, toast, navigate]);
+
   const openDebugDialog = async () => {
     if (!pod) return;
     if (!hasLicenseAccess) {
@@ -873,7 +914,7 @@ export function PodDetail() {
               podName={pod.name}
               namespace={pod.namespace}
               containerName={selectedContainer}
-              onClose={() => setShowTerminal(false)}
+              onClose={handleTerminalClose}
             />
           </CardContent>
         </Card>
