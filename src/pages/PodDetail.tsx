@@ -252,15 +252,16 @@ export function PodDetail() {
     setShowTerminal(true);
   };
 
-  const handleDebugStart = async (result: DebugResult) => {
+  const handleDebugStart = (result: DebugResult) => {
+    // For new pods (copyPod and nodeDebug), navigate to the new debug pod
+    // For ephemeral containers, open terminal to the debug container in the current pod
     if (result.isNewPod) {
-      // Navigate to the new debug pod
       navigate(
         `/${toPlural(ResourceType.Pod)}/${result.namespace}/${result.podName}`,
         { replace: false }
       );
     } else {
-      // Open terminal to the debug container in the current pod
+      // Ephemeral container - open terminal to the debug container in the current pod
       setSelectedContainer(result.containerName);
       setShowTerminal(true);
     }

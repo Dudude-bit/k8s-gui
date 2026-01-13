@@ -41,3 +41,6 @@ export type { CountdownResult } from "./useRealtimeAge";
 
 // Cluster info
 export { useClusterInfo } from "./useClusterInfo";
+
+// Debug operations
+export { useDebugOperation, type DebugOperationState } from "./useDebugOperation";

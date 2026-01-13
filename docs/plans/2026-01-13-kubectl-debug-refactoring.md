@@ -1,57 +1,63 @@
-//! Debug commands for kubectl debug functionality
-//!
-//! This module provides three debug modes:
-//! - Ephemeral Container: Add a debug container to an existing pod
-//! - Copy Pod: Create a copy of a pod with a debug container
-//! - Node Debug: Create a privileged pod for node-level debugging
+# kubectl debug Refactoring Implementation Plan
 
-use std::collections::BTreeMap;
-use std::time::{SystemTime, UNIX_EPOCH};
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-use k8s_openapi::api::core::v1::{
-    Capabilities, Container, HostPathVolumeSource, Pod, PodSpec, SecurityContext, Toleration,
-    Volume, VolumeMount,
-};
-use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
-use kube::api::{Api, Patch, PatchParams, PostParams};
-use serde::{Deserialize, Serialize};
-use tauri::State;
+**Goal:** Fix debug functionality bugs by implementing polling-based container readiness checking before terminal connection.
 
-use crate::commands::helpers::ResourceContext;
-use crate::error::{Error, Result};
-use crate::state::AppState;
-use crate::utils::require_namespace;
+**Architecture:** Backend creates debug resources and returns operation ID immediately. Frontend polls `get_debug_status` every 2 seconds until Ready/Failed/Timeout. Terminal connects only after container is Running.
 
-/// Configuration for debug session
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DebugConfig {
-    /// Debug container image
-    pub image: String,
-    /// Target container name (for ephemeral mode - to share process namespace)
-    pub target_container: Option<String>,
-    /// Custom command to run in debug container
-    pub command: Option<Vec<String>>,
-    /// Share process namespace with target container (for copy mode)
-    pub share_processes: bool,
-    /// Timeout waiting for container readiness (seconds), default 120
-    pub timeout_seconds: Option<u32>,
-}
+**Tech Stack:** Rust (Tauri backend), TypeScript/React (frontend), kube-rs (K8s client), zustand (state management)
 
-/// Result of debug operation
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DebugResult {
-    /// Name of the pod to connect to
-    pub pod_name: String,
-    /// Container name for exec
-    pub container_name: String,
-    /// Namespace
-    pub namespace: String,
-    /// Whether this is a newly created pod (copy/node) or existing (ephemeral)
-    pub is_new_pod: bool,
-}
+---
 
+## Task 1: Add Debug Operations Storage to AppState
+
+**Files:**
+- Modify: `src-tauri/src/state.rs`
+
+**Step 1: Add DashMap import and debug_operations field**
+
+Add to imports at top of file:
+```rust
+use dashmap::DashMap;
+```
+
+Add to `AppState` struct:
+```rust
+pub debug_operations: DashMap<String, crate::commands::debug::DebugOperation>,
+```
+
+**Step 2: Initialize debug_operations in AppState::new()**
+
+Find the `AppState` constructor and add:
+```rust
+debug_operations: DashMap::new(),
+```
+
+**Step 3: Verify compilation**
+
+Run: `cargo check`
+Expected: Compilation succeeds (may have warnings)
+
+**Step 4: Commit**
+
+```bash
+git add src-tauri/src/state.rs
+git commit -m "feat(debug): add debug_operations storage to AppState"
+```
+
+---
+
+## Task 2: Add New Debug Types
+
+**Files:**
+- Modify: `src-tauri/src/commands/debug.rs`
+
+**Step 1: Add new types after existing DebugResult struct**
+
+Add after line ~51 (after `DebugResult` struct):
+
+```rust
 /// Debug operation for tracking container readiness
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -95,32 +101,40 @@ pub enum DebugStatus {
     /// Timeout waiting for container
     Timeout,
 }
+```
 
-/// Generate a unique debugger container name
-fn generate_debugger_name() -> String {
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
-    format!("debugger-{}", timestamp)
-}
+**Step 2: Update DebugConfig to add timeout_seconds**
 
-/// Generate a unique debug pod name
-fn generate_debug_pod_name(base_name: &str) -> String {
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
-    // Truncate base name if too long to fit within 63 char limit
-    let max_base_len = 63 - 7 - 10; // -debug- (7) + timestamp (10)
-    let truncated = if base_name.len() > max_base_len {
-        &base_name[..max_base_len]
-    } else {
-        base_name
-    };
-    format!("{}-debug-{}", truncated, timestamp)
-}
+Find `DebugConfig` struct and add field:
+```rust
+/// Timeout waiting for container readiness (seconds), default 120
+pub timeout_seconds: Option<u32>,
+```
 
+**Step 3: Verify compilation**
+
+Run: `cargo check`
+Expected: Compilation succeeds
+
+**Step 4: Commit**
+
+```bash
+git add src-tauri/src/commands/debug.rs
+git commit -m "feat(debug): add DebugOperation, DebugStatus types"
+```
+
+---
+
+## Task 3: Refactor debug_pod_ephemeral to Return Operation
+
+**Files:**
+- Modify: `src-tauri/src/commands/debug.rs`
+
+**Step 1: Change return type and implementation**
+
+Replace the entire `debug_pod_ephemeral` function:
+
+```rust
 /// Add an ephemeral debug container to an existing pod
 #[tauri::command]
 pub async fn debug_pod_ephemeral(
@@ -139,6 +153,7 @@ pub async fn debug_pod_ephemeral(
     let _pod = api.get(&pod_name).await?;
 
     let container_name = generate_debugger_name();
+    let operation_id = format!("debug-{}", uuid::Uuid::new_v4());
 
     // Build ephemeral container spec
     let mut ephemeral_container = serde_json::json!({
@@ -182,7 +197,6 @@ pub async fn debug_pod_ephemeral(
     )
     .await
     .map_err(|e| {
-        // Provide helpful error message for unsupported clusters
         if e.to_string().contains("not found")
             || e.to_string().contains("ephemeralContainers")
             || e.to_string().contains("404")
@@ -197,13 +211,11 @@ pub async fn debug_pod_ephemeral(
         }
     })?;
 
-    // Create and store the debug operation
-    let operation_id = format!("debug-{}", uuid::Uuid::new_v4());
+    let timeout_seconds = config.timeout_seconds.unwrap_or(120);
     let created_at = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    let timeout_seconds = config.timeout_seconds.unwrap_or(120);
 
     let operation = DebugOperation {
         id: operation_id.clone(),
@@ -215,11 +227,41 @@ pub async fn debug_pod_ephemeral(
         timeout_seconds,
     };
 
+    // Store operation for status polling
     state.debug_operations.insert(operation_id, operation.clone());
 
     Ok(operation)
 }
+```
 
+**Step 2: Add uuid to imports at top of file**
+
+Check if uuid is already imported, if not add usage. The uuid crate should already be available via Tauri.
+
+**Step 3: Verify compilation**
+
+Run: `cargo check`
+Expected: Compilation succeeds
+
+**Step 4: Commit**
+
+```bash
+git add src-tauri/src/commands/debug.rs
+git commit -m "refactor(debug): debug_pod_ephemeral returns DebugOperation"
+```
+
+---
+
+## Task 4: Refactor debug_pod_copy to Return Operation
+
+**Files:**
+- Modify: `src-tauri/src/commands/debug.rs`
+
+**Step 1: Change return type and add TTL**
+
+Replace the entire `debug_pod_copy` function:
+
+```rust
 /// Create a copy of a pod with a debug container
 #[tauri::command]
 pub async fn debug_pod_copy(
@@ -239,6 +281,7 @@ pub async fn debug_pod_copy(
 
     let debug_pod_name = generate_debug_pod_name(&pod_name);
     let container_name = generate_debugger_name();
+    let operation_id = format!("debug-{}", uuid::Uuid::new_v4());
 
     // Build the debug container
     let debug_container = Container {
@@ -275,10 +318,9 @@ pub async fn debug_pod_copy(
     // Set restart policy to Never for debug pods
     new_spec.restart_policy = Some("Never".to_string());
 
-    // Add TTL - auto-terminate after 1 hour
+    // TTL: pod auto-terminates after 1 hour
     new_spec.active_deadline_seconds = Some(3600);
 
-    // Get current timestamp for labels
     let created_at = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -287,14 +329,8 @@ pub async fn debug_pod_copy(
     // Create labels for the debug pod
     let mut labels = BTreeMap::new();
     labels.insert("k8s-gui/debug-pod".to_string(), "true".to_string());
-    labels.insert(
-        "k8s-gui/debug-source".to_string(),
-        pod_name.clone(),
-    );
-    labels.insert(
-        "k8s-gui/created-at".to_string(),
-        created_at.to_string(),
-    );
+    labels.insert("k8s-gui/debug-source".to_string(), pod_name.clone());
+    labels.insert("k8s-gui/created-at".to_string(), created_at.to_string());
 
     // Create the debug pod
     let debug_pod = Pod {
@@ -302,7 +338,6 @@ pub async fn debug_pod_copy(
             name: Some(debug_pod_name.clone()),
             namespace: Some(ns.clone()),
             labels: Some(labels),
-            // Don't copy owner references - we don't want controllers managing this pod
             ..Default::default()
         },
         spec: Some(new_spec),
@@ -312,8 +347,6 @@ pub async fn debug_pod_copy(
     // Create the pod
     api.create(&PostParams::default(), &debug_pod).await?;
 
-    // Create and store the debug operation
-    let operation_id = format!("debug-{}", uuid::Uuid::new_v4());
     let timeout_seconds = config.timeout_seconds.unwrap_or(120);
 
     let operation = DebugOperation {
@@ -326,11 +359,37 @@ pub async fn debug_pod_copy(
         timeout_seconds,
     };
 
+    // Store operation for status polling
     state.debug_operations.insert(operation_id, operation.clone());
 
     Ok(operation)
 }
+```
 
+**Step 2: Verify compilation**
+
+Run: `cargo check`
+Expected: Compilation succeeds
+
+**Step 3: Commit**
+
+```bash
+git add src-tauri/src/commands/debug.rs
+git commit -m "refactor(debug): debug_pod_copy returns DebugOperation with TTL"
+```
+
+---
+
+## Task 5: Refactor debug_node to Return Operation
+
+**Files:**
+- Modify: `src-tauri/src/commands/debug.rs`
+
+**Step 1: Change return type and add TTL**
+
+Replace the entire `debug_node` function:
+
+```rust
 /// Create a privileged debug pod on a specific node
 #[tauri::command]
 pub async fn debug_node(
@@ -347,11 +406,11 @@ pub async fn debug_node(
 
     let debug_pod_name = generate_debug_pod_name(&format!("node-{}", node_name));
     let container_name = "debugger".to_string();
+    let operation_id = format!("debug-{}", uuid::Uuid::new_v4());
 
     // Build command - default to shell if not specified
     let command = config.command.unwrap_or_else(|| vec!["/bin/sh".to_string()]);
 
-    // Get current timestamp for labels and operation tracking
     let created_at = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -361,10 +420,7 @@ pub async fn debug_node(
     let mut labels = BTreeMap::new();
     labels.insert("k8s-gui/debug-pod".to_string(), "true".to_string());
     labels.insert("k8s-gui/debug-node".to_string(), node_name.clone());
-    labels.insert(
-        "k8s-gui/created-at".to_string(),
-        created_at.to_string(),
-    );
+    labels.insert("k8s-gui/created-at".to_string(), created_at.to_string());
 
     // Create the privileged debug pod
     let debug_pod = Pod {
@@ -379,6 +435,8 @@ pub async fn debug_node(
             host_pid: Some(true),
             host_network: Some(true),
             host_ipc: Some(true),
+            // TTL: pod auto-terminates after 1 hour
+            active_deadline_seconds: Some(3600),
             containers: vec![Container {
                 name: container_name.clone(),
                 image: Some(config.image),
@@ -406,9 +464,6 @@ pub async fn debug_node(
                 ..Default::default()
             }]),
             restart_policy: Some("Never".to_string()),
-            // Add TTL - auto-terminate after 1 hour
-            active_deadline_seconds: Some(3600),
-            // Tolerate all taints to run on any node
             tolerations: Some(vec![Toleration {
                 operator: Some("Exists".to_string()),
                 ..Default::default()
@@ -421,8 +476,6 @@ pub async fn debug_node(
     // Create the pod
     api.create(&PostParams::default(), &debug_pod).await?;
 
-    // Create and store the debug operation
-    let operation_id = format!("debug-{}", uuid::Uuid::new_v4());
     let timeout_seconds = config.timeout_seconds.unwrap_or(120);
 
     let operation = DebugOperation {
@@ -435,85 +488,37 @@ pub async fn debug_node(
         timeout_seconds,
     };
 
+    // Store operation for status polling
     state.debug_operations.insert(operation_id, operation.clone());
 
     Ok(operation)
 }
+```
 
-/// Delete a debug pod
-#[tauri::command]
-pub async fn delete_debug_pod(
-    pod_name: String,
-    namespace: Option<String>,
-    state: State<'_, AppState>,
-) -> Result<()> {
-    crate::validation::validate_dns_label(&pod_name)?;
+**Step 2: Verify compilation**
 
-    let ctx = ResourceContext::for_command(&state, namespace)?;
-    let api: Api<Pod> = ctx.namespaced_api();
+Run: `cargo check`
+Expected: Compilation succeeds
 
-    // Verify it's a debug pod before deleting
-    let pod = api.get(&pod_name).await?;
-    let labels = pod.metadata.labels.unwrap_or_default();
+**Step 3: Commit**
 
-    if labels.get("k8s-gui/debug-pod").map(|v| v.as_str()) != Some("true") {
-        return Err(Error::InvalidInput(format!(
-            "Pod '{}' is not a debug pod created by k8s-gui",
-            pod_name
-        )));
-    }
+```bash
+git add src-tauri/src/commands/debug.rs
+git commit -m "refactor(debug): debug_node returns DebugOperation with TTL"
+```
 
-    // Delete the pod
-    api.delete(&pod_name, &Default::default()).await?;
+---
 
-    Ok(())
-}
+## Task 6: Add get_debug_status Command
 
-/// List debug pods in a namespace (or all namespaces)
-#[tauri::command]
-pub async fn list_debug_pods(
-    namespace: Option<String>,
-    state: State<'_, AppState>,
-) -> Result<Vec<DebugResult>> {
-    let ctx = ResourceContext::for_list(&state, namespace)?;
-    let api: Api<Pod> = ctx.namespaced_or_cluster_api();
+**Files:**
+- Modify: `src-tauri/src/commands/debug.rs`
 
-    let list_params = kube::api::ListParams::default()
-        .labels("k8s-gui/debug-pod=true");
+**Step 1: Add the get_debug_status function**
 
-    let pods = api.list(&list_params).await?;
+Add after `debug_node` function:
 
-    let results: Vec<DebugResult> = pods
-        .items
-        .iter()
-        .filter_map(|pod| {
-            let name = pod.metadata.name.clone()?;
-            let ns = pod.metadata.namespace.clone().unwrap_or_else(|| "default".to_string());
-            let labels = pod.metadata.labels.clone().unwrap_or_default();
-
-            // Find the debugger container name
-            let container_name = if labels.get("k8s-gui/debug-node").is_some() {
-                "debugger".to_string()
-            } else {
-                pod.spec
-                    .as_ref()
-                    .and_then(|s| s.containers.last())
-                    .map(|c| c.name.clone())
-                    .unwrap_or_else(|| "debugger".to_string())
-            };
-
-            Some(DebugResult {
-                pod_name: name,
-                container_name,
-                namespace: ns,
-                is_new_pod: true,
-            })
-        })
-        .collect();
-
-    Ok(results)
-}
-
+```rust
 /// Get status of a debug operation
 #[tauri::command]
 pub async fn get_debug_status(
@@ -539,9 +544,13 @@ pub async fn get_debug_status(
         return Ok(DebugStatus::Timeout);
     }
 
-    // Get Kubernetes client using ResourceContext
-    let ctx = ResourceContext::for_command(&state, Some(operation.namespace.clone()))?;
-    let api: Api<Pod> = Api::namespaced(ctx.client.clone(), &operation.namespace);
+    // Get Kubernetes client
+    let client = state.kube_client.read().await;
+    let client = client
+        .as_ref()
+        .ok_or_else(|| Error::Internal("No Kubernetes client available".to_string()))?;
+
+    let api: Api<Pod> = Api::namespaced(client.clone(), &operation.namespace);
 
     // Get pod status
     let pod = match api.get(&operation.pod_name).await {
@@ -583,7 +592,8 @@ fn check_ephemeral_container_status(pod: &Pod, container_name: &str) -> DebugSta
         .as_ref()
         .and_then(|s| s.ephemeral_container_statuses.as_ref());
 
-    let container_status = statuses.and_then(|list| list.iter().find(|c| c.name == container_name));
+    let container_status = statuses
+        .and_then(|list| list.iter().find(|c| c.name == container_name));
 
     match container_status {
         None => DebugStatus::Pending {
@@ -604,10 +614,8 @@ fn check_ephemeral_container_status(pod: &Pod, container_name: &str) -> DebugSta
                     };
                 }
                 if let Some(ref waiting) = state.waiting {
-                    let reason = waiting
-                        .reason
-                        .clone()
-                        .unwrap_or_else(|| "Waiting".to_string());
+                    let reason = waiting.reason.clone().unwrap_or_else(|| "Waiting".to_string());
+                    // Check for failure conditions
                     if reason.contains("ImagePull") && reason.contains("Back") {
                         return DebugStatus::Failed {
                             error: format!("Image pull failed: {}", reason),
@@ -621,10 +629,7 @@ fn check_ephemeral_container_status(pod: &Pod, container_name: &str) -> DebugSta
                     return DebugStatus::Pending { reason };
                 }
                 if let Some(ref terminated) = state.terminated {
-                    let reason = terminated
-                        .reason
-                        .clone()
-                        .unwrap_or_else(|| "Terminated".to_string());
+                    let reason = terminated.reason.clone().unwrap_or_else(|| "Terminated".to_string());
                     return DebugStatus::Failed {
                         error: format!("Container terminated: {}", reason),
                     };
@@ -662,6 +667,7 @@ fn check_container_status(pod: &Pod, container_name: &str) -> DebugStatus {
             };
         }
         "Pending" => {
+            // Check conditions for more details
             let reason = get_pending_reason(pod);
             return DebugStatus::Pending { reason };
         }
@@ -674,7 +680,8 @@ fn check_container_status(pod: &Pod, container_name: &str) -> DebugStatus {
         .as_ref()
         .and_then(|s| s.container_statuses.as_ref());
 
-    let container_status = statuses.and_then(|list| list.iter().find(|c| c.name == container_name));
+    let container_status = statuses
+        .and_then(|list| list.iter().find(|c| c.name == container_name));
 
     match container_status {
         None => DebugStatus::Pending {
@@ -695,10 +702,7 @@ fn check_container_status(pod: &Pod, container_name: &str) -> DebugStatus {
                     };
                 }
                 if let Some(ref waiting) = state.waiting {
-                    let reason = waiting
-                        .reason
-                        .clone()
-                        .unwrap_or_else(|| "Waiting".to_string());
+                    let reason = waiting.reason.clone().unwrap_or_else(|| "Waiting".to_string());
                     if reason.contains("ImagePull") && reason.contains("Back") {
                         return DebugStatus::Failed {
                             error: format!("Image pull failed: {}", reason),
@@ -712,10 +716,7 @@ fn check_container_status(pod: &Pod, container_name: &str) -> DebugStatus {
                     return DebugStatus::Pending { reason };
                 }
                 if let Some(ref terminated) = state.terminated {
-                    let reason = terminated
-                        .reason
-                        .clone()
-                        .unwrap_or_else(|| "Terminated".to_string());
+                    let reason = terminated.reason.clone().unwrap_or_else(|| "Terminated".to_string());
                     return DebugStatus::Failed {
                         error: format!("Container terminated: {}", reason),
                     };
@@ -731,6 +732,7 @@ fn check_container_status(pod: &Pod, container_name: &str) -> DebugStatus {
 /// Get reason for pending pod
 fn get_pending_reason(pod: &Pod) -> String {
     if let Some(status) = &pod.status {
+        // Check conditions
         if let Some(conditions) = &status.conditions {
             for cond in conditions {
                 if cond.status == "False" {
@@ -740,14 +742,12 @@ fn get_pending_reason(pod: &Pod) -> String {
                 }
             }
         }
+        // Check container statuses for waiting reason
         if let Some(statuses) = &status.container_statuses {
             for cs in statuses {
                 if let Some(state) = &cs.state {
                     if let Some(waiting) = &state.waiting {
-                        return waiting
-                            .reason
-                            .clone()
-                            .unwrap_or_else(|| "Waiting".to_string());
+                        return waiting.reason.clone().unwrap_or_else(|| "Waiting".to_string());
                     }
                 }
             }
@@ -755,7 +755,32 @@ fn get_pending_reason(pod: &Pod) -> String {
     }
     "Scheduling".to_string()
 }
+```
 
+**Step 2: Verify compilation**
+
+Run: `cargo check`
+Expected: Compilation succeeds
+
+**Step 3: Commit**
+
+```bash
+git add src-tauri/src/commands/debug.rs
+git commit -m "feat(debug): add get_debug_status command for polling"
+```
+
+---
+
+## Task 7: Add cancel_debug_operation Command
+
+**Files:**
+- Modify: `src-tauri/src/commands/debug.rs`
+
+**Step 1: Add the cancel_debug_operation function**
+
+Add after `get_debug_status` function:
+
+```rust
 /// Cancel a debug operation and cleanup resources
 #[tauri::command]
 pub async fn cancel_debug_operation(
@@ -772,8 +797,12 @@ pub async fn cancel_debug_operation(
     // For CopyPod and NodeDebug, delete the created pod
     match operation.operation_type {
         DebugOperationType::CopyPod | DebugOperationType::NodeDebug => {
-            let ctx = ResourceContext::for_command(&state, Some(operation.namespace.clone()))?;
-            let api: Api<Pod> = ctx.namespaced_api();
+            let client = state.kube_client.read().await;
+            let client = client
+                .as_ref()
+                .ok_or_else(|| Error::Internal("No Kubernetes client available".to_string()))?;
+
+            let api: Api<Pod> = Api::namespaced(client.clone(), &operation.namespace);
 
             // Delete the pod, ignore if not found
             match api.delete(&operation.pod_name, &Default::default()).await {
@@ -789,3 +818,420 @@ pub async fn cancel_debug_operation(
 
     Ok(())
 }
+```
+
+**Step 2: Verify compilation**
+
+Run: `cargo check`
+Expected: Compilation succeeds
+
+**Step 3: Commit**
+
+```bash
+git add src-tauri/src/commands/debug.rs
+git commit -m "feat(debug): add cancel_debug_operation command"
+```
+
+---
+
+## Task 8: Register New Commands in main.rs
+
+**Files:**
+- Modify: `src-tauri/src/main.rs`
+
+**Step 1: Find the invoke_handler and add new commands**
+
+Search for `invoke_handler` in main.rs and add the new commands to the list:
+- `get_debug_status`
+- `cancel_debug_operation`
+
+The commands should already be exported from `commands::debug`, just need to add them to the handler list.
+
+**Step 2: Verify compilation**
+
+Run: `cargo build`
+Expected: Compilation succeeds
+
+**Step 3: Commit**
+
+```bash
+git add src-tauri/src/main.rs
+git commit -m "feat(debug): register new debug status commands"
+```
+
+---
+
+## Task 9: Generate TypeScript Types
+
+**Files:**
+- Auto-generated: `src/generated/types.ts`
+
+**Step 1: Run type generation**
+
+Run: `npm run generate-types` (or equivalent command for this project)
+
+If no type generation script exists, manually add types to appropriate location.
+
+**Step 2: Verify types are generated**
+
+Check that `DebugOperation`, `DebugOperationType`, and `DebugStatus` types exist in TypeScript.
+
+**Step 3: Commit if types changed**
+
+```bash
+git add src/generated/types.ts
+git commit -m "chore: regenerate TypeScript types for debug"
+```
+
+---
+
+## Task 10: Create useDebugOperation Hook
+
+**Files:**
+- Create: `src/hooks/useDebugOperation.ts`
+
+**Step 1: Create the hook file**
+
+```typescript
+import { useState, useRef, useCallback, useEffect } from "react";
+import { commands } from "@/lib/commands";
+import type { DebugConfig, DebugOperation, DebugResult, DebugStatus } from "@/generated/types";
+
+export type DebugOperationState = "idle" | "creating" | "polling" | "ready" | "failed" | "timeout";
+
+interface UseDebugOperationOptions {
+  onReady: (result: DebugResult) => void;
+  onError: (error: string) => void;
+  onTimeout: (operation: DebugOperation) => void;
+  pollInterval?: number;
+}
+
+export function useDebugOperation({
+  onReady,
+  onError,
+  onTimeout,
+  pollInterval = 2000,
+}: UseDebugOperationOptions) {
+  const [state, setState] = useState<DebugOperationState>("idle");
+  const [operation, setOperation] = useState<DebugOperation | null>(null);
+  const [statusReason, setStatusReason] = useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const elapsedIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isCancelledRef = useRef(false);
+
+  const cleanup = useCallback(() => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    if (elapsedIntervalRef.current) {
+      clearInterval(elapsedIntervalRef.current);
+      elapsedIntervalRef.current = null;
+    }
+  }, []);
+
+  const startPolling = useCallback((op: DebugOperation) => {
+    cleanup();
+    isCancelledRef.current = false;
+    setElapsedSeconds(0);
+
+    // Elapsed time counter
+    elapsedIntervalRef.current = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+
+    // Status polling
+    const poll = async () => {
+      if (isCancelledRef.current) return;
+
+      try {
+        const status = await commands.getDebugStatus(op.id);
+
+        if (isCancelledRef.current) return;
+
+        if (status.type === "Ready") {
+          cleanup();
+          setState("ready");
+          onReady(status.result);
+        } else if (status.type === "Failed") {
+          cleanup();
+          setState("failed");
+          onError(status.error);
+        } else if (status.type === "Timeout") {
+          cleanup();
+          setState("timeout");
+          onTimeout(op);
+        } else if (status.type === "Pending") {
+          setStatusReason(status.reason);
+        }
+      } catch (err) {
+        console.error("Failed to get debug status:", err);
+        // Don't fail on transient errors, keep polling
+      }
+    };
+
+    // Initial poll
+    poll();
+
+    // Subsequent polls
+    pollIntervalRef.current = setInterval(poll, pollInterval);
+  }, [cleanup, pollInterval, onReady, onError, onTimeout]);
+
+  const startEphemeral = useCallback(
+    async (podName: string, namespace: string, config: DebugConfig) => {
+      setState("creating");
+      setStatusReason(null);
+      isCancelledRef.current = false;
+
+      try {
+        const op = await commands.debugPodEphemeral(podName, namespace, config);
+        setOperation(op);
+        setState("polling");
+        startPolling(op);
+      } catch (err) {
+        setState("failed");
+        onError(String(err));
+      }
+    },
+    [startPolling, onError]
+  );
+
+  const startCopyPod = useCallback(
+    async (podName: string, namespace: string, config: DebugConfig) => {
+      setState("creating");
+      setStatusReason(null);
+      isCancelledRef.current = false;
+
+      try {
+        const op = await commands.debugPodCopy(podName, namespace, config);
+        setOperation(op);
+        setState("polling");
+        startPolling(op);
+      } catch (err) {
+        setState("failed");
+        onError(String(err));
+      }
+    },
+    [startPolling, onError]
+  );
+
+  const startNodeDebug = useCallback(
+    async (nodeName: string, namespace: string, config: DebugConfig) => {
+      setState("creating");
+      setStatusReason(null);
+      isCancelledRef.current = false;
+
+      try {
+        const op = await commands.debugNode(nodeName, namespace, config);
+        setOperation(op);
+        setState("polling");
+        startPolling(op);
+      } catch (err) {
+        setState("failed");
+        onError(String(err));
+      }
+    },
+    [startPolling, onError]
+  );
+
+  const cancel = useCallback(async () => {
+    isCancelledRef.current = true;
+    cleanup();
+
+    if (operation) {
+      try {
+        await commands.cancelDebugOperation(operation.id);
+      } catch (err) {
+        console.error("Failed to cancel debug operation:", err);
+      }
+    }
+
+    setOperation(null);
+    setState("idle");
+    setStatusReason(null);
+    setElapsedSeconds(0);
+  }, [operation, cleanup]);
+
+  const continueWaiting = useCallback(() => {
+    if (operation) {
+      setState("polling");
+      startPolling(operation);
+    }
+  }, [operation, startPolling]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isCancelledRef.current = true;
+      cleanup();
+    };
+  }, [cleanup]);
+
+  return {
+    state,
+    operation,
+    statusReason,
+    elapsedSeconds,
+    startEphemeral,
+    startCopyPod,
+    startNodeDebug,
+    cancel,
+    continueWaiting,
+  };
+}
+```
+
+**Step 2: Verify TypeScript compilation**
+
+Run: `npm run build`
+Expected: Compilation succeeds (or only unrelated errors)
+
+**Step 3: Commit**
+
+```bash
+git add src/hooks/useDebugOperation.ts
+git commit -m "feat(debug): add useDebugOperation hook for polling"
+```
+
+---
+
+## Task 11: Update DebugPodDialog with Polling UI
+
+**Files:**
+- Modify: `src/components/debug/DebugPodDialog.tsx`
+
+**Step 1: Replace the dialog implementation**
+
+This is a larger change - replace the entire file content with the new implementation that uses `useDebugOperation` hook and shows progress/timeout UI.
+
+Key changes:
+- Import and use `useDebugOperation` hook
+- Add progress UI showing elapsed time and status reason
+- Add timeout dialog with Keep Waiting / Delete / Leave options
+- Add configurable timeout field
+
+**Step 2: Verify TypeScript compilation**
+
+Run: `npm run build`
+Expected: Compilation succeeds
+
+**Step 3: Commit**
+
+```bash
+git add src/components/debug/DebugPodDialog.tsx
+git commit -m "feat(debug): update DebugPodDialog with polling UI"
+```
+
+---
+
+## Task 12: Update DebugNodeDialog with Polling UI
+
+**Files:**
+- Modify: `src/components/debug/DebugNodeDialog.tsx`
+
+Similar changes as Task 11 but for node debug dialog.
+
+**Step 1: Update the dialog to use useDebugOperation hook**
+
+**Step 2: Verify TypeScript compilation**
+
+Run: `npm run build`
+Expected: Compilation succeeds
+
+**Step 3: Commit**
+
+```bash
+git add src/components/debug/DebugNodeDialog.tsx
+git commit -m "feat(debug): update DebugNodeDialog with polling UI"
+```
+
+---
+
+## Task 13: Add Commands to lib/commands.ts
+
+**Files:**
+- Modify: `src/lib/commands.ts`
+
+**Step 1: Add new command wrappers**
+
+Add the following command wrappers:
+
+```typescript
+export async function getDebugStatus(operationId: string): Promise<DebugStatus> {
+  return invoke("get_debug_status", { operationId });
+}
+
+export async function cancelDebugOperation(operationId: string): Promise<void> {
+  return invoke("cancel_debug_operation", { operationId });
+}
+```
+
+**Step 2: Update existing debug commands return types**
+
+Change `debugPodEphemeral`, `debugPodCopy`, `debugNode` return types from `DebugResult` to `DebugOperation`.
+
+**Step 3: Verify TypeScript compilation**
+
+Run: `npm run build`
+Expected: Compilation succeeds
+
+**Step 4: Commit**
+
+```bash
+git add src/lib/commands.ts
+git commit -m "feat(debug): add new debug status commands to frontend"
+```
+
+---
+
+## Task 14: Full Build and Test
+
+**Step 1: Build frontend**
+
+Run: `npm run build`
+Expected: Build succeeds
+
+**Step 2: Build backend**
+
+Run: `cd src-tauri && cargo build`
+Expected: Build succeeds
+
+**Step 3: Run the app (manual test)**
+
+Run: `npm run tauri dev`
+
+Test scenarios:
+1. Create ephemeral debug container - verify polling UI shows, connects when ready
+2. Create copy pod debug - verify polling UI, new pod created with TTL
+3. Cancel during polling - verify cleanup works
+4. Test timeout scenario (use very short timeout like 5 sec with slow image)
+
+**Step 4: Final commit if any fixes needed**
+
+```bash
+git add -A
+git commit -m "fix(debug): address issues found during testing"
+```
+
+---
+
+## Summary
+
+| Task | Description | Files Changed |
+|------|-------------|---------------|
+| 1 | Add debug_operations to AppState | state.rs |
+| 2 | Add new debug types | debug.rs |
+| 3 | Refactor debug_pod_ephemeral | debug.rs |
+| 4 | Refactor debug_pod_copy | debug.rs |
+| 5 | Refactor debug_node | debug.rs |
+| 6 | Add get_debug_status | debug.rs |
+| 7 | Add cancel_debug_operation | debug.rs |
+| 8 | Register commands | main.rs |
+| 9 | Generate TypeScript types | generated/types.ts |
+| 10 | Create useDebugOperation hook | hooks/useDebugOperation.ts |
+| 11 | Update DebugPodDialog | debug/DebugPodDialog.tsx |
+| 12 | Update DebugNodeDialog | debug/DebugNodeDialog.tsx |
+| 13 | Add frontend commands | lib/commands.ts |
+| 14 | Full build and test | - |

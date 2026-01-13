@@ -180,6 +180,9 @@ pub struct AppState {
 
     /// Monotonic counter for connection attempts
     pub connect_generation: AtomicU64,
+
+    /// Active debug operations (ephemeral container/debug pod creation)
+    pub debug_operations: DashMap<String, crate::commands::debug::DebugOperation>,
 }
 
 impl AppState {
@@ -208,6 +211,7 @@ impl AppState {
             event_tx,
             auth_sessions: DashMap::new(),
             connect_generation: AtomicU64::new(0),
+            debug_operations: DashMap::new(),
         })
     }
 

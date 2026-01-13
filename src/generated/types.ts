@@ -444,7 +444,26 @@ export interface DebugConfig {
   targetContainer: string | null;
   command: string[] | null;
   shareProcesses: boolean;
+  timeoutSeconds?: number | null;
 }
+
+export interface DebugOperation {
+  id: string;
+  operationType: DebugOperationType;
+  podName: string;
+  containerName: string;
+  namespace: string;
+  createdAt: number;
+  timeoutSeconds: number;
+}
+
+export type DebugOperationType = "ephemeral" | "copyPod" | "nodeDebug";
+
+export type DebugStatus =
+  | { type: "Pending"; reason: string }
+  | { type: "Ready"; result: DebugResult }
+  | { type: "Failed"; error: string }
+  | { type: "Timeout" };
 
 export interface ClusterStats {
   pods: PodStats;
