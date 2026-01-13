@@ -10,7 +10,7 @@ import { useClusterStore } from "@/stores/clusterStore";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { LicenseErrorBanner } from "@/components/license/LicenseErrorBanner";
 import { MetricsStatusBanner } from "@/components/metrics";
-import type { PodInfo, DebugResult } from "@/generated/types";
+import type { PodInfo, DebugOperation } from "@/generated/types";
 import { DebugPodDialog } from "@/components/debug";
 import {
   Tooltip,
@@ -252,16 +252,17 @@ export function PodDetail() {
     setShowTerminal(true);
   };
 
-  const handleDebugStart = async (result: DebugResult) => {
-    if (result.isNewPod) {
-      // Navigate to the new debug pod
+  const handleDebugStart = async (operation: DebugOperation) => {
+    // For copyPod and nodeDebug, navigate to the new debug pod
+    // For ephemeral containers, open terminal to the debug container in the current pod
+    if (operation.operationType === "copyPod" || operation.operationType === "nodeDebug") {
       navigate(
-        `/${toPlural(ResourceType.Pod)}/${result.namespace}/${result.podName}`,
+        `/${toPlural(ResourceType.Pod)}/${operation.namespace}/${operation.podName}`,
         { replace: false }
       );
     } else {
-      // Open terminal to the debug container in the current pod
-      setSelectedContainer(result.containerName);
+      // Ephemeral container - open terminal to the debug container in the current pod
+      setSelectedContainer(operation.containerName);
       setShowTerminal(true);
     }
   };

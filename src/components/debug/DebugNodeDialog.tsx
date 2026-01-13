@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle, Server } from "lucide-react";
-import type { DebugConfig, DebugResult } from "@/generated/types";
+import type { DebugConfig, DebugOperation } from "@/generated/types";
 import { commands } from "@/lib/commands";
 import { useToast } from "@/components/ui/use-toast";
 import { Spinner } from "@/components/ui/spinner";
@@ -29,7 +29,7 @@ export interface DebugNodeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   nodeName: string;
-  onDebugStart: (result: DebugResult) => void;
+  onDebugStart: (operation: DebugOperation) => void;
 }
 
 export function DebugNodeDialog({

@@ -21,7 +21,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Bug, Copy, Info } from "lucide-react";
-import type { DebugConfig, DebugResult } from "@/generated/types";
+import type { DebugConfig, DebugOperation } from "@/generated/types";
 import { commands } from "@/lib/commands";
 import { useToast } from "@/components/ui/use-toast";
 import { Spinner } from "@/components/ui/spinner";
@@ -39,7 +39,7 @@ export interface DebugPodDialogProps {
   containers: string[];
   /** Kubernetes version (e.g., "v1.28.0") for feature detection */
   kubernetesVersion?: string;
-  onDebugStart: (result: DebugResult) => void;
+  onDebugStart: (operation: DebugOperation) => void;
 }
 
 export function DebugPodDialog({
@@ -90,20 +90,20 @@ export function DebugPodDialog({
         shareProcesses: mode === "copyPod" ? shareProcesses : false,
       };
 
-      let result: DebugResult;
+      let operation: DebugOperation;
 
       if (mode === "ephemeralContainer") {
-        result = await commands.debugPodEphemeral(podName, namespace, config);
+        operation = await commands.debugPodEphemeral(podName, namespace, config);
       } else {
-        result = await commands.debugPodCopy(podName, namespace, config);
+        operation = await commands.debugPodCopy(podName, namespace, config);
       }
 
       toast({
         title: "Debug container ready",
-        description: `Container "${result.containerName}" is ready in pod "${result.podName}"`,
+        description: `Container "${operation.containerName}" is ready in pod "${operation.podName}"`,
       });
 
-      onDebugStart(result);
+      onDebugStart(operation);
       onOpenChange(false);
     } catch (error) {
       toast({
