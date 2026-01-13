@@ -1,6 +1,16 @@
 import { useCallback, useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
+/** Keyboard action mapping: key -> callback */
+export interface KeyboardAction {
+  /** Keyboard key (single character or key name) */
+  key: string;
+  /** Callback when key is pressed */
+  onAction: (rowIndex: number) => void;
+  /** Description for help text */
+  label?: string;
+}
+
 interface UseTableKeyboardNavOptions {
   /** Total number of rows */
   rowCount: number;
@@ -10,6 +20,8 @@ interface UseTableKeyboardNavOptions {
   onRowAction?: (rowIndex: number) => void;
   /** Whether keyboard navigation is enabled */
   enabled?: boolean;
+  /** Custom keyboard actions */
+  keyboardActions?: KeyboardAction[];
 }
 
 interface UseTableKeyboardNavReturn {
@@ -34,6 +46,7 @@ export function useTableKeyboardNav({
   getRowHref,
   onRowAction,
   enabled = true,
+  keyboardActions = [],
 }: UseTableKeyboardNavOptions): UseTableKeyboardNavReturn {
   const [focusedRowIndex, setFocusedRowIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -62,6 +75,16 @@ export function useTableKeyboardNav({
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent, currentIndex: number) => {
       if (!enabled) return;
+
+      // Check custom keyboard actions first
+      const customAction = keyboardActions.find(
+        (action) => action.key.toLowerCase() === e.key.toLowerCase()
+      );
+      if (customAction) {
+        e.preventDefault();
+        customAction.onAction(currentIndex);
+        return;
+      }
 
       switch (e.key) {
         case "ArrowDown":
@@ -102,7 +125,7 @@ export function useTableKeyboardNav({
           break;
       }
     },
-    [enabled, rowCount, getRowHref, onRowAction, navigate, focusRow]
+    [enabled, rowCount, getRowHref, onRowAction, navigate, focusRow, keyboardActions]
   );
 
   const getRowProps = useCallback(
