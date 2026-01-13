@@ -128,7 +128,7 @@ pub async fn debug_pod_ephemeral(
     namespace: Option<String>,
     config: DebugConfig,
     state: State<'_, AppState>,
-) -> Result<DebugResult> {
+) -> Result<DebugOperation> {
     crate::validation::validate_dns_label(&pod_name)?;
 
     let ctx = ResourceContext::for_command(&state, namespace)?;
@@ -197,12 +197,27 @@ pub async fn debug_pod_ephemeral(
         }
     })?;
 
-    Ok(DebugResult {
+    // Create and store the debug operation
+    let operation_id = format!("debug-{}", uuid::Uuid::new_v4());
+    let created_at = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let timeout_seconds = config.timeout_seconds.unwrap_or(120);
+
+    let operation = DebugOperation {
+        id: operation_id.clone(),
+        operation_type: DebugOperationType::Ephemeral,
         pod_name,
         container_name,
         namespace: ns,
-        is_new_pod: false,
-    })
+        created_at,
+        timeout_seconds,
+    };
+
+    state.debug_operations.insert(operation_id, operation.clone());
+
+    Ok(operation)
 }
 
 /// Create a copy of a pod with a debug container
