@@ -11,7 +11,8 @@ import {
   matchStatefulSetPods,
   type ResourceMetrics,
 } from "@/lib/metrics";
-import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { ResourceType } from "@/lib/resource-registry";
+import { queryKeys } from "@/lib/query-keys";
 import { getResourceDetailUrl, getResourceListUrl } from "@/lib/navigation-utils";
 import type { StatefulSetInfo } from "@/generated/types";
 import { commands } from "@/lib/commands";
@@ -47,7 +48,7 @@ export function StatefulSetList() {
   } = usePodsWithMetrics();
 
   const statefulSetsQuery = useResourceList(
-    [toPlural(ResourceType.StatefulSet), currentNamespace],
+    queryKeys.resources(ResourceType.StatefulSet, currentNamespace),
     () => commands.listStatefulsets({
       namespace: currentNamespace || null,
       labelSelector: null,
@@ -116,7 +117,7 @@ export function StatefulSetList() {
           mutationFn: async (item) => {
             await commands.deleteStatefulset(item.name, item.namespace);
           },
-          invalidateQueryKeys: [["statefulsets"]],
+          invalidateQueryKeys: [queryKeys.resources(ResourceType.StatefulSet, currentNamespace)],
           resourceType: ResourceType.StatefulSet,
         }}
         emptyStateLabel="statefulsets"

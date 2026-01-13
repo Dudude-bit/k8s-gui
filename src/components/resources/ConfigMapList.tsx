@@ -13,7 +13,8 @@ import { ActionMenu } from "@/components/ui/action-menu";
 import { YamlEditorMenuAction } from "@/components/yaml";
 import type { ConfigMapInfo } from "@/generated/types";
 import { ResourceList } from "./ResourceList";
-import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { ResourceType } from "@/lib/resource-registry";
+import { queryKeys } from "@/lib/query-keys";
 import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import { useCopyToClipboard } from "@/hooks";
 import { STALE_TIMES } from "@/lib/refresh";
@@ -60,7 +61,7 @@ export function ConfigMapList() {
     <>
       <ResourceList<ConfigMapInfo>
         title="ConfigMaps"
-        queryKey={[toPlural(ResourceType.ConfigMap), currentNamespace]}
+        queryKey={queryKeys.resources(ResourceType.ConfigMap, currentNamespace)}
         getRowId={getResourceRowId}
         queryFn={async () => {
           const result = await commands.listConfigmaps({
@@ -147,7 +148,7 @@ export function ConfigMapList() {
           mutationFn: async (item) => {
             await commands.deleteConfigmap(item.name, item.namespace);
           },
-          invalidateQueryKeys: [[toPlural(ResourceType.ConfigMap)]],
+          invalidateQueryKeys: [queryKeys.resources(ResourceType.ConfigMap, currentNamespace)],
           resourceType: ResourceType.ConfigMap,
         }}
         staleTime={STALE_TIMES.resourceList}

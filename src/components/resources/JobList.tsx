@@ -12,7 +12,8 @@ import {
   matchJobPods,
   type ResourceMetrics,
 } from "@/lib/metrics";
-import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { ResourceType } from "@/lib/resource-registry";
+import { queryKeys } from "@/lib/query-keys";
 import { getResourceDetailUrl, getResourceListUrl } from "@/lib/navigation-utils";
 import type { JobInfo } from "@/generated/types";
 import { commands } from "@/lib/commands";
@@ -47,7 +48,7 @@ export function JobList() {
   } = usePodsWithMetrics();
 
   const jobsQuery = useResourceList(
-    [toPlural(ResourceType.Job), currentNamespace],
+    queryKeys.resources(ResourceType.Job, currentNamespace),
     () => commands.listJobs({
       namespace: currentNamespace || null,
       labelSelector: null,
@@ -126,7 +127,7 @@ export function JobList() {
           mutationFn: async (item) => {
             await commands.deleteJob(item.name, item.namespace);
           },
-          invalidateQueryKeys: [["jobs"]],
+          invalidateQueryKeys: [queryKeys.resources(ResourceType.Job, currentNamespace)],
           resourceType: ResourceType.Job,
         }}
         emptyStateLabel="jobs"

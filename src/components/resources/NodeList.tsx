@@ -23,6 +23,7 @@ import { MetricsStatusBanner } from "@/components/metrics";
 import { ResourceList } from "@/components/resources/ResourceList";
 import type { NodeInfo } from "@/generated/types";
 import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
+import { queryKeys } from "@/lib/query-keys";
 import { RealtimeAge } from "@/components/ui/realtime";
 import { getResourceRowId } from "@/lib/table-utils";
 
@@ -49,7 +50,7 @@ export function NodeList() {
   const cordonMutation = useMutation({
     mutationFn: (nodeName: string) => commands.cordonNode(nodeName),
     onSuccess: (_, nodeName) => {
-      queryClient.invalidateQueries({ queryKey: [toPlural(ResourceType.Node)] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(ResourceType.Node, null) });
       toast({
         title: "Node cordoned",
         description: `Node ${nodeName} has been cordoned.`,
@@ -67,7 +68,7 @@ export function NodeList() {
   const uncordonMutation = useMutation({
     mutationFn: (nodeName: string) => commands.uncordonNode(nodeName),
     onSuccess: (_, nodeName) => {
-      queryClient.invalidateQueries({ queryKey: [toPlural(ResourceType.Node)] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(ResourceType.Node, null) });
       toast({
         title: "Node uncordoned",
         description: `Node ${nodeName} has been uncordoned.`,
@@ -85,7 +86,7 @@ export function NodeList() {
   const drainMutation = useMutation({
     mutationFn: (nodeName: string) => commands.drainNode(nodeName, true, true),
     onSuccess: (_, nodeName) => {
-      queryClient.invalidateQueries({ queryKey: [toPlural(ResourceType.Node)] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.resources(ResourceType.Node, null) });
       toast({
         title: "Node drained",
         description: `Node ${nodeName} has been drained.`,
@@ -259,7 +260,7 @@ export function NodeList() {
   return (
     <ResourceList<NodeInfo>
       title="Nodes"
-      queryKey={[toPlural(ResourceType.Node)]}
+      queryKey={queryKeys.resources(ResourceType.Node, null)}
       getRowId={getResourceRowId}
       queryFn={() => commands.listNodes(null)}
       columns={columns}

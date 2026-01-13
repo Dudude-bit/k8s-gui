@@ -12,6 +12,7 @@ import { useMemo } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceList } from "./ResourceList";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { queryKeys } from "@/lib/query-keys";
 import { getResourceDetailUrl, getResourceListUrl } from "@/lib/navigation-utils";
 import type { ServiceInfo, ServicePortInfo } from "@/generated/types";
 import { STALE_TIMES } from "@/lib/refresh";
@@ -94,7 +95,7 @@ export function ServiceList() {
   return (
     <ResourceList<ServiceInfo>
       title="Services"
-      queryKey={[toPlural(ResourceType.Service), currentNamespace]}
+      queryKey={queryKeys.resources(ResourceType.Service, currentNamespace)}
       getRowId={getResourceRowId}
       queryFn={async () => {
         const result = await commands.listServices({
@@ -138,7 +139,7 @@ export function ServiceList() {
         mutationFn: async (item) => {
           await commands.deleteService(item.name, item.namespace);
         },
-        invalidateQueryKeys: [[toPlural(ResourceType.Service)]],
+        invalidateQueryKeys: [queryKeys.resources(ResourceType.Service, currentNamespace)],
         resourceType: ResourceType.Service,
       }}
       staleTime={STALE_TIMES.resourceList}

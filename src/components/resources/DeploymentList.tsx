@@ -11,6 +11,7 @@ import { useMemo } from "react";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { ResourceList } from "./ResourceList";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { queryKeys } from "@/lib/query-keys";
 import { getResourceDetailUrl, getResourceListUrl } from "@/lib/navigation-utils";
 import { usePodsWithMetrics } from "@/hooks/usePodsWithMetrics";
 import { useResourceList } from "@/hooks/useResource";
@@ -49,7 +50,7 @@ export function DeploymentList() {
   } = usePodsWithMetrics();
 
   const deploymentsQuery = useResourceList(
-    [toPlural(ResourceType.Deployment), currentNamespace],
+    queryKeys.resources(ResourceType.Deployment, currentNamespace),
     () => commands.listDeployments({
       namespace: currentNamespace || null,
       labelSelector: null,
@@ -145,7 +146,7 @@ export function DeploymentList() {
         getRowHref={(row) => getResourceDetailUrl(ResourceType.Deployment, row.name, row.namespace)}
         deleteConfig={{
           mutationFn: (item) => commands.deleteDeployment(item.name, item.namespace),
-          invalidateQueryKeys: [[toPlural(ResourceType.Deployment)]],
+          invalidateQueryKeys: [queryKeys.resources(ResourceType.Deployment, currentNamespace)],
           resourceType: ResourceType.Deployment,
         }}
       />

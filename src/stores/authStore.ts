@@ -26,7 +26,6 @@ interface AuthState {
 
   // User state
   user: UserProfile | null;
-  userProfile: UserProfile | null;
 
   // License state
   licenseStatus: LicenseStatus | null;
@@ -50,7 +49,9 @@ interface AuthState {
   // Actions - License
   checkLicenseStatus: (forceRefresh?: boolean) => Promise<void>;
   activateLicense: (licenseKey: string) => Promise<void>;
-  setUserProfile: (profile: UserProfile) => void;
+
+  // Actions - User
+  setUser: (user: UserProfile) => void;
 }
 
 const DISABLED_LICENSE_STATUS: LicenseStatus = {
@@ -76,7 +77,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loading: false,
   error: null,
   user: AUTH_DISABLED ? DISABLED_USER_PROFILE : null,
-  userProfile: AUTH_DISABLED ? DISABLED_USER_PROFILE : null,
   licenseStatus: AUTH_DISABLED ? DISABLED_LICENSE_STATUS : null,
   isCheckingLicense: false,
   licenseError: null,
@@ -88,7 +88,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         isAuthenticated: true,
         user: DISABLED_USER_PROFILE,
-        userProfile: DISABLED_USER_PROFILE,
         licenseStatus: DISABLED_LICENSE_STATUS,
         loading: false,
         error: null,
@@ -106,8 +105,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // Load user profile
       try {
-        const userProfile = await commands.getUserProfile();
-        set({ user: userProfile, userProfile });
+        const profile = await commands.getUserProfile();
+        set({ user: profile });
       } catch (profileError) {
         console.warn("Failed to load user profile:", profileError);
       }
@@ -138,7 +137,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         isAuthenticated: true,
         user: DISABLED_USER_PROFILE,
-        userProfile: DISABLED_USER_PROFILE,
         licenseStatus: DISABLED_LICENSE_STATUS,
         loading: false,
         error: null,
@@ -161,8 +159,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // Load user profile
       try {
-        const userProfile = await commands.getUserProfile();
-        set({ user: userProfile, userProfile });
+        const profile = await commands.getUserProfile();
+        set({ user: profile });
       } catch (profileError) {
         console.warn("Failed to load user profile:", profileError);
       }
@@ -188,7 +186,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         isAuthenticated: true,
         user: DISABLED_USER_PROFILE,
-        userProfile: DISABLED_USER_PROFILE,
         licenseStatus: DISABLED_LICENSE_STATUS,
         error: null,
       });
@@ -204,7 +201,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({
       isAuthenticated: false,
       user: null,
-      userProfile: null,
       licenseStatus: null,
       error: null,
     });
@@ -215,16 +211,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         isAuthenticated: true,
         user: DISABLED_USER_PROFILE,
-        userProfile: DISABLED_USER_PROFILE,
       });
       return;
     }
     // Backend handles token validation. We just try to get profile.
     try {
-      const userProfile = await commands.getUserProfile();
-      set({ isAuthenticated: true, user: userProfile, userProfile });
+      const profile = await commands.getUserProfile();
+      set({ isAuthenticated: true, user: profile });
     } catch (e) {
-      set({ isAuthenticated: false, user: null, userProfile: null });
+      set({ isAuthenticated: false, user: null });
     }
   },
 
@@ -233,7 +228,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         isAuthenticated: true,
         user: DISABLED_USER_PROFILE,
-        userProfile: DISABLED_USER_PROFILE,
         licenseStatus: DISABLED_LICENSE_STATUS,
         loading: false,
       });
@@ -244,16 +238,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // Try to restore session from backend (it will load from keychain)
     try {
       // We try to get user profile. If successful, we are authenticated.
-      const userProfile = await commands.getUserProfile();
+      const profile = await commands.getUserProfile();
       set({
         isAuthenticated: true,
-        user: userProfile,
-        userProfile,
+        user: profile,
         loading: false,
       });
 
-      // Also check license
-      get().checkLicenseStatus();
+      // Also check license - await to ensure it completes before initialization finishes
+      await get().checkLicenseStatus();
     } catch (error) {
       // Not authenticated or token expired
       set({
@@ -324,8 +317,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  setUserProfile: (profile: UserProfile) => {
-    set({ userProfile: profile, user: profile });
+  setUser: (user: UserProfile) => {
+    set({ user });
   },
 }));
 

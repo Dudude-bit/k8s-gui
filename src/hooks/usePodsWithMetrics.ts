@@ -6,6 +6,7 @@ import { normalizeTauriError } from "@/lib/error-utils";
 import { useMetrics } from "@/hooks/useMetrics";
 import { mergePodsWithMetrics, type PodWithMetrics } from "@/lib/metrics";
 import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
+import { queryKeys } from "@/lib/query-keys";
 
 export type { PodWithMetrics } from "@/lib/metrics";
 
@@ -30,7 +31,7 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
     data: pods = [],
     isLoading: isLoadingPods,
   } = useQuery({
-    queryKey: ["pods", currentNamespace],
+    queryKey: queryKeys.pods(currentNamespace),
     queryFn: async () => {
       try {
         return await commands.listPods({

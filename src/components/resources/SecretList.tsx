@@ -14,7 +14,8 @@ import { ActionMenu } from "@/components/ui/action-menu";
 import { YamlEditorMenuAction } from "@/components/yaml";
 import type { SecretInfo } from "@/generated/types";
 import { ResourceList } from "./ResourceList";
-import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { ResourceType } from "@/lib/resource-registry";
+import { queryKeys } from "@/lib/query-keys";
 import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import { useCopyToClipboard } from "@/hooks";
 import { STALE_TIMES } from "@/lib/refresh";
@@ -86,7 +87,7 @@ export function SecretList() {
     <>
       <ResourceList<SecretInfo>
         title="Secrets"
-        queryKey={[toPlural(ResourceType.Secret), currentNamespace]}
+        queryKey={queryKeys.resources(ResourceType.Secret, currentNamespace)}
         getRowId={getResourceRowId}
         queryFn={async () => {
           const result = await commands.listSecrets({
@@ -170,7 +171,7 @@ export function SecretList() {
           mutationFn: async (item) => {
             await commands.deleteSecret(item.name, item.namespace);
           },
-          invalidateQueryKeys: [[toPlural(ResourceType.Secret)]],
+          invalidateQueryKeys: [queryKeys.resources(ResourceType.Secret, currentNamespace)],
           resourceType: ResourceType.Secret,
         }}
         staleTime={STALE_TIMES.resourceList}

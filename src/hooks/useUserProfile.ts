@@ -13,7 +13,7 @@ import { AUTH_DISABLED } from "@/lib/flags";
  * @returns Object containing user profile, loading state, error state, and methods
  */
 export function useUserProfile() {
-  const { userProfile, isAuthenticated, setUserProfile } = useAuthStore();
+  const { user, isAuthenticated, setUser } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,23 +30,23 @@ export function useUserProfile() {
 
     try {
       const profile = await commands.getUserProfile();
-      setUserProfile(profile);
+      setUser(profile);
     } catch (err) {
       setError(normalizeTauriError(err));
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, setUserProfile]);
+  }, [isAuthenticated, setUser]);
 
   const updateProfile = useCallback(
     async (updates: Partial<UserProfile>) => {
       if (AUTH_DISABLED) {
-        if (userProfile) {
-          setUserProfile({
-            ...userProfile,
-            firstName: updates.firstName ?? userProfile.firstName,
-            lastName: updates.lastName ?? userProfile.lastName,
-            company: updates.company ?? userProfile.company,
+        if (user) {
+          setUser({
+            ...user,
+            firstName: updates.firstName ?? user.firstName,
+            lastName: updates.lastName ?? user.lastName,
+            company: updates.company ?? user.company,
           });
         }
         return;
@@ -60,7 +60,7 @@ export function useUserProfile() {
           updates.lastName ?? null,
           updates.company ?? null
         );
-        setUserProfile(updated);
+        setUser(updated);
       } catch (err) {
         const errorMessage = normalizeTauriError(err);
         setError(errorMessage);
@@ -69,11 +69,11 @@ export function useUserProfile() {
         setIsLoading(false);
       }
     },
-    [setUserProfile, userProfile]
+    [setUser, user]
   );
 
   return {
-    userProfile,
+    userProfile: user,
     isLoading,
     error,
     loadProfile,

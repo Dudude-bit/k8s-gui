@@ -24,6 +24,7 @@ import type { ContainerInfo } from "@/generated/types";
 import { commands } from "@/lib/commands";
 import { ResourceList } from "./ResourceList";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { queryKeys } from "@/lib/query-keys";
 import { getResourceDetailUrl, getResourceListUrl } from "@/lib/navigation-utils";
 import { MetricsStatusBanner } from "@/components/metrics";
 import { getResourceRowId } from "@/lib/table-utils";
@@ -133,7 +134,7 @@ export function PodList() {
         getRowHref={(row) => getResourceDetailUrl(ResourceType.Pod, row.name, row.namespace)}
         deleteConfig={{
           mutationFn: (item) => commands.deletePod(item.name, item.namespace, false),
-          invalidateQueryKeys: [[toPlural(ResourceType.Pod)]],
+          invalidateQueryKeys: [queryKeys.pods()],
           resourceType: ResourceType.Pod,
         }}
       />

@@ -16,6 +16,7 @@ import { commands } from "@/lib/commands";
 import type { EndpointsInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { getResourceDetailUrl } from "@/lib/navigation-utils";
+import { queryKeys } from "@/lib/query-keys";
 import { STALE_TIMES } from "@/lib/refresh";
 import { getResourceRowId } from "@/lib/table-utils";
 
@@ -163,7 +164,7 @@ export function EndpointsList() {
     <ResourceList<EndpointsInfo>
       title="Endpoints"
       description={`Network endpoints for services in ${currentNamespace || "all namespaces"}`}
-      queryKey={[toPlural(ResourceType.Endpoints), currentNamespace]}
+      queryKey={queryKeys.resources(ResourceType.Endpoints, currentNamespace)}
       getRowId={getResourceRowId}
       queryFn={() =>
         commands.listEndpoints({

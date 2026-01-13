@@ -17,6 +17,7 @@ import { commands } from "@/lib/commands";
 import type { StorageClassInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { getResourceDetailUrl } from "@/lib/navigation-utils";
+import { queryKeys } from "@/lib/query-keys";
 import { STALE_TIMES } from "@/lib/refresh";
 import { getResourceRowId } from "@/lib/table-utils";
 
@@ -116,7 +117,7 @@ export function StorageClassList() {
     <ResourceList<StorageClassInfo>
       title="Storage Classes"
       description="Describes the classes of storage available in the cluster"
-      queryKey={[toPlural(ResourceType.StorageClass)]}
+      queryKey={queryKeys.resources(ResourceType.StorageClass, null)}
       getRowId={getResourceRowId}
       queryFn={() => commands.listStorageClasses(null)}
       columns={(setDeleteTarget) => [
@@ -148,7 +149,7 @@ export function StorageClassList() {
       emptyStateLabel={toPlural(ResourceType.StorageClass)}
       deleteConfig={{
         mutationFn: (item) => commands.deleteStorageClass(item.name),
-        invalidateQueryKeys: [[toPlural(ResourceType.StorageClass)]],
+        invalidateQueryKeys: [queryKeys.resources(ResourceType.StorageClass, null)],
         resourceType: ResourceType.StorageClass,
       }}
       staleTime={STALE_TIMES.resourceList}

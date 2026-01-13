@@ -13,7 +13,8 @@ import {
   type ResourceMetrics,
 } from "@/lib/metrics";
 import { RealtimeAge } from "@/components/ui/realtime";
-import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { ResourceType } from "@/lib/resource-registry";
+import { queryKeys } from "@/lib/query-keys";
 import { getResourceDetailUrl, getResourceListUrl } from "@/lib/navigation-utils";
 import type { CronJobInfo } from "@/generated/types";
 import { commands } from "@/lib/commands";
@@ -48,7 +49,7 @@ export function CronJobList() {
   } = usePodsWithMetrics();
 
   const cronJobsQuery = useResourceList(
-    [toPlural(ResourceType.CronJob), currentNamespace],
+    queryKeys.resources(ResourceType.CronJob, currentNamespace),
     () => commands.listCronjobs({
       namespace: currentNamespace || null,
       labelSelector: null,
@@ -141,7 +142,7 @@ export function CronJobList() {
           mutationFn: async (item) => {
             await commands.deleteCronjob(item.name, item.namespace);
           },
-          invalidateQueryKeys: [["cronjobs"]],
+          invalidateQueryKeys: [queryKeys.resources(ResourceType.CronJob, currentNamespace)],
           resourceType: ResourceType.CronJob,
         }}
         emptyStateLabel="cronjobs"

@@ -13,6 +13,7 @@ import type {
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { handlePremiumQueryError } from "@/lib/error-utils";
 import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
+import { queryKeys } from "@/lib/query-keys";
 
 export interface UseMetricsOptions {
   namespace?: string | null;
@@ -67,7 +68,7 @@ export function useMetrics(options?: UseMetricsOptions) {
   const includeCluster = options?.includeCluster ?? true;
 
   const podMetricsQuery = useQuery({
-    queryKey: ["metrics", "pods", options?.namespace ?? null],
+    queryKey: queryKeys.metrics.pods(options?.namespace),
     queryFn: async () => {
       try {
         return await commands.getPodsMetrics(options?.namespace ?? null);
@@ -84,7 +85,7 @@ export function useMetrics(options?: UseMetricsOptions) {
   });
 
   const nodeMetricsQuery = useQuery({
-    queryKey: ["metrics", "nodes"],
+    queryKey: queryKeys.metrics.nodes(),
     queryFn: async () => {
       try {
         return await commands.getNodesMetrics();
@@ -101,7 +102,7 @@ export function useMetrics(options?: UseMetricsOptions) {
   });
 
   const clusterMetricsQuery = useQuery({
-    queryKey: ["metrics", "cluster"],
+    queryKey: queryKeys.metrics.cluster(),
     queryFn: async () => {
       try {
         return await commands.getClusterMetrics();
@@ -127,5 +128,18 @@ export function useMetrics(options?: UseMetricsOptions) {
     podMetricsQuery,
     nodeMetricsQuery,
     clusterMetricsQuery,
+    // Combined loading states for easier consumption
+    isLoading:
+      podMetricsQuery.isLoading ||
+      nodeMetricsQuery.isLoading ||
+      clusterMetricsQuery.isLoading,
+    isFetching:
+      podMetricsQuery.isFetching ||
+      nodeMetricsQuery.isFetching ||
+      clusterMetricsQuery.isFetching,
+    isError:
+      podMetricsQuery.isError ||
+      nodeMetricsQuery.isError ||
+      clusterMetricsQuery.isError,
   };
 }

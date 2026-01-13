@@ -11,7 +11,8 @@ import {
   matchDaemonSetPods,
   type ResourceMetrics,
 } from "@/lib/metrics";
-import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { ResourceType } from "@/lib/resource-registry";
+import { queryKeys } from "@/lib/query-keys";
 import { getResourceDetailUrl, getResourceListUrl } from "@/lib/navigation-utils";
 import type { DaemonSetInfo } from "@/generated/types";
 import { commands } from "@/lib/commands";
@@ -46,7 +47,7 @@ export function DaemonSetList() {
   } = usePodsWithMetrics();
 
   const daemonSetsQuery = useResourceList(
-    [toPlural(ResourceType.DaemonSet), currentNamespace],
+    queryKeys.resources(ResourceType.DaemonSet, currentNamespace),
     () => commands.listDaemonsets({
       namespace: currentNamespace || null,
       labelSelector: null,
@@ -140,7 +141,7 @@ export function DaemonSetList() {
           mutationFn: async (item) => {
             await commands.deleteDaemonset(item.name, item.namespace);
           },
-          invalidateQueryKeys: [["daemonsets"]],
+          invalidateQueryKeys: [queryKeys.resources(ResourceType.DaemonSet, currentNamespace)],
           resourceType: ResourceType.DaemonSet,
         }}
         emptyStateLabel="daemonsets"

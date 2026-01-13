@@ -5,6 +5,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
 import { Eye, Trash2, Globe, ExternalLink } from "lucide-react";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { queryKeys } from "@/lib/query-keys";
 import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import {
   DropdownMenuItem,
@@ -176,7 +177,7 @@ export function IngressList() {
   return (
     <ResourceList<IngressInfo>
       title="Ingresses"
-      queryKey={[toPlural(ResourceType.Ingress), currentNamespace]}
+      queryKey={queryKeys.resources(ResourceType.Ingress, currentNamespace)}
       getRowId={getResourceRowId}
       queryFn={() =>
         commands.listIngresses({
@@ -227,7 +228,7 @@ export function IngressList() {
       deleteConfig={{
         mutationFn: (item) =>
           commands.deleteIngress(item.name, item.namespace ?? null),
-        invalidateQueryKeys: [[toPlural(ResourceType.Ingress)]],
+        invalidateQueryKeys: [queryKeys.resources(ResourceType.Ingress, currentNamespace)],
         resourceType: ResourceType.Ingress,
       }}
       staleTime={STALE_TIMES.resourceList}
