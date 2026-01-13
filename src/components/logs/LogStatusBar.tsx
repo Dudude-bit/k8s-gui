@@ -1,5 +1,11 @@
 import { useMemo } from "react";
-import type { LogLine } from "@/generated/types";
+import type { LogLine, LogFormat } from "@/generated/types";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { FORMAT_DESCRIPTIONS } from "./types";
 
 interface LogStatusBarProps {
   logs: LogLine[];
@@ -14,7 +20,7 @@ export function LogStatusBar({
   isStreaming,
   searchQuery,
 }: LogStatusBarProps) {
-  const detectedFormat = useMemo(() => {
+  const formatInfo = useMemo(() => {
     if (logs.length === 0) return null;
 
     const formatCounts = new Map<string, number>();
@@ -24,25 +30,34 @@ export function LogStatusBar({
     }
 
     if (formatCounts.size === 1) {
-      return formatCounts.keys().next().value ?? null;
+      const format = formatCounts.keys().next().value as LogFormat;
+      return { format, label: format, description: FORMAT_DESCRIPTIONS[format] };
     }
 
     // Find dominant format
-    let maxFormat = "mixed";
+    let maxFormat: LogFormat = "plain";
     let maxCount = 0;
     for (const [format, count] of formatCounts) {
       if (count > maxCount) {
         maxCount = count;
-        maxFormat = format;
+        maxFormat = format as LogFormat;
       }
     }
 
     const percentage = Math.round((maxCount / logs.length) * 100);
     if (percentage >= 90) {
-      return `${maxFormat} (${percentage}%)`;
+      return {
+        format: maxFormat,
+        label: `${maxFormat} (${percentage}%)`,
+        description: FORMAT_DESCRIPTIONS[maxFormat],
+      };
     }
 
-    return "mixed";
+    return {
+      format: "mixed" as const,
+      label: "mixed",
+      description: "Logs contain multiple formats",
+    };
   }, [logs]);
 
   return (
@@ -54,8 +69,15 @@ export function LogStatusBar({
         )}
       </span>
       <div className="flex items-center gap-4">
-        {detectedFormat && (
-          <span className="capitalize">format: {detectedFormat}</span>
+        {formatInfo && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="capitalize cursor-help">
+                format: {formatInfo.label}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">{formatInfo.description}</TooltipContent>
+          </Tooltip>
         )}
         {isStreaming && (
           <span className="flex items-center gap-1">

@@ -90,18 +90,18 @@ export function LogViewer({
 
   // Auto-scroll to bottom when new logs arrive
   useEffect(() => {
-    if (autoScroll) {
+    if (autoScroll && filteredLogs.length > 0) {
       const viewport = getViewport();
       if (viewport) {
+        // Double rAF to ensure DOM is updated before scrolling
         requestAnimationFrame(() => {
-          viewport.scrollTo({
-            top: viewport.scrollHeight,
-            behavior: "smooth",
+          requestAnimationFrame(() => {
+            viewport.scrollTop = viewport.scrollHeight;
           });
         });
       }
     }
-  }, [logs, autoScroll, getViewport]);
+  }, [filteredLogs, autoScroll, getViewport]);
 
   // Track scroll position
   useEffect(() => {
@@ -125,16 +125,22 @@ export function LogViewer({
     return () => viewport.removeEventListener("scroll", handleScroll);
   }, [autoScroll, getViewport]);
 
-  const scrollToBottom = useCallback(() => {
-    const viewport = getViewport();
-    if (viewport) {
-      viewport.scrollTo({
-        top: viewport.scrollHeight,
-        behavior: "smooth",
-      });
+  const handleAutoScrollToggle = useCallback(() => {
+    if (autoScroll) {
+      // Disable auto-scroll
+      setAutoScroll(false);
+    } else {
+      // Enable auto-scroll and scroll to bottom
+      const viewport = getViewport();
+      if (viewport) {
+        viewport.scrollTo({
+          top: viewport.scrollHeight,
+          behavior: "smooth",
+        });
+      }
       setAutoScroll(true);
     }
-  }, [getViewport]);
+  }, [autoScroll, getViewport]);
 
   const handleDownloadLogs = async () => {
     try {
@@ -222,7 +228,7 @@ export function LogViewer({
         isConnecting={isConnecting}
         autoScroll={autoScroll}
         isAtBottom={isAtBottom}
-        onScrollToBottom={scrollToBottom}
+        onAutoScrollToggle={handleAutoScrollToggle}
         onClearLogs={clearLogs}
         onDownloadLogs={handleDownloadLogs}
         onToggleStreaming={togglePause}

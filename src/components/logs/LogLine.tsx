@@ -1,11 +1,17 @@
 import { memo } from "react";
 import type { LogLine as LogLineType } from "@/generated/types";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   ViewMode,
   HIDDEN_FIELD_KEYS,
   LEVEL_LABELS,
   LEVEL_COLORS,
   LEVEL_BORDER_COLORS,
+  FORMAT_DESCRIPTIONS,
   formatTimestamp,
 } from "./types";
 
@@ -108,9 +114,16 @@ export const LogLineComponent = memo(function LogLineComponent({
         {levelLabel}
       </span>
       {log.format !== "plain" && (
-        <span className="shrink-0 text-[10px] uppercase text-muted-foreground">
-          {log.format}
-        </span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="shrink-0 text-[10px] uppercase text-muted-foreground cursor-help">
+              {log.format}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            {FORMAT_DESCRIPTIONS[log.format]}
+          </TooltipContent>
+        </Tooltip>
       )}
       <div className="flex flex-col gap-1 w-full min-w-0">
         <span className="whitespace-pre-wrap break-all">

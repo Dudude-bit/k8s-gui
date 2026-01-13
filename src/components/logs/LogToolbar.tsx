@@ -35,7 +35,7 @@ interface LogToolbarProps {
   isConnecting: boolean;
   autoScroll: boolean;
   isAtBottom: boolean;
-  onScrollToBottom: () => void;
+  onAutoScrollToggle: () => void;
   onClearLogs: () => void;
   onDownloadLogs: () => void;
   onToggleStreaming: () => void;
@@ -55,7 +55,7 @@ export function LogToolbar({
   isConnecting,
   autoScroll,
   isAtBottom,
-  onScrollToBottom,
+  onAutoScrollToggle,
   onClearLogs,
   onDownloadLogs,
   onToggleStreaming,
@@ -134,11 +134,11 @@ export function LogToolbar({
         <Button
           variant={autoScroll ? "secondary" : "ghost"}
           size="icon"
-          onClick={onScrollToBottom}
-          title={autoScroll ? "Auto-scroll enabled" : "Scroll to bottom"}
+          onClick={onAutoScrollToggle}
+          title={autoScroll ? "Auto-scroll enabled (click to disable)" : "Enable auto-scroll"}
         >
           <ArrowDown
-            className={`h-4 w-4 ${!isAtBottom ? "animate-bounce" : ""}`}
+            className={`h-4 w-4 ${!isAtBottom && !autoScroll ? "animate-bounce" : ""}`}
           />
         </Button>
         <Button
