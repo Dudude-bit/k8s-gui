@@ -184,23 +184,22 @@ export function Terminal({
 
       try {
         const pod = await commands.getPod(podName, namespace);
+        // Check regular containers (ephemeral containers won't be in this list)
         const container = pod.containers?.find(
           (item) => item.name === containerName
         );
 
-        if (!container) {
-          setUnavailableReason("Container not found");
-          disconnect();
-          return;
-        }
-
-        if (container.state.type === "terminated") {
-          const reason = container.state.reason
-            ? `: ${container.state.reason}`
-            : "";
-          setUnavailableReason(`Container terminated${reason}`);
-          disconnect();
-          return;
+        // Only check state if container is found in regular containers
+        // Ephemeral containers are not listed in pod.containers but can still be exec'd
+        if (container) {
+          if (container.state.type === "terminated") {
+            const reason = container.state.reason
+              ? `: ${container.state.reason}`
+              : "";
+            setUnavailableReason(`Container terminated${reason}`);
+            disconnect();
+            return;
+          }
         }
 
         const phase = pod.status.phase.toLowerCase();
