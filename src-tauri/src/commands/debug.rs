@@ -34,6 +34,8 @@ pub struct DebugConfig {
     pub command: Option<Vec<String>>,
     /// Share process namespace with target container (for copy mode)
     pub share_processes: bool,
+    /// Timeout waiting for container readiness (seconds), default 120
+    pub timeout_seconds: Option<u32>,
 }
 
 /// Result of debug operation
@@ -48,6 +50,50 @@ pub struct DebugResult {
     pub namespace: String,
     /// Whether this is a newly created pod (copy/node) or existing (ephemeral)
     pub is_new_pod: bool,
+}
+
+/// Debug operation for tracking container readiness
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DebugOperation {
+    /// Unique operation ID
+    pub id: String,
+    /// Operation type
+    pub operation_type: DebugOperationType,
+    /// Pod name (target or being created)
+    pub pod_name: String,
+    /// Container name
+    pub container_name: String,
+    /// Namespace
+    pub namespace: String,
+    /// Creation time (unix timestamp)
+    pub created_at: u64,
+    /// Readiness timeout (seconds)
+    pub timeout_seconds: u32,
+}
+
+/// Type of debug operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DebugOperationType {
+    Ephemeral,
+    CopyPod,
+    NodeDebug,
+}
+
+/// Status of debug operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(tag = "type")]
+pub enum DebugStatus {
+    /// Waiting for container to be ready
+    Pending { reason: String },
+    /// Container is ready
+    Ready { result: DebugResult },
+    /// Container failed to start
+    Failed { error: String },
+    /// Timeout waiting for container
+    Timeout,
 }
 
 /// Generate a unique debugger container name
