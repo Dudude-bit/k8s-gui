@@ -512,6 +512,20 @@ impl LogStreamer {
         message: &str,
     ) -> Option<(BTreeMap<String, String>, Option<LogLevel>, Option<String>)> {
         let fields = Self::parse_logfmt_fields(message)?;
+
+        // Require at least 2 valid key=value pairs
+        if fields.len() < 2 {
+            return None;
+        }
+
+        // All keys must be valid identifiers (alphanumeric + underscore)
+        let all_valid_keys = fields
+            .keys()
+            .all(|k| !k.is_empty() && k.chars().all(|c| c.is_alphanumeric() || c == '_'));
+        if !all_valid_keys {
+            return None;
+        }
+
         let level_value = Self::extract_logfmt_value(&fields, &["level", "lvl", "severity"]);
         let message_value =
             Self::extract_logfmt_value(&fields, &["msg", "message", "log", "event", "error"]);
@@ -847,6 +861,34 @@ mod tests {
         // Arbitrary JSON without log fields - should NOT detect as JSON
         let arbitrary = r#"{"foo":"bar","count":42}"#;
         let (format, _, _, _) = LogStreamer::parse_structured_message(arbitrary);
+        assert_eq!(format, LogFormat::Plain);
+    }
+
+    #[test]
+    fn test_logfmt_detection_requires_multiple_pairs() {
+        // Valid logfmt - multiple key=value pairs
+        let valid = "level=info msg=\"user logged in\" user=john";
+        let (format, _, _, _) = LogStreamer::parse_structured_message(valid);
+        assert_eq!(format, LogFormat::Logfmt);
+
+        // Single key=value - should NOT detect as logfmt (need at least 2)
+        let single = "port=8080";
+        let (format, _, _, _) = LogStreamer::parse_structured_message(single);
+        assert_eq!(format, LogFormat::Plain);
+
+        // Single key=value in sentence - should NOT detect as logfmt
+        let sentence = "Starting server port=8080";
+        let (format, _, _, _) = LogStreamer::parse_structured_message(sentence);
+        assert_eq!(format, LogFormat::Plain);
+
+        // Plain text with equals sign - should NOT detect
+        let plain = "Error: x=5 is invalid";
+        let (format, _, _, _) = LogStreamer::parse_structured_message(plain);
+        assert_eq!(format, LogFormat::Plain);
+
+        // Invalid keys (non-identifier characters) - should NOT detect as logfmt
+        let invalid_key = "foo:bar=value baz=123";
+        let (format, _, _, _) = LogStreamer::parse_structured_message(invalid_key);
         assert_eq!(format, LogFormat::Plain);
     }
 }
