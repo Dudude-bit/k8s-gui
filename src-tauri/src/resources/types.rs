@@ -11,7 +11,28 @@ use kube::ResourceExt;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+use crate::resources::serialization::OwnerReference;
 use crate::utils::{format_cpu, parse_cpu, parse_memory};
+
+/// Extract owner references from Kubernetes metadata
+pub fn extract_owner_references(
+    owner_refs: Option<&Vec<k8s_openapi::apimachinery::pkg::apis::meta::v1::OwnerReference>>,
+) -> Vec<OwnerReference> {
+    owner_refs
+        .map(|refs| {
+            refs.iter()
+                .map(|r| OwnerReference {
+                    api_version: r.api_version.clone(),
+                    kind: r.kind.clone(),
+                    name: r.name.clone(),
+                    uid: r.uid.clone(),
+                    controller: r.controller,
+                    block_owner_deletion: r.block_owner_deletion,
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
 
 // ============= Environment Variable Types =============
 
@@ -171,6 +192,8 @@ pub struct PodInfo {
     pub cpu_limits: Option<String>,   // aggregated from all containers
     pub memory_requests: Option<String>, // aggregated from all containers
     pub memory_limits: Option<String>, // aggregated from all containers
+    // Owner references for related resources
+    pub owner_references: Vec<OwnerReference>,
 }
 
 impl From<&Pod> for PodInfo {
@@ -262,6 +285,7 @@ impl From<&Pod> for PodInfo {
             cpu_limits,
             memory_requests,
             memory_limits,
+            owner_references: extract_owner_references(pod.metadata.owner_references.as_ref()),
         }
     }
 }
@@ -459,6 +483,8 @@ pub struct DeploymentInfo {
     pub annotations: BTreeMap<String, String>,
     pub created_at: Option<DateTime<Utc>>,
     pub conditions: Vec<ConditionInfo>,
+    // Owner references for related resources
+    pub owner_references: Vec<OwnerReference>,
 }
 
 /// Deployment container specification for frontend
@@ -542,6 +568,7 @@ impl From<&Deployment> for DeploymentInfo {
             annotations: deployment.annotations().clone(),
             created_at: deployment.creation_timestamp().map(|t| t.0),
             conditions,
+            owner_references: extract_owner_references(deployment.metadata.owner_references.as_ref()),
         }
     }
 }

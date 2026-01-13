@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { commands } from "@/lib/commands";
 import { useEffect, useState } from "react";
-import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { ResourceType, toPlural, getDisplayPlural } from "@/lib/resource-registry";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Overview", path: "/" },
@@ -25,12 +25,12 @@ const navItems = [
     label: "Workloads",
     path: "/workloads",
     children: [
-      { label: "Pods", path: `/workloads/${toPlural(ResourceType.Pod)}` },
-      { label: "Deployments", path: `/workloads/${toPlural(ResourceType.Deployment)}` },
-      { label: "StatefulSets", path: `/workloads/${toPlural(ResourceType.StatefulSet)}` },
-      { label: "DaemonSets", path: `/workloads/${toPlural(ResourceType.DaemonSet)}` },
-      { label: "Jobs", path: `/workloads/${toPlural(ResourceType.Job)}` },
-      { label: "CronJobs", path: `/workloads/${toPlural(ResourceType.CronJob)}` },
+      { label: getDisplayPlural(ResourceType.Pod), path: `/workloads/${toPlural(ResourceType.Pod)}` },
+      { label: getDisplayPlural(ResourceType.Deployment), path: `/workloads/${toPlural(ResourceType.Deployment)}` },
+      { label: getDisplayPlural(ResourceType.StatefulSet), path: `/workloads/${toPlural(ResourceType.StatefulSet)}` },
+      { label: getDisplayPlural(ResourceType.DaemonSet), path: `/workloads/${toPlural(ResourceType.DaemonSet)}` },
+      { label: getDisplayPlural(ResourceType.Job), path: `/workloads/${toPlural(ResourceType.Job)}` },
+      { label: getDisplayPlural(ResourceType.CronJob), path: `/workloads/${toPlural(ResourceType.CronJob)}` },
     ],
   },
   {
@@ -38,9 +38,9 @@ const navItems = [
     label: "Network",
     path: "/network",
     children: [
-      { label: "Services", path: `/network/${toPlural(ResourceType.Service)}` },
-      { label: "Ingresses", path: `/network/${toPlural(ResourceType.Ingress)}` },
-      { label: "Endpoints", path: `/network/${toPlural(ResourceType.Endpoints)}` },
+      { label: getDisplayPlural(ResourceType.Service), path: `/network/${toPlural(ResourceType.Service)}` },
+      { label: getDisplayPlural(ResourceType.Ingress), path: `/network/${toPlural(ResourceType.Ingress)}` },
+      { label: getDisplayPlural(ResourceType.Endpoints), path: `/network/${toPlural(ResourceType.Endpoints)}` },
     ],
   },
   {
@@ -48,9 +48,9 @@ const navItems = [
     label: "Storage",
     path: "/storage",
     children: [
-      { label: "PersistentVolumes", path: `/storage/${toPlural(ResourceType.PersistentVolume)}` },
-      { label: "PersistentVolumeClaims", path: `/storage/${toPlural(ResourceType.PersistentVolumeClaim)}` },
-      { label: "StorageClasses", path: `/storage/${toPlural(ResourceType.StorageClass)}` },
+      { label: getDisplayPlural(ResourceType.PersistentVolume), path: `/storage/${toPlural(ResourceType.PersistentVolume)}` },
+      { label: getDisplayPlural(ResourceType.PersistentVolumeClaim), path: `/storage/${toPlural(ResourceType.PersistentVolumeClaim)}` },
+      { label: getDisplayPlural(ResourceType.StorageClass), path: `/storage/${toPlural(ResourceType.StorageClass)}` },
     ],
   },
   {
@@ -58,14 +58,14 @@ const navItems = [
     label: "Configuration",
     path: "/configuration",
     children: [
-      { label: "ConfigMaps", path: `/configuration/${toPlural(ResourceType.ConfigMap)}` },
-      { label: "Secrets", path: `/configuration/${toPlural(ResourceType.Secret)}` },
+      { label: getDisplayPlural(ResourceType.ConfigMap), path: `/configuration/${toPlural(ResourceType.ConfigMap)}` },
+      { label: getDisplayPlural(ResourceType.Secret), path: `/configuration/${toPlural(ResourceType.Secret)}` },
       { label: "Builder", path: "/configuration/builder" },
     ],
   },
-  { icon: Server, label: "Nodes", path: `/${toPlural(ResourceType.Node)}` },
-  { icon: Activity, label: "Events", path: `/${toPlural(ResourceType.Event)}` },
-  { icon: Puzzle, label: "CRDs", path: `/${toPlural(ResourceType.CustomResourceDefinition)}` },
+  { icon: Server, label: getDisplayPlural(ResourceType.Node), path: `/${toPlural(ResourceType.Node)}` },
+  { icon: Activity, label: getDisplayPlural(ResourceType.Event), path: `/${toPlural(ResourceType.Event)}` },
+  { icon: Puzzle, label: getDisplayPlural(ResourceType.CustomResourceDefinition), path: `/${toPlural(ResourceType.CustomResourceDefinition)}` },
   { icon: Package, label: "Helm", path: "/helm" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];

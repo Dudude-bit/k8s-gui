@@ -10,7 +10,6 @@ import {
   Network,
   Globe,
   HardDrive,
-  Server as NodeIcon,
   Activity,
   FolderOpen,
   Puzzle,
@@ -20,94 +19,24 @@ import {
 export type ResourceScope = "namespaced" | "cluster";
 
 export const RESOURCE_REGISTRY = [
-  { kind: "Pod", plural: "pods", apiVersion: "v1", scope: "namespaced" },
-  {
-    kind: "Deployment",
-    plural: "deployments",
-    apiVersion: "apps/v1",
-    scope: "namespaced",
-  },
-  {
-    kind: "StatefulSet",
-    plural: "statefulsets",
-    apiVersion: "apps/v1",
-    scope: "namespaced",
-  },
-  {
-    kind: "DaemonSet",
-    plural: "daemonsets",
-    apiVersion: "apps/v1",
-    scope: "namespaced",
-  },
-  { kind: "Job", plural: "jobs", apiVersion: "batch/v1", scope: "namespaced" },
-  {
-    kind: "CronJob",
-    plural: "cronjobs",
-    apiVersion: "batch/v1",
-    scope: "namespaced",
-  },
-  {
-    kind: "ConfigMap",
-    plural: "configmaps",
-    apiVersion: "v1",
-    scope: "namespaced",
-  },
-  {
-    kind: "Secret",
-    plural: "secrets",
-    apiVersion: "v1",
-    scope: "namespaced",
-  },
-  {
-    kind: "Service",
-    plural: "services",
-    apiVersion: "v1",
-    scope: "namespaced",
-  },
-  {
-    kind: "Ingress",
-    plural: "ingresses",
-    apiVersion: "networking.k8s.io/v1",
-    scope: "namespaced",
-  },
-  {
-    kind: "PersistentVolumeClaim",
-    plural: "persistentvolumeclaims",
-    apiVersion: "v1",
-    scope: "namespaced",
-  },
-  {
-    kind: "PersistentVolume",
-    plural: "persistentvolumes",
-    apiVersion: "v1",
-    scope: "cluster",
-  },
-  {
-    kind: "StorageClass",
-    plural: "storageclasses",
-    apiVersion: "storage.k8s.io/v1",
-    scope: "cluster",
-  },
-  {
-    kind: "Endpoints",
-    plural: "endpoints",
-    apiVersion: "v1",
-    scope: "namespaced",
-  },
-  { kind: "Node", plural: "nodes", apiVersion: "v1", scope: "cluster" },
-  { kind: "Event", plural: "events", apiVersion: "v1", scope: "namespaced" },
-  {
-    kind: "Namespace",
-    plural: "namespaces",
-    apiVersion: "v1",
-    scope: "cluster",
-  },
-  {
-    kind: "CustomResourceDefinition",
-    plural: "customresourcedefinitions",
-    apiVersion: "apiextensions.k8s.io/v1",
-    scope: "cluster",
-  },
+  { kind: "Pod", plural: "pods", displayPlural: "Pods", icon: Box, apiVersion: "v1", scope: "namespaced" },
+  { kind: "Deployment", plural: "deployments", displayPlural: "Deployments", icon: Layers, apiVersion: "apps/v1", scope: "namespaced" },
+  { kind: "StatefulSet", plural: "statefulsets", displayPlural: "StatefulSets", icon: Database, apiVersion: "apps/v1", scope: "namespaced" },
+  { kind: "DaemonSet", plural: "daemonsets", displayPlural: "DaemonSets", icon: Server, apiVersion: "apps/v1", scope: "namespaced" },
+  { kind: "Job", plural: "jobs", displayPlural: "Jobs", icon: Briefcase, apiVersion: "batch/v1", scope: "namespaced" },
+  { kind: "CronJob", plural: "cronjobs", displayPlural: "CronJobs", icon: CalendarClock, apiVersion: "batch/v1", scope: "namespaced" },
+  { kind: "ConfigMap", plural: "configmaps", displayPlural: "ConfigMaps", icon: FileText, apiVersion: "v1", scope: "namespaced" },
+  { kind: "Secret", plural: "secrets", displayPlural: "Secrets", icon: KeyRound, apiVersion: "v1", scope: "namespaced" },
+  { kind: "Service", plural: "services", displayPlural: "Services", icon: Network, apiVersion: "v1", scope: "namespaced" },
+  { kind: "Ingress", plural: "ingresses", displayPlural: "Ingresses", icon: Globe, apiVersion: "networking.k8s.io/v1", scope: "namespaced" },
+  { kind: "PersistentVolumeClaim", plural: "persistentvolumeclaims", displayPlural: "PVCs", icon: HardDrive, apiVersion: "v1", scope: "namespaced" },
+  { kind: "PersistentVolume", plural: "persistentvolumes", displayPlural: "Persistent Volumes", icon: HardDrive, apiVersion: "v1", scope: "cluster" },
+  { kind: "StorageClass", plural: "storageclasses", displayPlural: "Storage Classes", icon: Database, apiVersion: "storage.k8s.io/v1", scope: "cluster" },
+  { kind: "Endpoints", plural: "endpoints", displayPlural: "Endpoints", icon: Network, apiVersion: "v1", scope: "namespaced" },
+  { kind: "Node", plural: "nodes", displayPlural: "Nodes", icon: Server, apiVersion: "v1", scope: "cluster" },
+  { kind: "Event", plural: "events", displayPlural: "Events", icon: Activity, apiVersion: "v1", scope: "namespaced" },
+  { kind: "Namespace", plural: "namespaces", displayPlural: "Namespaces", icon: FolderOpen, apiVersion: "v1", scope: "cluster" },
+  { kind: "CustomResourceDefinition", plural: "customresourcedefinitions", displayPlural: "CRDs", icon: Puzzle, apiVersion: "apiextensions.k8s.io/v1", scope: "cluster" },
 ] as const;
 
 export type ResourceKind = (typeof RESOURCE_REGISTRY)[number]["kind"];
@@ -160,42 +89,16 @@ export function getScope(resourceKind: ResourceKind): ResourceScope {
   return RESOURCE_BY_KIND.get(resourceKind)?.scope ?? "namespaced";
 }
 
+export function getDisplayPlural(resourceTypeOrPlural: string): string {
+  const def =
+    RESOURCE_BY_KIND.get(resourceTypeOrPlural as ResourceKind) ??
+    RESOURCE_BY_PLURAL.get(resourceTypeOrPlural.toLowerCase());
+  return def?.displayPlural ?? resourceTypeOrPlural;
+}
 
-
-/**
- * Icon mapping for Kubernetes resource kinds
- */
-export const RESOURCE_ICONS: Record<ResourceKind, LucideIcon> = {
-  Pod: Box,
-  Deployment: Layers,
-  StatefulSet: Database,
-  DaemonSet: Server,
-  Job: Briefcase,
-  CronJob: CalendarClock,
-  ConfigMap: FileText,
-  Secret: KeyRound,
-  Service: Network,
-  Ingress: Globe,
-  PersistentVolumeClaim: HardDrive,
-  PersistentVolume: HardDrive,
-  StorageClass: Database,
-  Endpoints: Network,
-  Node: NodeIcon,
-  Event: Activity,
-  Namespace: FolderOpen,
-  CustomResourceDefinition: Puzzle,
-};
-
-/**
- * Get the icon component for a resource kind
- *
- * @param kind - The resource kind
- * @returns LucideIcon component for the resource, defaults to Box if not found
- *
- * @example
- * const Icon = getResourceIcon("Pod"); // Box icon
- * <Icon className="h-4 w-4" />
- */
 export function getResourceIcon(kind: ResourceKind | string): LucideIcon {
-  return RESOURCE_ICONS[kind as ResourceKind] ?? Box;
+  const def =
+    RESOURCE_BY_KIND.get(kind as ResourceKind) ??
+    RESOURCE_BY_PLURAL.get(kind.toLowerCase());
+  return def?.icon ?? Box;
 }

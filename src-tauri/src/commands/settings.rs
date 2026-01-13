@@ -1,6 +1,6 @@
 //! Settings and configuration commands
 
-use crate::config::{AppConfig, GcpProfile, AzureProfile, ContextBinding, CliPathsConfig};
+use crate::config::{AppConfig, GcpProfile, AzureProfile, ContextBinding, CliPathsConfig, RecentItem};
 use crate::error::Result;
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
@@ -627,5 +627,24 @@ pub fn save_infrastructure_state(context: String, state: InfrastructureBuilderSt
 pub fn clear_infrastructure_state(context: String) -> Result<()> {
     let mut config = AppConfig::load()?;
     config.infrastructure_builder.contexts.remove(&context);
+    save_config(&config)
+}
+
+// ============================================================================
+// Recent Items (Command Palette)
+// ============================================================================
+
+/// Get recent items
+#[tauri::command]
+pub fn get_recent_items() -> Result<Vec<RecentItem>> {
+    let config = AppConfig::load()?;
+    Ok(config.recent_items.items)
+}
+
+/// Add a recent item
+#[tauri::command]
+pub fn add_recent_item(item: RecentItem) -> Result<()> {
+    let mut config = AppConfig::load()?;
+    config.recent_items.add_item(item);
     save_config(&config)
 }

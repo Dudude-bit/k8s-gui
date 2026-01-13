@@ -37,6 +37,7 @@ import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { ContainerCard } from "@/components/resources/ContainerCard";
+import { RelatedResources } from "@/components/resources/RelatedResources";
 import { ResourceDetailLayout, InfoCard, InfoRow } from "@/components/resources/ResourceDetailLayout";
 import { useToast } from "@/components/ui/use-toast";
 import { Switch } from "@/components/ui/switch";
@@ -624,6 +625,14 @@ export function PodDetail() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Related Resources (Owner References) */}
+      {pod && (
+        <RelatedResources
+          ownerReferences={pod.ownerReferences}
+          namespace={pod.namespace}
+        />
       )}
 
       {/* Port Forward & Terminal Dialogs/Panels */}

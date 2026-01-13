@@ -8,6 +8,8 @@ use kube::ResourceExt;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+use super::serialization::OwnerReference;
+use super::types::extract_owner_references;
 use super::{ConditionInfo, DeploymentContainerInfo};
 
 // ============= StatefulSet =============
@@ -64,6 +66,7 @@ pub struct StatefulSetDetailInfo {
     pub labels: BTreeMap<String, String>,
     pub annotations: BTreeMap<String, String>,
     pub conditions: Vec<ConditionInfo>,
+    pub owner_references: Vec<OwnerReference>,
     pub created_at: Option<String>,
 }
 
@@ -106,6 +109,7 @@ impl From<&StatefulSet> for StatefulSetDetailInfo {
             labels: ss.labels().clone(),
             annotations: ss.annotations().clone(),
             conditions,
+            owner_references: extract_owner_references(ss.metadata.owner_references.as_ref()),
             created_at: ss.creation_timestamp().map(|t| t.0.to_rfc3339()),
         }
     }
@@ -171,6 +175,7 @@ pub struct DaemonSetDetailInfo {
     pub annotations: BTreeMap<String, String>,
     pub selector: BTreeMap<String, String>,
     pub conditions: Vec<ConditionInfo>,
+    pub owner_references: Vec<OwnerReference>,
     pub created_at: Option<String>,
 }
 
@@ -216,6 +221,7 @@ impl From<&DaemonSet> for DaemonSetDetailInfo {
             annotations: ds.annotations().clone(),
             selector,
             conditions,
+            owner_references: extract_owner_references(ds.metadata.owner_references.as_ref()),
             created_at: ds.creation_timestamp().map(|t| t.0.to_rfc3339()),
         }
     }
@@ -303,6 +309,7 @@ pub struct JobDetailInfo {
     pub labels: BTreeMap<String, String>,
     pub annotations: BTreeMap<String, String>,
     pub conditions: Vec<ConditionInfo>,
+    pub owner_references: Vec<OwnerReference>,
     pub created_at: Option<String>,
 }
 
@@ -363,6 +370,7 @@ impl From<&Job> for JobDetailInfo {
             labels: job.labels().clone(),
             annotations: job.annotations().clone(),
             conditions,
+            owner_references: extract_owner_references(job.metadata.owner_references.as_ref()),
             created_at: job.creation_timestamp().map(|t| t.0.to_rfc3339()),
         }
     }
@@ -439,6 +447,7 @@ pub struct CronJobDetailInfo {
     pub containers: Vec<DeploymentContainerInfo>,
     pub labels: BTreeMap<String, String>,
     pub annotations: BTreeMap<String, String>,
+    pub owner_references: Vec<OwnerReference>,
     pub created_at: Option<String>,
 }
 
@@ -484,6 +493,7 @@ impl From<&CronJob> for CronJobDetailInfo {
             containers,
             labels: cj.labels().clone(),
             annotations: cj.annotations().clone(),
+            owner_references: extract_owner_references(cj.metadata.owner_references.as_ref()),
             created_at: cj.creation_timestamp().map(|t| t.0.to_rfc3339()),
         }
     }

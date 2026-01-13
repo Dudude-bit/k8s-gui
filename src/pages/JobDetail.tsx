@@ -12,6 +12,7 @@ import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { EnvironmentVariables } from "@/components/resources/EnvironmentVariables";
+import { RelatedResources } from "@/components/resources/RelatedResources";
 import { ResourceDetailLayout, InfoCard, InfoRow } from "@/components/resources/ResourceDetailLayout";
 
 import { useResourceDetail } from "@/hooks";
@@ -336,6 +337,14 @@ export function JobDetail() {
       onTabChange={setActiveTab}
       labels={job?.labels}
       annotations={job?.annotations}
-    />
+    >
+      {/* Related Resources (Owner References) */}
+      {job && (
+        <RelatedResources
+          ownerReferences={job.ownerReferences}
+          namespace={job.namespace}
+        />
+      )}
+    </ResourceDetailLayout>
   );
 }

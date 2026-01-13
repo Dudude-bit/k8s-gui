@@ -46,6 +46,7 @@ import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { ContainerCard } from "@/components/resources/ContainerCard";
+import { RelatedResources } from "@/components/resources/RelatedResources";
 import { MetricPair } from "@/components/ui/metric-card";
 import { ResourceDetailLayout } from "@/components/resources/ResourceDetailLayout";
 import {
@@ -609,6 +610,14 @@ export function DeploymentDetail() {
 
       {/* Info Cards (Optional, current deployment view has mostly overview tab info) */}
       {/* If there were specific high-level metrics cards they would go here */}
+
+      {/* Related Resources (Owner References) */}
+      {deployment && (
+        <RelatedResources
+          ownerReferences={deployment.ownerReferences}
+          namespace={deployment.namespace}
+        />
+      )}
 
       {/* Scale Dialog */}
       <Dialog open={scaleDialogOpen} onOpenChange={setScaleDialogOpen}>

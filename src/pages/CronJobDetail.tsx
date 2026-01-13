@@ -11,6 +11,7 @@ import { Trash2, CalendarClock, RefreshCw, Pause, Play } from "lucide-react";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { EnvironmentVariables } from "@/components/resources/EnvironmentVariables";
+import { RelatedResources } from "@/components/resources/RelatedResources";
 import { ResourceDetailLayout, InfoCard, InfoRow } from "@/components/resources/ResourceDetailLayout";
 
 import { useResourceDetail } from "@/hooks";
@@ -325,6 +326,14 @@ export function CronJobDetail() {
       onTabChange={setActiveTab}
       labels={cronJob?.labels}
       annotations={cronJob?.annotations}
-    />
+    >
+      {/* Related Resources (Owner References) */}
+      {cronJob && (
+        <RelatedResources
+          ownerReferences={cronJob.ownerReferences}
+          namespace={cronJob.namespace}
+        />
+      )}
+    </ResourceDetailLayout>
   );
 }

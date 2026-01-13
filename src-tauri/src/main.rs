@@ -308,6 +308,9 @@ fn main() {
             commands::settings::get_infrastructure_state,
             commands::settings::save_infrastructure_state,
             commands::settings::clear_infrastructure_state,
+            // Recent items
+            commands::settings::get_recent_items,
+            commands::settings::add_recent_item,
 
             // Registry commands
             commands::registry::set_registry_credentials,

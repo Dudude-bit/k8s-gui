@@ -44,6 +44,9 @@ pub struct AppConfig {
     /// Infrastructure builder state per context
     #[serde(default)]
     pub infrastructure_builder: InfrastructureBuilderConfig,
+    /// Recent items for command palette
+    #[serde(default)]
+    pub recent_items: RecentItemsConfig,
 }
 
 /// Theme configuration
@@ -561,6 +564,51 @@ pub struct InfrastructureBuilderState {
     pub extra_manifests: Vec<serde_json::Value>,
 }
 
+// ============================================================================
+// Recent Items (Command Palette)
+// ============================================================================
+
+/// Maximum number of recent items to store
+const MAX_RECENT_ITEMS: usize = 10;
+
+/// Recent items configuration
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RecentItemsConfig {
+    /// Recent items list
+    #[serde(default)]
+    pub items: Vec<RecentItem>,
+}
+
+/// Recent item entry
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecentItem {
+    /// Resource name
+    pub name: String,
+    /// Namespace (if namespaced)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub namespace: Option<String>,
+    /// Resource kind
+    pub kind: String,
+    /// Navigation path
+    pub path: String,
+    /// Timestamp in milliseconds
+    pub timestamp: i64,
+}
+
+impl RecentItemsConfig {
+    /// Add a recent item, maintaining the max limit
+    pub fn add_item(&mut self, item: RecentItem) {
+        // Remove existing item with same path
+        self.items.retain(|i| i.path != item.path);
+        // Add to front
+        self.items.insert(0, item);
+        // Truncate to max
+        self.items.truncate(MAX_RECENT_ITEMS);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -568,7 +616,7 @@ mod tests {
     #[test]
     fn test_default_config() {
         let config = AppConfig::default();
-        assert!(config.theme.dark_mode);
+        assert_eq!(config.theme.theme, "dark");
         assert_eq!(config.kubernetes.default_namespace, "default");
     }
 
@@ -578,6 +626,6 @@ mod tests {
         let toml_str = toml::to_string(&config).unwrap();
         let parsed: AppConfig = toml::from_str(&toml_str).unwrap();
 
-        assert_eq!(config.theme.dark_mode, parsed.theme.dark_mode);
+        assert_eq!(config.theme.theme, parsed.theme.theme);
     }
 }

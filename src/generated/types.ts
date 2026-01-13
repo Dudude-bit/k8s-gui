@@ -115,6 +115,14 @@ export interface YamlHistoryEntryDto {
   label: string | null;
 }
 
+export interface RecentItem {
+  name: string;
+  namespace: string | null;
+  kind: string;
+  path: string;
+  timestamp: number;
+}
+
 export interface ThemeConfig {
   theme: string;
   accentColor: string;
@@ -212,6 +220,7 @@ export interface DeploymentInfo {
   annotations: Record<string, string>;
   createdAt: string | null;
   conditions: ConditionInfo[];
+  ownerReferences: OwnerReferenceInfo[];
 }
 
 export interface ConditionInfo {
@@ -642,6 +651,7 @@ export interface PodInfo {
   cpuLimits: string | null;
   memoryRequests: string | null;
   memoryLimits: string | null;
+  ownerReferences: OwnerReferenceInfo[];
 }
 
 export interface ContainerInfo {
@@ -918,6 +928,7 @@ export interface CronJobDetailInfo {
   containers: DeploymentContainerInfo[];
   labels: Record<string, string>;
   annotations: Record<string, string>;
+  ownerReferences: OwnerReferenceInfo[];
   createdAt: string | null;
 }
 
@@ -949,6 +960,7 @@ export interface JobDetailInfo {
   labels: Record<string, string>;
   annotations: Record<string, string>;
   conditions: ConditionInfo[];
+  ownerReferences: OwnerReferenceInfo[];
   createdAt: string | null;
 }
 
@@ -978,6 +990,7 @@ export interface DaemonSetDetailInfo {
   annotations: Record<string, string>;
   selector: Record<string, string>;
   conditions: ConditionInfo[];
+  ownerReferences: OwnerReferenceInfo[];
   createdAt: string | null;
 }
 
@@ -1002,6 +1015,7 @@ export interface StatefulSetDetailInfo {
   labels: Record<string, string>;
   annotations: Record<string, string>;
   conditions: ConditionInfo[];
+  ownerReferences: OwnerReferenceInfo[];
   createdAt: string | null;
 }
 

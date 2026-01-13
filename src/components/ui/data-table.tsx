@@ -32,7 +32,13 @@ import {
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { QuickActions, type QuickAction } from "@/components/ui/quick-actions";
 import { useTableKeyboardNav } from "@/hooks/useTableKeyboardNav";
-import { ChevronLeft, ChevronRight, Search, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, AlertTriangle, AlignJustify, List } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useDisplaySettingsStore } from "@/stores/displaySettingsStore";
 
 import { cn } from "@/lib/utils";
 
@@ -105,6 +111,7 @@ export function DataTable<TData, TValue>({
   getRowId,
 }: DataTableProps<TData, TValue>) {
   const navigate = useNavigate();
+  const { tableDensity, setTableDensity } = useDisplaySettingsStore();
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
@@ -117,6 +124,11 @@ export function DataTable<TData, TValue>({
   });
   const [hoveredRowIndex, setHoveredRowIndex] = React.useState<number | null>(null);
   const deferredSearch = React.useDeferredValue(searchValue);
+
+  // Density styling
+  const isCompact = tableDensity === "compact";
+  const cellPadding = isCompact ? "py-1.5 px-3" : "p-4";
+  const headerHeight = isCompact ? "h-9" : "h-12";
 
   // Determine if we should use virtual scroll based on data size
   const shouldVirtualScroll =
@@ -246,12 +258,33 @@ export function DataTable<TData, TValue>({
             className="pl-8"
           />
         </div>
-        {showLargeDatasetWarning && (
-          <div className="flex items-center gap-1.5 text-xs text-yellow-600 dark:text-yellow-500">
-            <AlertTriangle className="h-3.5 w-3.5" />
-            <span>Showing all {data.length} rows may affect performance</span>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {showLargeDatasetWarning && (
+            <div className="flex items-center gap-1.5 text-xs text-yellow-600 dark:text-yellow-500">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              <span>Showing all {data.length} rows may affect performance</span>
+            </div>
+          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setTableDensity(isCompact ? "comfortable" : "compact")}
+                className="h-8 px-2"
+              >
+                {isCompact ? (
+                  <AlignJustify className="h-4 w-4" />
+                ) : (
+                  <List className="h-4 w-4" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {isCompact ? "Comfortable view" : "Compact view"}
+            </TooltipContent>
+          </Tooltip>
+        </div>
       </div>
       <div
         ref={containerRef}
@@ -284,7 +317,7 @@ export function DataTable<TData, TValue>({
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => {
                     return (
-                      <TableHead key={header.id}>
+                      <TableHead key={header.id} className={cn(headerHeight, cellPadding)}>
                         {header.isPlaceholder
                           ? null
                           : flexRender(
@@ -318,7 +351,7 @@ export function DataTable<TData, TValue>({
                       onMouseLeave={() => setHoveredRowIndex(null)}
                     >
                       {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
+                        <TableCell key={cell.id} className={cellPadding}>
                           {flexRender(
                             cell.column.columnDef.cell,
                             cell.getContext()
