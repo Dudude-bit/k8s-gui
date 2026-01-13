@@ -380,13 +380,14 @@ impl LogStreamer {
             (None, line.to_string())
         };
 
-        let (format, fields, message, level_override) = Self::parse_structured_message(&message);
-        let level = level_override.unwrap_or_else(|| LogLevel::parse(&message));
+        let (format, fields, message, level) = Self::parse_structured_message(&message);
+        // REMOVED: let level = level_override.unwrap_or_else(|| LogLevel::parse(&message));
+        // Now level comes directly from parse_structured_message
 
         LogLine {
             timestamp,
             message,
-            level: Some(level),
+            level,  // Now directly from parse_structured_message
             format,
             fields,
             raw,
@@ -440,7 +441,8 @@ impl LogStreamer {
             );
         }
 
-        (LogFormat::Plain, None, message.to_string(), None)
+        // CHANGED: Return Unknown instead of guessing from text
+        (LogFormat::Plain, None, message.to_string(), Some(LogLevel::Unknown))
     }
 
     fn parse_json_message(
@@ -890,5 +892,19 @@ mod tests {
         let invalid_key = "foo:bar=value baz=123";
         let (format, _, _, _) = LogStreamer::parse_structured_message(invalid_key);
         assert_eq!(format, LogFormat::Plain);
+    }
+
+    #[test]
+    fn test_plain_text_level_is_unknown() {
+        // Plain text mentioning "error" should NOT be marked as Error level
+        let line = "Processing error handler registration";
+        let log = LogStreamer::parse_log_line(line, "pod", "container", "ns");
+        assert_eq!(log.format, LogFormat::Plain);
+        assert_eq!(log.level, Some(LogLevel::Unknown));
+
+        // Plain text with "warning" in content
+        let line2 = "This is a warning about disk space";
+        let log2 = LogStreamer::parse_log_line(line2, "pod", "container", "ns");
+        assert_eq!(log2.level, Some(LogLevel::Unknown));
     }
 }
