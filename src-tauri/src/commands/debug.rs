@@ -755,3 +755,37 @@ fn get_pending_reason(pod: &Pod) -> String {
     }
     "Scheduling".to_string()
 }
+
+/// Cancel a debug operation and cleanup resources
+#[tauri::command]
+pub async fn cancel_debug_operation(
+    operation_id: String,
+    state: State<'_, AppState>,
+) -> Result<()> {
+    // Get and remove operation from storage
+    let operation = state
+        .debug_operations
+        .remove(&operation_id)
+        .map(|(_, op)| op)
+        .ok_or_else(|| Error::InvalidInput(format!("Operation {} not found", operation_id)))?;
+
+    // For CopyPod and NodeDebug, delete the created pod
+    match operation.operation_type {
+        DebugOperationType::CopyPod | DebugOperationType::NodeDebug => {
+            let ctx = ResourceContext::for_command(&state, Some(operation.namespace.clone()))?;
+            let api: Api<Pod> = ctx.namespaced_api();
+
+            // Delete the pod, ignore if not found
+            match api.delete(&operation.pod_name, &Default::default()).await {
+                Ok(_) => {}
+                Err(kube::Error::Api(e)) if e.code == 404 => {}
+                Err(e) => return Err(Error::from(e)),
+            }
+        }
+        DebugOperationType::Ephemeral => {
+            // Cannot remove ephemeral container, it will be cleaned up with the pod
+        }
+    }
+
+    Ok(())
+}
