@@ -23,3 +23,4 @@ export { ConditionsDisplay } from "./ConditionsDisplay";
 export { YamlTabContent } from "./YamlTabContent";
 export { ReferencedBy } from "./ReferencedBy";
 export { VolumeMounts } from "./VolumeMounts";
+export { ImagePullSecrets } from "./ImagePullSecrets";
