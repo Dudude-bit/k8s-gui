@@ -732,6 +732,37 @@ export interface ConfigMapInfo {
   createdAt: string | null;
 }
 
+export interface ResourceReference {
+  kind: string;
+  name: string;
+  namespace: string;
+  containerName: string | null;
+  key: string | null;
+}
+
+export interface VolumeReference {
+  kind: string;
+  name: string;
+  namespace: string;
+  containerName: string | null;
+  mountPath: string;
+  subPath: string | null;
+}
+
+export interface IngressReference {
+  name: string;
+  namespace: string;
+  hosts: string[];
+}
+
+export interface ResourceReferences {
+  envVars: ResourceReference[];
+  envFrom: ResourceReference[];
+  volumes: VolumeReference[];
+  imagePullSecrets: ResourceReference[];
+  tlsIngress: IngressReference[];
+}
+
 export interface ClusterMetricsResponse {
   status: MetricsStatus;
   data: ClusterMetrics;

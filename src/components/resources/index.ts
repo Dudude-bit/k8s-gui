@@ -21,3 +21,8 @@ export { LabelsDisplay } from "./LabelsDisplay";
 export { AnnotationsDisplay } from "./AnnotationsDisplay";
 export { ConditionsDisplay } from "./ConditionsDisplay";
 export { YamlTabContent } from "./YamlTabContent";
+export { ReferencedBy } from "./ReferencedBy";
+export { VolumeMounts } from "./VolumeMounts";
+export { ImagePullSecrets } from "./ImagePullSecrets";
+export { EnvironmentVariables } from "./EnvironmentVariables";
+export { ContainerConfiguration } from "./ContainerConfiguration";

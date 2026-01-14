@@ -1,8 +1,14 @@
 /**
  * Container Card Component
- * 
+ *
  * Displays container information in a consistent card format.
  * Supports both runtime containers (from pods) and spec containers (from deployments).
+ *
+ * Note: Uses EnvironmentVariables directly rather than ContainerConfiguration because
+ * ContainerConfiguration requires volumes and imagePullSecrets which are pod-level
+ * properties not available in ContainerInfo or DeploymentContainerInfo types.
+ * The ContainerConfiguration component is better suited for dedicated configuration
+ * views where all configuration data is available together.
  */
 
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";

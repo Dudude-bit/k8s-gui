@@ -6,7 +6,8 @@ import {
     InfoCard,
     ResourceDetailLayout,
 } from "@/components/resources/ResourceDetailLayout";
-import { SecretKeyValueList } from "@/components/ui/secret-value";
+import { ReferencedBy } from "@/components/resources";
+import { KeyValueList } from "@/components/shared";
 import { useResourceDetail } from "@/hooks";
 import { ResourceType } from "@/lib/resource-registry";
 import { Lock, Key } from "lucide-react";
@@ -71,12 +72,24 @@ export function SecretDetail() {
             id: "data",
             label: "Data",
             content: (
-                <SecretKeyValueList
+                <KeyValueList
                     data={secretData}
-                    title="Data Keys"
+                    title="Data"
+                    isSensitive={true}
                     showSensitiveBadge={true}
                     isLoading={isLoadingData}
                     emptyMessage="No data keys defined"
+                />
+            ),
+        },
+        {
+            id: "references",
+            label: "Referenced By",
+            content: (
+                <ReferencedBy
+                    resourceType="Secret"
+                    name={name || ""}
+                    namespace={namespace || ""}
                 />
             ),
         },
