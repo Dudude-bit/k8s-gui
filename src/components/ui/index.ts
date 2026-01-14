@@ -87,3 +87,6 @@ export { ActionMenu } from "./action-menu";
 export { ConfirmDialog } from "./confirm-dialog";
 export { RefreshButton } from "./refresh-button";
 export { DataTable } from "./data-table";
+
+export { SourceBadge } from "./source-badge";
+export type { SourceType } from "./source-badge";
