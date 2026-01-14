@@ -1,0 +1,1 @@
+export { TlsBadge } from "./TlsBadge";
