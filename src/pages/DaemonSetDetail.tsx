@@ -109,8 +109,6 @@ export function DaemonSetDetail() {
           {daemonSet?.selector && Object.keys(daemonSet.selector).length > 0 && (
             <LabelsDisplay labels={daemonSet.selector} title="Selector" />
           )}
-
-          <LabelsDisplay labels={daemonSet?.labels || {}} title="Labels" />
         </div>
       ),
     },

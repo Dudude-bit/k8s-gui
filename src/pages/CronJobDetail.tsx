@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { RealtimeAge } from "@/components/ui/realtime";
 import { Trash2, CalendarClock, RefreshCw, Pause, Play } from "lucide-react";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
-import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { EnvironmentVariables } from "@/components/resources/EnvironmentVariables";
 import { RelatedResources } from "@/components/resources/RelatedResources";
 import { ResourceDetailLayout, InfoCard, InfoRow } from "@/components/resources/ResourceDetailLayout";
@@ -142,8 +141,6 @@ export function CronJobDetail() {
               </div>
             </InfoCard>
           </div>
-
-          <LabelsDisplay labels={cronJob?.labels || {}} title="Labels" />
         </div>
       ),
     },
