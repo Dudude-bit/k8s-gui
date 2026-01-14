@@ -10,7 +10,6 @@ import { RealtimeAge } from "@/components/ui/realtime";
 import { Trash2, Database, RefreshCw } from "lucide-react";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
-import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { EnvironmentVariables } from "@/components/resources/EnvironmentVariables";
 import { RelatedResources } from "@/components/resources/RelatedResources";
 import { PodListCard } from "@/components/resources/PodListCard";
@@ -121,8 +120,6 @@ export function StatefulSetDetail() {
               </div>
             </InfoCard>
           </div>
-
-          <LabelsDisplay labels={statefulSet?.labels || {}} title="Labels" />
         </div>
       ),
     },
