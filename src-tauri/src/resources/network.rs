@@ -5,6 +5,8 @@ use k8s_openapi::api::networking::v1::Ingress;
 use kube::ResourceExt;
 use serde::{Deserialize, Serialize};
 
+use super::OptionTimeExt;
+
 /// Information about an Ingress rule path
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -186,7 +188,7 @@ impl From<&Ingress> for IngressInfo {
                 .metadata
                 .creation_timestamp
                 .as_ref()
-                .map(|t| t.0.to_rfc3339()),
+                .to_rfc3339_opt(),
         }
     }
 }
@@ -246,7 +248,7 @@ impl From<&Endpoints> for EndpointsInfo {
             .metadata
             .creation_timestamp
             .as_ref()
-            .map(|t| t.0.to_rfc3339());
+            .to_rfc3339_opt();
 
         let subsets = ep
             .subsets

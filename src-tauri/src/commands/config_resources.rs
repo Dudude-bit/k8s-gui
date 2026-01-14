@@ -225,11 +225,32 @@ pub async fn get_resource_references(
     let is_secret = resource_type.to_lowercase() == "secret";
     let target_name = name.clone();
 
+    // Create all APIs
+    let pods_api: kube::Api<Pod> = kube::Api::namespaced(ctx.client.clone(), &ns);
+    let deploy_api: kube::Api<Deployment> = kube::Api::namespaced(ctx.client.clone(), &ns);
+    let sts_api: kube::Api<StatefulSet> = kube::Api::namespaced(ctx.client.clone(), &ns);
+    let ds_api: kube::Api<DaemonSet> = kube::Api::namespaced(ctx.client.clone(), &ns);
+    let job_api: kube::Api<Job> = kube::Api::namespaced(ctx.client.clone(), &ns);
+    let cj_api: kube::Api<CronJob> = kube::Api::namespaced(ctx.client.clone(), &ns);
+    let ingress_api: kube::Api<Ingress> = kube::Api::namespaced(ctx.client.clone(), &ns);
+
+    let params = ListParams::default();
+
+    // Fetch all resources in parallel
+    let (pods_res, deploys_res, stss_res, dss_res, jobs_res, cjs_res, ingresses_res) = tokio::join!(
+        pods_api.list(&params),
+        deploy_api.list(&params),
+        sts_api.list(&params),
+        ds_api.list(&params),
+        job_api.list(&params),
+        cj_api.list(&params),
+        ingress_api.list(&params),
+    );
+
     let mut refs = ResourceReferences::default();
 
-    // Check Pods
-    let pods_api: kube::Api<Pod> = kube::Api::namespaced(ctx.client.clone(), &ns);
-    if let Ok(pods) = pods_api.list(&ListParams::default()).await {
+    // Process Pods
+    if let Ok(pods) = pods_res {
         for pod in pods.items {
             if let Some(spec) = &pod.spec {
                 let pod_name = pod.metadata.name.clone().unwrap_or_default();
@@ -238,9 +259,8 @@ pub async fn get_resource_references(
         }
     }
 
-    // Check Deployments
-    let deploy_api: kube::Api<Deployment> = kube::Api::namespaced(ctx.client.clone(), &ns);
-    if let Ok(deploys) = deploy_api.list(&ListParams::default()).await {
+    // Process Deployments
+    if let Ok(deploys) = deploys_res {
         for deploy in deploys.items {
             if let Some(spec) = deploy.spec.as_ref().and_then(|s| s.template.spec.as_ref()) {
                 let deploy_name = deploy.metadata.name.clone().unwrap_or_default();
@@ -249,9 +269,8 @@ pub async fn get_resource_references(
         }
     }
 
-    // Check StatefulSets
-    let sts_api: kube::Api<StatefulSet> = kube::Api::namespaced(ctx.client.clone(), &ns);
-    if let Ok(stss) = sts_api.list(&ListParams::default()).await {
+    // Process StatefulSets
+    if let Ok(stss) = stss_res {
         for sts in stss.items {
             if let Some(spec) = sts.spec.as_ref().and_then(|s| s.template.spec.as_ref()) {
                 let sts_name = sts.metadata.name.clone().unwrap_or_default();
@@ -260,9 +279,8 @@ pub async fn get_resource_references(
         }
     }
 
-    // Check DaemonSets
-    let ds_api: kube::Api<DaemonSet> = kube::Api::namespaced(ctx.client.clone(), &ns);
-    if let Ok(dss) = ds_api.list(&ListParams::default()).await {
+    // Process DaemonSets
+    if let Ok(dss) = dss_res {
         for ds in dss.items {
             if let Some(spec) = ds.spec.as_ref().and_then(|s| s.template.spec.as_ref()) {
                 let ds_name = ds.metadata.name.clone().unwrap_or_default();
@@ -271,9 +289,8 @@ pub async fn get_resource_references(
         }
     }
 
-    // Check Jobs
-    let job_api: kube::Api<Job> = kube::Api::namespaced(ctx.client.clone(), &ns);
-    if let Ok(jobs) = job_api.list(&ListParams::default()).await {
+    // Process Jobs
+    if let Ok(jobs) = jobs_res {
         for job in jobs.items {
             if let Some(spec) = job.spec.as_ref().and_then(|s| s.template.spec.as_ref()) {
                 let job_name = job.metadata.name.clone().unwrap_or_default();
@@ -282,9 +299,8 @@ pub async fn get_resource_references(
         }
     }
 
-    // Check CronJobs
-    let cj_api: kube::Api<CronJob> = kube::Api::namespaced(ctx.client.clone(), &ns);
-    if let Ok(cjs) = cj_api.list(&ListParams::default()).await {
+    // Process CronJobs
+    if let Ok(cjs) = cjs_res {
         for cj in cjs.items {
             if let Some(spec) = cj.spec.as_ref()
                 .and_then(|s| s.job_template.spec.as_ref())
@@ -295,10 +311,9 @@ pub async fn get_resource_references(
         }
     }
 
-    // Check Ingress TLS (only for secrets)
+    // Process Ingress TLS (only for secrets)
     if is_secret {
-        let ingress_api: kube::Api<Ingress> = kube::Api::namespaced(ctx.client.clone(), &ns);
-        if let Ok(ingresses) = ingress_api.list(&ListParams::default()).await {
+        if let Ok(ingresses) = ingresses_res {
             for ingress in ingresses.items {
                 if let Some(spec) = &ingress.spec {
                     if let Some(tls_configs) = &spec.tls {

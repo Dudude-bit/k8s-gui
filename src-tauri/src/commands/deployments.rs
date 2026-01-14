@@ -163,11 +163,7 @@ pub async fn get_deployment_pods(
         })?;
 
     // Build label selector string
-    let label_selector: String = selector
-        .iter()
-        .map(|(k, v)| format!("{k}={v}"))
-        .collect::<Vec<_>>()
-        .join(",");
+    let label_selector = super::helpers::build_label_selector(&selector);
 
     // Get pods matching the selector
     let pod_api: kube::Api<Pod> = ctx.namespaced_api();

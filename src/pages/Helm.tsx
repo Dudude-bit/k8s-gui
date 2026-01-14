@@ -680,8 +680,8 @@ export function Helm() {
                   </tr>
                 </thead>
                 <tbody>
-                  {searchResults.map((chart, idx) => (
-                    <tr key={`${chart.name}-${idx}`} className="border-b last:border-0">
+                  {searchResults.map((chart) => (
+                    <tr key={`${chart.name}-${chart.version}`} className="border-b last:border-0">
                       <td className="p-3 font-medium">{chart.name}</td>
                       <td className="p-3 text-muted-foreground">{chart.version}</td>
                       <td className="p-3 text-muted-foreground">{chart.appVersion || "-"}</td>

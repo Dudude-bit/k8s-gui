@@ -665,6 +665,8 @@ export function InfrastructureBuilder() {
             fieldSelector: null,
             limit: null,
             statusFilter: null,
+            selector: null,
+            nodeName: null,
           }),
           commands.listDeployments({
             namespace: namespaceFilter,

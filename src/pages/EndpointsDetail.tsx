@@ -68,7 +68,7 @@ export function EndpointsDetail() {
                                                         <span className="font-mono">{addr.ip}</span>
                                                     </div>
                                                     <div className="text-sm text-muted-foreground flex items-center gap-1">
-                                                        {addr.targetRef && addr.targetRef.kind === "Pod" ? (
+                                                        {addr.targetRef && addr.targetRef.kind === ResourceType.Pod ? (
                                                             <LinkedResource
                                                                 resourceType={ResourceType.Pod}
                                                                 name={addr.targetRef.name}
@@ -96,7 +96,7 @@ export function EndpointsDetail() {
                                                         <span className="font-mono">{addr.ip}</span>
                                                     </div>
                                                     <div className="text-sm text-muted-foreground flex items-center gap-1">
-                                                        {addr.targetRef && addr.targetRef.kind === "Pod" ? (
+                                                        {addr.targetRef && addr.targetRef.kind === ResourceType.Pod ? (
                                                             <LinkedResource
                                                                 resourceType={ResourceType.Pod}
                                                                 name={addr.targetRef.name}

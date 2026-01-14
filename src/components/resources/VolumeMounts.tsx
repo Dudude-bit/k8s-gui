@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import type { VolumeReference } from "@/generated/types";
 import { commands } from "@/lib/commands";
+import { ResourceType } from "@/lib/resource-registry";
 import { SecretKeyValueItem } from "@/components/ui/secret-value";
 
 interface VolumeMountsProps {
@@ -112,8 +113,8 @@ function VolumeMountItem({
   const [revealedKeys, setRevealedKeys] = useState<Set<string>>(new Set());
 
   const hasExpandableContent =
-    (volumeType === "Secret" && secretData) ||
-    (volumeType === "ConfigMap" && configMapData);
+    (volumeType === ResourceType.Secret && secretData) ||
+    (volumeType === ResourceType.ConfigMap && configMapData);
 
   const toggleReveal = (key: string) => {
     setRevealedKeys((prev) => {
@@ -137,8 +138,8 @@ function VolumeMountItem({
   }, [showSecrets, secretData]);
 
   const isLoading =
-    (volumeType === "Secret" && isLoadingSecret) ||
-    (volumeType === "ConfigMap" && isLoadingConfigMap);
+    (volumeType === ResourceType.Secret && isLoadingSecret) ||
+    (volumeType === ResourceType.ConfigMap && isLoadingConfigMap);
 
   return (
     <div className="rounded-lg border p-3 space-y-2">
@@ -187,7 +188,7 @@ function VolumeMountItem({
         {hasExpandableContent && (
           <CollapsibleContent>
             <div className="mt-3 pt-3 border-t space-y-2">
-              {volumeType === "Secret" && secretData && (
+              {volumeType === ResourceType.Secret && secretData && (
                 <>
                   {Object.entries(secretData).length > 0 ? (
                     Object.entries(secretData).map(([key, value]) => (
@@ -207,7 +208,7 @@ function VolumeMountItem({
                   )}
                 </>
               )}
-              {volumeType === "ConfigMap" && configMapData && (
+              {volumeType === ResourceType.ConfigMap && configMapData && (
                 <>
                   {Object.entries(configMapData).length > 0 ? (
                     Object.entries(configMapData).map(([key, value]) => (
@@ -258,9 +259,9 @@ export function VolumeMounts({ volumes, namespace }: VolumeMountsProps) {
 
     for (const vol of volumes) {
       const volumeType = getVolumeType(vol.kind);
-      if (volumeType === "Secret") {
+      if (volumeType === ResourceType.Secret) {
         secrets.add(vol.name);
-      } else if (volumeType === "ConfigMap") {
+      } else if (volumeType === ResourceType.ConfigMap) {
         configMaps.add(vol.name);
       }
     }
@@ -387,20 +388,20 @@ export function VolumeMounts({ volumes, namespace }: VolumeMountsProps) {
               </p>
             ) : (
               <div className="space-y-3">
-                {volumes.map((volume, index) => {
+                {volumes.map((volume) => {
                   const volumeType = getVolumeType(volume.kind);
                   const secretData =
-                    volumeType === "Secret"
+                    volumeType === ResourceType.Secret
                       ? secretCache[volume.name]
                       : undefined;
                   const configMapData =
-                    volumeType === "ConfigMap"
+                    volumeType === ResourceType.ConfigMap
                       ? configMapCache[volume.name]
                       : undefined;
 
                   return (
                     <VolumeMountItem
-                      key={`${volume.name}-${volume.mountPath}-${index}`}
+                      key={`${volume.name}-${volume.mountPath}`}
                       volume={volume}
                       volumeType={volumeType}
                       secretData={secretData}

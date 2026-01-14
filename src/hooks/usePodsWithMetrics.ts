@@ -41,6 +41,8 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
           fieldSelector: null,
           limit: null,
           statusFilter: null,
+          selector: null,
+          nodeName: null,
         });
       } catch (err) {
         throw new Error(normalizeTauriError(err));

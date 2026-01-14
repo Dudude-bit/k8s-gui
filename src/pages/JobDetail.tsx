@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { useMemo } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { commands } from "@/lib/commands";
 import type { JobDetailInfo } from "@/generated/types";
@@ -13,6 +13,7 @@ import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { EnvironmentVariables } from "@/components/resources/EnvironmentVariables";
 import { RelatedResources } from "@/components/resources/RelatedResources";
+import { PodListCard } from "@/components/resources/PodListCard";
 import { ResourceDetailLayout, InfoCard, InfoRow } from "@/components/resources/ResourceDetailLayout";
 
 import { useResourceDetail } from "@/hooks";
@@ -51,6 +52,8 @@ export function JobDetail() {
           fieldSelector: null,
           limit: null,
           statusFilter: null,
+          selector: null,
+          nodeName: null,
         });
         return allPods;
       } catch {
@@ -83,7 +86,7 @@ export function JobDetail() {
 
   const statusInfo = getStatusInfo();
 
-  const tabs = [
+  const tabs = useMemo(() => [
     {
       id: "overview",
       label: "Overview",
@@ -219,56 +222,7 @@ export function JobDetail() {
     {
       id: toPlural(ResourceType.Pod),
       label: "Pods",
-      content: (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="space-y-2">
-              {pods.map((pod) => {
-                const readyCount =
-                  pod.containers?.filter((c) => c.ready).length ?? 0;
-                const totalCount = pod.containers?.length ?? 0;
-                const readyText = `${readyCount}/${totalCount}`;
-                const status = pod.status?.phase || "Unknown";
-
-                return (
-                  <Link
-                    key={pod.name}
-                    to={`/${toPlural(ResourceType.Pod)}/${pod.namespace}/${pod.name}`}
-                    className="flex items-center justify-between p-3 rounded-md hover:bg-muted transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Badge
-                        variant={
-                          status === "Running"
-                            ? "success"
-                            : status === "Succeeded"
-                              ? "default"
-                              : status === "Pending"
-                                ? "warning"
-                                : "destructive"
-                        }
-                      >
-                        {status}
-                      </Badge>
-                      <span className="font-medium">{pod.name}</span>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span>Ready: {readyText}</span>
-                      <span>Restarts: {pod.restartCount ?? 0}</span>
-                      <RealtimeAge timestamp={pod.createdAt} />
-                    </div>
-                  </Link>
-                );
-              })}
-              {pods.length === 0 && (
-                <p className="text-center text-muted-foreground py-4">
-                  No pods found
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      ),
+      content: <PodListCard pods={pods} />,
     },
     {
       id: "yaml",
@@ -291,7 +245,7 @@ export function JobDetail() {
         />
       ),
     },
-  ];
+  ], [job, pods, yaml, copyYaml, namespace, name]);
 
   return (
     <ResourceDetailLayout

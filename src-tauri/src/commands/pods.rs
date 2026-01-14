@@ -1,25 +1,50 @@
 //! Pod-specific commands
 
 use k8s_openapi::api::core::v1::Pod;
+use kube::api::ListParams;
 use tauri::State;
 
 use crate::commands::filters::PodFilters;
-use crate::commands::helpers::{get_resource_info, list_resource_infos};
+use crate::commands::helpers::{get_resource_info, ResourceContext};
 use crate::error::Result;
 use crate::resources::PodInfo;
 use crate::state::AppState;
 
 /// List pods with optional filters
+///
+/// Supports filtering by:
+/// - namespace: Kubernetes namespace
+/// - label_selector: Label selector string (e.g., "app=nginx,env=prod")
+/// - selector: Label selector as key-value map (alternative to label_selector)
+/// - field_selector: Field selector string
+/// - node_name: Filter pods running on a specific node
+/// - status_filter: Filter by pod phase (Running, Pending, Failed, etc.)
+/// - limit: Maximum number of pods to return
 #[tauri::command]
 pub async fn list_pods(
     filters: Option<PodFilters>,
     state: State<'_, AppState>,
 ) -> Result<Vec<PodInfo>> {
     let filters = filters.unwrap_or_default();
-    let mut pods: Vec<PodInfo> =
-        list_resource_infos::<Pod, PodInfo>(Some(filters.base.clone()), state).await?;
+    let ctx = ResourceContext::for_list(&state, filters.base.namespace.clone())?;
+    let api: kube::Api<Pod> = ctx.namespaced_or_cluster_api();
 
-    // Apply status filter if specified
+    // Build list params with combined selectors
+    let mut lp = ListParams::default();
+    if let Some(label_sel) = filters.build_label_selector() {
+        lp = lp.labels(&label_sel);
+    }
+    if let Some(field_sel) = filters.build_field_selector() {
+        lp = lp.fields(&field_sel);
+    }
+    if let Some(limit) = filters.base.limit {
+        lp = lp.limit(limit.try_into().unwrap_or(u32::MAX));
+    }
+
+    let pod_list = api.list(&lp).await?;
+    let mut pods: Vec<PodInfo> = pod_list.items.iter().map(PodInfo::from).collect();
+
+    // Apply status filter if specified (client-side filtering)
     if let Some(status) = &filters.status_filter {
         pods.retain(|p| p.status.phase.eq_ignore_ascii_case(status));
     }

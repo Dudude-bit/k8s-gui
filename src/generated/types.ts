@@ -707,7 +707,40 @@ export interface PodStatusInfo {
 
 export type PodFilters = {
   statusFilter: string | null;
+  selector: Record<string, string> | null;
+  nodeName: string | null;
 } & ResourceFilters;
+
+export interface ResourceReferences {
+  envVars: ResourceReference[];
+  envFrom: ResourceReference[];
+  volumes: VolumeReference[];
+  imagePullSecrets: ResourceReference[];
+  tlsIngress: IngressReference[];
+}
+
+export interface IngressReference {
+  name: string;
+  namespace: string;
+  hosts: string[];
+}
+
+export interface VolumeReference {
+  kind: string;
+  name: string;
+  namespace: string;
+  containerName: string | null;
+  mountPath: string;
+  subPath: string | null;
+}
+
+export interface ResourceReference {
+  kind: string;
+  name: string;
+  namespace: string;
+  containerName: string | null;
+  key: string | null;
+}
 
 export interface SecretInfo {
   name: string;
@@ -732,37 +765,6 @@ export interface ConfigMapInfo {
   labels: Record<string, string>;
   annotations: Record<string, string>;
   createdAt: string | null;
-}
-
-export interface ResourceReference {
-  kind: string;
-  name: string;
-  namespace: string;
-  containerName: string | null;
-  key: string | null;
-}
-
-export interface VolumeReference {
-  kind: string;
-  name: string;
-  namespace: string;
-  containerName: string | null;
-  mountPath: string;
-  subPath: string | null;
-}
-
-export interface IngressReference {
-  name: string;
-  namespace: string;
-  hosts: string[];
-}
-
-export interface ResourceReferences {
-  envVars: ResourceReference[];
-  envFrom: ResourceReference[];
-  volumes: VolumeReference[];
-  imagePullSecrets: ResourceReference[];
-  tlsIngress: IngressReference[];
 }
 
 export interface ClusterMetricsResponse {

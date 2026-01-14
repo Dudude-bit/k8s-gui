@@ -3,7 +3,7 @@
 use crate::commands::filters::ResourceFilters;
 use crate::commands::helpers::{get_cluster_resource_info, list_cluster_resource_infos, ResourceContext};
 use crate::error::Result;
-use crate::resources::{NodeInfo, PodInfo};
+use crate::resources::NodeInfo;
 use crate::state::AppState;
 use k8s_openapi::api::core::v1::{Node, Pod};
 use kube::api::ListParams;
@@ -48,19 +48,6 @@ pub async fn list_nodes(
 pub async fn get_node(name: String, state: State<'_, AppState>) -> Result<NodeInfo> {
     crate::validation::validate_dns_subdomain(&name)?;
     get_cluster_resource_info::<Node, NodeInfo>(name, state).await
-}
-
-/// Get pods running on a node
-#[tauri::command]
-pub async fn get_node_pods(name: String, state: State<'_, AppState>) -> Result<Vec<PodInfo>> {
-    crate::validation::validate_dns_subdomain(&name)?;
-    let ctx = ResourceContext::for_list(&state, None)?;
-    let api: kube::Api<Pod> = ctx.namespaced_or_cluster_api();
-
-    let params = ListParams::default().fields(&format!("spec.nodeName={name}"));
-    let pods = api.list(&params).await?;
-
-    Ok(pods.items.iter().map(PodInfo::from).collect())
 }
 
 /// Cordon a node (mark as unschedulable)
@@ -124,29 +111,88 @@ pub async fn drain_node(
     let pods = api.list(&params).await?;
 
     let ignore_daemonsets = ignore_daemonsets.unwrap_or(true);
-    let _force = force.unwrap_or(false);
+    let force = force.unwrap_or(false);
+
+    let mut eviction_errors: Vec<String> = Vec::new();
 
     for pod in pods.items {
-        let pod_name = pod.metadata.name.unwrap_or_default();
+        let pod_name = pod.metadata.name.clone().unwrap_or_default();
         let namespace = pod
             .metadata
             .namespace
+            .clone()
             .unwrap_or_else(|| "default".to_string());
 
         // Skip DaemonSet pods if configured
         if ignore_daemonsets {
-            if let Some(refs) = pod.metadata.owner_references {
+            if let Some(refs) = &pod.metadata.owner_references {
                 if refs.iter().any(|r| r.kind == "DaemonSet") {
                     continue;
                 }
             }
         }
 
+        // Check if pod is unmanaged (no owner references) - requires force
+        let is_unmanaged = pod.metadata.owner_references.as_ref()
+            .map(|refs| refs.is_empty())
+            .unwrap_or(true);
+
+        if is_unmanaged && !force {
+            eviction_errors.push(format!(
+                "Pod {}/{} is not managed by a controller. Use --force to delete.",
+                namespace, pod_name
+            ));
+            continue;
+        }
+
+        // Check for local storage (emptyDir) - requires force
+        let has_local_storage = pod.spec.as_ref()
+            .and_then(|s| s.volumes.as_ref())
+            .map(|volumes| volumes.iter().any(|v| v.empty_dir.is_some()))
+            .unwrap_or(false);
+
+        if has_local_storage && !force {
+            eviction_errors.push(format!(
+                "Pod {}/{} has local storage (emptyDir). Use --force to delete.",
+                namespace, pod_name
+            ));
+            continue;
+        }
+
         // Evict the pod
-        let pod_ctx = ResourceContext::for_command(&state, Some(namespace))?;
+        let pod_ctx = ResourceContext::for_command(&state, Some(namespace.clone()))?;
         let pod_api: kube::Api<Pod> = pod_ctx.namespaced_api();
         let evict_params = kube::api::EvictParams::default();
-        let _ = pod_api.evict(&pod_name, &evict_params).await;
+
+        match pod_api.evict(&pod_name, &evict_params).await {
+            Ok(_) => {
+                tracing::info!("Successfully evicted pod {}/{}", namespace, pod_name);
+            }
+            Err(e) => {
+                let error_msg = format!("Failed to evict pod {}/{}: {}", namespace, pod_name, e);
+                tracing::warn!("{}", error_msg);
+
+                // If force is enabled, try to delete the pod directly
+                if force {
+                    tracing::info!("Force deleting pod {}/{}", namespace, pod_name);
+                    if let Err(delete_err) = pod_api.delete(&pod_name, &Default::default()).await {
+                        eviction_errors.push(format!(
+                            "Failed to force delete pod {}/{}: {}",
+                            namespace, pod_name, delete_err
+                        ));
+                    }
+                } else {
+                    eviction_errors.push(error_msg);
+                }
+            }
+        }
+    }
+
+    if !eviction_errors.is_empty() {
+        return Err(crate::error::Error::Internal(format!(
+            "Drain completed with errors:\n{}",
+            eviction_errors.join("\n")
+        )));
     }
 
     Ok(())

@@ -10,6 +10,14 @@ use k8s_gui_common::ErrorExt;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+/// Error message constants
+pub mod messages {
+    /// No cluster connected
+    pub const NO_CLUSTER: &str = "No cluster connected";
+    /// Client not found for context
+    pub const NO_CLIENT: &str = "Client not found";
+}
+
 /// Application-wide result type
 pub type Result<T> = std::result::Result<T, Error>;
 

@@ -3,7 +3,6 @@
 //! This module provides a client manager that handles multiple Kubernetes
 //! cluster connections with support for different authentication methods.
 
-use crate::auth::{AuthConfig, AuthMethod};
 use crate::error::{AuthError, Error, Result};
 use dashmap::DashMap;
 use kube::{
@@ -165,20 +164,6 @@ impl K8sClientManager {
         Ok(client)
     }
 
-    /// Connect with custom authentication
-    pub async fn connect_with_auth(&self, context: &str, auth: &AuthConfig) -> Result<Arc<Client>> {
-        let config = self.create_config_with_auth(context, auth).await?;
-        let client = Client::try_from(config.clone())
-            .map_err(|e| Error::Connection(format!("Failed to create client: {e}")))?;
-
-        let client = Arc::new(client);
-        self.clients.insert(context.to_string(), client.clone());
-        self.configs.insert(context.to_string(), config);
-
-        tracing::info!("Connected to cluster with custom auth: {}", context);
-        Ok(client)
-    }
-
     /// Create kube config for a context
     async fn create_config(&self, context: &str) -> Result<Config> {
         let kubeconfig = self.kubeconfig.read().await;
@@ -198,55 +183,6 @@ impl K8sClientManager {
                     "Failed to create config for context {context}: {e}"
                 ))
             })
-    }
-
-    /// Create kube config with custom authentication
-    async fn create_config_with_auth(&self, context: &str, auth: &AuthConfig) -> Result<Config> {
-        let config = self.create_config(context).await?;
-
-        match &auth.method {
-            AuthMethod::BearerToken { token: _ } => {
-                // Set bearer token authentication
-                // Note: In production, we'd modify the config to use the token
-                tracing::debug!("Using bearer token authentication for {}", context);
-                // Token is handled through kube-rs authentication mechanisms
-            }
-            AuthMethod::Oidc {
-                issuer_url: _,
-                client_id: _,
-                client_secret: _,
-                refresh_token: _,
-                ..
-            } => {
-                tracing::debug!("Using OIDC authentication for {}", context);
-                // OIDC is handled through kube-rs OIDC support
-            }
-            AuthMethod::AwsEks {
-                cluster_name: _,
-                region: _,
-                role_arn: _,
-                ..
-            } => {
-                tracing::debug!("Using AWS EKS authentication for {}", context);
-                // AWS EKS authentication is handled separately
-            }
-            AuthMethod::GcpGke { .. } => {
-                tracing::debug!("Using GCP GKE native authentication for {}", context);
-                // GCP GKE authentication uses native SDK
-            }
-            AuthMethod::AzureAks { .. } => {
-                tracing::debug!("Using Azure AKS native authentication for {}", context);
-                // Azure AKS authentication uses native SDK
-            }
-            AuthMethod::Certificate { .. } => {
-                tracing::debug!("Using certificate authentication for {}", context);
-            }
-            AuthMethod::Kubeconfig => {
-                // Default kubeconfig authentication, no modifications needed
-            }
-        }
-
-        Ok(config)
     }
 
     /// Disconnect from a cluster

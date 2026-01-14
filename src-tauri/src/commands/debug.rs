@@ -198,7 +198,7 @@ pub async fn debug_pod_ephemeral(
     })?;
 
     // Create and store the debug operation
-    let operation_id = format!("debug-{}", uuid::Uuid::new_v4());
+    let operation_id = crate::utils::generate_id("debug");
     let created_at = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -316,7 +316,7 @@ pub async fn debug_pod_copy(
     api.create(&PostParams::default(), &debug_pod).await?;
 
     // Create and store the debug operation
-    let operation_id = format!("debug-{}", uuid::Uuid::new_v4());
+    let operation_id = crate::utils::generate_id("debug");
     let timeout_seconds = config.timeout_seconds.unwrap_or(120);
 
     let operation = DebugOperation {
@@ -425,7 +425,7 @@ pub async fn debug_node(
     api.create(&PostParams::default(), &debug_pod).await?;
 
     // Create and store the debug operation
-    let operation_id = format!("debug-{}", uuid::Uuid::new_v4());
+    let operation_id = crate::utils::generate_id("debug");
     let timeout_seconds = config.timeout_seconds.unwrap_or(120);
 
     let operation = DebugOperation {

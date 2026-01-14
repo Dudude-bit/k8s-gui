@@ -106,52 +106,40 @@ pub struct GcpProfileInfo {
 /// List all GCP profiles
 #[tauri::command]
 pub fn list_gcp_profiles() -> Result<Vec<GcpProfileInfo>> {
-    let config = AppConfig::load()?;
-    Ok(config.cloud.gcp_profiles
-        .into_iter()
-        .map(|(name, profile)| GcpProfileInfo { name, profile })
-        .collect())
+    read_config(|config| {
+        config.cloud.gcp_profiles
+            .iter()
+            .map(|(name, profile)| GcpProfileInfo { name: name.clone(), profile: profile.clone() })
+            .collect()
+    })
 }
 
 /// Get a specific GCP profile
 #[tauri::command]
 pub fn get_gcp_profile(name: String) -> Result<Option<GcpProfile>> {
-    let config = AppConfig::load()?;
-    Ok(config.cloud.gcp_profiles.get(&name).cloned())
+    read_config(|config| config.cloud.gcp_profiles.get(&name).cloned())
 }
 
 /// Save a GCP profile (create or update)
 #[tauri::command]
 pub fn save_gcp_profile(name: String, profile: GcpProfile) -> Result<()> {
-    let mut config = AppConfig::load()?;
-    
-    // Filter empty strings
-    let cleaned_profile = GcpProfile {
-        description: profile.description.filter(|s| !s.is_empty()),
-        service_account_key_path: profile.service_account_key_path.filter(|s| !s.is_empty()),
-        gcloud_path: profile.gcloud_path.filter(|s| !s.is_empty()),
-        default_project: profile.default_project.filter(|s| !s.is_empty()),
-        prefer_native_auth: profile.prefer_native_auth,
-    };
-    
-    config.cloud.gcp_profiles.insert(name, cleaned_profile);
-    save_config(&config)
+    with_config(|config| {
+        config.cloud.gcp_profiles.insert(name, profile.clean_empty_strings());
+    })
 }
 
 /// Delete a GCP profile
 #[tauri::command]
 pub fn delete_gcp_profile(name: String) -> Result<()> {
-    let mut config = AppConfig::load()?;
-    config.cloud.gcp_profiles.remove(&name);
-    
-    // Also remove any context bindings using this profile
-    for binding in config.cloud.context_bindings.values_mut() {
-        if binding.gcp_profile.as_ref() == Some(&name) {
-            binding.gcp_profile = None;
+    with_config(|config| {
+        config.cloud.gcp_profiles.remove(&name);
+        // Also remove any context bindings using this profile
+        for binding in config.cloud.context_bindings.values_mut() {
+            if binding.gcp_profile.as_ref() == Some(&name) {
+                binding.gcp_profile = None;
+            }
         }
-    }
-    
-    save_config(&config)
+    })
 }
 
 /// Test GCP profile authentication
@@ -194,54 +182,40 @@ pub struct AzureProfileInfo {
 /// List all Azure profiles
 #[tauri::command]
 pub fn list_azure_profiles() -> Result<Vec<AzureProfileInfo>> {
-    let config = AppConfig::load()?;
-    Ok(config.cloud.azure_profiles
-        .into_iter()
-        .map(|(name, profile)| AzureProfileInfo { name, profile })
-        .collect())
+    read_config(|config| {
+        config.cloud.azure_profiles
+            .iter()
+            .map(|(name, profile)| AzureProfileInfo { name: name.clone(), profile: profile.clone() })
+            .collect()
+    })
 }
 
 /// Get a specific Azure profile
 #[tauri::command]
 pub fn get_azure_profile(name: String) -> Result<Option<AzureProfile>> {
-    let config = AppConfig::load()?;
-    Ok(config.cloud.azure_profiles.get(&name).cloned())
+    read_config(|config| config.cloud.azure_profiles.get(&name).cloned())
 }
 
 /// Save an Azure profile (create or update)
 #[tauri::command]
 pub fn save_azure_profile(name: String, profile: AzureProfile) -> Result<()> {
-    let mut config = AppConfig::load()?;
-    
-    // Filter empty strings
-    let cleaned_profile = AzureProfile {
-        description: profile.description.filter(|s| !s.is_empty()),
-        az_path: profile.az_path.filter(|s| !s.is_empty()),
-        kubelogin_path: profile.kubelogin_path.filter(|s| !s.is_empty()),
-        default_subscription: profile.default_subscription.filter(|s| !s.is_empty()),
-        tenant_id: profile.tenant_id.filter(|s| !s.is_empty()),
-        use_cli_fallback: profile.use_cli_fallback,
-        prefer_native_auth: profile.prefer_native_auth,
-    };
-    
-    config.cloud.azure_profiles.insert(name, cleaned_profile);
-    save_config(&config)
+    with_config(|config| {
+        config.cloud.azure_profiles.insert(name, profile.clean_empty_strings());
+    })
 }
 
 /// Delete an Azure profile
 #[tauri::command]
 pub fn delete_azure_profile(name: String) -> Result<()> {
-    let mut config = AppConfig::load()?;
-    config.cloud.azure_profiles.remove(&name);
-    
-    // Also remove any context bindings using this profile
-    for binding in config.cloud.context_bindings.values_mut() {
-        if binding.azure_profile.as_ref() == Some(&name) {
-            binding.azure_profile = None;
+    with_config(|config| {
+        config.cloud.azure_profiles.remove(&name);
+        // Also remove any context bindings using this profile
+        for binding in config.cloud.context_bindings.values_mut() {
+            if binding.azure_profile.as_ref() == Some(&name) {
+                binding.azure_profile = None;
+            }
         }
-    }
-    
-    save_config(&config)
+    })
 }
 
 /// Test Azure profile authentication
@@ -285,48 +259,48 @@ pub struct ContextBindingInfo {
 /// List all context bindings
 #[tauri::command]
 pub fn list_context_bindings() -> Result<Vec<ContextBindingInfo>> {
-    let config = AppConfig::load()?;
-    Ok(config.cloud.context_bindings
-        .into_iter()
-        .map(|(context_name, binding)| ContextBindingInfo {
-            context_name,
-            gcp_profile: binding.gcp_profile,
-            azure_profile: binding.azure_profile,
-        })
-        .collect())
+    read_config(|config| {
+        config.cloud.context_bindings
+            .iter()
+            .map(|(context_name, binding)| ContextBindingInfo {
+                context_name: context_name.clone(),
+                gcp_profile: binding.gcp_profile.clone(),
+                azure_profile: binding.azure_profile.clone(),
+            })
+            .collect()
+    })
 }
 
 /// Get binding for a specific context
 #[tauri::command]
 pub fn get_context_binding(context: String) -> Result<ContextBinding> {
-    let config = AppConfig::load()?;
-    Ok(config.cloud.context_bindings
-        .get(&context)
-        .cloned()
-        .unwrap_or_default())
+    read_config(|config| {
+        config.cloud.context_bindings
+            .get(&context)
+            .cloned()
+            .unwrap_or_default()
+    })
 }
 
 /// Save context binding
 #[tauri::command]
 pub fn save_context_binding(context: String, binding: ContextBinding) -> Result<()> {
-    let mut config = AppConfig::load()?;
-    
-    // If both profiles are None, remove the binding entirely
-    if binding.gcp_profile.is_none() && binding.azure_profile.is_none() {
-        config.cloud.context_bindings.remove(&context);
-    } else {
-        config.cloud.context_bindings.insert(context, binding);
-    }
-    
-    save_config(&config)
+    with_config(|config| {
+        // If both profiles are None, remove the binding entirely
+        if binding.gcp_profile.is_none() && binding.azure_profile.is_none() {
+            config.cloud.context_bindings.remove(&context);
+        } else {
+            config.cloud.context_bindings.insert(context, binding);
+        }
+    })
 }
 
 /// Delete context binding
 #[tauri::command]
 pub fn delete_context_binding(context: String) -> Result<()> {
-    let mut config = AppConfig::load()?;
-    config.cloud.context_bindings.remove(&context);
-    save_config(&config)
+    with_config(|config| {
+        config.cloud.context_bindings.remove(&context);
+    })
 }
 
 // ============================================================================
@@ -336,22 +310,20 @@ pub fn delete_context_binding(context: String) -> Result<()> {
 /// Get CLI paths configuration
 #[tauri::command]
 pub fn get_cli_paths() -> Result<CliPathsConfig> {
-    let config = AppConfig::load()?;
-    Ok(config.cli_paths)
+    read_config(|config| config.cli_paths.clone())
 }
 
 /// Save CLI paths configuration
 #[tauri::command]
 pub fn save_cli_paths(cli_paths: CliPathsConfig) -> Result<()> {
-    let mut config = AppConfig::load()?;
-    
     // Filter empty strings
     let cleaned = CliPathsConfig {
         helm_path: cli_paths.helm_path.filter(|s| !s.is_empty()),
     };
-    
-    config.cli_paths = cleaned;
-    save_config(&config)
+
+    with_config(|config| {
+        config.cli_paths = cleaned;
+    })
 }
 
 // ============================================================================
@@ -360,20 +332,41 @@ pub fn save_cli_paths(cli_paths: CliPathsConfig) -> Result<()> {
 
 pub fn save_config(config: &AppConfig) -> Result<()> {
     use crate::error::Error;
-    
+
     let config_path = AppConfig::config_path()?;
     if let Some(parent) = config_path.parent() {
         std::fs::create_dir_all(parent)
             .map_err(|e| Error::Config(format!("Failed to create config directory: {e}")))?;
     }
-    
+
     let toml_str = toml::to_string_pretty(config)
         .map_err(|e| Error::Config(format!("Failed to serialize config: {e}")))?;
-    
+
     std::fs::write(&config_path, toml_str)
         .map_err(|e| Error::Config(format!("Failed to write config file: {e}")))?;
-    
+
     Ok(())
+}
+
+/// Execute a modification on the config and save it automatically.
+/// Reduces boilerplate for load -> modify -> save pattern.
+pub fn with_config<F>(f: F) -> Result<()>
+where
+    F: FnOnce(&mut AppConfig),
+{
+    let mut config = AppConfig::load()?;
+    f(&mut config);
+    save_config(&config)
+}
+
+/// Execute a read operation on the config.
+/// Reduces boilerplate for load -> read pattern.
+pub fn read_config<F, T>(f: F) -> Result<T>
+where
+    F: FnOnce(&AppConfig) -> T,
+{
+    let config = AppConfig::load()?;
+    Ok(f(&config))
 }
 
 // ============================================================================
@@ -415,24 +408,25 @@ pub struct RegistryConfigInfo {
 /// List all registry configurations
 #[tauri::command]
 pub fn list_registry_configs() -> Result<Vec<RegistryConfigInfo>> {
-    let config = AppConfig::load()?;
-    Ok(config.registries.registries
-        .into_iter()
-        .map(|(id, entry)| RegistryConfigInfo {
-            id,
-            label: entry.label,
-            provider: entry.provider,
-            base_url: entry.base_url,
-            host: entry.host,
-            project: entry.project,
-            account_id: entry.account_id,
-            region: entry.region,
-            auth_type: entry.auth_type,
-            username: entry.username,
-            password: None, // Don't expose password in list
-            token: None, // Don't expose token in list
-        })
-        .collect())
+    read_config(|config| {
+        config.registries.registries
+            .iter()
+            .map(|(id, entry)| RegistryConfigInfo {
+                id: id.clone(),
+                label: entry.label.clone(),
+                provider: entry.provider.clone(),
+                base_url: entry.base_url.clone(),
+                host: entry.host.clone(),
+                project: entry.project.clone(),
+                account_id: entry.account_id.clone(),
+                region: entry.region.clone(),
+                auth_type: entry.auth_type.clone(),
+                username: entry.username.clone(),
+                password: None, // Don't expose password in list
+                token: None, // Don't expose token in list
+            })
+            .collect()
+    })
 }
 
 /// Save a registry configuration
@@ -474,9 +468,9 @@ pub fn save_registry_config(id: String, config_entry: RegistryConfigInfo) -> Res
 /// Delete a registry configuration
 #[tauri::command]
 pub fn delete_registry_config(id: String) -> Result<()> {
-    let mut config = AppConfig::load()?;
-    config.registries.registries.remove(&id);
-    save_config(&config)
+    with_config(|config| {
+        config.registries.registries.remove(&id);
+    })
 }
 
 // ============================================================================
@@ -486,10 +480,9 @@ pub fn delete_registry_config(id: String) -> Result<()> {
 /// Get theme configuration
 #[tauri::command]
 pub fn get_theme_config() -> Result<ThemeConfig> {
-    let config = AppConfig::load()?;
-    Ok(ThemeConfig {
-        theme: config.theme.theme,
-        accent_color: config.theme.accent_color,
+    read_config(|config| ThemeConfig {
+        theme: config.theme.theme.clone(),
+        accent_color: config.theme.accent_color.clone(),
         font_size: config.theme.font_size,
         compact: config.theme.compact,
     })
@@ -498,12 +491,12 @@ pub fn get_theme_config() -> Result<ThemeConfig> {
 /// Save theme configuration
 #[tauri::command]
 pub fn save_theme_config(theme: ThemeConfig) -> Result<()> {
-    let mut config = AppConfig::load()?;
-    config.theme.theme = theme.theme;
-    config.theme.accent_color = theme.accent_color;
-    config.theme.font_size = theme.font_size;
-    config.theme.compact = theme.compact;
-    save_config(&config)
+    with_config(|config| {
+        config.theme.theme = theme.theme;
+        config.theme.accent_color = theme.accent_color;
+        config.theme.font_size = theme.font_size;
+        config.theme.compact = theme.compact;
+    })
 }
 
 // ============================================================================
@@ -523,56 +516,53 @@ pub struct YamlHistoryEntryDto {
 /// Get YAML history for a resource
 #[tauri::command]
 pub fn get_yaml_history(resource_key: String) -> Result<Vec<YamlHistoryEntryDto>> {
-    let config = AppConfig::load()?;
-    let entries = config.yaml_editor.history
-        .get(&resource_key)
-        .cloned()
-        .unwrap_or_default();
-    
-    Ok(entries.into_iter().map(|e| YamlHistoryEntryDto {
-        timestamp: e.timestamp,
-        content: e.content,
-        label: e.label,
-    }).collect())
+    read_config(|config| {
+        config.yaml_editor.history
+            .get(&resource_key)
+            .map(|entries| entries.iter().map(|e| YamlHistoryEntryDto {
+                timestamp: e.timestamp,
+                content: e.content.clone(),
+                label: e.label.clone(),
+            }).collect())
+            .unwrap_or_default()
+    })
 }
 
 /// Add a YAML history entry
 #[tauri::command]
 pub fn add_yaml_history_entry(resource_key: String, entry: YamlHistoryEntryDto) -> Result<()> {
-    let mut config = AppConfig::load()?;
-    
     let history_entry = YamlHistoryEntry {
         timestamp: entry.timestamp,
         content: entry.content,
         label: entry.label,
     };
-    
-    let entries = config.yaml_editor.history
-        .entry(resource_key)
-        .or_default();
-    
-    // Add to front, limit to 20 entries
-    entries.insert(0, history_entry);
-    entries.truncate(20);
-    
-    save_config(&config)
+
+    with_config(|config| {
+        let entries = config.yaml_editor.history
+            .entry(resource_key)
+            .or_default();
+        // Add to front, limit to 20 entries
+        entries.insert(0, history_entry);
+        entries.truncate(20);
+    })
 }
 
 /// Get all YAML history
 #[tauri::command]
 pub fn get_all_yaml_history() -> Result<std::collections::HashMap<String, Vec<YamlHistoryEntryDto>>> {
-    let config = AppConfig::load()?;
-    Ok(config.yaml_editor.history
-        .into_iter()
-        .map(|(k, v)| {
-            let entries = v.into_iter().map(|e| YamlHistoryEntryDto {
-                timestamp: e.timestamp,
-                content: e.content,
-                label: e.label,
-            }).collect();
-            (k, entries)
-        })
-        .collect())
+    read_config(|config| {
+        config.yaml_editor.history
+            .iter()
+            .map(|(k, v)| {
+                let entries = v.iter().map(|e| YamlHistoryEntryDto {
+                    timestamp: e.timestamp,
+                    content: e.content.clone(),
+                    label: e.label.clone(),
+                }).collect();
+                (k.clone(), entries)
+            })
+            .collect()
+    })
 }
 
 // ============================================================================
@@ -592,42 +582,41 @@ pub struct InfrastructureBuilderStateDto {
 /// Get infrastructure builder state for a context
 #[tauri::command]
 pub fn get_infrastructure_state(context: String) -> Result<InfrastructureBuilderStateDto> {
-    let config = AppConfig::load()?;
-    let state = config.infrastructure_builder.contexts
-        .get(&context)
-        .cloned()
-        .unwrap_or_default();
-    
-    Ok(InfrastructureBuilderStateDto {
-        nodes: state.nodes,
-        edges: state.edges,
-        yaml_text: state.yaml_text,
-        extra_manifests: state.extra_manifests,
+    read_config(|config| {
+        let state = config.infrastructure_builder.contexts
+            .get(&context)
+            .cloned()
+            .unwrap_or_default();
+        InfrastructureBuilderStateDto {
+            nodes: state.nodes,
+            edges: state.edges,
+            yaml_text: state.yaml_text,
+            extra_manifests: state.extra_manifests,
+        }
     })
 }
 
 /// Save infrastructure builder state for a context
 #[tauri::command]
 pub fn save_infrastructure_state(context: String, state: InfrastructureBuilderStateDto) -> Result<()> {
-    let mut config = AppConfig::load()?;
-    
     let builder_state = ConfigBuilderState {
         nodes: state.nodes,
         edges: state.edges,
         yaml_text: state.yaml_text,
         extra_manifests: state.extra_manifests,
     };
-    
-    config.infrastructure_builder.contexts.insert(context, builder_state);
-    save_config(&config)
+
+    with_config(|config| {
+        config.infrastructure_builder.contexts.insert(context, builder_state);
+    })
 }
 
 /// Clear infrastructure builder state for a context
 #[tauri::command]
 pub fn clear_infrastructure_state(context: String) -> Result<()> {
-    let mut config = AppConfig::load()?;
-    config.infrastructure_builder.contexts.remove(&context);
-    save_config(&config)
+    with_config(|config| {
+        config.infrastructure_builder.contexts.remove(&context);
+    })
 }
 
 // ============================================================================
@@ -637,16 +626,15 @@ pub fn clear_infrastructure_state(context: String) -> Result<()> {
 /// Get recent items
 #[tauri::command]
 pub fn get_recent_items() -> Result<Vec<RecentItem>> {
-    let config = AppConfig::load()?;
-    Ok(config.recent_items.items)
+    read_config(|config| config.recent_items.items.clone())
 }
 
 /// Add a recent item
 #[tauri::command]
 pub fn add_recent_item(item: RecentItem) -> Result<()> {
-    let mut config = AppConfig::load()?;
-    config.recent_items.add_item(item);
-    save_config(&config)
+    with_config(|config| {
+        config.recent_items.add_item(item);
+    })
 }
 
 // ============================================================================
@@ -658,14 +646,13 @@ use crate::config::UpdaterConfig;
 /// Get updater settings
 #[tauri::command]
 pub fn get_updater_settings() -> Result<UpdaterConfig> {
-    let config = AppConfig::load()?;
-    Ok(config.updater)
+    read_config(|config| config.updater.clone())
 }
 
 /// Save updater settings
 #[tauri::command]
 pub fn save_updater_settings(settings: UpdaterConfig) -> Result<()> {
-    let mut config = AppConfig::load()?;
-    config.updater = settings;
-    save_config(&config)
+    with_config(|config| {
+        config.updater = settings;
+    })
 }

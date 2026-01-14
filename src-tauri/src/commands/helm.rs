@@ -179,6 +179,31 @@ fn decode_helm_release(data: &[u8]) -> Result<HelmSecretRelease> {
         .map_err(|e| Error::Plugin(PluginError::ExecutionFailed(format!("JSON parse error: {e}"))))
 }
 
+/// Resolve the helm binary path using config or searching common locations
+async fn resolve_helm_path() -> Result<String> {
+    use crate::config::AppConfig;
+
+    // First, try custom path from config if set
+    if let Ok(config) = AppConfig::load() {
+        if let Some(custom_path) = &config.cli_paths.helm_path {
+            if !custom_path.is_empty() {
+                if try_helm_path(custom_path).await.is_some() {
+                    return Ok(custom_path.clone());
+                }
+            }
+        }
+    }
+
+    // Try common installation paths
+    for path in get_helm_search_paths() {
+        if try_helm_path(&path).await.is_some() {
+            return Ok(path);
+        }
+    }
+
+    Err(Error::Plugin(PluginError::NotFound("Helm CLI not found. Install helm or specify a custom path in Settings.".to_string())))
+}
+
 /// Get the list of common helm installation paths to search
 fn get_helm_search_paths() -> Vec<String> {
     let mut paths = Vec::new();
@@ -443,7 +468,19 @@ pub async fn get_helm_history(
 
 /// Helper to execute helm CLI commands
 async fn exec_helm_cli(args: &[&str], timeout_secs: u64) -> Result<String> {
-    let mut cmd = Command::new("helm");
+    exec_helm_cli_with_context(args, timeout_secs, None).await
+}
+
+/// Helper to execute helm CLI commands with optional kube context
+async fn exec_helm_cli_with_context(args: &[&str], timeout_secs: u64, context: Option<&str>) -> Result<String> {
+    let helm_path = resolve_helm_path().await?;
+    let mut cmd = Command::new(&helm_path);
+
+    // Add kube-context if specified
+    if let Some(ctx) = context {
+        cmd.arg("--kube-context").arg(ctx);
+    }
+
     cmd.args(args);
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
@@ -470,14 +507,18 @@ pub async fn helm_rollback(
     name: String,
     namespace: String,
     revision: i32,
-    _state: State<'_, AppState>,
+    state: State<'_, AppState>,
 ) -> Result<String> {
     crate::validation::validate_dns_subdomain(&name)?;
     crate::validation::validate_namespace(&namespace)?;
+
+    let context = state.get_current_context();
     let revision_str = revision.to_string();
-    exec_helm_cli(
+
+    exec_helm_cli_with_context(
         &["rollback", &name, &revision_str, "-n", &namespace],
         120,
+        context.as_deref(),
     )
     .await
 }
@@ -487,11 +528,19 @@ pub async fn helm_rollback(
 pub async fn helm_uninstall(
     name: String,
     namespace: String,
-    _state: State<'_, AppState>,
+    state: State<'_, AppState>,
 ) -> Result<String> {
     crate::validation::validate_dns_subdomain(&name)?;
     crate::validation::validate_namespace(&namespace)?;
-    exec_helm_cli(&["uninstall", &name, "-n", &namespace], 120).await
+
+    let context = state.get_current_context();
+
+    exec_helm_cli_with_context(
+        &["uninstall", &name, "-n", &namespace],
+        120,
+        context.as_deref(),
+    )
+    .await
 }
 
 /// List Helm repositories
@@ -554,39 +603,39 @@ pub async fn helm_search_charts(
     }).collect())
 }
 
-/// Install a Helm chart
-#[tauri::command]
-pub async fn helm_install(
-    options: HelmInstallOptions,
+/// Helper for install/upgrade operations
+async fn helm_install_or_upgrade(
+    command: &str,
+    options: &HelmInstallOptions,
+    context: Option<&str>,
 ) -> Result<String> {
-    crate::validation::validate_dns_subdomain(&options.release_name)?;
-    crate::validation::validate_namespace(&options.namespace)?;
     let mut args = vec![
-        "install".to_string(),
+        command.to_string(),
         options.release_name.clone(),
         options.chart.clone(),
         "-n".to_string(),
         options.namespace.clone(),
     ];
-    
+
     if let Some(version) = &options.version {
         args.push("--version".to_string());
         args.push(version.clone());
     }
-    
-    if options.create_namespace {
+
+    // Only for install
+    if command == "install" && options.create_namespace {
         args.push("--create-namespace".to_string());
     }
-    
+
     if options.wait {
         args.push("--wait".to_string());
     }
-    
+
     if let Some(timeout) = &options.timeout {
         args.push("--timeout".to_string());
         args.push(timeout.clone());
     }
-    
+
     // Handle values - write to temp file if provided
     let temp_file = if let Some(values) = &options.values {
         if !values.trim().is_empty() {
@@ -603,71 +652,38 @@ pub async fn helm_install(
     } else {
         None
     };
-    
+
     let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-    let result = exec_helm_cli(&args_refs, 300).await; // 5 min timeout for install
-    
+    let result = exec_helm_cli_with_context(&args_refs, 300, context).await;
+
     // Clean up temp file
     if let Some(path) = temp_file {
         let _ = std::fs::remove_file(path);
     }
-    
+
     result
+}
+
+/// Install a Helm chart
+#[tauri::command]
+pub async fn helm_install(
+    options: HelmInstallOptions,
+    state: State<'_, AppState>,
+) -> Result<String> {
+    crate::validation::validate_dns_subdomain(&options.release_name)?;
+    crate::validation::validate_namespace(&options.namespace)?;
+    let context = state.get_current_context();
+    helm_install_or_upgrade("install", &options, context.as_deref()).await
 }
 
 /// Upgrade a Helm release
 #[tauri::command]
 pub async fn helm_upgrade(
     options: HelmInstallOptions,
+    state: State<'_, AppState>,
 ) -> Result<String> {
     crate::validation::validate_dns_subdomain(&options.release_name)?;
     crate::validation::validate_namespace(&options.namespace)?;
-    let mut args = vec![
-        "upgrade".to_string(),
-        options.release_name.clone(),
-        options.chart.clone(),
-        "-n".to_string(),
-        options.namespace.clone(),
-    ];
-    
-    if let Some(version) = &options.version {
-        args.push("--version".to_string());
-        args.push(version.clone());
-    }
-    
-    if options.wait {
-        args.push("--wait".to_string());
-    }
-    
-    if let Some(timeout) = &options.timeout {
-        args.push("--timeout".to_string());
-        args.push(timeout.clone());
-    }
-    
-    // Handle values - write to temp file if provided
-    let temp_file = if let Some(values) = &options.values {
-        if !values.trim().is_empty() {
-            let temp_dir = std::env::temp_dir();
-            let temp_path = temp_dir.join(format!("helm-values-{}.yaml", uuid::Uuid::new_v4()));
-            std::fs::write(&temp_path, values)
-                .map_err(|e| Error::Plugin(PluginError::ExecutionFailed(format!("Failed to write values file: {e}"))))?;
-            args.push("-f".to_string());
-            args.push(temp_path.to_string_lossy().to_string());
-            Some(temp_path)
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-    
-    let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-    let result = exec_helm_cli(&args_refs, 300).await; // 5 min timeout for upgrade
-    
-    // Clean up temp file
-    if let Some(path) = temp_file {
-        let _ = std::fs::remove_file(path);
-    }
-    
-    result
+    let context = state.get_current_context();
+    helm_install_or_upgrade("upgrade", &options, context.as_deref()).await
 }

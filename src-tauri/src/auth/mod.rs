@@ -15,7 +15,6 @@ mod gcp_gke;
 mod interactive;
 mod kubeconfig;
 pub mod license_client;
-mod manager;
 mod oidc;
 
 pub use aws_eks::AwsEksAuth;
@@ -24,7 +23,6 @@ pub use bearer::BearerTokenAuth;
 pub use gcp_gke::{is_gke_exec_command, parse_gke_exec_args, GcpGkeAuth, GkeClusterInfo};
 pub use interactive::prepare_kubeconfig_for_context;
 pub use kubeconfig::KubeconfigAuth;
-pub use manager::AuthManager;
 pub use oidc::OidcAuth;
 
 use serde::{Deserialize, Serialize};
@@ -35,96 +33,6 @@ pub fn auth_disabled() -> bool {
         option_env!("VITE_DISABLE_AUTH"),
         Some("1") | Some("true")
     )
-}
-
-/// Authentication method enumeration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum AuthMethod {
-    /// Use kubeconfig file authentication
-    Kubeconfig,
-
-    /// Bearer token authentication
-    BearerToken { token: String },
-
-    /// Client certificate authentication
-    Certificate {
-        client_certificate_data: String,
-        client_key_data: String,
-    },
-
-    /// OIDC authentication
-    Oidc {
-        issuer_url: String,
-        client_id: String,
-        client_secret: Option<String>,
-        refresh_token: Option<String>,
-        id_token: Option<String>,
-        scopes: Vec<String>,
-    },
-
-    /// AWS EKS authentication
-    AwsEks {
-        cluster_name: String,
-        region: String,
-        role_arn: Option<String>,
-        profile: Option<String>,
-    },
-
-    /// GCP GKE authentication (native SDK)
-    GcpGke {
-        /// Optional project ID (for context)
-        project_id: Option<String>,
-        /// Optional cluster location (zone or region)
-        location: Option<String>,
-        /// Optional cluster name
-        cluster_name: Option<String>,
-        /// Optional path to service account JSON key file
-        service_account_key_path: Option<String>,
-    },
-
-    /// Azure AKS authentication (native SDK)
-    AzureAks {
-        /// Optional subscription ID
-        subscription_id: Option<String>,
-        /// Optional resource group
-        resource_group: Option<String>,
-        /// Optional cluster name
-        cluster_name: Option<String>,
-        /// Optional tenant ID
-        tenant_id: Option<String>,
-        /// Whether to use Azure CLI as fallback when SDK auth fails
-        #[serde(default)]
-        use_cli_fallback: bool,
-    },
-}
-
-/// Authentication configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AuthConfig {
-    /// Authentication method
-    pub method: AuthMethod,
-
-    /// Optional: Override server URL
-    pub server_url: Option<String>,
-
-    /// Optional: CA certificate data (base64 encoded)
-    pub ca_data: Option<String>,
-
-    /// Skip TLS verification
-    #[serde(default)]
-    pub insecure_skip_tls_verify: bool,
-}
-
-impl Default for AuthConfig {
-    fn default() -> Self {
-        Self {
-            method: AuthMethod::Kubeconfig,
-            server_url: None,
-            ca_data: None,
-            insecure_skip_tls_verify: false,
-        }
-    }
 }
 
 /// Authentication result with token and expiry
@@ -181,25 +89,6 @@ pub trait AuthProvider: Send + Sync {
     fn name(&self) -> &'static str;
 }
 
-/// Authentication status
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AuthStatus {
-    /// Not authenticated
-    NotAuthenticated,
-    /// Authentication in progress
-    Authenticating,
-    /// Successfully authenticated
-    Authenticated {
-        method: String,
-        expires_at: Option<chrono::DateTime<chrono::Utc>>,
-    },
-    /// Authentication failed
-    Failed { error: String },
-    /// Token expired
-    Expired,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -226,11 +115,5 @@ mod tests {
         };
 
         assert!(!result.is_expired());
-    }
-
-    #[test]
-    fn test_auth_config_default() {
-        let config = AuthConfig::default();
-        assert!(matches!(config.method, AuthMethod::Kubeconfig));
     }
 }

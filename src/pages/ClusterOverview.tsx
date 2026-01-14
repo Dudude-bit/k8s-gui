@@ -89,6 +89,8 @@ export function ClusterOverview() {
           fieldSelector: null,
           limit: null,
           statusFilter: null,
+          selector: null,
+          nodeName: null,
         });
         return result;
       } catch (err) {

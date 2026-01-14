@@ -31,7 +31,15 @@ function getPodStatusColor(phase: string): string {
 export function MatchingPods({ namespace, selector }: MatchingPodsProps) {
   const { data: pods, isLoading, error } = useQuery({
     queryKey: ["pods-by-selector", namespace, selector],
-    queryFn: () => commands.getPodsBySelector(namespace, selector),
+    queryFn: () => commands.listPods({
+      namespace,
+      selector,
+      statusFilter: null,
+      nodeName: null,
+      labelSelector: null,
+      fieldSelector: null,
+      limit: null,
+    }),
     enabled: Object.keys(selector).length > 0,
   });
 

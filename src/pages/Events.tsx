@@ -133,8 +133,8 @@ export function Events() {
             </div>
           ) : (
             <div className="space-y-2">
-              {events.map((event, index) => (
-                <EventItem key={`${event.name}-${index}`} event={event} />
+              {events.map((event) => (
+                <EventItem key={event.uid} event={event} />
               ))}
             </div>
           )}

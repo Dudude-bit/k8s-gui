@@ -341,6 +341,20 @@ impl Default for GcpProfile {
     }
 }
 
+impl GcpProfile {
+    /// Filter out empty strings from optional fields
+    #[must_use]
+    pub fn clean_empty_strings(self) -> Self {
+        Self {
+            description: self.description.filter(|s| !s.is_empty()),
+            service_account_key_path: self.service_account_key_path.filter(|s| !s.is_empty()),
+            gcloud_path: self.gcloud_path.filter(|s| !s.is_empty()),
+            default_project: self.default_project.filter(|s| !s.is_empty()),
+            prefer_native_auth: self.prefer_native_auth,
+        }
+    }
+}
+
 /// Azure authentication profile
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -378,6 +392,22 @@ impl Default for AzureProfile {
             tenant_id: None,
             use_cli_fallback: false,
             prefer_native_auth: true,
+        }
+    }
+}
+
+impl AzureProfile {
+    /// Filter out empty strings from optional fields
+    #[must_use]
+    pub fn clean_empty_strings(self) -> Self {
+        Self {
+            description: self.description.filter(|s| !s.is_empty()),
+            az_path: self.az_path.filter(|s| !s.is_empty()),
+            kubelogin_path: self.kubelogin_path.filter(|s| !s.is_empty()),
+            default_subscription: self.default_subscription.filter(|s| !s.is_empty()),
+            tenant_id: self.tenant_id.filter(|s| !s.is_empty()),
+            use_cli_fallback: self.use_cli_fallback,
+            prefer_native_auth: self.prefer_native_auth,
         }
     }
 }

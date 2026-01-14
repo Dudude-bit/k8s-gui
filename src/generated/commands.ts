@@ -236,27 +236,12 @@ export async function deleteSecret(name: string, namespace: string | null): Prom
   return invoke<void>("delete_secret", { name, namespace });
 }
 
-export async function getResourceReferences(
-  resourceType: string,
-  name: string,
-  namespace: string | null
-): Promise<ResourceReferences> {
-  return invoke<ResourceReferences>("get_resource_references", {
-    resourceType,
-    name,
-    namespace,
-  });
+export async function getResourceReferences(resourceType: string, name: string, namespace: string | null): Promise<ResourceReferences> {
+  return invoke<ResourceReferences>("get_resource_references", { resourceType, name, namespace });
 }
 
 export async function listPods(filters: PodFilters | null): Promise<PodInfo[]> {
   return invoke<PodInfo[]>("list_pods", { filters });
-}
-
-export async function getPodsBySelector(
-  namespace: string,
-  selector: Record<string, string>
-): Promise<PodInfo[]> {
-  return invoke<PodInfo[]>("get_pods_by_selector", { namespace, selector });
 }
 
 export async function getPod(name: string, namespace: string | null): Promise<PodInfo> {
@@ -329,10 +314,6 @@ export async function listNodes(filters: NodeFilters | null): Promise<NodeInfo[]
 
 export async function getNode(name: string): Promise<NodeInfo> {
   return invoke<NodeInfo>("get_node", { name });
-}
-
-export async function getNodePods(name: string): Promise<PodInfo[]> {
-  return invoke<PodInfo[]>("get_node_pods", { name });
 }
 
 export async function cordonNode(name: string): Promise<void> {

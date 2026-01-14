@@ -242,7 +242,6 @@ fn main() {
             // Node commands
             commands::nodes::list_nodes,
             commands::nodes::get_node,
-            commands::nodes::get_node_pods,
             commands::nodes::cordon_node,
             commands::nodes::uncordon_node,
             commands::nodes::drain_node,
@@ -386,7 +385,6 @@ fn main() {
             commands::workloads::get_cronjob,
             commands::workloads::get_cronjob_yaml,
             commands::workloads::delete_cronjob,
-            commands::workloads::get_pods_by_selector,
 
             // Validation commands
             commands::validation::validate_email_command,

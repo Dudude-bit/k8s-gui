@@ -12,6 +12,7 @@ import { ChevronDown, ChevronRight, Layers, Lock, FileKey, HardDrive, Globe, Ima
 import { useState } from "react";
 import { ResourceLink } from "@/components/shared";
 import { commands } from "@/lib/commands";
+import { ResourceType } from "@/lib/resource-registry";
 import type { ResourceReferences } from "@/generated/types";
 
 interface ReferencedByProps {
@@ -95,7 +96,7 @@ export function ReferencedBy({ resourceType, name, namespace }: ReferencedByProp
       <CardContent className="space-y-1">
         <Section
           title="Environment Variables"
-          icon={resourceType === "Secret" ? Lock : FileKey}
+          icon={resourceType === ResourceType.Secret ? Lock : FileKey}
           count={refs.envVars.length}
           defaultOpen={refs.envVars.length > 0}
         >
@@ -112,7 +113,7 @@ export function ReferencedBy({ resourceType, name, namespace }: ReferencedByProp
 
         <Section
           title="EnvFrom (Bulk Import)"
-          icon={resourceType === "Secret" ? Lock : FileKey}
+          icon={resourceType === ResourceType.Secret ? Lock : FileKey}
           count={refs.envFrom.length}
           defaultOpen={refs.envFrom.length > 0}
         >
@@ -144,7 +145,7 @@ export function ReferencedBy({ resourceType, name, namespace }: ReferencedByProp
           ))}
         </Section>
 
-        {resourceType === "Secret" && (
+        {resourceType === ResourceType.Secret && (
           <>
             <Section
               title="Image Pull Secrets"

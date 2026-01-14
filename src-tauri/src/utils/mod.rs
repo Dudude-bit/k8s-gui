@@ -36,6 +36,12 @@ pub fn normalize_optional_namespace(namespace: Option<String>) -> Option<String>
     })
 }
 
+/// Generate a unique ID with a given prefix
+#[must_use]
+pub fn generate_id(prefix: &str) -> String {
+    format!("{}-{}", prefix, uuid::Uuid::new_v4())
+}
+
 /// Require a concrete namespace, returning an error when "all namespaces" is selected.
 ///
 /// # Errors

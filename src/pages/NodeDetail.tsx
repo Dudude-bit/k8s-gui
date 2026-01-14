@@ -51,7 +51,15 @@ export function NodeDetail() {
     queryKey: ["node-pods", name],
     queryFn: async () => {
       if (!name) return 0;
-      const pods = await commands.getNodePods(name);
+      const pods = await commands.listPods({
+        nodeName: name,
+        namespace: null,
+        selector: null,
+        statusFilter: null,
+        labelSelector: null,
+        fieldSelector: null,
+        limit: null,
+      });
       return pods.length;
     },
     enabled: !!name,

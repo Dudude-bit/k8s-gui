@@ -3,7 +3,6 @@
 //! This module manages the global application state including active connections,
 //! cached data, and plugin registry.
 
-use crate::auth::AuthManager;
 use crate::cache::ResourceCache;
 use crate::client::K8sClientManager;
 use crate::config::AppConfig;
@@ -145,9 +144,6 @@ pub struct AppState {
     /// Kubernetes client manager
     pub client_manager: Arc<K8sClientManager>,
 
-    /// Authentication manager
-    pub auth_manager: Arc<AuthManager>,
-
     /// Plugin manager
     pub plugin_manager: Arc<PluginManager>,
 
@@ -192,14 +188,12 @@ impl AppState {
         let (event_tx, _) = broadcast::channel(1000);
 
         let client_manager = Arc::new(K8sClientManager::new());
-        let auth_manager = Arc::new(AuthManager::new());
         let plugin_manager = Arc::new(PluginManager::new()?);
         let cache = Arc::new(ResourceCache::new(config.cache.ttl_seconds));
 
         Ok(Self {
             config: Arc::new(RwLock::new(config)),
             client_manager,
-            auth_manager,
             plugin_manager,
             cache,
             sessions: DashMap::new(),
@@ -305,18 +299,6 @@ impl AppState {
     pub fn remove_session(&self, context: &str) {
         self.sessions.remove(context);
     }
-
-    /// Generate a new terminal session ID
-    pub fn new_terminal_session_id(&self) -> String {
-        Uuid::new_v4().to_string()
-    }
-
-
-    /// Generate a new log stream ID
-    pub fn new_log_stream_id(&self) -> String {
-        Uuid::new_v4().to_string()
-    }
-
 
     /// Cancel all log streams
     pub fn cancel_all_log_streams(&self) {

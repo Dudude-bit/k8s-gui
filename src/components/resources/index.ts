@@ -26,3 +26,4 @@ export { VolumeMounts } from "./VolumeMounts";
 export { ImagePullSecrets } from "./ImagePullSecrets";
 export { EnvironmentVariables } from "./EnvironmentVariables";
 export { ContainerConfiguration } from "./ContainerConfiguration";
+export { PodListCard } from "./PodListCard";

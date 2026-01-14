@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { commands } from "@/lib/commands";
@@ -30,7 +29,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { RealtimeAge } from "@/components/ui/realtime";
 import {
   Trash2,
   RefreshCw,
@@ -47,6 +45,7 @@ import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { ContainerCard } from "@/components/resources/ContainerCard";
 import { RelatedResources } from "@/components/resources/RelatedResources";
+import { PodListCard } from "@/components/resources/PodListCard";
 import { MetricPair } from "@/components/ui/metric-card";
 import { ResourceDetailLayout } from "@/components/resources/ResourceDetailLayout";
 import {
@@ -394,54 +393,7 @@ export function DeploymentDetail() {
     {
       id: toPlural(ResourceType.Pod),
       label: "Pods",
-      content: (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="space-y-2">
-              {pods.map((pod) => {
-                const readyCount =
-                  pod.containers?.filter((c) => c.ready).length ?? 0;
-                const totalCount = pod.containers?.length ?? 0;
-                const readyText = `${readyCount}/${totalCount}`;
-                const status = pod.status?.phase || "Unknown";
-
-                return (
-                  <Link
-                    key={pod.name}
-                    to={`/${toPlural(ResourceType.Pod)}/${pod.namespace}/${pod.name}`}
-                    className="flex items-center justify-between p-3 rounded-md hover:bg-muted transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Badge
-                        variant={
-                          status === "Running"
-                            ? "success"
-                            : status === "Pending"
-                              ? "warning"
-                              : "destructive"
-                        }
-                      >
-                        {status}
-                      </Badge>
-                      <span className="font-medium">{pod.name}</span>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span>Ready: {readyText}</span>
-                      <span>Restarts: {pod.restartCount ?? 0}</span>
-                      <RealtimeAge timestamp={pod.createdAt} />
-                    </div>
-                  </Link>
-                );
-              })}
-              {pods.length === 0 && (
-                <p className="text-center text-muted-foreground py-4">
-                  No pods found
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      ),
+      content: <PodListCard pods={pods} />,
     },
     {
       id: "logs",

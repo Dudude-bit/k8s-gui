@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 
 use super::serialization::OwnerReference;
 use super::types::extract_owner_references;
-use super::{ConditionInfo, DeploymentContainerInfo};
+use super::{ConditionInfo, DeploymentContainerInfo, OptionTimeExt};
 
 // ============= StatefulSet =============
 
@@ -46,7 +46,7 @@ impl From<&StatefulSet> for StatefulSetInfo {
                 ready: status.and_then(|s| s.ready_replicas).unwrap_or(0),
                 current: status.and_then(|s| s.current_replicas).unwrap_or(0),
             },
-            created_at: meta.creation_timestamp.as_ref().map(|t| t.0.to_rfc3339()),
+            created_at: meta.creation_timestamp.as_ref().to_rfc3339_opt(),
         }
     }
 }
@@ -110,7 +110,7 @@ impl From<&StatefulSet> for StatefulSetDetailInfo {
             annotations: ss.annotations().clone(),
             conditions,
             owner_references: extract_owner_references(ss.metadata.owner_references.as_ref()),
-            created_at: ss.creation_timestamp().map(|t| t.0.to_rfc3339()),
+            created_at: ss.creation_timestamp().to_rfc3339_opt(),
         }
     }
 }
@@ -152,7 +152,7 @@ impl From<&DaemonSet> for DaemonSetInfo {
             desired: status.map(|s| s.desired_number_scheduled).unwrap_or(0),
             current: status.map(|s| s.current_number_scheduled).unwrap_or(0),
             ready: status.map(|s| s.number_ready).unwrap_or(0),
-            created_at: meta.creation_timestamp.as_ref().map(|t| t.0.to_rfc3339()),
+            created_at: meta.creation_timestamp.as_ref().to_rfc3339_opt(),
         }
     }
 }
@@ -222,7 +222,7 @@ impl From<&DaemonSet> for DaemonSetDetailInfo {
             selector,
             conditions,
             owner_references: extract_owner_references(ds.metadata.owner_references.as_ref()),
-            created_at: ds.creation_timestamp().map(|t| t.0.to_rfc3339()),
+            created_at: ds.creation_timestamp().to_rfc3339_opt(),
         }
     }
 }
@@ -283,7 +283,7 @@ impl From<&Job> for JobInfo {
             failed,
             active,
             status: job_status.to_string(),
-            created_at: meta.creation_timestamp.as_ref().map(|t| t.0.to_rfc3339()),
+            created_at: meta.creation_timestamp.as_ref().to_rfc3339_opt(),
         }
     }
 }
@@ -362,16 +362,16 @@ impl From<&Job> for JobDetailInfo {
             status: job_status.to_string(),
             start_time: status
                 .and_then(|s| s.start_time.as_ref())
-                .map(|t| t.0.to_rfc3339()),
+                .to_rfc3339_opt(),
             completion_time: status
                 .and_then(|s| s.completion_time.as_ref())
-                .map(|t| t.0.to_rfc3339()),
+                .to_rfc3339_opt(),
             containers,
             labels: job.labels().clone(),
             annotations: job.annotations().clone(),
             conditions,
             owner_references: extract_owner_references(job.metadata.owner_references.as_ref()),
-            created_at: job.creation_timestamp().map(|t| t.0.to_rfc3339()),
+            created_at: job.creation_timestamp().to_rfc3339_opt(),
         }
     }
 }
@@ -421,8 +421,8 @@ impl From<&CronJob> for CronJobInfo {
                 .map_or(0, |a| a.len() as i32),
             last_schedule: status
                 .and_then(|s| s.last_schedule_time.as_ref())
-                .map(|t| t.0.to_rfc3339()),
-            created_at: meta.creation_timestamp.as_ref().map(|t| t.0.to_rfc3339()),
+                .to_rfc3339_opt(),
+            created_at: meta.creation_timestamp.as_ref().to_rfc3339_opt(),
         }
     }
 }
@@ -486,15 +486,15 @@ impl From<&CronJob> for CronJobDetailInfo {
                 .map_or(0, |a| a.len() as i32),
             last_schedule: status
                 .and_then(|s| s.last_schedule_time.as_ref())
-                .map(|t| t.0.to_rfc3339()),
+                .to_rfc3339_opt(),
             last_successful_time: status
                 .and_then(|s| s.last_successful_time.as_ref())
-                .map(|t| t.0.to_rfc3339()),
+                .to_rfc3339_opt(),
             containers,
             labels: cj.labels().clone(),
             annotations: cj.annotations().clone(),
             owner_references: extract_owner_references(cj.metadata.owner_references.as_ref()),
-            created_at: cj.creation_timestamp().map(|t| t.0.to_rfc3339()),
+            created_at: cj.creation_timestamp().to_rfc3339_opt(),
         }
     }
 }

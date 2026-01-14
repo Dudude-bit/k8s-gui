@@ -134,7 +134,7 @@ export function PodDetail() {
     if (pod?.labels && Object.keys(pod.labels).length > 0) {
       setSavedLabels(pod.labels);
     }
-  }, [pod]);
+  }, [pod?.labels]);
 
   const { podMetrics, podStatus } = useMetrics({
     namespace: namespace || null,
@@ -190,6 +190,8 @@ export function PodDetail() {
           fieldSelector: null,
           limit: null,
           statusFilter: null,
+          selector: null,
+          nodeName: null,
         });
 
         // Find a running pod that's not the current one
@@ -714,9 +716,9 @@ export function PodDetail() {
                   <div className="space-y-2">
                     <Label>Quick presets</Label>
                     <div className="flex flex-wrap gap-2">
-                      {allPorts.map((p, idx) => (
+                      {allPorts.map((p) => (
                         <Button
-                          key={`${p.containerName}-${p.port}-${idx}`}
+                          key={`${p.containerName}-${p.port}`}
                           variant="outline"
                           size="sm"
                           onClick={() =>

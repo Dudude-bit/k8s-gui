@@ -3,6 +3,7 @@
 use crate::error::{Error, Result};
 use crate::commands::filters::ResourceFilters;
 use crate::state::AppState;
+use std::collections::BTreeMap;
 use crate::utils::normalize_optional_namespace;
 use kube::api::DynamicObject;
 use kube::api::DeleteParams;
@@ -34,6 +35,16 @@ pub fn build_list_params(
     params
 }
 
+/// Build a label selector string from key-value pairs
+#[must_use]
+pub fn build_label_selector(labels: &BTreeMap<String, String>) -> String {
+    labels
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
 /// Context for Kubernetes API access with optional namespace scope.
 pub struct ResourceContext {
     pub client: Client,
@@ -49,12 +60,12 @@ impl ResourceContext {
     ) -> Result<Self> {
         let context = state
             .get_current_context()
-            .ok_or_else(|| Error::Internal("No cluster connected".to_string()))?;
+            .ok_or_else(|| Error::Internal(crate::error::messages::NO_CLUSTER.to_string()))?;
 
         let client = state
             .client_manager
             .get_client(&context)
-            .ok_or_else(|| Error::Internal("Client not found".to_string()))
+            .ok_or_else(|| Error::Internal(crate::error::messages::NO_CLIENT.to_string()))
             .map(|c| (*c).clone())?;
 
         let namespace = if require_namespace {
@@ -74,12 +85,12 @@ impl ResourceContext {
     ) -> Result<Self> {
         let context = state
             .get_current_context()
-            .ok_or_else(|| Error::Internal("No cluster connected".to_string()))?;
+            .ok_or_else(|| Error::Internal(crate::error::messages::NO_CLUSTER.to_string()))?;
 
         let client = state
             .client_manager
             .get_client(&context)
-            .ok_or_else(|| Error::Internal("Client not found".to_string()))
+            .ok_or_else(|| Error::Internal(crate::error::messages::NO_CLIENT.to_string()))
             .map(|c| (*c).clone())?;
 
         let namespace = if require_namespace {

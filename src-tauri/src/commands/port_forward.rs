@@ -136,6 +136,30 @@ fn config_key(config: &StoredPortForwardConfig) -> String {
     )
 }
 
+/// Helper for emitting port-forward status events
+fn emit_port_forward_status(
+    event_tx: &tokio::sync::broadcast::Sender<AppEvent>,
+    session_id: &str,
+    pod: &str,
+    namespace: &str,
+    local_port: u16,
+    remote_port: u16,
+    status: &str,
+    message: Option<String>,
+    attempt: Option<u32>,
+) {
+    let _ = event_tx.send(AppEvent::PortForwardStatus {
+        id: session_id.to_string(),
+        pod: pod.to_string(),
+        namespace: namespace.to_string(),
+        local_port,
+        remote_port,
+        status: status.to_string(),
+        message,
+        attempt,
+    });
+}
+
 async fn forward_connection(
     pod: String,
     namespace: String,
@@ -155,63 +179,42 @@ async fn forward_connection(
         match pod_api.portforward(&pod, &[remote_port]).await {
             Ok(mut portforwarder) => {
                 if attempt > 0 {
-                    let _ = event_tx.send(AppEvent::PortForwardStatus {
-                        id: session_id.clone(),
-                        pod: pod.clone(),
-                        namespace: namespace.clone(),
-                        local_port,
-                        remote_port,
-                        status: "reconnected".to_string(),
-                        message: None,
-                        attempt: Some(attempt),
-                    });
+                    emit_port_forward_status(
+                        &event_tx, &session_id, &pod, &namespace,
+                        local_port, remote_port, "reconnected", None, Some(attempt),
+                    );
                 }
 
                 if let Some(mut remote_stream) = portforwarder.take_stream(remote_port) {
                     let _ =
                         tokio::io::copy_bidirectional(&mut local_stream, &mut remote_stream).await;
                 } else {
-                    let _ = event_tx.send(AppEvent::PortForwardStatus {
-                        id: session_id.clone(),
-                        pod: pod.clone(),
-                        namespace: namespace.clone(),
-                        local_port,
-                        remote_port,
-                        status: "error".to_string(),
-                        message: Some("Failed to open port forward stream".to_string()),
-                        attempt: None,
-                    });
+                    emit_port_forward_status(
+                        &event_tx, &session_id, &pod, &namespace,
+                        local_port, remote_port, "error",
+                        Some("Failed to open port forward stream".to_string()), None,
+                    );
                 }
 
                 break;
             }
             Err(err) => {
                 if !auto_reconnect {
-                    let _ = event_tx.send(AppEvent::PortForwardStatus {
-                        id: session_id.clone(),
-                        pod: pod.clone(),
-                        namespace: namespace.clone(),
-                        local_port,
-                        remote_port,
-                        status: "error".to_string(),
-                        message: Some(format!("Port-forward failed: {err}")),
-                        attempt: None,
-                    });
+                    emit_port_forward_status(
+                        &event_tx, &session_id, &pod, &namespace,
+                        local_port, remote_port, "error",
+                        Some(format!("Port-forward failed: {err}")), None,
+                    );
                     break;
                 }
 
                 attempt += 1;
                 let backoff = Duration::from_secs(u64::from(attempt).min(10));
-                let _ = event_tx.send(AppEvent::PortForwardStatus {
-                    id: session_id.clone(),
-                    pod: pod.clone(),
-                    namespace: namespace.clone(),
-                    local_port,
-                    remote_port,
-                    status: "reconnecting".to_string(),
-                    message: Some(format!("Retry in {}s", backoff.as_secs())),
-                    attempt: Some(attempt),
-                });
+                emit_port_forward_status(
+                    &event_tx, &session_id, &pod, &namespace,
+                    local_port, remote_port, "reconnecting",
+                    Some(format!("Retry in {}s", backoff.as_secs())), Some(attempt),
+                );
                 sleep(backoff).await;
             }
         }
@@ -236,12 +239,12 @@ pub async fn port_forward_pod(
 
     let context = state
         .get_current_context()
-        .ok_or_else(|| Error::Internal("No cluster connected".to_string()))?;
+        .ok_or_else(|| Error::Internal(crate::error::messages::NO_CLUSTER.to_string()))?;
 
     let client = state
         .client_manager
         .get_client(&context)
-        .ok_or_else(|| Error::Internal("Client not found".to_string()))?;
+        .ok_or_else(|| Error::Internal(crate::error::messages::NO_CLIENT.to_string()))?;
 
     let namespace = require_namespace(namespace, String::new())?;
 
@@ -254,7 +257,7 @@ pub async fn port_forward_pod(
             ))
         })?;
 
-    let session_id = format!("pf-{}", uuid::Uuid::new_v4());
+    let session_id = crate::utils::generate_id("pf");
     let created_at = chrono::Utc::now();
 
     let session = crate::state::PortForwardSession {
@@ -289,18 +292,11 @@ pub async fn port_forward_pod(
     let controls = state.port_forward_controls.clone();
 
     tokio::spawn(async move {
-        let _ = event_tx.send(AppEvent::PortForwardStatus {
-            id: session_id_for_task.clone(),
-            pod: pod_for_task.clone(),
-            namespace: namespace_for_task.clone(),
-            local_port,
-            remote_port,
-            status: "listening".to_string(),
-            message: Some(format!(
-                "127.0.0.1:{local_port} -> {pod_for_task}:{remote_port}"
-            )),
-            attempt: None,
-        });
+        emit_port_forward_status(
+            &event_tx, &session_id_for_task, &pod_for_task, &namespace_for_task,
+            local_port, remote_port, "listening",
+            Some(format!("127.0.0.1:{local_port} -> {pod_for_task}:{remote_port}")), None,
+        );
 
         loop {
             tokio::select! {
@@ -331,16 +327,11 @@ pub async fn port_forward_pod(
                             });
                         }
                         Err(err) => {
-                            let _ = event_tx.send(AppEvent::PortForwardStatus {
-                                id: session_id_for_task.clone(),
-                                pod: pod_for_task.clone(),
-                                namespace: namespace_for_task.clone(),
-                                local_port,
-                                remote_port,
-                                status: "error".to_string(),
-                                message: Some(format!("Listener error: {err}")),
-                                attempt: None,
-                            });
+                            emit_port_forward_status(
+                                &event_tx, &session_id_for_task, &pod_for_task, &namespace_for_task,
+                                local_port, remote_port, "error",
+                                Some(format!("Listener error: {err}")), None,
+                            );
                             break;
                         }
                     }
@@ -351,16 +342,10 @@ pub async fn port_forward_pod(
         controls.remove(&session_id_for_task);
         sessions.remove(&session_id_for_task);
 
-        let _ = event_tx.send(AppEvent::PortForwardStatus {
-            id: session_id_for_task,
-            pod: pod_for_task,
-            namespace: namespace_for_task,
-            local_port,
-            remote_port,
-            status: "stopped".to_string(),
-            message: None,
-            attempt: None,
-        });
+        emit_port_forward_status(
+            &event_tx, &session_id_for_task, &pod_for_task, &namespace_for_task,
+            local_port, remote_port, "stopped", None, None,
+        );
     });
 
     Ok(PortForwardSessionInfo {
@@ -381,6 +366,9 @@ pub fn stop_port_forward(
     forward_id: String,
     state: State<'_, AppState>,
 ) -> Result<()> {
+    // Remove from both maps atomically to avoid race conditions
+    // The background task will also try to remove, but that's fine (no-op if already removed)
+    state.port_forward_sessions.remove(&forward_id);
     if let Some((_, cancel_tx)) = state.port_forward_controls.remove(&forward_id) {
         let _ = cancel_tx.send(());
     }
@@ -433,7 +421,7 @@ pub fn create_port_forward_config(
 ) -> Result<PortForwardConfigInfo> {
     let mut app_config = AppConfig::load()?;
     let created_at = chrono::Utc::now().to_rfc3339();
-    let id = format!("pf-config-{}", uuid::Uuid::new_v4());
+    let id = crate::utils::generate_id("pf-config");
     let config = normalize_port_forward_config(payload, id, created_at)?;
 
     let key = config_key(&config);
