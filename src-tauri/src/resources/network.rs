@@ -1,6 +1,5 @@
 //! Network resource types
 
-use crate::utils::format_k8s_age;
 use k8s_openapi::api::core::v1::Endpoints;
 use k8s_openapi::api::networking::v1::Ingress;
 use kube::ResourceExt;
