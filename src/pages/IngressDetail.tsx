@@ -6,6 +6,7 @@ import {
     ResourceDetailLayout,
     InfoCard,
 } from "@/components/resources/ResourceDetailLayout";
+import { LinkedResource } from "@/components/network";
 import { useResourceDetail } from "@/hooks";
 import { ResourceType } from "@/lib/resource-registry";
 import { REFRESH_INTERVALS } from "@/lib/refresh";
@@ -168,12 +169,18 @@ export function IngressDetail() {
                                                 </div>
                                                 <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
                                                 <span className="text-sm text-muted-foreground shrink-0">
-                                                    {url.resourceBackend 
-                                                        ? `Resource: ${url.resourceBackend}`
-                                                        : url.backendService 
-                                                            ? `${url.backendService}:${url.backendPort}`
-                                                            : "No backend"
-                                                    }
+                                                    {url.resourceBackend ? (
+                                                        `Resource: ${url.resourceBackend}`
+                                                    ) : url.backendService ? (
+                                                        <LinkedResource
+                                                            resourceType={ResourceType.Service}
+                                                            name={url.backendService}
+                                                            namespace={ingress?.namespace || ""}
+                                                            port={url.backendPort}
+                                                        />
+                                                    ) : (
+                                                        "No backend"
+                                                    )}
                                                 </span>
                                             </div>
                                             <div className="flex items-center gap-2 ml-3">
@@ -260,13 +267,19 @@ export function IngressDetail() {
                                                             {path.pathType}
                                                         </Badge>
                                                     </div>
-                                                    <div className="text-sm text-muted-foreground">
-                                                        → {path.resourceBackend 
-                                                            ? `Resource: ${path.resourceBackend}`
-                                                            : path.backendService 
-                                                                ? `${path.backendService}:${path.backendPort}`
-                                                                : "No backend"
-                                                        }
+                                                    <div className="text-sm text-muted-foreground flex items-center gap-1">
+                                                        → {path.resourceBackend ? (
+                                                            `Resource: ${path.resourceBackend}`
+                                                        ) : path.backendService ? (
+                                                            <LinkedResource
+                                                                resourceType={ResourceType.Service}
+                                                                name={path.backendService}
+                                                                namespace={ingress?.namespace || ""}
+                                                                port={path.backendPort}
+                                                            />
+                                                        ) : (
+                                                            "No backend"
+                                                        )}
                                                     </div>
                                                 </div>
                                             ))}
