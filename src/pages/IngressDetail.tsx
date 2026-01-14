@@ -12,7 +12,7 @@ import { REFRESH_INTERVALS } from "@/lib/refresh";
 import { Globe, ExternalLink, Shield, Network, Copy, Link2, Tag, FileText, ArrowRight, AlertTriangle, Info, Clock, Calendar } from "lucide-react";
 import { RealtimeAge } from "@/components/ui/realtime";
 import { commands } from "@/lib/commands";
-import type { IngressInfo, IngressRule, IngressTlsConfig, EventInfo, EventFilters } from "@/generated/types";
+import type { IngressInfo, IngressRule, EventInfo, EventFilters } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { useQuery } from "@tanstack/react-query";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
@@ -29,25 +29,27 @@ interface AccessUrl {
     backendPort: string;
     resourceBackend: string | null;
     isHttps: boolean;
+    tlsReason: "explicit" | "catch-all" | null;
 }
 
-function generateAccessUrls(rules: IngressRule[], tlsHosts: string[], tlsConfigs: IngressTlsConfig[]): AccessUrl[] {
+function generateAccessUrls(rules: IngressRule[], tlsHosts: string[], hasCatchAllTls: boolean): AccessUrl[] {
     const urls: AccessUrl[] = [];
-
-    // Check if there's a catch-all TLS config (empty hosts array means all hosts)
-    const hasCatchAllTls = tlsConfigs.some(config => config.hosts.length === 0);
 
     for (const rule of rules) {
         const isWildcard = rule.host === "*" || !rule.host;
         const displayHost = isWildcard ? "All hosts" : rule.host;
         const actualHost = isWildcard ? "" : rule.host;
-        
+
         // TLS detection: host is in tlsHosts, or there's a catch-all TLS config
         const isHttps = tlsHosts.includes(rule.host) || hasCatchAllTls;
         const scheme = isHttps ? "https" : "http";
+        const tlsReason = tlsHosts.includes(rule.host)
+            ? "explicit"
+            : hasCatchAllTls
+                ? "catch-all"
+                : null;
 
         for (const path of rule.paths) {
-            // For wildcard hosts, show path only; otherwise show full URL
             const fullUrl = actualHost ? `${scheme}://${actualHost}${path.path}` : `${scheme}://<host>${path.path}`;
             urls.push({
                 fullUrl,
@@ -59,6 +61,7 @@ function generateAccessUrls(rules: IngressRule[], tlsHosts: string[], tlsConfigs
                 backendPort: path.backendPort,
                 resourceBackend: path.resourceBackend,
                 isHttps,
+                tlsReason,
             });
         }
     }
@@ -104,7 +107,8 @@ export function IngressDetail() {
     const loadBalancerIps = ingress?.loadBalancerIps ?? [];
     const labels = ingress?.labels ?? {};
     const annotations = ingress?.annotations ?? {};
-    const accessUrls = generateAccessUrls(rules, tlsHosts, tlsConfigs);
+    const hasCatchAllTls = ingress?.hasCatchAllTls ?? false;
+    const accessUrls = generateAccessUrls(rules, tlsHosts, hasCatchAllTls);
 
     // Fetch events for this ingress
     const { data: events = [], isLoading: eventsLoading } = useQuery({
@@ -231,9 +235,8 @@ export function IngressDetail() {
                             {rules.map((rule, idx) => {
                                 const isWildcard = rule.host === "*" || !rule.host;
                                 const displayHost = isWildcard ? "All hosts" : rule.host;
-                                const hasCatchAllTls = tlsConfigs.some(config => config.hosts.length === 0);
                                 const hasTls = tlsHosts.includes(rule.host) || hasCatchAllTls;
-                                
+
                                 return (
                                     <div key={idx} className="rounded-lg border p-4">
                                         <div className="flex items-center gap-2 mb-3">
@@ -285,40 +288,64 @@ export function IngressDetail() {
             content: (
                 <Card>
                     <CardHeader>
-                        <CardTitle>TLS Configuration</CardTitle>
+                        <CardTitle className="flex items-center gap-2">
+                            <Shield className="h-5 w-5" />
+                            TLS Configuration
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
                         {tlsConfigs.length > 0 ? (
                             <div className="space-y-4">
-                                {tlsConfigs.map((config: IngressTlsConfig, idx: number) => (
-                                    <div
-                                        key={idx}
-                                        className="rounded-lg border p-4"
-                                    >
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <Shield className="h-4 w-4 text-green-500" />
-                                            <span className="font-medium">
-                                                Secret: {config.secretName || "(auto-generated)"}
-                                            </span>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <h4 className="text-sm text-muted-foreground">Protected Hosts:</h4>
-                                            <div className="flex flex-wrap gap-2">
-                                                {config.hosts.length > 0 ? (
-                                                    config.hosts.map((host, hostIdx) => (
-                                                        <Badge key={hostIdx} variant="outline" className="font-mono">
-                                                            {host || "All hosts"}
-                                                        </Badge>
-                                                    ))
-                                                ) : (
-                                                    <Badge variant="outline" className="font-mono">
-                                                        All hosts
-                                                    </Badge>
-                                                )}
-                                            </div>
+                                {/* Explicit TLS Hosts */}
+                                {tlsConfigs.filter(c => !c.isCatchAll).length > 0 && (
+                                    <div>
+                                        <h4 className="text-sm font-medium mb-2">Explicit TLS Hosts</h4>
+                                        <div className="space-y-3">
+                                            {tlsConfigs.filter(c => !c.isCatchAll).map((config, idx) => (
+                                                <div key={idx} className="rounded-lg border p-4">
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <Shield className="h-4 w-4 text-green-500" />
+                                                        <span className="font-medium">
+                                                            Secret: {config.secretName || "(auto-generated)"}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {config.hosts.map((host, hostIdx) => (
+                                                            <Badge key={hostIdx} variant="outline" className="font-mono">
+                                                                {host}
+                                                            </Badge>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
-                                ))}
+                                )}
+
+                                {/* Catch-all TLS */}
+                                {tlsConfigs.filter(c => c.isCatchAll).length > 0 && (
+                                    <div>
+                                        <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                                            <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                                            Catch-all TLS
+                                        </h4>
+                                        <div className="space-y-3">
+                                            {tlsConfigs.filter(c => c.isCatchAll).map((config, idx) => (
+                                                <div key={idx} className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-4">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <Shield className="h-4 w-4 text-yellow-500" />
+                                                        <span className="font-medium">
+                                                            Secret: {config.secretName || "(auto-generated)"}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        Applies to all hosts not explicitly listed above
+                                                    </p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <p className="text-muted-foreground">No TLS configured</p>
