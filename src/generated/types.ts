@@ -782,6 +782,7 @@ export interface ServiceInfo {
   sessionAffinity: string;
   clusterIp: string | null;
   externalIps: string[];
+  loadBalancerIps: string[];
   ports: ServicePortInfo[];
   selector: Record<string, string>;
   labels: Record<string, string>;

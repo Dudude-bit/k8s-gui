@@ -624,6 +624,7 @@ pub struct ServiceInfo {
     pub session_affinity: String,
     pub cluster_ip: Option<String>,
     pub external_ips: Vec<String>,
+    pub load_balancer_ips: Vec<String>,
     pub ports: Vec<ServicePortInfo>,
     pub selector: BTreeMap<String, String>,
     pub labels: BTreeMap<String, String>,
@@ -645,6 +646,19 @@ pub struct ServicePortInfo {
 impl From<&Service> for ServiceInfo {
     fn from(service: &Service) -> Self {
         let spec = service.spec.as_ref();
+        let status = service.status.as_ref();
+
+        // Get LoadBalancer IPs from status.loadBalancer.ingress
+        let load_balancer_ips = status
+            .and_then(|s| s.load_balancer.as_ref())
+            .and_then(|lb| lb.ingress.as_ref())
+            .map(|ingresses| {
+                ingresses
+                    .iter()
+                    .filter_map(|i| i.ip.clone().or_else(|| i.hostname.clone()))
+                    .collect()
+            })
+            .unwrap_or_default();
 
         let ports = spec
             .and_then(|s| s.ports.as_ref())
@@ -686,6 +700,7 @@ impl From<&Service> for ServiceInfo {
             external_ips: spec
                 .and_then(|s| s.external_ips.clone())
                 .unwrap_or_default(),
+            load_balancer_ips,
             ports,
             selector: spec.and_then(|s| s.selector.clone()).unwrap_or_default(),
             labels: service.labels().clone(),

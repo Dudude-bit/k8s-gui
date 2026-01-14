@@ -22,9 +22,9 @@ export function ServiceAccessInfo({ service }: ServiceAccessInfoProps) {
     description: string;
   }> = [];
 
-  if (service.type === "LoadBalancer" && service.externalIps.length > 0) {
+  if (service.type === "LoadBalancer" && service.loadBalancerIps.length > 0) {
     const port = service.ports[0]?.port;
-    const url = `http://${service.externalIps[0]}${port && port !== 80 ? `:${port}` : ""}`;
+    const url = `http://${service.loadBalancerIps[0]}${port && port !== 80 ? `:${port}` : ""}`;
     accessItems.push({
       label: "External (LoadBalancer)",
       url,
