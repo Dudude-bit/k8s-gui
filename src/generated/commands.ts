@@ -240,6 +240,13 @@ export async function listPods(filters: PodFilters | null): Promise<PodInfo[]> {
   return invoke<PodInfo[]>("list_pods", { filters });
 }
 
+export async function getPodsBySelector(
+  namespace: string,
+  selector: Record<string, string>
+): Promise<PodInfo[]> {
+  return invoke<PodInfo[]>("get_pods_by_selector", { namespace, selector });
+}
+
 export async function getPod(name: string, namespace: string | null): Promise<PodInfo> {
   return invoke<PodInfo>("get_pod", { name, namespace });
 }
