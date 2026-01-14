@@ -90,3 +90,5 @@ export { DataTable } from "./data-table";
 
 export { SourceBadge } from "./source-badge";
 export type { SourceType } from "./source-badge";
+
+export { MaskedValue } from "./masked-value";
