@@ -329,10 +329,13 @@ fn check_pod_spec(
     is_secret: bool,
     refs: &mut ResourceReferences,
 ) {
-    // Check containers
-    for container in spec.containers.iter() {
+    // Helper to check a container's env vars and envFrom
+    let check_container_env = |container_name: &str,
+                                env: Option<&Vec<k8s_openapi::api::core::v1::EnvVar>>,
+                                env_from: Option<&Vec<k8s_openapi::api::core::v1::EnvFromSource>>,
+                                refs: &mut ResourceReferences| {
         // Check env vars
-        if let Some(env) = &container.env {
+        if let Some(env) = env {
             for e in env {
                 if let Some(value_from) = &e.value_from {
                     let matches = if is_secret {
@@ -354,7 +357,7 @@ fn check_pod_spec(
                             kind: kind.to_string(),
                             name: resource_name.to_string(),
                             namespace: resource_ns.to_string(),
-                            container_name: Some(container.name.clone()),
+                            container_name: Some(container_name.to_string()),
                             key,
                         });
                     }
@@ -363,7 +366,7 @@ fn check_pod_spec(
         }
 
         // Check envFrom
-        if let Some(env_from) = &container.env_from {
+        if let Some(env_from) = env_from {
             for ef in env_from {
                 let matches = if is_secret {
                     ef.secret_ref.as_ref()
@@ -379,11 +382,45 @@ fn check_pod_spec(
                         kind: kind.to_string(),
                         name: resource_name.to_string(),
                         namespace: resource_ns.to_string(),
-                        container_name: Some(container.name.clone()),
+                        container_name: Some(container_name.to_string()),
                         key: None,
                     });
                 }
             }
+        }
+    };
+
+    // Check regular containers
+    for container in spec.containers.iter() {
+        check_container_env(
+            &container.name,
+            container.env.as_ref(),
+            container.env_from.as_ref(),
+            refs,
+        );
+    }
+
+    // Check init containers
+    if let Some(init_containers) = &spec.init_containers {
+        for container in init_containers.iter() {
+            check_container_env(
+                &container.name,
+                container.env.as_ref(),
+                container.env_from.as_ref(),
+                refs,
+            );
+        }
+    }
+
+    // Check ephemeral containers
+    if let Some(ephemeral_containers) = &spec.ephemeral_containers {
+        for container in ephemeral_containers.iter() {
+            check_container_env(
+                &container.name,
+                container.env.as_ref(),
+                container.env_from.as_ref(),
+                refs,
+            );
         }
     }
 
@@ -401,21 +438,42 @@ fn check_pod_spec(
                     .unwrap_or(false)
             };
             if matches {
-                // Find mount paths for this volume
-                for container in spec.containers.iter() {
-                    if let Some(mounts) = &container.volume_mounts {
+                // Helper to find mount paths in a container
+                let find_mounts = |container_name: &str,
+                                   volume_mounts: Option<&Vec<k8s_openapi::api::core::v1::VolumeMount>>,
+                                   refs: &mut ResourceReferences| {
+                    if let Some(mounts) = volume_mounts {
                         for mount in mounts {
                             if mount.name == vol.name {
                                 refs.volumes.push(VolumeReference {
                                     kind: kind.to_string(),
                                     name: resource_name.to_string(),
                                     namespace: resource_ns.to_string(),
-                                    container_name: Some(container.name.clone()),
+                                    container_name: Some(container_name.to_string()),
                                     mount_path: mount.mount_path.clone(),
                                     sub_path: mount.sub_path.clone(),
                                 });
                             }
                         }
+                    }
+                };
+
+                // Check regular containers
+                for container in spec.containers.iter() {
+                    find_mounts(&container.name, container.volume_mounts.as_ref(), refs);
+                }
+
+                // Check init containers
+                if let Some(init_containers) = &spec.init_containers {
+                    for container in init_containers.iter() {
+                        find_mounts(&container.name, container.volume_mounts.as_ref(), refs);
+                    }
+                }
+
+                // Check ephemeral containers
+                if let Some(ephemeral_containers) = &spec.ephemeral_containers {
+                    for container in ephemeral_containers.iter() {
+                        find_mounts(&container.name, container.volume_mounts.as_ref(), refs);
                     }
                 }
             }
