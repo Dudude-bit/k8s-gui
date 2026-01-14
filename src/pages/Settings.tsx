@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { commands } from "@/lib/commands";
 import { useToast } from "@/components/ui/use-toast";
 import { PortForwardManager } from "@/components/port-forward/PortForwardManager";
@@ -24,7 +24,6 @@ import { LicenseSection } from "@/components/profile/LicenseSection";
 import { PremiumFeatureGuard } from "@/components/license/PremiumFeatureGuard";
 import { Link } from "react-router-dom";
 import { User, Download, RefreshCw, AlertCircle } from "lucide-react";
-import { normalizeTauriError } from "@/lib/error-utils";
 
 export function Settings() {
   const { theme, setTheme } = useThemeStore();
@@ -46,29 +45,6 @@ export function Settings() {
     queryKey: ["appInfo"],
     queryFn: commands.getAppInfo,
     staleTime: Infinity,
-  });
-
-  const clearCacheMutation = useMutation({
-    mutationFn: async () => {
-      try {
-        await commands.clearCache();
-      } catch (err) {
-        throw normalizeTauriError(err);
-      }
-    },
-    onSuccess: () => {
-      toast({
-        title: "Cache cleared",
-        description: "All cached data has been removed.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: normalizeTauriError(error),
-        variant: "destructive",
-      });
-    },
   });
 
   return (
@@ -169,33 +145,6 @@ export function Settings() {
                 </Label>
               </div>
             </RadioGroup>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Cache */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Cache</CardTitle>
-          <CardDescription>
-            Manage cached data for better performance
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium">Clear Cache</p>
-              <p className="text-sm text-muted-foreground">
-                Remove all cached resource data
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              onClick={() => clearCacheMutation.mutate()}
-              disabled={clearCacheMutation.isPending}
-            >
-              {clearCacheMutation.isPending ? "Clearing..." : "Clear Cache"}
-            </Button>
           </div>
         </CardContent>
       </Card>
