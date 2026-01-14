@@ -1,5 +1,4 @@
 import { Badge } from "@/components/ui/badge";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
@@ -8,6 +7,7 @@ import {
   InfoCard,
   ResourceDetailLayout,
 } from "@/components/resources/ResourceDetailLayout";
+import { ServiceAccessInfo, MatchingPods, ServiceTypeBadge } from "@/components/network";
 import { useResourceDetail } from "@/hooks";
 import { ResourceType } from "@/lib/resource-registry";
 import { Network, Globe, Server } from "lucide-react";
@@ -31,7 +31,7 @@ export function ServiceDetail() {
     resourceKind: ResourceType.Service,
     fetchResource: (name, ns) => commands.getService(name, ns),
     deleteResource: (name, ns) => commands.deleteService(name, ns),
-    defaultTab: "ports",
+    defaultTab: "access",
   });
 
   if (!service && !isLoading && !error) {
@@ -45,6 +45,11 @@ export function ServiceDetail() {
   const annotations = service?.annotations ?? {};
 
   const tabs = [
+    {
+      id: "access",
+      label: "Access",
+      content: service ? <ServiceAccessInfo service={service} /> : null,
+    },
     {
       id: "ports",
       label: "Ports",
@@ -94,6 +99,16 @@ export function ServiceDetail() {
       ),
     },
     {
+      id: "pods",
+      label: "Pods",
+      content: service ? (
+        <MatchingPods
+          namespace={service.namespace}
+          selector={service.selector}
+        />
+      ) : null,
+    },
+    {
       id: "labels",
       label: "Labels",
       content: (
@@ -127,7 +142,7 @@ export function ServiceDetail() {
       resourceKind={ResourceType.Service}
       title={service?.name || ""}
       namespace={service?.namespace}
-      statusBadge={service && <StatusBadge status={service.type} />}
+      statusBadge={service?.type && <ServiceTypeBadge type={service.type} />}
       icon={<Network className="h-8 w-8 text-muted-foreground" />}
       onBack={goBack}
       tabs={tabs}
