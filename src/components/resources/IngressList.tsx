@@ -16,6 +16,7 @@ import {
 import { ResourceList } from "@/components/resources/ResourceList";
 import { createNamespaceColumn, createAgeColumn } from "@/components/resources/columns";
 import type { QuickAction } from "@/components/ui/quick-actions";
+import { TlsBadge } from "@/components/network";
 
 import type { IngressInfo } from "@/generated/types";
 import { STALE_TIMES } from "@/lib/refresh";
@@ -32,7 +33,8 @@ const getIngressOpenUrl = (ingress: IngressInfo): string | null => {
     return null;
   }
 
-  const usesTls = ingress.tlsHosts.includes(host);
+  // Check both explicit TLS hosts and catch-all TLS
+  const usesTls = ingress.tlsHosts.includes(host) || ingress.hasCatchAllTls;
   const scheme = usesTls ? "https" : "http";
   return `${scheme}://${host}`;
 };
@@ -131,33 +133,12 @@ const baseColumns: ColumnDef<IngressInfo>[] = [
   {
     accessorKey: "tlsHosts",
     header: "TLS",
-    cell: ({ row }) => {
-      const tlsHosts = row.original.tlsHosts;
-      if (tlsHosts.length === 0) {
-        return <Badge variant="outline">No TLS</Badge>;
-      }
-      return (
-        <Tooltip>
-          <TooltipTrigger>
-            <Badge
-              variant="default"
-              className="bg-green-500/10 text-green-500 border-green-500/20"
-            >
-              TLS ({tlsHosts.length})
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent>
-            <div className="space-y-1">
-              {tlsHosts.map((host, i) => (
-                <div key={i} className="text-xs">
-                  {host}
-                </div>
-              ))}
-            </div>
-          </TooltipContent>
-        </Tooltip>
-      );
-    },
+    cell: ({ row }) => (
+      <TlsBadge
+        tlsHosts={row.original.tlsHosts}
+        hasCatchAllTls={row.original.hasCatchAllTls}
+      />
+    ),
   },
   createAgeColumn<IngressInfo>(),
 ];
