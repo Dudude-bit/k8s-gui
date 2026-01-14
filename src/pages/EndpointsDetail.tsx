@@ -8,6 +8,7 @@ import {
 import { useResourceDetail } from "@/hooks";
 import { ResourceType } from "@/lib/resource-registry";
 import { Network, CircleDot, Server } from "lucide-react";
+import { LinkedResource } from "@/components/network";
 import { commands } from "@/lib/commands";
 import type { EndpointsInfo } from "@/generated/types";
 
@@ -66,9 +67,17 @@ export function EndpointsDetail() {
                                                         <CircleDot className="h-4 w-4 text-green-500" />
                                                         <span className="font-mono">{addr.ip}</span>
                                                     </div>
-                                                    <div className="text-sm text-muted-foreground">
-                                                        {addr.targetRef && `${addr.targetRef.kind}/${addr.targetRef.name}`}
-                                                        {addr.nodeName && ` @ ${addr.nodeName}`}
+                                                    <div className="text-sm text-muted-foreground flex items-center gap-1">
+                                                        {addr.targetRef && addr.targetRef.kind === "Pod" ? (
+                                                            <LinkedResource
+                                                                resourceType={ResourceType.Pod}
+                                                                name={addr.targetRef.name}
+                                                                namespace={addr.targetRef.namespace || endpoints?.namespace || ""}
+                                                            />
+                                                        ) : addr.targetRef ? (
+                                                            `${addr.targetRef.kind}/${addr.targetRef.name}`
+                                                        ) : null}
+                                                        {addr.nodeName && <span>@ {addr.nodeName}</span>}
                                                     </div>
                                                 </div>
                                             ))}
@@ -86,8 +95,16 @@ export function EndpointsDetail() {
                                                         <CircleDot className="h-4 w-4 text-yellow-500" />
                                                         <span className="font-mono">{addr.ip}</span>
                                                     </div>
-                                                    <div className="text-sm text-muted-foreground">
-                                                        {addr.targetRef && `${addr.targetRef.kind}/${addr.targetRef.name}`}
+                                                    <div className="text-sm text-muted-foreground flex items-center gap-1">
+                                                        {addr.targetRef && addr.targetRef.kind === "Pod" ? (
+                                                            <LinkedResource
+                                                                resourceType={ResourceType.Pod}
+                                                                name={addr.targetRef.name}
+                                                                namespace={addr.targetRef.namespace || endpoints?.namespace || ""}
+                                                            />
+                                                        ) : addr.targetRef ? (
+                                                            `${addr.targetRef.kind}/${addr.targetRef.name}`
+                                                        ) : null}
                                                     </div>
                                                 </div>
                                             ))}
@@ -161,6 +178,11 @@ export function EndpointsDetail() {
             namespace={endpoints?.namespace || namespace}
             badges={
                 <>
+                    <LinkedResource
+                        resourceType={ResourceType.Service}
+                        name={endpoints?.name || name || ""}
+                        namespace={endpoints?.namespace || namespace || ""}
+                    />
                     {totalReady > 0 && (
                         <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
                             {totalReady} ready
