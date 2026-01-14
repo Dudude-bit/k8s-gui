@@ -79,6 +79,7 @@ export interface IngressInfo {
   loadBalancerIps: string[];
   tlsHosts: string[];
   tlsConfigs: IngressTlsConfig[];
+  hasCatchAllTls: boolean;
   labels: Record<string, string>;
   annotations: Record<string, string>;
   createdAt: string | null;
@@ -87,6 +88,7 @@ export interface IngressInfo {
 export interface IngressTlsConfig {
   hosts: string[];
   secretName: string | null;
+  isCatchAll: boolean;
 }
 
 export interface IngressRule {
@@ -811,6 +813,7 @@ export interface ServiceInfo {
   sessionAffinity: string;
   clusterIp: string | null;
   externalIps: string[];
+  loadBalancerIps: string[];
   ports: ServicePortInfo[];
   selector: Record<string, string>;
   labels: Record<string, string>;

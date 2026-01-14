@@ -386,6 +386,7 @@ fn main() {
             commands::workloads::get_cronjob,
             commands::workloads::get_cronjob_yaml,
             commands::workloads::delete_cronjob,
+            commands::workloads::get_pods_by_selector,
 
             // Validation commands
             commands::validation::validate_email_command,

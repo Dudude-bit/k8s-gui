@@ -1,6 +1,5 @@
 //! Network resource types
 
-use crate::utils::format_k8s_age;
 use k8s_openapi::api::core::v1::Endpoints;
 use k8s_openapi::api::networking::v1::Ingress;
 use kube::ResourceExt;
@@ -32,6 +31,7 @@ pub struct IngressRule {
 pub struct IngressTlsConfig {
     pub hosts: Vec<String>,
     pub secret_name: Option<String>,
+    pub is_catch_all: bool,
 }
 
 /// Information about an Ingress
@@ -45,6 +45,7 @@ pub struct IngressInfo {
     pub load_balancer_ips: Vec<String>,
     pub tls_hosts: Vec<String>,
     pub tls_configs: Vec<IngressTlsConfig>,
+    pub has_catch_all_tls: bool,
     pub labels: std::collections::BTreeMap<String, String>,
     pub annotations: std::collections::BTreeMap<String, String>,
     pub created_at: Option<String>,
@@ -138,18 +139,25 @@ impl From<&Ingress> for IngressInfo {
             .unwrap_or_default();
 
         // Parse TLS configs with secret names
-        let tls_configs = spec
+        let tls_configs: Vec<IngressTlsConfig> = spec
             .and_then(|s| s.tls.as_ref())
             .map(|tls_list| {
                 tls_list
                     .iter()
-                    .map(|tls| IngressTlsConfig {
-                        hosts: tls.hosts.clone().unwrap_or_default(),
-                        secret_name: tls.secret_name.clone(),
+                    .map(|tls| {
+                        let hosts = tls.hosts.clone().unwrap_or_default();
+                        let is_catch_all = hosts.is_empty();
+                        IngressTlsConfig {
+                            hosts,
+                            secret_name: tls.secret_name.clone(),
+                            is_catch_all,
+                        }
                     })
                     .collect()
             })
             .unwrap_or_default();
+
+        let has_catch_all_tls = tls_configs.iter().any(|c| c.is_catch_all);
 
         // Extract labels and annotations
         let labels = ingress
@@ -171,6 +179,7 @@ impl From<&Ingress> for IngressInfo {
             load_balancer_ips,
             tls_hosts,
             tls_configs,
+            has_catch_all_tls,
             labels,
             annotations,
             created_at: ingress

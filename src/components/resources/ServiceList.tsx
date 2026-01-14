@@ -1,6 +1,5 @@
 import { commands } from "@/lib/commands";
 import { useClusterStore } from "@/stores/clusterStore";
-import { Badge } from "@/components/ui/badge";
 import { ColumnDef } from "@tanstack/react-table";
 import { Eye, Trash2, ExternalLink } from "lucide-react";
 import { useMemo } from "react";
@@ -8,30 +7,17 @@ import { ResourceList } from "./ResourceList";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { queryKeys } from "@/lib/query-keys";
 import { getResourceDetailUrl, getResourceListUrl } from "@/lib/navigation-utils";
-import type { ServiceInfo, ServicePortInfo } from "@/generated/types";
+import type { ServiceInfo } from "@/generated/types";
 import { STALE_TIMES } from "@/lib/refresh";
 import {
   createNameColumn,
   createNamespaceColumn,
   createAgeColumn,
-  createTypeBadgeColumn,
 } from "./columns";
 import { getResourceRowId } from "@/lib/table-utils";
 import type { QuickAction } from "@/components/ui/quick-actions";
 import { useNavigate } from "react-router-dom";
-
-// Format port for display
-function formatPort(port: ServicePortInfo): string {
-  const parts = [String(port.port)];
-  if (port.nodePort) {
-    parts.push(`:${port.nodePort}`);
-  }
-  if (port.targetPort) {
-    parts.push(`>${port.targetPort}`);
-  }
-  parts.push(`/${port.protocol}`);
-  return parts.join("");
-}
+import { ServiceTypeBadge, PortsDisplay } from "@/components/network";
 
 export function ServiceList() {
   const { currentNamespace } = useClusterStore();
@@ -41,7 +27,11 @@ export function ServiceList() {
     () => [
       createNameColumn<ServiceInfo>(getResourceListUrl(ResourceType.Service)),
       createNamespaceColumn<ServiceInfo>(),
-      createTypeBadgeColumn<ServiceInfo>(),
+      {
+        accessorKey: "type",
+        header: "Type",
+        cell: ({ row }) => <ServiceTypeBadge type={row.original.type} />,
+      },
       {
         accessorKey: "clusterIp",
         header: "Cluster IP",
@@ -72,17 +62,9 @@ export function ServiceList() {
         },
       },
       {
-        id: "ports",
+        accessorKey: "ports",
         header: "Ports",
-        cell: ({ row }) => (
-          <div className="flex flex-wrap gap-1">
-            {row.original.ports.map((port, i) => (
-              <Badge key={i} variant="outline" className="font-mono text-xs">
-                {formatPort(port)}
-              </Badge>
-            ))}
-          </div>
-        ),
+        cell: ({ row }) => <PortsDisplay ports={row.original.ports} maxDisplay={2} />,
       },
       createAgeColumn<ServiceInfo>(),
     ],
