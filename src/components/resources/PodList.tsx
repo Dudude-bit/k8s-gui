@@ -8,6 +8,7 @@ import {
 } from "@/hooks/usePodsWithMetrics";
 import { usePremiumFeature } from "@/hooks/usePremiumFeature";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { NodeBadge } from "@/components/ui/node-badge";
 import {
   createNameColumn,
   createNamespaceColumn,
@@ -72,7 +73,12 @@ export function PodList() {
       {
         id: "node",
         header: "Node",
-        cell: ({ row }) => row.original.nodeName || "-",
+        cell: ({ row }) =>
+          row.original.nodeName ? (
+            <NodeBadge nodeName={row.original.nodeName} />
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          ),
       },
       {
         id: "ip",
