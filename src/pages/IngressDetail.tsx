@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import {
     ResourceDetailLayout,
@@ -112,7 +113,7 @@ export function IngressDetail() {
     const accessUrls = generateAccessUrls(rules, tlsHosts, hasCatchAllTls);
 
     // Fetch events for this ingress
-    const { data: events = [], isLoading: eventsLoading } = useQuery({
+    const { data: events = [], isLoading: eventsLoading, error: eventsError, refetch: refetchEvents } = useQuery({
         queryKey: ["ingress-events", namespace, name],
         queryFn: async () => {
             const filters: EventFilters = {
@@ -442,8 +443,21 @@ export function IngressDetail() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {eventsLoading ? (
-                            <p className="text-muted-foreground">Loading events...</p>
+                        {eventsError ? (
+                            <div className="flex items-center justify-between p-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5">
+                                <div className="flex items-center gap-2">
+                                    <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                                    <span className="text-sm">Failed to load events</span>
+                                </div>
+                                <Button size="sm" variant="outline" onClick={() => refetchEvents()}>
+                                    Retry
+                                </Button>
+                            </div>
+                        ) : eventsLoading ? (
+                            <div className="space-y-2">
+                                <Skeleton className="h-16 w-full" />
+                                <Skeleton className="h-16 w-full" />
+                            </div>
                         ) : events.length > 0 ? (
                             <div className="space-y-3">
                                 {events.map((event: EventInfo) => {
