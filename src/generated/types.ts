@@ -104,6 +104,11 @@ export interface IngressPath {
   resourceBackend: string | null;
 }
 
+export interface ClusterPreferences {
+  lastContext: string | null;
+  namespaces: Record<string, string>;
+}
+
 export interface UpdaterConfig {
   autoCheckEnabled: boolean;
 }

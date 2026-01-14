@@ -277,7 +277,6 @@ fn main() {
 
             // Settings commands
             commands::settings::get_app_info,
-            commands::settings::clear_cache,
             // GCP profiles
             commands::settings::list_gcp_profiles,
             commands::settings::get_gcp_profile,
@@ -319,6 +318,9 @@ fn main() {
             // Updater settings
             commands::settings::get_updater_settings,
             commands::settings::save_updater_settings,
+            // Cluster preferences
+            commands::settings::get_cluster_preferences,
+            commands::settings::save_cluster_preferences,
 
             // Registry commands
             commands::registry::set_registry_credentials,

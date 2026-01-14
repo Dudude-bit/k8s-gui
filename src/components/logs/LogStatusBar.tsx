@@ -61,7 +61,7 @@ export function LogStatusBar({
   }, [logs]);
 
   return (
-    <div className="flex items-center justify-between px-4 py-1 text-xs text-muted-foreground border-t bg-muted/30">
+    <div className="flex items-center justify-between px-4 py-1.5 text-xs text-muted-foreground bg-muted/30">
       <span>
         {filteredCount} {filteredCount === 1 ? "line" : "lines"}
         {searchQuery && logs.length !== filteredCount && (

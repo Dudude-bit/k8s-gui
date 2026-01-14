@@ -50,6 +50,9 @@ pub struct AppConfig {
     /// Updater configuration
     #[serde(default)]
     pub updater: UpdaterConfig,
+    /// Cluster preferences (last context, namespaces)
+    #[serde(default)]
+    pub cluster_preferences: ClusterPreferences,
 }
 
 /// Theme configuration
@@ -661,6 +664,22 @@ impl Default for UpdaterConfig {
             auto_check_enabled: true,
         }
     }
+}
+
+// ============================================================================
+// Cluster Preferences
+// ============================================================================
+
+/// Cluster preferences configuration
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ClusterPreferences {
+    /// Last selected context
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "last_context")]
+    pub last_context: Option<String>,
+    /// Namespace per context
+    #[serde(default)]
+    pub namespaces: std::collections::HashMap<String, String>,
 }
 
 #[cfg(test)]

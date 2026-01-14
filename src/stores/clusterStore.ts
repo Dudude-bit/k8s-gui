@@ -61,6 +61,22 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
       }));
       const currentContext = await commands.getCurrentContext();
       set({ contexts, currentContext, isLoading: false });
+
+      // Restore saved cluster preferences and auto-connect
+      try {
+        const prefs = await commands.getClusterPreferences();
+        if (prefs.lastContext && contexts.some((c) => c.name === prefs.lastContext)) {
+          // Restore saved namespace if available
+          const savedNamespace = prefs.namespaces[prefs.lastContext];
+          if (savedNamespace) {
+            set({ currentNamespace: savedNamespace });
+          }
+          // Auto-connect to saved cluster
+          get().connect(prefs.lastContext);
+        }
+      } catch {
+        // Ignore errors loading preferences - not critical
+      }
     } catch (error) {
       set({
         error: normalizeTauriError(error),
@@ -86,7 +102,14 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
   switchNamespace: async (namespace: string) => {
     // Don't set isLoading for namespace switch - it causes flickering
     // Just update the namespace immediately, queries will refetch automatically
+    const context = get().currentContext;
     set({ currentNamespace: namespace, error: null, errorContext: null });
+    // Save namespace preference for this context
+    if (context) {
+      commands.saveClusterPreferences(null, context, namespace).catch(() => {
+        // Ignore errors saving preferences - not critical
+      });
+    }
   },
 
   connect: async (context?: string) => {
@@ -129,12 +152,17 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
       if (get().connectionAttemptId !== attemptId) {
         return;
       }
+      const connectedContext = info.context || targetContext;
       set({
-        currentContext: info.context || targetContext,
+        currentContext: connectedContext,
         isConnected: true,
         isLoading: false,
         isAuthenticating: false,
         pendingContext: null,
+      });
+      // Save selected cluster on successful connection
+      commands.saveClusterPreferences(connectedContext, null, null).catch(() => {
+        // Ignore errors saving preferences - not critical
       });
     } catch (error) {
       if (get().connectionAttemptId !== attemptId) {

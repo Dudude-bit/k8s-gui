@@ -3,7 +3,6 @@
 //! This module manages the global application state including active connections,
 //! cached data, and plugin registry.
 
-use crate::cache::ResourceCache;
 use crate::client::K8sClientManager;
 use crate::config::AppConfig;
 use crate::error::Result;
@@ -147,9 +146,6 @@ pub struct AppState {
     /// Plugin manager
     pub plugin_manager: Arc<PluginManager>,
 
-    /// Resource cache
-    pub cache: Arc<ResourceCache>,
-
     /// Active sessions by context
     pub sessions: DashMap<String, Session>,
 
@@ -189,13 +185,11 @@ impl AppState {
 
         let client_manager = Arc::new(K8sClientManager::new());
         let plugin_manager = Arc::new(PluginManager::new()?);
-        let cache = Arc::new(ResourceCache::new(config.cache.ttl_seconds));
 
         Ok(Self {
             config: Arc::new(RwLock::new(config)),
             client_manager,
             plugin_manager,
-            cache,
             sessions: DashMap::new(),
             current_context: Arc::new(RwLock::new(None)),
             terminal_manager: Arc::new(TerminalManager::new(event_tx.clone())),
@@ -316,7 +310,6 @@ impl AppState {
             active_sessions: self.sessions.len(),
             active_terminal_sessions: self.terminal_manager.session_count(),
             active_log_streams: self.log_streams.len(),
-            cache_entries: self.cache.len(),
         }
     }
 }
@@ -327,7 +320,6 @@ pub struct AppStats {
     pub active_sessions: usize,
     pub active_terminal_sessions: usize,
     pub active_log_streams: usize,
-    pub cache_entries: usize,
 }
 
 impl Default for AppState {

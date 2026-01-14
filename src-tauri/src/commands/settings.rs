@@ -1,10 +1,8 @@
 //! Settings and configuration commands
 
-use crate::config::{AppConfig, GcpProfile, AzureProfile, ContextBinding, CliPathsConfig, RecentItem};
+use crate::config::{AppConfig, GcpProfile, AzureProfile, ContextBinding, CliPathsConfig, RecentItem, ClusterPreferences};
 use crate::error::Result;
-use crate::state::AppState;
 use serde::{Deserialize, Serialize};
-use tauri::State;
 
 /// Theme configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,13 +80,6 @@ pub fn get_app_info(app: tauri::AppHandle) -> AppInfo {
         name: package_info.name.to_string(),
         tauri_version: tauri::VERSION.to_string(),
     }
-}
-
-/// Clear the resource cache
-#[tauri::command]
-pub fn clear_cache(state: State<'_, AppState>) -> Result<()> {
-    state.cache.clear();
-    Ok(())
 }
 
 // ============================================================================
@@ -654,5 +645,33 @@ pub fn get_updater_settings() -> Result<UpdaterConfig> {
 pub fn save_updater_settings(settings: UpdaterConfig) -> Result<()> {
     with_config(|config| {
         config.updater = settings;
+    })
+}
+
+// ============================================================================
+// Cluster Preferences
+// ============================================================================
+
+/// Get cluster preferences
+#[tauri::command]
+pub fn get_cluster_preferences() -> Result<ClusterPreferences> {
+    read_config(|config| config.cluster_preferences.clone())
+}
+
+/// Save cluster preferences
+#[tauri::command]
+pub fn save_cluster_preferences(
+    last_context: Option<String>,
+    context: Option<String>,
+    namespace: Option<String>,
+) -> Result<()> {
+    with_config(|config| {
+        if let Some(ctx) = last_context {
+            config.cluster_preferences.last_context = Some(ctx);
+        }
+
+        if let (Some(ctx), Some(ns)) = (context, namespace) {
+            config.cluster_preferences.namespaces.insert(ctx, ns);
+        }
     })
 }

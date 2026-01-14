@@ -8,7 +8,6 @@
 #![allow(clippy::module_name_repetitions)]
 
 pub mod auth;
-pub mod cache;
 pub mod client;
 pub mod commands;
 pub mod config;
