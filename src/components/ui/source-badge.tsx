@@ -94,8 +94,11 @@ export function SourceBadge({
     </Badge>
   );
 
-  if (linkable && name && namespace && (type === "secret" || type === "configmap" || type === "envFromSecret" || type === "envFromConfigMap")) {
-    const resourceType = type.includes("secret") ? "secrets" : "configmaps";
+  const isSecretType = type === "secret" || type === "envFromSecret";
+  const isConfigMapType = type === "configmap" || type === "envFromConfigMap";
+
+  if (linkable && name && namespace && (isSecretType || isConfigMapType)) {
+    const resourceType = isSecretType ? "secrets" : "configmaps";
     const path = `/configuration/${resourceType}/${namespace}/${name}`;
     return (
       <Link to={path} className="hover:opacity-80 transition-opacity">
