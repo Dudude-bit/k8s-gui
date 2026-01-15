@@ -5,7 +5,7 @@
     windows_subsystem = "windows"
 )]
 
-use k8s_gui_lib::{commands, state::AppState};
+use k8s_gui_lib::{commands, shell, state::AppState};
 use tauri::{Emitter, Manager};
 use k8s_gui_common::init_tracing;
 
@@ -43,6 +43,12 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
+            // Initialize user PATH for shell commands
+            tauri::async_runtime::block_on(async {
+                shell::init_user_path().await;
+            });
+            tracing::info!("User PATH initialized");
+
             // Initialize application state
             let state = AppState::new()?;
 
