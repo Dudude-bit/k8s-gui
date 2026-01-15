@@ -136,7 +136,7 @@ export function DeploymentDetail() {
 
   // Calculate total CPU/Memory limits/requests from containers
   const totalResources = useMemo(() => {
-    if (!deployment?.containers) return { cpu: null, memory: null };
+    if (!deployment?.containers) return { cpuLimit: null, cpuRequest: null, memoryLimit: null, memoryRequest: null };
 
     const replicas = deployment.replicas.desired || 1;
     let totalCpuLimits = 0;
@@ -162,18 +162,10 @@ export function DeploymentDetail() {
     });
 
     return {
-      cpu:
-        totalCpuLimits > 0
-          ? totalCpuLimits * replicas
-          : totalCpuRequests > 0
-            ? totalCpuRequests * replicas
-            : null,
-      memory:
-        totalMemoryLimits > 0
-          ? totalMemoryLimits * replicas
-          : totalMemoryRequests > 0
-            ? totalMemoryRequests * replicas
-            : null,
+      cpuLimit: totalCpuLimits > 0 ? totalCpuLimits * replicas : null,
+      cpuRequest: totalCpuRequests > 0 ? totalCpuRequests * replicas : null,
+      memoryLimit: totalMemoryLimits > 0 ? totalMemoryLimits * replicas : null,
+      memoryRequest: totalMemoryRequests > 0 ? totalMemoryRequests * replicas : null,
     };
   }, [deployment]);
 
@@ -354,9 +346,11 @@ export function DeploymentDetail() {
                 <>
                   <MetricPair
                     cpuUsed={aggregatedMetrics.cpuMillicores}
-                    cpuTotal={totalResources.cpu}
+                    cpuRequest={totalResources.cpuRequest}
+                    cpuLimit={totalResources.cpuLimit}
                     memoryUsed={aggregatedMetrics.memoryBytes}
-                    memoryTotal={totalResources.memory}
+                    memoryRequest={totalResources.memoryRequest}
+                    memoryLimit={totalResources.memoryLimit}
                     showProgressBar={true}
                     orientation="vertical"
                   />
