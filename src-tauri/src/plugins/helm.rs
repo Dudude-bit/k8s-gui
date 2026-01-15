@@ -71,8 +71,9 @@ impl HelmPlugin {
             cmd = cmd.env("KUBECONFIG", kubeconfig);
         }
 
-        let output = cmd.run().await.map_err(|e| {
-            Error::Plugin(PluginError::ExecutionFailed(e.to_string()))
+        let output = cmd.run().await.map_err(|e| match e {
+            crate::shell::ShellError::Timeout(_) => Error::Plugin(PluginError::Timeout),
+            _ => Error::Plugin(PluginError::ExecutionFailed(e.to_string())),
         })?;
 
         Ok(PluginResult {
