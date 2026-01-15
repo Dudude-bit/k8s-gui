@@ -1,4 +1,6 @@
 // src/lib/metrics-utils.ts
+import { formatCPU, formatMemory } from './k8s-quantity';
+
 /**
  * Metrics calculation utilities
  *
@@ -90,4 +92,93 @@ export function calculatePercentage(
   }
 
   return { percentage: null, base: null };
+}
+
+/**
+ * Calculate complete metric state from raw values
+ *
+ * @param type - Metric type ('cpu' or 'memory')
+ * @param usage - Current usage (millicores for CPU, bytes for memory)
+ * @param request - Requested resources (same units as usage)
+ * @param limit - Resource limit (same units as usage)
+ * @returns Complete metric state for rendering
+ *
+ * @example
+ * // CPU with limit
+ * calculateMetricState('cpu', 500, 250, 1000)
+ * // → { value: 500, displayValue: "500m", percentage: 50, base: 'limit', level: 'normal', hasLimit: true, hasRequest: true }
+ *
+ * // Memory without limit
+ * calculateMetricState('memory', 400 * 1024 * 1024, 256 * 1024 * 1024, null)
+ * // → { value: 419430400, displayValue: "400Mi", percentage: 156, base: 'request', level: 'critical', hasLimit: false, hasRequest: true }
+ */
+export function calculateMetricState(
+  type: MetricType,
+  usage: number | null,
+  request: number | null,
+  limit: number | null
+): MetricState | null {
+  if (usage === null || usage === undefined) {
+    return null;
+  }
+
+  const format = type === 'cpu' ? formatCPU : formatMemory;
+  const displayValue = format(usage);
+
+  const { percentage, base } = calculatePercentage(usage, request, limit);
+  const level = getUtilizationLevel(percentage, type);
+
+  return {
+    value: usage,
+    displayValue,
+    percentage,
+    base,
+    level,
+    hasLimit: limit !== null && limit > 0,
+    hasRequest: request !== null && request > 0,
+  };
+}
+
+/**
+ * Get CSS color class for utilization level
+ */
+export function getLevelColorClass(level: UtilizationLevel): string {
+  switch (level) {
+    case 'critical':
+      return 'text-red-500';
+    case 'warning':
+      return 'text-yellow-500';
+    default:
+      return 'text-green-500';
+  }
+}
+
+/**
+ * Get badge variant for utilization level
+ */
+export function getLevelBadgeVariant(
+  level: UtilizationLevel
+): 'destructive' | 'secondary' | 'outline' {
+  switch (level) {
+    case 'critical':
+      return 'destructive';
+    case 'warning':
+      return 'secondary';
+    default:
+      return 'outline';
+  }
+}
+
+/**
+ * Get progress bar color class for utilization level
+ */
+export function getLevelProgressClass(level: UtilizationLevel): string {
+  switch (level) {
+    case 'critical':
+      return '[&>div]:bg-red-500';
+    case 'warning':
+      return '[&>div]:bg-yellow-500';
+    default:
+      return '';
+  }
 }
