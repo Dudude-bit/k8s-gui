@@ -52,6 +52,24 @@ pub enum ShellError {
 
 pub type Result<T> = std::result::Result<T, ShellError>;
 
+/// Output from a shell command execution.
+#[derive(Debug)]
+pub struct CommandOutput {
+    /// Standard output as string.
+    pub stdout: String,
+    /// Standard error as string.
+    pub stderr: String,
+    /// Exit code if available.
+    pub exit_code: Option<i32>,
+}
+
+impl CommandOutput {
+    /// Returns true if the command exited with code 0.
+    pub fn success(&self) -> bool {
+        self.exit_code == Some(0)
+    }
+}
+
 /// Build fallback PATH from known common locations.
 fn build_fallback_path() -> String {
     let mut paths: Vec<String> = Vec::new();
@@ -147,5 +165,22 @@ mod tests {
         // Second call should return same value (cached)
         let path2 = get_user_path();
         assert_eq!(path, path2, "PATH should be cached");
+    }
+
+    #[test]
+    fn test_command_output_success() {
+        let output = CommandOutput {
+            stdout: "hello".to_string(),
+            stderr: String::new(),
+            exit_code: Some(0),
+        };
+        assert!(output.success());
+
+        let failed = CommandOutput {
+            stdout: String::new(),
+            stderr: "error".to_string(),
+            exit_code: Some(1),
+        };
+        assert!(!failed.success());
     }
 }
