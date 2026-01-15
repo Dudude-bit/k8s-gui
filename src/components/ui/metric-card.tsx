@@ -286,7 +286,11 @@ export interface MetricRowProps {
   label: string;
   /** Used value */
   used: number | null | undefined;
-  /** Total/limit value (optional) */
+  /** Request value */
+  request?: number | null | undefined;
+  /** Total/limit value */
+  limit?: number | null | undefined;
+  /** @deprecated Use 'limit' instead */
   total?: number | null | undefined;
   /** Type of metric */
   type: "cpu" | "memory" | "custom";
@@ -302,21 +306,13 @@ export interface MetricRowProps {
 
 /**
  * MetricRow - Row display for key-value metrics with optional progress
- *
- * @example
- * <MetricRow
- *   label="CPU"
- *   used={500}
- *   total={2000}
- *   type="cpu"
- *   icon={<Cpu className="h-4 w-4" />}
- *   showProgressBar
- * />
  */
 export function MetricRow({
   label,
   used,
-  total,
+  request,
+  limit,
+  total, // deprecated
   type,
   icon,
   showProgressBar = false,
@@ -332,16 +328,31 @@ export function MetricRow({
         : (value: number) => `${value}`);
 
   const usedNum = typeof used === "number" ? used : null;
-  const totalNum = typeof total === "number" ? total : null;
+  const requestNum = typeof request === "number" ? request : null;
+  const limitNum = typeof limit === "number" ? limit : typeof total === "number" ? total : null;
 
-  const percentage =
-    usedNum !== null && totalNum !== null
-      ? calculateUtilization(usedNum, totalNum)
-      : null;
-  const colorVariant = getUtilizationColor(percentage);
+  const hasLimit = limitNum !== null && limitNum > 0;
+  const hasRequest = requestNum !== null && requestNum > 0;
+
+  // Smart percentage calculation
+  let percentage: number | null = null;
+  if (usedNum !== null) {
+    if (hasLimit) {
+      percentage = calculateUtilization(usedNum, limitNum!);
+    } else if (hasRequest) {
+      percentage = Math.min(999, Math.max(0, (usedNum / requestNum!) * 100));
+    }
+  }
+
+  const metricType = type === "cpu" ? "cpu" : type === "memory" ? "memory" : undefined;
+  const colorVariant = getUtilizationColor(percentage, metricType);
 
   const usedDisplay = usedNum !== null ? format(usedNum) : "-";
-  const totalDisplay = totalNum !== null ? format(totalNum) : null;
+  const baseDisplay = hasLimit
+    ? format(limitNum!)
+    : hasRequest
+      ? `${format(requestNum!)} req`
+      : null;
 
   return (
     <div className={cn("space-y-1", className)}>
@@ -352,8 +363,11 @@ export function MetricRow({
         </div>
         <div className="flex items-center gap-2">
           <span className="font-medium">{usedDisplay}</span>
-          {totalNum !== null && (
-            <span className="text-muted-foreground">/ {totalDisplay}</span>
+          {baseDisplay !== null && (
+            <span className="text-muted-foreground">/ {baseDisplay}</span>
+          )}
+          {!hasLimit && hasRequest && (
+            <span className="text-yellow-500 text-xs" title="No limit">*</span>
           )}
           {percentage !== null && (
             <Badge
@@ -369,7 +383,7 @@ export function MetricRow({
       </div>
       {showProgressBar && percentage !== null && (
         <Progress
-          value={percentage}
+          value={Math.min(100, percentage)}
           className={cn(
             "h-1.5",
             colorVariant === "destructive" && "[&>div]:bg-red-500",
@@ -388,11 +402,19 @@ export function MetricRow({
 export interface MetricPairProps {
   /** CPU used */
   cpuUsed: number | null | undefined;
+  /** CPU request */
+  cpuRequest?: number | null | undefined;
   /** CPU total/limit */
+  cpuLimit?: number | null | undefined;
+  /** @deprecated Use cpuLimit */
   cpuTotal?: number | null | undefined;
   /** Memory used */
   memoryUsed: number | null | undefined;
+  /** Memory request */
+  memoryRequest?: number | null | undefined;
   /** Memory total/limit */
+  memoryLimit?: number | null | undefined;
+  /** @deprecated Use memoryLimit */
   memoryTotal?: number | null | undefined;
   /** Show progress bars */
   showProgressBar?: boolean;
@@ -404,21 +426,16 @@ export interface MetricPairProps {
 
 /**
  * MetricPair - Display CPU and Memory metrics together
- *
- * @example
- * <MetricPair
- *   cpuUsed={500}
- *   cpuTotal={2000}
- *   memoryUsed={536870912}
- *   memoryTotal={4294967296}
- *   showProgressBar
- * />
  */
 export function MetricPair({
   cpuUsed,
-  cpuTotal,
+  cpuRequest,
+  cpuLimit,
+  cpuTotal, // deprecated
   memoryUsed,
-  memoryTotal,
+  memoryRequest,
+  memoryLimit,
+  memoryTotal, // deprecated
   showProgressBar = false,
   orientation = "vertical",
   className,
@@ -433,7 +450,8 @@ export function MetricPair({
       <MetricRow
         label="CPU"
         used={cpuUsed}
-        total={cpuTotal}
+        request={cpuRequest}
+        limit={cpuLimit ?? cpuTotal}
         type="cpu"
         icon={<Cpu className="h-4 w-4" />}
         showProgressBar={showProgressBar}
@@ -442,7 +460,8 @@ export function MetricPair({
       <MetricRow
         label="Memory"
         used={memoryUsed}
-        total={memoryTotal}
+        request={memoryRequest}
+        limit={memoryLimit ?? memoryTotal}
         type="memory"
         icon={<MemoryStick className="h-4 w-4" />}
         showProgressBar={showProgressBar}
