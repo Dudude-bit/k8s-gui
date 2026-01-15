@@ -9,11 +9,10 @@ use crate::plugins::traits::{
 };
 use crate::plugins::{PluginContext, PluginInfo, PluginResult, PluginType};
 use crate::resources::GenericResource;
+use crate::shell::ShellCommand;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::process::Stdio;
-use tokio::process::Command;
-use tokio::time::{timeout, Duration};
+use std::time::Duration;
 
 /// Helm release information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,34 +60,25 @@ impl HelmPlugin {
 
     /// Execute helm command
     async fn exec_helm(&self, args: &[&str], context: &PluginContext) -> Result<PluginResult> {
-        let mut cmd = Command::new(&self.helm_path);
-        cmd.args(args);
+        let mut cmd = ShellCommand::new(&self.helm_path)
+            .args(args.iter().map(|s| s.to_string()))
+            .arg("--kube-context")
+            .arg(&context.kube_context)
+            .timeout(Duration::from_secs(context.timeout_secs));
 
         // Set kubeconfig
         if let Some(kubeconfig) = &context.kubeconfig_path {
-            cmd.env("KUBECONFIG", kubeconfig);
+            cmd = cmd.env("KUBECONFIG", kubeconfig);
         }
 
-        // Set context and namespace
-        cmd.arg("--kube-context").arg(&context.kube_context);
-
-        cmd.stdout(Stdio::piped());
-        cmd.stderr(Stdio::piped());
-
-        let timeout_duration = Duration::from_secs(context.timeout_secs);
-
-        let result = timeout(timeout_duration, async {
-            let output = cmd.output().await?;
-            Ok::<_, std::io::Error>(output)
-        })
-        .await
-        .map_err(|_| Error::Plugin(PluginError::Timeout))?
-        .map_err(|e| Error::Plugin(PluginError::ExecutionFailed(e.to_string())))?;
+        let output = cmd.run().await.map_err(|e| {
+            Error::Plugin(PluginError::ExecutionFailed(e.to_string()))
+        })?;
 
         Ok(PluginResult {
-            exit_code: result.status.code(),
-            stdout: String::from_utf8_lossy(&result.stdout).to_string(),
-            stderr: String::from_utf8_lossy(&result.stderr).to_string(),
+            exit_code: output.exit_code,
+            stdout: output.stdout,
+            stderr: output.stderr,
             data: None,
         })
     }
