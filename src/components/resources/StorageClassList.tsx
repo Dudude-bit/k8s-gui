@@ -29,7 +29,7 @@ const columns: ColumnDef<StorageClassInfo>[] = [
         <Layers className="h-4 w-4 text-muted-foreground" />
         <Link
           to={getResourceDetailUrl(ResourceType.StorageClass, row.original.name)}
-          className="font-medium hover:underline"
+          className="font-medium text-primary hover:underline"
         >
           {row.original.name}
         </Link>

@@ -65,13 +65,13 @@ export function createNameColumn<T extends BaseResource>(
     header: "Name",
     cell: ({ row }) =>
       options?.disableLink ? (
-        <span className={options?.className ?? "font-medium"}>
+        <span className={options?.className ?? "font-medium text-primary"}>
           {row.original.name}
         </span>
       ) : (
         <Link
           to={`${linkPrefix}/${row.original.namespace}/${row.original.name}`}
-          className={options?.className ?? "font-medium hover:underline"}
+          className={options?.className ?? "font-medium text-primary hover:underline"}
         >
           {row.original.name}
         </Link>
@@ -88,7 +88,7 @@ export function createSimpleNameColumn<
   return {
     accessorKey: "name",
     header: "Name",
-    cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
+    cell: ({ row }) => <span className="font-medium text-primary">{row.original.name}</span>,
   };
 }
 

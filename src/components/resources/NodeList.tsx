@@ -106,7 +106,7 @@ export function NodeList() {
         cell: ({ row }) => (
           <Link
             to={getResourceDetailUrl(ResourceType.Node, row.original.name)}
-            className="font-medium hover:underline"
+            className="font-medium text-primary hover:underline"
           >
             {row.original.name}
           </Link>

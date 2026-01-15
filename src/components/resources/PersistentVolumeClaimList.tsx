@@ -31,7 +31,7 @@ const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
         <Database className="h-4 w-4 text-muted-foreground" />
         <Link
           to={getResourceDetailUrl(ResourceType.PersistentVolumeClaim, row.original.name, row.original.namespace)}
-          className="font-medium hover:underline"
+          className="font-medium text-primary hover:underline"
         >
           {row.original.name}
         </Link>

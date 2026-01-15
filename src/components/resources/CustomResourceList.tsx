@@ -80,7 +80,7 @@ export function CustomResourceList({
       cell: ({ row }) => (
         <Link
           to={getDetailPath(row.original)}
-          className="font-medium hover:underline"
+          className="font-medium text-primary hover:underline"
         >
           {row.original.name}
         </Link>
