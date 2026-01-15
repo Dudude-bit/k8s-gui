@@ -6,6 +6,10 @@ export interface PodWithMetrics extends PodInfo {
   memoryBytes: number | null;
 }
 
+export interface PodWithMetricsAndResources extends PodWithMetrics {
+  aggregatedResources: AggregatedResources;
+}
+
 export interface NodeWithMetrics extends NodeInfo {
   cpuMillicores: number | null;
   memoryBytes: number | null;
@@ -33,6 +37,21 @@ export function mergePodsWithMetrics(
       memoryBytes: metric?.memoryBytes ?? null,
     };
   });
+}
+
+/**
+ * Merge pods with metrics AND parse resource specs
+ */
+export function mergePodsWithMetricsAndResources(
+  pods: PodInfo[],
+  metrics: PodMetrics[]
+): PodWithMetricsAndResources[] {
+  const withMetrics = mergePodsWithMetrics(pods, metrics);
+
+  return withMetrics.map((pod) => ({
+    ...pod,
+    aggregatedResources: aggregatePodResources(pod),
+  }));
 }
 
 export function mergeNodesWithMetrics(
