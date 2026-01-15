@@ -126,6 +126,44 @@ impl ShellCommand {
         self.current_dir = Some(dir.into());
         self
     }
+
+    /// Execute the command and return output.
+    pub async fn run(self) -> Result<CommandOutput> {
+        let mut cmd = Command::new(&self.program);
+
+        cmd.args(&self.args);
+        cmd.stdout(Stdio::piped());
+        cmd.stderr(Stdio::piped());
+        cmd.stdin(Stdio::null());
+
+        // Apply user PATH
+        let user_path = get_user_path();
+        if !user_path.is_empty() {
+            cmd.env("PATH", user_path);
+        }
+
+        // Apply additional env vars
+        for (key, val) in &self.envs {
+            cmd.env(key, val);
+        }
+
+        // Set working directory if specified
+        if let Some(dir) = &self.current_dir {
+            cmd.current_dir(dir);
+        }
+
+        // Execute with timeout
+        let output = tokio::time::timeout(self.timeout, cmd.output())
+            .await
+            .map_err(|_| ShellError::Timeout(self.timeout))?
+            .map_err(|e| ShellError::Exec(e.to_string()))?;
+
+        Ok(CommandOutput {
+            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+            exit_code: output.status.code(),
+        })
+    }
 }
 
 /// Build fallback PATH from known common locations.
@@ -254,5 +292,33 @@ mod tests {
         assert_eq!(cmd.args, vec!["hello", "world", "!"]);
         assert_eq!(cmd.envs.get("FOO"), Some(&"bar".to_string()));
         assert_eq!(cmd.timeout, Duration::from_secs(60));
+    }
+
+    #[tokio::test]
+    async fn test_shell_command_run_echo() {
+        init_user_path().await;
+
+        let output = ShellCommand::new("echo")
+            .arg("hello")
+            .run()
+            .await
+            .expect("echo should succeed");
+
+        assert!(output.success());
+        assert_eq!(output.stdout.trim(), "hello");
+        assert!(output.stderr.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_shell_command_run_timeout() {
+        init_user_path().await;
+
+        let result = ShellCommand::new("sleep")
+            .arg("10")
+            .timeout(Duration::from_millis(100))
+            .run()
+            .await;
+
+        assert!(matches!(result, Err(ShellError::Timeout(_))));
     }
 }
