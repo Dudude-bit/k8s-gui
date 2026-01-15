@@ -4,6 +4,35 @@ use std::process::Stdio;
 use std::time::Duration;
 use thiserror::Error;
 use tokio::process::Command;
+use tokio::sync::OnceCell;
+
+static USER_PATH: OnceCell<String> = OnceCell::const_new();
+
+/// Initialize user PATH from shell. Call once at app startup.
+pub async fn init_user_path() {
+    let path = resolve_user_path().await;
+    // Ignore error if already set (idempotent)
+    let _ = USER_PATH.set(path);
+}
+
+/// Get the cached user PATH.
+pub fn get_user_path() -> &'static str {
+    USER_PATH.get().map(|s| s.as_str()).unwrap_or("")
+}
+
+/// Resolve user PATH with fallback.
+async fn resolve_user_path() -> String {
+    if let Some(path) = get_path_from_shell().await {
+        tracing::info!(
+            "Resolved user PATH from shell ({} entries)",
+            path.split(':').count()
+        );
+        return path;
+    }
+
+    tracing::warn!("Failed to get PATH from shell, using fallback");
+    build_fallback_path()
+}
 
 /// Errors that can occur during shell command execution.
 #[derive(Debug, Error)]
@@ -107,5 +136,16 @@ mod tests {
             assert!(!p.is_empty(), "PATH should not be empty");
             assert!(p.contains(':'), "PATH should contain multiple entries");
         }
+    }
+
+    #[tokio::test]
+    async fn test_init_user_path_caches_value() {
+        init_user_path().await;
+        let path = get_user_path();
+        assert!(!path.is_empty(), "User PATH should be initialized");
+
+        // Second call should return same value (cached)
+        let path2 = get_user_path();
+        assert_eq!(path, path2, "PATH should be cached");
     }
 }
