@@ -1,5 +1,5 @@
 import * as React from "react";
-import { hashString } from "@/lib/utils";
+import { hashString, cn } from "@/lib/utils";
 import { Badge } from "./badge";
 import { useThemeStore } from "@/stores/themeStore";
 
@@ -7,6 +7,8 @@ interface NodeBadgeProps {
   /** The node name to display and generate color from */
   nodeName: string;
   className?: string;
+  /** Max width before truncation (default: max-w-[200px]) */
+  maxWidth?: string;
 }
 
 /**
@@ -14,7 +16,7 @@ interface NodeBadgeProps {
  * Generates a stable color based on the node name hash, making it easy to
  * visually identify pods running on the same node.
  */
-export function NodeBadge({ nodeName, className }: NodeBadgeProps) {
+export function NodeBadge({ nodeName, className, maxWidth = "max-w-[200px]" }: NodeBadgeProps) {
   const { theme } = useThemeStore();
   const hue = React.useMemo(() => hashString(nodeName) % 360, [nodeName]);
 
@@ -38,7 +40,11 @@ export function NodeBadge({ nodeName, className }: NodeBadgeProps) {
       };
 
   return (
-    <Badge className={className} style={style}>
+    <Badge
+      className={cn("truncate", maxWidth, className)}
+      style={style}
+      title={nodeName}
+    >
       {nodeName}
     </Badge>
   );
