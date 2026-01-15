@@ -5,6 +5,7 @@
 
 use crate::commands::helpers::ResourceContext;
 use crate::error::{Error, PluginError, Result};
+use crate::shell::ShellCommand;
 use crate::state::AppState;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use flate2::read::GzDecoder;
@@ -14,10 +15,8 @@ use kube::Api;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::Read;
-use std::process::Stdio;
+use std::time::Duration;
 use tauri::State;
-use tokio::process::Command;
-use tokio::time::{timeout, Duration};
 
 /// Helm release info (unified format for frontend)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -229,19 +228,17 @@ fn get_helm_search_paths() -> Vec<String> {
 
 /// Try to run helm version with a specific path
 async fn try_helm_path(path: &str) -> Option<String> {
-    let result = Command::new(path)
-        .arg("version")
-        .arg("--short")
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .await;
-    
-    match result {
-        Ok(output) if output.status.success() => {
-            Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
-        }
-        _ => None,
+    let output = ShellCommand::new(path)
+        .args(["version", "--short"])
+        .timeout(Duration::from_secs(5))
+        .run()
+        .await
+        .ok()?;
+
+    if output.success() {
+        Some(output.stdout.trim().to_string())
+    } else {
+        None
     }
 }
 
@@ -464,31 +461,18 @@ async fn exec_helm_cli(args: &[&str], timeout_secs: u64) -> Result<String> {
 /// Helper to execute helm CLI commands with optional kube context
 async fn exec_helm_cli_with_context(args: &[&str], timeout_secs: u64, context: Option<&str>) -> Result<String> {
     let helm_path = resolve_helm_path().await?;
-    let mut cmd = Command::new(&helm_path);
 
-    // Add kube-context if specified
+    let mut cmd = ShellCommand::new(&helm_path)
+        .args(args.iter().map(|s| s.to_string()))
+        .timeout(Duration::from_secs(timeout_secs));
+
     if let Some(ctx) = context {
-        cmd.arg("--kube-context").arg(ctx);
+        cmd = cmd.arg("--kube-context").arg(ctx);
     }
 
-    cmd.args(args);
-    cmd.stdout(Stdio::piped());
-    cmd.stderr(Stdio::piped());
-
-    let timeout_duration = Duration::from_secs(timeout_secs);
-
-    let output = timeout(timeout_duration, cmd.output())
+    cmd.run_success()
         .await
-        .map_err(|_| Error::Plugin(PluginError::Timeout))?
-        .map_err(|e| Error::Plugin(PluginError::ExecutionFailed(e.to_string())))?;
-
-    if !output.status.success() {
-        return Err(Error::Plugin(PluginError::ExecutionFailed(
-            String::from_utf8_lossy(&output.stderr).to_string(),
-        )));
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+        .map_err(|e| Error::Plugin(PluginError::ExecutionFailed(e.to_string())))
 }
 
 /// Rollback Helm release to a previous revision
