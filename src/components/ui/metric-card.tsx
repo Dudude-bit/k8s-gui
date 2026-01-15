@@ -29,10 +29,8 @@ export interface MetricCardProps {
   used: number | null | undefined;
   /** Request value for percentage calculation fallback */
   request?: number | null | undefined;
-  /** Total/limit value (millicores/bytes depending on type) */
+  /** Limit value (millicores/bytes depending on type) */
   limit?: number | null | undefined;
-  /** @deprecated Use 'limit' instead */
-  total?: number | null | undefined;
   /** Type of metric for parsing and formatting */
   type: "cpu" | "memory" | "storage" | "custom";
   /** Custom icon (defaults to CPU/Memory based on type) */
@@ -71,7 +69,6 @@ export function MetricCard({
   used,
   request,
   limit,
-  total, // deprecated
   type,
   icon,
   showProgressBar = true,
@@ -90,7 +87,7 @@ export function MetricCard({
 
   const usedNum = typeof used === "number" ? used : null;
   const requestNum = typeof request === "number" ? request : null;
-  const limitNum = typeof limit === "number" ? limit : typeof total === "number" ? total : null;
+  const limitNum = typeof limit === "number" ? limit : null;
 
   const hasLimit = limitNum !== null && limitNum > 0;
   const hasRequest = requestNum !== null && requestNum > 0;
@@ -194,10 +191,8 @@ export interface MetricBadgeProps {
   used: number | null | undefined;
   /** Request value (for percentage calculation fallback) */
   request?: number | null | undefined;
-  /** Total/limit value */
+  /** Limit value */
   limit?: number | null | undefined;
-  /** @deprecated Use 'limit' instead */
-  total?: number | null | undefined;
   /** Type of metric */
   type: "cpu" | "memory";
   /** Show percentage */
@@ -220,7 +215,6 @@ export function MetricBadge({
   used,
   request,
   limit,
-  total, // deprecated, use limit
   type,
   showPercentage = false,
   className,
@@ -229,7 +223,7 @@ export function MetricBadge({
 
   const usedNum = typeof used === "number" ? used : null;
   const requestNum = typeof request === "number" ? request : null;
-  const limitNum = typeof limit === "number" ? limit : typeof total === "number" ? total : null;
+  const limitNum = typeof limit === "number" ? limit : null;
 
   const hasLimit = limitNum !== null && limitNum > 0;
   const hasRequest = requestNum !== null && requestNum > 0;
@@ -288,10 +282,8 @@ export interface MetricRowProps {
   used: number | null | undefined;
   /** Request value */
   request?: number | null | undefined;
-  /** Total/limit value */
+  /** Limit value */
   limit?: number | null | undefined;
-  /** @deprecated Use 'limit' instead */
-  total?: number | null | undefined;
   /** Type of metric */
   type: "cpu" | "memory" | "custom";
   /** Icon to display */
@@ -312,7 +304,6 @@ export function MetricRow({
   used,
   request,
   limit,
-  total, // deprecated
   type,
   icon,
   showProgressBar = false,
@@ -329,7 +320,7 @@ export function MetricRow({
 
   const usedNum = typeof used === "number" ? used : null;
   const requestNum = typeof request === "number" ? request : null;
-  const limitNum = typeof limit === "number" ? limit : typeof total === "number" ? total : null;
+  const limitNum = typeof limit === "number" ? limit : null;
 
   const hasLimit = limitNum !== null && limitNum > 0;
   const hasRequest = requestNum !== null && requestNum > 0;
@@ -404,18 +395,14 @@ export interface MetricPairProps {
   cpuUsed: number | null | undefined;
   /** CPU request */
   cpuRequest?: number | null | undefined;
-  /** CPU total/limit */
+  /** CPU limit */
   cpuLimit?: number | null | undefined;
-  /** @deprecated Use cpuLimit */
-  cpuTotal?: number | null | undefined;
   /** Memory used */
   memoryUsed: number | null | undefined;
   /** Memory request */
   memoryRequest?: number | null | undefined;
-  /** Memory total/limit */
+  /** Memory limit */
   memoryLimit?: number | null | undefined;
-  /** @deprecated Use memoryLimit */
-  memoryTotal?: number | null | undefined;
   /** Show progress bars */
   showProgressBar?: boolean;
   /** Orientation */
@@ -431,11 +418,9 @@ export function MetricPair({
   cpuUsed,
   cpuRequest,
   cpuLimit,
-  cpuTotal, // deprecated
   memoryUsed,
   memoryRequest,
   memoryLimit,
-  memoryTotal, // deprecated
   showProgressBar = false,
   orientation = "vertical",
   className,
@@ -451,7 +436,7 @@ export function MetricPair({
         label="CPU"
         used={cpuUsed}
         request={cpuRequest}
-        limit={cpuLimit ?? cpuTotal}
+        limit={cpuLimit}
         type="cpu"
         icon={<Cpu className="h-4 w-4" />}
         showProgressBar={showProgressBar}
@@ -461,7 +446,7 @@ export function MetricPair({
         label="Memory"
         used={memoryUsed}
         request={memoryRequest}
-        limit={memoryLimit ?? memoryTotal}
+        limit={memoryLimit}
         type="memory"
         icon={<MemoryStick className="h-4 w-4" />}
         showProgressBar={showProgressBar}
