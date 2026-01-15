@@ -127,6 +127,21 @@ impl ShellCommand {
         self
     }
 
+    /// Execute the command and return stdout if successful.
+    ///
+    /// Returns error if command exits with non-zero code.
+    pub async fn run_success(self) -> Result<String> {
+        let output = self.run().await?;
+        if output.success() {
+            Ok(output.stdout)
+        } else {
+            Err(ShellError::Failed {
+                code: output.exit_code,
+                stderr: output.stderr,
+            })
+        }
+    }
+
     /// Execute the command and return output.
     pub async fn run(self) -> Result<CommandOutput> {
         let mut cmd = Command::new(&self.program);
@@ -320,5 +335,30 @@ mod tests {
             .await;
 
         assert!(matches!(result, Err(ShellError::Timeout(_))));
+    }
+
+    #[tokio::test]
+    async fn test_shell_command_run_success() {
+        init_user_path().await;
+
+        let stdout = ShellCommand::new("echo")
+            .arg("hello")
+            .run_success()
+            .await
+            .expect("should succeed");
+
+        assert_eq!(stdout.trim(), "hello");
+    }
+
+    #[tokio::test]
+    async fn test_shell_command_run_success_fails_on_error() {
+        init_user_path().await;
+
+        let result = ShellCommand::new("sh")
+            .args(["-c", "echo error >&2; exit 1"])
+            .run_success()
+            .await;
+
+        assert!(matches!(result, Err(ShellError::Failed { .. })));
     }
 }
