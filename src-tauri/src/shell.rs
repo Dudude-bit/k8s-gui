@@ -1,6 +1,7 @@
 //! Shell command execution with user PATH resolution.
 
 use std::collections::HashMap;
+use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::time::Duration;
@@ -75,8 +76,8 @@ impl CommandOutput {
 
 /// Builder for shell commands with user PATH and timeout.
 pub struct ShellCommand {
-    pub(crate) program: String,
-    pub(crate) args: Vec<String>,
+    pub(crate) program: OsString,
+    pub(crate) args: Vec<OsString>,
     pub(crate) envs: HashMap<String, String>,
     pub(crate) timeout: Duration,
     pub(crate) current_dir: Option<PathBuf>,
@@ -84,9 +85,10 @@ pub struct ShellCommand {
 
 impl ShellCommand {
     /// Create a new shell command.
-    pub fn new(program: impl Into<String>) -> Self {
+    /// Accepts any type that can be converted to OsStr (String, &str, PathBuf, &Path, OsString, etc.)
+    pub fn new(program: impl AsRef<OsStr>) -> Self {
         Self {
-            program: program.into(),
+            program: program.as_ref().to_owned(),
             args: Vec::new(),
             envs: HashMap::new(),
             timeout: Duration::from_secs(30),
@@ -95,8 +97,8 @@ impl ShellCommand {
     }
 
     /// Add a single argument.
-    pub fn arg(mut self, arg: impl Into<String>) -> Self {
-        self.args.push(arg.into());
+    pub fn arg(mut self, arg: impl AsRef<OsStr>) -> Self {
+        self.args.push(arg.as_ref().to_owned());
         self
     }
 
@@ -104,9 +106,9 @@ impl ShellCommand {
     pub fn args<I, S>(mut self, args: I) -> Self
     where
         I: IntoIterator<Item = S>,
-        S: Into<String>,
+        S: AsRef<OsStr>,
     {
-        self.args.extend(args.into_iter().map(Into::into));
+        self.args.extend(args.into_iter().map(|s| s.as_ref().to_owned()));
         self
     }
 
@@ -242,8 +244,11 @@ fn build_fallback_path() -> String {
 async fn get_path_from_shell() -> Option<String> {
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
 
+    // Use printenv instead of echo $PATH for shell-agnostic behavior.
+    // Fish shell outputs PATH as space-separated when using echo $PATH,
+    // but printenv PATH works correctly across all shells.
     let output = Command::new(&shell)
-        .args(["-l", "-c", "echo $PATH"])
+        .args(["-l", "-c", "printenv PATH"])
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .stdin(Stdio::null())
@@ -346,8 +351,8 @@ mod tests {
             .env("FOO", "bar")
             .timeout(Duration::from_secs(60));
 
-        assert_eq!(cmd.program, "echo");
-        assert_eq!(cmd.args, vec!["hello", "world", "!"]);
+        assert_eq!(cmd.program, OsString::from("echo"));
+        assert_eq!(cmd.args, vec![OsString::from("hello"), OsString::from("world"), OsString::from("!")]);
         assert_eq!(cmd.envs.get("FOO"), Some(&"bar".to_string()));
         assert_eq!(cmd.timeout, Duration::from_secs(60));
     }

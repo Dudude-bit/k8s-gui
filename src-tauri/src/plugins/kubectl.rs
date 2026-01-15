@@ -123,8 +123,8 @@ impl KubectlPlugin {
             ))));
         }
 
-        let mut cmd = ShellCommand::new(self.path.to_string_lossy())
-            .args(args.iter().map(|s| s.to_string()))
+        let mut cmd = ShellCommand::new(&self.path)
+            .args(args)
             .timeout(Duration::from_secs(context.timeout_secs));
 
         // Set environment
