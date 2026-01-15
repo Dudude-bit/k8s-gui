@@ -3849,7 +3849,7 @@ dependencies = [
 
 [[package]]
 name = "k8s-gui"
-version = "1.7.4"
+version = "1.7.5"
 dependencies = [
  "anyhow",
  "async-trait",
