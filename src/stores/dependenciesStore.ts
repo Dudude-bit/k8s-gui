@@ -21,19 +21,33 @@ export interface HelmAvailability {
   searchedPaths: string[];
 }
 
+/** Kubectl CLI availability status */
+export interface KubectlAvailability {
+  available: boolean;
+  version: string | null;
+  error: string | null;
+  /** Path where kubectl was found (if available) */
+  path: string | null;
+  /** List of paths that were searched */
+  searchedPaths: string[];
+}
+
 /** Dependencies store state */
 interface DependenciesState {
   helm: HelmAvailability | null;
+  kubectl: KubectlAvailability | null;
   isChecking: boolean;
   lastChecked: Date | null;
 
   // Actions
   checkHelmAvailability: () => Promise<void>;
+  checkKubectlAvailability: () => Promise<void>;
   checkAllDependencies: () => Promise<void>;
 }
 
 export const useDependenciesStore = create<DependenciesState>((set, get) => ({
   helm: null,
+  kubectl: null,
   isChecking: false,
   lastChecked: null,
 
@@ -61,9 +75,32 @@ export const useDependenciesStore = create<DependenciesState>((set, get) => ({
     }
   },
 
+  checkKubectlAvailability: async () => {
+    set({ isChecking: true });
+    try {
+      const result = await commands.checkKubectlAvailability();
+      set({
+        kubectl: result,
+        isChecking: false,
+        lastChecked: new Date(),
+      });
+    } catch (error) {
+      set({
+        kubectl: {
+          available: false,
+          version: null,
+          error: error instanceof Error ? error.message : String(error),
+          path: null,
+          searchedPaths: [],
+        },
+        isChecking: false,
+        lastChecked: new Date(),
+      });
+    }
+  },
+
   checkAllDependencies: async () => {
-    const { checkHelmAvailability } = get();
-    await checkHelmAvailability();
-    // Add more dependency checks here as needed
+    const { checkHelmAvailability, checkKubectlAvailability } = get();
+    await Promise.all([checkHelmAvailability(), checkKubectlAvailability()]);
   },
 }));

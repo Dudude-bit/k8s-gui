@@ -310,6 +310,7 @@ pub fn save_cli_paths(cli_paths: CliPathsConfig) -> Result<()> {
     // Filter empty strings
     let cleaned = CliPathsConfig {
         helm_path: cli_paths.helm_path.filter(|s| !s.is_empty()),
+        kubectl_path: cli_paths.kubectl_path.filter(|s| !s.is_empty()),
     };
 
     with_config(|config| {

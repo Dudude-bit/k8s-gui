@@ -158,6 +158,7 @@ export interface RegistryConfigInfo {
 
 export interface CliPathsConfig {
   helmPath: string | null;
+  kubectlPath: string | null;
 }
 
 export interface ContextBinding {
@@ -594,6 +595,14 @@ export interface NodeFilters {
   fieldSelector: string | null;
   limit: number | null;
   readyOnly: boolean | null;
+}
+
+export interface KubectlAvailability {
+  available: boolean;
+  version: string | null;
+  error: string | null;
+  path: string | null;
+  searchedPaths: string[];
 }
 
 export interface HelmInstallOptions {

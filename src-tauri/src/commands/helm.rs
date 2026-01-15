@@ -246,57 +246,47 @@ async fn try_helm_path(path: &str) -> Option<String> {
 }
 
 /// Check if Helm CLI is available
-/// 
-/// Searches for helm in the following order:
-/// 1. Custom path from config (if set)
-/// 2. Common installation paths (/usr/local/bin, /opt/homebrew/bin, ~/.local/bin, etc.)
-/// 3. PATH environment variable
 #[tauri::command]
 pub async fn check_helm_availability() -> Result<HelmAvailability> {
-    use crate::config::AppConfig;
-    
-    let mut searched_paths = Vec::new();
-    
-    // First, try custom path from config if set
-    if let Ok(config) = AppConfig::load() {
-        if let Some(custom_path) = &config.cli_paths.helm_path {
-            if !custom_path.is_empty() {
-                searched_paths.push(custom_path.clone());
-                if let Some(version) = try_helm_path(custom_path).await {
-                    return Ok(HelmAvailability {
-                        available: true,
-                        version: Some(version),
-                        error: None,
-                        path: Some(custom_path.clone()),
-                        searched_paths,
-                    });
-                }
-            }
-        }
-    }
-    
-    // Try common installation paths
-    for path in get_helm_search_paths() {
-        searched_paths.push(path.clone());
-        if let Some(version) = try_helm_path(&path).await {
-            return Ok(HelmAvailability {
+    let searched_paths = get_all_helm_search_paths();
+
+    match resolve_helm_path().await {
+        Ok(path) => {
+            let version = try_helm_path(&path).await;
+            Ok(HelmAvailability {
                 available: true,
-                version: Some(version),
+                version,
                 error: None,
                 path: Some(path),
                 searched_paths,
-            });
+            })
+        }
+        Err(e) => Ok(HelmAvailability {
+            available: false,
+            version: None,
+            error: Some(e.to_string()),
+            path: None,
+            searched_paths,
+        }),
+    }
+}
+
+/// Get all paths that will be searched (for UI display)
+fn get_all_helm_search_paths() -> Vec<String> {
+    use crate::config::AppConfig;
+
+    let mut paths = Vec::new();
+
+    if let Ok(config) = AppConfig::load() {
+        if let Some(custom_path) = &config.cli_paths.helm_path {
+            if !custom_path.is_empty() {
+                paths.push(custom_path.clone());
+            }
         }
     }
-    
-    // Helm not found in any path
-    Ok(HelmAvailability {
-        available: false,
-        version: None,
-        error: Some("Helm CLI not found in any of the searched paths. You can specify a custom path in Settings.".to_string()),
-        path: None,
-        searched_paths,
-    })
+
+    paths.extend(get_helm_search_paths());
+    paths
 }
 
 /// List Helm releases using native Kubernetes API (reads Helm secrets directly)

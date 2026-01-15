@@ -2,6 +2,7 @@
 
 use crate::auth::OidcAuth;
 use crate::auth::{is_aks_exec_command, is_gke_exec_command, parse_aks_exec_args, AzureAksAuth, GcpGkeAuth, AuthProvider};
+use crate::commands::kubectl::resolve_kubectl_path;
 use crate::config::AppConfig;
 use crate::error::{AuthError, Error, Result};
 use crate::state::{AppEvent, AppState};
@@ -306,7 +307,7 @@ fn get_common_cli_paths(command: &str) -> Vec<PathBuf> {
             PathBuf::from("/usr/bin/az"),
         ]);
     }
-    
+
     paths
 }
 
@@ -331,6 +332,7 @@ async fn run_exec_auth(
     };
 
     let mut cmd = match build_exec_command(exec, &browser_script, &url_file, &bin_dir, exec_cluster)
+        .await
     {
         Ok(cmd) => cmd,
         Err(err) => {
@@ -582,7 +584,7 @@ fn parse_scopes(config: &HashMap<String, String>) -> Vec<String> {
         .unwrap_or_default()
 }
 
-fn build_exec_command(
+async fn build_exec_command(
     exec: &ExecConfig,
     browser_script: &std::path::Path,
     url_file: &std::path::Path,
@@ -634,9 +636,18 @@ fn build_exec_command(
     cmd.env("K8S_GUI_AUTH_URL_FILE", url_file);
     cmd.env("BROWSER", browser_script);
 
-    // Prepend our bin directory to PATH to intercept 'open' and 'xdg-open' commands
+    // Find kubectl directory to add to PATH (for exec plugins like oidc-login)
+    let kubectl_dir = resolve_kubectl_path()
+        .await
+        .ok()
+        .and_then(|p| std::path::Path::new(&p).parent().map(|d| d.to_string_lossy().to_string()));
+
+    // Prepend our bin directory and kubectl directory to PATH
     let current_path = std::env::var("PATH").unwrap_or_default();
-    let new_path = format!("{}:{}", bin_dir.display(), current_path);
+    let new_path = match kubectl_dir {
+        Some(kdir) => format!("{}:{}:{}", bin_dir.display(), kdir, current_path),
+        None => format!("{}:{}", bin_dir.display(), current_path),
+    };
     cmd.env("PATH", new_path);
 
     cmd.stdin(Stdio::null());

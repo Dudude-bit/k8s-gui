@@ -271,6 +271,9 @@ pub struct CliPathsConfig {
     /// Custom path to helm binary (if not in PATH)
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "helm_path")]
     pub helm_path: Option<String>,
+    /// Custom path to kubectl binary (if not in PATH)
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "kubectl_path")]
+    pub kubectl_path: Option<String>,
 }
 
 /// Port-forward configuration store

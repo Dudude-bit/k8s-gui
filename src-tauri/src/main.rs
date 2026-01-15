@@ -260,6 +260,9 @@ fn main() {
             commands::terminal::close_terminal,
             commands::terminal::open_shell,
 
+            // kubectl commands
+            commands::kubectl::check_kubectl_availability,
+
             // Helm commands (native + CLI)
             commands::helm::check_helm_availability,
             commands::helm::list_helm_releases_native,
