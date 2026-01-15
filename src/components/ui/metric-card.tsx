@@ -153,7 +153,11 @@ export function MetricCard({
 export interface MetricBadgeProps {
   /** Used value */
   used: number | null | undefined;
-  /** Total/limit value (optional) */
+  /** Request value (for percentage calculation fallback) */
+  request?: number | null | undefined;
+  /** Total/limit value */
+  limit?: number | null | undefined;
+  /** @deprecated Use 'limit' instead */
   total?: number | null | undefined;
   /** Type of metric */
   type: "cpu" | "memory";
@@ -164,14 +168,20 @@ export interface MetricBadgeProps {
 }
 
 /**
- * MetricBadge - Compact inline metric display
+ * MetricBadge - Compact inline metric display with smart color coding
+ *
+ * Uses type-specific thresholds:
+ * - CPU: warning at 80%, critical at 95%
+ * - Memory: warning at 70%, critical at 85%
  *
  * @example
- * <MetricBadge used={500} total={2000} type="cpu" />
+ * <MetricBadge used={500} request={250} limit={1000} type="cpu" />
  */
 export function MetricBadge({
   used,
-  total,
+  request,
+  limit,
+  total, // deprecated, use limit
   type,
   showPercentage = false,
   className,
@@ -179,15 +189,27 @@ export function MetricBadge({
   const format = type === "cpu" ? formatCPU : formatMemory;
 
   const usedNum = typeof used === "number" ? used : null;
-  const totalNum = typeof total === "number" ? total : null;
+  const requestNum = typeof request === "number" ? request : null;
+  const limitNum = typeof limit === "number" ? limit : typeof total === "number" ? total : null;
 
-  const percentage =
-    usedNum !== null && totalNum !== null
-      ? calculateUtilization(usedNum, totalNum)
-      : null;
-  const colorVariant = getUtilizationColor(percentage);
+  const hasLimit = limitNum !== null && limitNum > 0;
+  const hasRequest = requestNum !== null && requestNum > 0;
 
+  // Smart percentage calculation: limit > request > null
+  let percentage: number | null = null;
+  if (usedNum !== null) {
+    if (hasLimit) {
+      percentage = calculateUtilization(usedNum, limitNum!);
+    } else if (hasRequest) {
+      percentage = Math.min(999, Math.max(0, (usedNum / requestNum!) * 100));
+    }
+  }
+
+  const colorVariant = getUtilizationColor(percentage, type);
   const usedDisplay = usedNum !== null ? format(usedNum) : "-";
+
+  // Show * indicator when no limit is configured
+  const noLimitIndicator = usedNum !== null && !hasLimit ? " *" : "";
 
   return (
     <Badge
@@ -199,9 +221,19 @@ export function MetricBadge({
             : "outline"
       }
       className={cn("font-mono text-xs", className)}
+      title={
+        usedNum !== null
+          ? hasLimit
+            ? `${usedDisplay} / ${format(limitNum!)} (${percentage?.toFixed(1)}% of limit)`
+            : hasRequest
+              ? `${usedDisplay} / ${format(requestNum!)} request (${percentage?.toFixed(1)}% of request, no limit)`
+              : `${usedDisplay} (no request/limit configured)`
+          : undefined
+      }
     >
       {usedDisplay}
       {showPercentage && percentage !== null && ` (${percentage.toFixed(0)}%)`}
+      {noLimitIndicator}
     </Badge>
   );
 }
