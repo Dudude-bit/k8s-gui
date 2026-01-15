@@ -239,6 +239,9 @@ fn build_fallback_path() -> String {
         .unwrap_or_default()
 }
 
+/// Timeout for shell PATH resolution to prevent blocking on slow login scripts.
+const SHELL_PATH_TIMEOUT: Duration = Duration::from_secs(5);
+
 /// Get PATH from user's login shell.
 #[cfg(not(windows))]
 async fn get_path_from_shell() -> Option<String> {
@@ -247,14 +250,28 @@ async fn get_path_from_shell() -> Option<String> {
     // Use printenv instead of echo $PATH for shell-agnostic behavior.
     // Fish shell outputs PATH as space-separated when using echo $PATH,
     // but printenv PATH works correctly across all shells.
-    let output = Command::new(&shell)
+    let output_future = Command::new(&shell)
         .args(["-l", "-c", "printenv PATH"])
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .stdin(Stdio::null())
-        .output()
-        .await
-        .ok()?;
+        .output();
+
+    // Add timeout to prevent blocking on slow/hanging login scripts
+    let output = match tokio::time::timeout(SHELL_PATH_TIMEOUT, output_future).await {
+        Ok(Ok(output)) => output,
+        Ok(Err(e)) => {
+            tracing::warn!("Failed to execute shell for PATH: {}", e);
+            return None;
+        }
+        Err(_) => {
+            tracing::warn!(
+                "Shell PATH resolution timed out after {:?}, using fallback",
+                SHELL_PATH_TIMEOUT
+            );
+            return None;
+        }
+    };
 
     if !output.status.success() {
         return None;
