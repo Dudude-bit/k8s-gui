@@ -241,8 +241,8 @@ export function MetricBadge({
   const colorVariant = getUtilizationColor(percentage, type);
   const usedDisplay = usedNum !== null ? format(usedNum) : "-";
 
-  // Show * indicator when no limit is configured
-  const noLimitIndicator = usedNum !== null && !hasLimit ? " *" : "";
+  // Show * indicator only when request exists but limit is missing
+  const noLimitIndicator = usedNum !== null && hasRequest && !hasLimit ? " *" : "";
 
   return (
     <Badge
