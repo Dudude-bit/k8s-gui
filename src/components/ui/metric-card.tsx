@@ -158,9 +158,6 @@ export function MetricCard({
           <span className="text-2xl font-bold">{usedDisplay}</span>
           <span className="text-sm text-muted-foreground">
             / {baseDisplay}
-            {!hasLimit && hasRequest && (
-              <span className="ml-1 text-yellow-500" title="No limit configured">*</span>
-            )}
           </span>
         </div>
         {showProgressBar && percentage !== null && (
@@ -241,9 +238,6 @@ export function MetricBadge({
   const colorVariant = getUtilizationColor(percentage, type);
   const usedDisplay = usedNum !== null ? format(usedNum) : "-";
 
-  // Show * indicator only when request exists but limit is missing
-  const noLimitIndicator = usedNum !== null && hasRequest && !hasLimit ? " *" : "";
-
   return (
     <Badge
       variant={
@@ -259,14 +253,13 @@ export function MetricBadge({
           ? hasLimit
             ? `${usedDisplay} / ${format(limitNum!)} (${percentage?.toFixed(1)}% of limit)`
             : hasRequest
-              ? `${usedDisplay} / ${format(requestNum!)} request (${percentage?.toFixed(1)}% of request, no limit)`
-              : `${usedDisplay} (no request/limit configured)`
+              ? `${usedDisplay} / ${format(requestNum!)} request (${percentage?.toFixed(1)}% of request)`
+              : usedDisplay
           : undefined
       }
     >
       {usedDisplay}
       {showPercentage && percentage !== null && ` (${percentage.toFixed(0)}%)`}
-      {noLimitIndicator}
     </Badge>
   );
 }

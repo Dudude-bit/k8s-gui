@@ -178,10 +178,8 @@ export function parseMemory(memStr: string | null | undefined): number {
  * @returns Formatted CPU string
  */
 export function formatCPU(millicores: number): string {
-  if (millicores === 0) return "0";
-
   if (millicores < 1000) {
-    return `${Math.floor(millicores)}m`;
+    return `${Math.round(millicores)}m`;
   }
 
   const cores = millicores / 1000;
