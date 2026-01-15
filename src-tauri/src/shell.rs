@@ -25,9 +25,10 @@ pub fn get_user_path() -> &'static str {
 /// Resolve user PATH with fallback.
 async fn resolve_user_path() -> String {
     if let Some(path) = get_path_from_shell().await {
+        let separator = if cfg!(windows) { ';' } else { ':' };
         tracing::info!(
             "Resolved user PATH from shell ({} entries)",
-            path.split(':').count()
+            path.split(separator).count()
         );
         return path;
     }
@@ -183,37 +184,61 @@ impl ShellCommand {
 
 /// Build fallback PATH from known common locations.
 fn build_fallback_path() -> String {
-    let mut paths: Vec<String> = Vec::new();
+    let mut paths: Vec<PathBuf> = Vec::new();
 
-    // Homebrew paths
-    paths.push("/opt/homebrew/bin".to_string()); // ARM macOS
-    paths.push("/usr/local/bin".to_string());    // Intel macOS, Linux
+    #[cfg(not(windows))]
+    {
+        // Homebrew paths (macOS)
+        paths.push(PathBuf::from("/opt/homebrew/bin")); // ARM macOS
+        paths.push(PathBuf::from("/usr/local/bin"));    // Intel macOS, Linux
 
-    // System paths
-    paths.push("/usr/bin".to_string());
-    paths.push("/bin".to_string());
-    paths.push("/usr/sbin".to_string());
-    paths.push("/sbin".to_string());
+        // System paths
+        paths.push(PathBuf::from("/usr/bin"));
+        paths.push(PathBuf::from("/bin"));
+        paths.push(PathBuf::from("/usr/sbin"));
+        paths.push(PathBuf::from("/sbin"));
 
-    // Snap (Linux)
-    paths.push("/snap/bin".to_string());
+        // Snap (Linux)
+        paths.push(PathBuf::from("/snap/bin"));
 
-    // User local paths
-    if let Some(home) = dirs::home_dir() {
-        paths.push(home.join(".local/bin").to_string_lossy().to_string());
-        paths.push(home.join(".asdf/shims").to_string_lossy().to_string());
-        paths.push(home.join(".cargo/bin").to_string_lossy().to_string());
+        // User local paths
+        if let Some(home) = dirs::home_dir() {
+            paths.push(home.join(".local/bin"));
+            paths.push(home.join(".asdf/shims"));
+            paths.push(home.join(".cargo/bin"));
+        }
     }
 
-    // Include current PATH as well
+    #[cfg(windows)]
+    {
+        // Windows common paths
+        if let Some(home) = dirs::home_dir() {
+            paths.push(home.join(".cargo\\bin"));
+            paths.push(home.join("scoop\\shims"));
+        }
+        if let Ok(program_files) = std::env::var("ProgramFiles") {
+            paths.push(PathBuf::from(program_files));
+        }
+    }
+
+    // Include current PATH entries
     if let Ok(current) = std::env::var("PATH") {
-        paths.push(current);
+        let separator = if cfg!(windows) { ';' } else { ':' };
+        for entry in current.split(separator) {
+            if !entry.is_empty() {
+                paths.push(PathBuf::from(entry));
+            }
+        }
     }
 
-    paths.join(":")
+    // Use std::env::join_paths for OS-specific separator
+    std::env::join_paths(&paths)
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default()
 }
 
 /// Get PATH from user's login shell.
+#[cfg(not(windows))]
 async fn get_path_from_shell() -> Option<String> {
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
 
@@ -238,10 +263,18 @@ async fn get_path_from_shell() -> Option<String> {
     }
 }
 
+/// Get PATH on Windows - just return current process PATH.
+/// Windows GUI apps typically inherit proper PATH from the system.
+#[cfg(windows)]
+async fn get_path_from_shell() -> Option<String> {
+    std::env::var("PATH").ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    #[cfg(not(windows))]
     #[test]
     fn test_fallback_path_contains_common_dirs() {
         let path = build_fallback_path();
@@ -249,11 +282,20 @@ mod tests {
         assert!(path.contains("/usr/bin"), "Missing /usr/bin");
     }
 
-    #[cfg(target_arch = "aarch64")]
+    #[cfg(all(target_arch = "aarch64", not(windows)))]
     #[test]
     fn test_fallback_path_contains_homebrew_arm() {
         let path = build_fallback_path();
         assert!(path.contains("/opt/homebrew/bin"), "Missing /opt/homebrew/bin on ARM");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_fallback_path_contains_windows_paths() {
+        let path = build_fallback_path();
+        // On Windows, should use semicolon separator and include current PATH
+        assert!(path.contains(';') || path.is_empty() || !path.contains(':'),
+                "Windows PATH should use semicolon separator");
     }
 
     #[tokio::test]
@@ -263,7 +305,8 @@ mod tests {
         // Should return Some on most systems, None is acceptable if shell fails
         if let Some(p) = path {
             assert!(!p.is_empty(), "PATH should not be empty");
-            assert!(p.contains(':'), "PATH should contain multiple entries");
+            let separator = if cfg!(windows) { ';' } else { ':' };
+            assert!(p.contains(separator), "PATH should contain multiple entries");
         }
     }
 
