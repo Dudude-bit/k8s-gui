@@ -89,7 +89,7 @@ async fn try_kubectl_path(path: &str) -> Option<String> {
     let result = Command::new(path)
         .arg("version")
         .arg("--client")
-        .arg("--short")
+        .arg("-o=yaml")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
@@ -97,7 +97,14 @@ async fn try_kubectl_path(path: &str) -> Option<String> {
 
     match result {
         Ok(output) if output.status.success() => {
-            Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+            // Parse version from YAML output
+            let output_str = String::from_utf8_lossy(&output.stdout);
+            for line in output_str.lines() {
+                if line.trim().starts_with("gitVersion:") {
+                    return Some(line.trim().replace("gitVersion:", "").trim().to_string());
+                }
+            }
+            Some("unknown".to_string())
         }
         _ => None,
     }
