@@ -46,7 +46,7 @@ import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { ContainerCard } from "@/components/resources/ContainerCard";
 import { RelatedResources } from "@/components/resources/RelatedResources";
 import { PodListCard } from "@/components/resources/PodListCard";
-import { MetricPair } from "@/components/ui/metric-card";
+import { MetricCard } from "@/components/ui/metric-card";
 import { ResourceDetailLayout } from "@/components/resources/ResourceDetailLayout";
 import {
   parseCPU as parseKubernetesCPU,
@@ -337,33 +337,34 @@ export function DeploymentDetail() {
             <MetricsStatusBanner status={podStatus} />
           )}
           {/* Resource Usage Metrics */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Resource Usage</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {hasAccess ? (
-                <>
-                  <MetricPair
-                    cpuUsed={aggregatedMetrics.cpuMillicores}
-                    cpuRequest={totalResources.cpuRequest}
-                    cpuLimit={totalResources.cpuLimit}
-                    memoryUsed={aggregatedMetrics.memoryBytes}
-                    memoryRequest={totalResources.memoryRequest}
-                    memoryLimit={totalResources.memoryLimit}
-                    showProgressBar={true}
-                    orientation="vertical"
-                  />
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Aggregated across {podsWithMetrics.length} pod
-                    {podsWithMetrics.length !== 1 ? "s" : ""}
-                  </p>
-                </>
-              ) : (
-                <LicenseErrorBanner message="Metrics are available for premium users only." />
-              )}
-            </CardContent>
-          </Card>
+          {hasAccess ? (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <MetricCard
+                  title="CPU Usage"
+                  used={aggregatedMetrics.cpuMillicores}
+                  request={totalResources.cpuRequest}
+                  limit={totalResources.cpuLimit}
+                  type="cpu"
+                  showProgressBar
+                />
+                <MetricCard
+                  title="Memory Usage"
+                  used={aggregatedMetrics.memoryBytes}
+                  request={totalResources.memoryRequest}
+                  limit={totalResources.memoryLimit}
+                  type="memory"
+                  showProgressBar
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Aggregated across {podsWithMetrics.length} pod
+                {podsWithMetrics.length !== 1 ? "s" : ""}
+              </p>
+            </>
+          ) : (
+            <LicenseErrorBanner message="Metrics are available for premium users only." />
+          )}
         </div>
       ),
     },
