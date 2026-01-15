@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { NodeBadge } from "@/components/ui/node-badge";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, Shield, ShieldOff, AlertTriangle, Lock } from "lucide-react";
@@ -104,11 +105,8 @@ export function NodeList() {
         accessorKey: "name",
         header: "Name",
         cell: ({ row }) => (
-          <Link
-            to={getResourceDetailUrl(ResourceType.Node, row.original.name)}
-            className="font-medium text-primary hover:underline"
-          >
-            {row.original.name}
+          <Link to={getResourceDetailUrl(ResourceType.Node, row.original.name)}>
+            <NodeBadge nodeName={row.original.name} />
           </Link>
         ),
       },
