@@ -240,7 +240,7 @@ fn build_fallback_path() -> String {
 }
 
 /// Timeout for shell PATH resolution to prevent blocking on slow login scripts.
-const SHELL_PATH_TIMEOUT: Duration = Duration::from_secs(5);
+const SHELL_PATH_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Get PATH from user's login shell.
 #[cfg(not(windows))]
