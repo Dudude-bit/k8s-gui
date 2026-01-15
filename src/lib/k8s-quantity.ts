@@ -291,7 +291,7 @@ export function getUtilizationColor(
     ? { warning: 80, critical: 95 }
     : type === 'memory'
       ? { warning: 70, critical: 85 }
-      : { warning: 70, critical: 90 }; // default (backward compatible)
+      : { warning: 70, critical: 90 }; // default when type not specified
 
   if (percentage >= thresholds.critical) return "destructive";
   if (percentage >= thresholds.warning) return "secondary";
