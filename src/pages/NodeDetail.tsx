@@ -238,7 +238,7 @@ export function NodeDetail() {
           <MetricCard
             title="CPU Usage"
             used={nodeWithMetrics?.cpuMillicores ?? null}
-            total={node?.capacity.cpu ? parseCPU(node.capacity.cpu) : null}
+            limit={node?.capacity.cpu ? parseCPU(node.capacity.cpu) : null}
             type="cpu"
             icon={<Cpu className="h-4 w-4" />}
             showProgressBar={true}
@@ -256,7 +256,7 @@ export function NodeDetail() {
           <MetricCard
             title="Memory Usage"
             used={nodeWithMetrics?.memoryBytes ?? null}
-            total={node?.capacity.memory ? parseMemory(node.capacity.memory) : null}
+            limit={node?.capacity.memory ? parseMemory(node.capacity.memory) : null}
             type="memory"
             icon={<MemoryStick className="h-4 w-4" />}
             showProgressBar={true}

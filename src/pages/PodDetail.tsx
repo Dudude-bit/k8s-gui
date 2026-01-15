@@ -631,13 +631,8 @@ export function PodDetail() {
                 <MetricCard
                   title="CPU Usage"
                   used={podWithMetrics.cpuMillicores}
-                  total={
-                    podWithMetrics.cpuLimits
-                      ? parseCPU(podWithMetrics.cpuLimits)
-                      : podWithMetrics.cpuRequests
-                        ? parseCPU(podWithMetrics.cpuRequests)
-                        : null
-                  }
+                  request={podWithMetrics.cpuRequests ? parseCPU(podWithMetrics.cpuRequests) : null}
+                  limit={podWithMetrics.cpuLimits ? parseCPU(podWithMetrics.cpuLimits) : null}
                   type="cpu"
                   showProgressBar
                 />
@@ -645,13 +640,8 @@ export function PodDetail() {
                 <MetricCard
                   title="Memory Usage"
                   used={podWithMetrics.memoryBytes}
-                  total={
-                    podWithMetrics.memoryLimits
-                      ? parseMemory(podWithMetrics.memoryLimits)
-                      : podWithMetrics.memoryRequests
-                        ? parseMemory(podWithMetrics.memoryRequests)
-                        : null
-                  }
+                  request={podWithMetrics.memoryRequests ? parseMemory(podWithMetrics.memoryRequests) : null}
+                  limit={podWithMetrics.memoryLimits ? parseMemory(podWithMetrics.memoryLimits) : null}
                   type="memory"
                   showProgressBar
                 />
