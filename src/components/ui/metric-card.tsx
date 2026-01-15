@@ -27,8 +27,12 @@ export interface MetricCardProps {
   title: string;
   /** Used value (millicores/bytes depending on type) */
   used: number | null | undefined;
+  /** Request value for percentage calculation fallback */
+  request?: number | null | undefined;
   /** Total/limit value (millicores/bytes depending on type) */
-  total: number | null | undefined;
+  limit?: number | null | undefined;
+  /** @deprecated Use 'limit' instead */
+  total?: number | null | undefined;
   /** Type of metric for parsing and formatting */
   type: "cpu" | "memory" | "storage" | "custom";
   /** Custom icon (defaults to CPU/Memory based on type) */
@@ -48,11 +52,16 @@ export interface MetricCardProps {
 /**
  * MetricCard - Full card component for displaying a metric
  *
+ * Uses type-specific thresholds:
+ * - CPU: warning at 80%, critical at 95%
+ * - Memory: warning at 70%, critical at 85%
+ *
  * @example
  * <MetricCard
  *   title="CPU Usage"
  *   used={500}
- *   total={2000}
+ *   request={250}
+ *   limit={2000}
  *   type="cpu"
  *   showProgressBar
  * />
@@ -60,7 +69,9 @@ export interface MetricCardProps {
 export function MetricCard({
   title,
   used,
-  total,
+  request,
+  limit,
+  total, // deprecated
   type,
   icon,
   showProgressBar = true,
@@ -78,13 +89,25 @@ export function MetricCard({
         : (value: number) => `${value}`);
 
   const usedNum = typeof used === "number" ? used : null;
-  const totalNum = typeof total === "number" ? total : null;
+  const requestNum = typeof request === "number" ? request : null;
+  const limitNum = typeof limit === "number" ? limit : typeof total === "number" ? total : null;
 
-  const percentage =
-    usedNum !== null && totalNum !== null
-      ? calculateUtilization(usedNum, totalNum)
-      : null;
-  const colorVariant = getUtilizationColor(percentage);
+  const hasLimit = limitNum !== null && limitNum > 0;
+  const hasRequest = requestNum !== null && requestNum > 0;
+
+  // Smart percentage calculation: limit > request > null
+  let percentage: number | null = null;
+
+  if (usedNum !== null) {
+    if (hasLimit) {
+      percentage = calculateUtilization(usedNum, limitNum!);
+    } else if (hasRequest) {
+      percentage = Math.min(999, Math.max(0, (usedNum / requestNum!) * 100));
+    }
+  }
+
+  const metricType = type === "cpu" ? "cpu" : type === "memory" || type === "storage" ? "memory" : undefined;
+  const colorVariant = getUtilizationColor(percentage, metricType);
 
   // Default icons based on type
   const defaultIcon =
@@ -100,7 +123,19 @@ export function MetricCard({
 
   // Format display values
   const usedDisplay = usedNum !== null ? format(usedNum) : "-";
-  const totalDisplay = totalNum !== null ? format(totalNum) : "-";
+  const baseDisplay = hasLimit
+    ? format(limitNum!)
+    : hasRequest
+      ? `${format(requestNum!)} req`
+      : "-";
+
+  // Progress bar style: dashed when no limit
+  const progressBarClass = cn(
+    "h-2",
+    colorVariant === "destructive" && "[&>div]:bg-red-500",
+    colorVariant === "secondary" && "[&>div]:bg-yellow-500",
+    !hasLimit && hasRequest && "[&>div]:bg-opacity-60"
+  );
 
   return (
     <Card className={cn("overflow-hidden", className)}>
@@ -125,21 +160,25 @@ export function MetricCard({
         <div className="flex items-baseline justify-between">
           <span className="text-2xl font-bold">{usedDisplay}</span>
           <span className="text-sm text-muted-foreground">
-            / {totalDisplay}
+            / {baseDisplay}
+            {!hasLimit && hasRequest && (
+              <span className="ml-1 text-yellow-500" title="No limit configured">*</span>
+            )}
           </span>
         </div>
         {showProgressBar && percentage !== null && (
           <Progress
-            value={percentage}
-            className={cn(
-              "h-2",
-              colorVariant === "destructive" && "[&>div]:bg-red-500",
-              colorVariant === "secondary" && "[&>div]:bg-yellow-500"
-            )}
+            value={Math.min(100, percentage)}
+            className={progressBarClass}
           />
         )}
         {description && (
           <p className="text-xs text-muted-foreground">{description}</p>
+        )}
+        {hasRequest && hasLimit && (
+          <p className="text-xs text-muted-foreground">
+            Request: {format(requestNum!)}
+          </p>
         )}
       </CardContent>
     </Card>
