@@ -2,11 +2,10 @@
 
 use crate::error::{Error, PluginError, Result};
 use crate::plugins::{PluginContext, PluginInfo, PluginResult, PluginType};
+use crate::shell::ShellCommand;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
-use tokio::process::Command;
-use tokio::time::{timeout, Duration};
+use std::time::Duration;
 
 /// kubectl plugin manager
 pub struct KubectlPluginManager {
@@ -124,41 +123,33 @@ impl KubectlPlugin {
             ))));
         }
 
-        let mut cmd = Command::new(&self.path);
-        cmd.args(args);
+        let mut cmd = ShellCommand::new(self.path.to_string_lossy())
+            .args(args.iter().map(|s| s.to_string()))
+            .timeout(Duration::from_secs(context.timeout_secs));
 
         // Set environment
-        cmd.env(
+        cmd = cmd.env(
             "KUBECONFIG",
             context.kubeconfig_path.as_deref().unwrap_or(""),
         );
 
         for (key, value) in &context.env {
-            cmd.env(key, value);
+            cmd = cmd.env(key, value);
         }
 
         // Set working directory
         if let Some(work_dir) = &context.work_dir {
-            cmd.current_dir(work_dir);
+            cmd = cmd.current_dir(work_dir);
         }
 
-        cmd.stdout(Stdio::piped());
-        cmd.stderr(Stdio::piped());
-
-        let timeout_duration = Duration::from_secs(context.timeout_secs);
-
-        let result = timeout(timeout_duration, async {
-            let output = cmd.output().await?;
-            Ok::<_, std::io::Error>(output)
-        })
-        .await
-        .map_err(|_| Error::Plugin(PluginError::Timeout))?
-        .map_err(|e| Error::Plugin(PluginError::ExecutionFailed(e.to_string())))?;
+        let output = cmd.run().await.map_err(|e| {
+            Error::Plugin(PluginError::ExecutionFailed(e.to_string()))
+        })?;
 
         Ok(PluginResult {
-            exit_code: result.status.code(),
-            stdout: String::from_utf8_lossy(&result.stdout).to_string(),
-            stderr: String::from_utf8_lossy(&result.stderr).to_string(),
+            exit_code: output.exit_code,
+            stdout: output.stdout,
+            stderr: output.stderr,
             data: None,
         })
     }
