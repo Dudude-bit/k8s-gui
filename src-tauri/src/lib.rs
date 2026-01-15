@@ -17,6 +17,7 @@ pub mod metrics;
 pub mod plugins;
 pub mod proto;
 pub mod resources;
+pub mod shell;
 pub mod state;
 pub mod terminal;
 pub mod utils;
