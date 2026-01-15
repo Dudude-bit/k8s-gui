@@ -68,20 +68,8 @@ export {
 } from "./status-badge";
 export type { StatusBadgeProps, ConditionBadgeProps } from "./status-badge";
 
-export {
-  MetricCard,
-  MetricBadge,
-  MetricRow,
-  MetricPair,
-  NodeResourceCard,
-} from "./metric-card";
-export type {
-  MetricCardProps,
-  MetricBadgeProps,
-  MetricRowProps,
-  MetricPairProps,
-  NodeResourceCardProps,
-} from "./metric-card";
+export { MetricCard, MetricBadge } from "./metric-card";
+export type { MetricCardProps, MetricBadgeProps } from "./metric-card";
 
 export { ActionMenu } from "./action-menu";
 export { ConfirmDialog } from "./confirm-dialog";

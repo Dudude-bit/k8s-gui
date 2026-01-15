@@ -311,7 +311,7 @@ export function ClusterOverview() {
           <MetricCard
             title="Cluster CPU Usage"
             used={clusterMetrics?.totalCpuMillicores ?? null}
-            total={
+            limit={
               clusterMetrics?.totalCpuCapacityMillicores ??
               totalClusterCapacity.cpu
             }
@@ -322,7 +322,7 @@ export function ClusterOverview() {
           <MetricCard
             title="Cluster Memory Usage"
             used={clusterMetrics?.totalMemoryBytes ?? null}
-            total={
+            limit={
               clusterMetrics?.totalMemoryCapacityBytes ??
               totalClusterCapacity.memory
             }

@@ -131,10 +131,9 @@ export function createTimeAgoColumn<T>(
   };
 }
 
-// ... (import MetricBadge)
-
 /**
  * Creates a CPU usage column with MetricBadge component
+ * Uses smart percentage: limit > request > no percentage
  */
 export function createCpuColumn<
   T extends WithCpuUsage & Partial<WithCpuLimits>,
@@ -144,18 +143,27 @@ export function createCpuColumn<
     header: "CPU",
     cell: ({ row }) => {
       const used = row.original.cpuMillicores ?? null;
-      const total = row.original.cpuLimits
+      const request = row.original.cpuRequests
+        ? parseCPU(row.original.cpuRequests)
+        : null;
+      const limit = row.original.cpuLimits
         ? parseCPU(row.original.cpuLimits)
-        : row.original.cpuRequests
-          ? parseCPU(row.original.cpuRequests)
-          : null;
-      return <MetricBadge used={used} total={total} type="cpu" />;
+        : null;
+      return (
+        <MetricBadge
+          used={used}
+          request={request}
+          limit={limit}
+          type="cpu"
+        />
+      );
     },
   };
 }
 
 /**
  * Creates a Memory usage column with MetricBadge component
+ * Uses smart percentage: limit > request > no percentage
  */
 export function createMemoryColumn<
   T extends WithMemoryUsage & Partial<WithMemoryLimits>,
@@ -165,13 +173,20 @@ export function createMemoryColumn<
     header: "Memory",
     cell: ({ row }) => {
       const used = row.original.memoryBytes ?? null;
-      const total =
-        row.original.memoryLimits
-          ? parseMemory(row.original.memoryLimits)
-          : row.original.memoryRequests
-            ? parseMemory(row.original.memoryRequests)
-            : null;
-      return <MetricBadge used={used} total={total} type="memory" />;
+      const request = row.original.memoryRequests
+        ? parseMemory(row.original.memoryRequests)
+        : null;
+      const limit = row.original.memoryLimits
+        ? parseMemory(row.original.memoryLimits)
+        : null;
+      return (
+        <MetricBadge
+          used={used}
+          request={request}
+          limit={limit}
+          type="memory"
+        />
+      );
     },
   };
 }

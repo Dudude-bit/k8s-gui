@@ -46,7 +46,7 @@ import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { ContainerCard } from "@/components/resources/ContainerCard";
 import { RelatedResources } from "@/components/resources/RelatedResources";
 import { PodListCard } from "@/components/resources/PodListCard";
-import { MetricPair } from "@/components/ui/metric-card";
+import { MetricCard } from "@/components/ui/metric-card";
 import { ResourceDetailLayout } from "@/components/resources/ResourceDetailLayout";
 import {
   parseCPU as parseKubernetesCPU,
@@ -136,7 +136,7 @@ export function DeploymentDetail() {
 
   // Calculate total CPU/Memory limits/requests from containers
   const totalResources = useMemo(() => {
-    if (!deployment?.containers) return { cpu: null, memory: null };
+    if (!deployment?.containers) return { cpuLimit: null, cpuRequest: null, memoryLimit: null, memoryRequest: null };
 
     const replicas = deployment.replicas.desired || 1;
     let totalCpuLimits = 0;
@@ -162,18 +162,10 @@ export function DeploymentDetail() {
     });
 
     return {
-      cpu:
-        totalCpuLimits > 0
-          ? totalCpuLimits * replicas
-          : totalCpuRequests > 0
-            ? totalCpuRequests * replicas
-            : null,
-      memory:
-        totalMemoryLimits > 0
-          ? totalMemoryLimits * replicas
-          : totalMemoryRequests > 0
-            ? totalMemoryRequests * replicas
-            : null,
+      cpuLimit: totalCpuLimits > 0 ? totalCpuLimits * replicas : null,
+      cpuRequest: totalCpuRequests > 0 ? totalCpuRequests * replicas : null,
+      memoryLimit: totalMemoryLimits > 0 ? totalMemoryLimits * replicas : null,
+      memoryRequest: totalMemoryRequests > 0 ? totalMemoryRequests * replicas : null,
     };
   }, [deployment]);
 
@@ -345,31 +337,34 @@ export function DeploymentDetail() {
             <MetricsStatusBanner status={podStatus} />
           )}
           {/* Resource Usage Metrics */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Resource Usage</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {hasAccess ? (
-                <>
-                  <MetricPair
-                    cpuUsed={aggregatedMetrics.cpuMillicores}
-                    cpuTotal={totalResources.cpu}
-                    memoryUsed={aggregatedMetrics.memoryBytes}
-                    memoryTotal={totalResources.memory}
-                    showProgressBar={true}
-                    orientation="vertical"
-                  />
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Aggregated across {podsWithMetrics.length} pod
-                    {podsWithMetrics.length !== 1 ? "s" : ""}
-                  </p>
-                </>
-              ) : (
-                <LicenseErrorBanner message="Metrics are available for premium users only." />
-              )}
-            </CardContent>
-          </Card>
+          {hasAccess ? (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <MetricCard
+                  title="CPU Usage"
+                  used={aggregatedMetrics.cpuMillicores}
+                  request={totalResources.cpuRequest}
+                  limit={totalResources.cpuLimit}
+                  type="cpu"
+                  showProgressBar
+                />
+                <MetricCard
+                  title="Memory Usage"
+                  used={aggregatedMetrics.memoryBytes}
+                  request={totalResources.memoryRequest}
+                  limit={totalResources.memoryLimit}
+                  type="memory"
+                  showProgressBar
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Aggregated across {podsWithMetrics.length} pod
+                {podsWithMetrics.length !== 1 ? "s" : ""}
+              </p>
+            </>
+          ) : (
+            <LicenseErrorBanner message="Metrics are available for premium users only." />
+          )}
         </div>
       ),
     },

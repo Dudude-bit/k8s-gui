@@ -166,7 +166,7 @@ export function NodeList() {
           return (
             <MetricBadge
               used={metrics?.cpuMillicores ?? null}
-              total={capacity ? parseCPU(capacity) : null}
+              limit={capacity ? parseCPU(capacity) : null}
               type="cpu"
             />
           );
@@ -191,7 +191,7 @@ export function NodeList() {
           return (
             <MetricBadge
               used={metrics?.memoryBytes ?? null}
-              total={capacity ? parseMemory(capacity) : null}
+              limit={capacity ? parseMemory(capacity) : null}
               type="memory"
             />
           );
