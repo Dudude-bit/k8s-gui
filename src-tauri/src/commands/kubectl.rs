@@ -2,9 +2,9 @@
 
 use crate::config::AppConfig;
 use crate::error::{Error, PluginError, Result};
+use crate::shell::ShellCommand;
 use serde::Serialize;
-use std::process::Stdio;
-use tokio::process::Command;
+use std::time::Duration;
 
 /// kubectl availability information
 #[derive(Debug, Serialize)]
@@ -86,27 +86,23 @@ pub fn get_kubectl_search_paths() -> Vec<String> {
 
 /// Try to run kubectl version with a specific path
 async fn try_kubectl_path(path: &str) -> Option<String> {
-    let result = Command::new(path)
-        .arg("version")
-        .arg("--client")
-        .arg("-o=yaml")
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .await;
+    let output = ShellCommand::new(path)
+        .args(["version", "--client", "-o=yaml"])
+        .timeout(Duration::from_secs(5))
+        .run()
+        .await
+        .ok()?;
 
-    match result {
-        Ok(output) if output.status.success() => {
-            // Parse version from YAML output
-            let output_str = String::from_utf8_lossy(&output.stdout);
-            for line in output_str.lines() {
-                if line.trim().starts_with("gitVersion:") {
-                    return Some(line.trim().replace("gitVersion:", "").trim().to_string());
-                }
+    if output.success() {
+        // Parse version from YAML output
+        for line in output.stdout.lines() {
+            if line.trim().starts_with("gitVersion:") {
+                return Some(line.trim().replace("gitVersion:", "").trim().to_string());
             }
-            Some("unknown".to_string())
         }
-        _ => None,
+        Some("unknown".to_string())
+    } else {
+        None
     }
 }
 
