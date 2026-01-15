@@ -1,5 +1,7 @@
 //! Shell command execution with user PATH resolution.
 
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::process::Stdio;
 use std::time::Duration;
 use thiserror::Error;
@@ -67,6 +69,62 @@ impl CommandOutput {
     /// Returns true if the command exited with code 0.
     pub fn success(&self) -> bool {
         self.exit_code == Some(0)
+    }
+}
+
+/// Builder for shell commands with user PATH and timeout.
+pub struct ShellCommand {
+    pub(crate) program: String,
+    pub(crate) args: Vec<String>,
+    pub(crate) envs: HashMap<String, String>,
+    pub(crate) timeout: Duration,
+    pub(crate) current_dir: Option<PathBuf>,
+}
+
+impl ShellCommand {
+    /// Create a new shell command.
+    pub fn new(program: impl Into<String>) -> Self {
+        Self {
+            program: program.into(),
+            args: Vec::new(),
+            envs: HashMap::new(),
+            timeout: Duration::from_secs(30),
+            current_dir: None,
+        }
+    }
+
+    /// Add a single argument.
+    pub fn arg(mut self, arg: impl Into<String>) -> Self {
+        self.args.push(arg.into());
+        self
+    }
+
+    /// Add multiple arguments.
+    pub fn args<I, S>(mut self, args: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.args.extend(args.into_iter().map(Into::into));
+        self
+    }
+
+    /// Set an environment variable.
+    pub fn env(mut self, key: impl Into<String>, val: impl Into<String>) -> Self {
+        self.envs.insert(key.into(), val.into());
+        self
+    }
+
+    /// Set the command timeout (default: 30s).
+    pub fn timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
+    }
+
+    /// Set the working directory.
+    pub fn current_dir(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.current_dir = Some(dir.into());
+        self
     }
 }
 
@@ -182,5 +240,19 @@ mod tests {
             exit_code: Some(1),
         };
         assert!(!failed.success());
+    }
+
+    #[test]
+    fn test_shell_command_builder() {
+        let cmd = ShellCommand::new("echo")
+            .arg("hello")
+            .args(["world", "!"])
+            .env("FOO", "bar")
+            .timeout(Duration::from_secs(60));
+
+        assert_eq!(cmd.program, "echo");
+        assert_eq!(cmd.args, vec!["hello", "world", "!"]);
+        assert_eq!(cmd.envs.get("FOO"), Some(&"bar".to_string()));
+        assert_eq!(cmd.timeout, Duration::from_secs(60));
     }
 }
