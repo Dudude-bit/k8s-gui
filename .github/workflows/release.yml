@@ -13,6 +13,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.inputs.tag || github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     name: ${{ matrix.name }}
@@ -25,7 +29,7 @@ jobs:
             os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             is_linux: true
-          # linux-arm64 disabled: Ubuntu noble arm64 deps are broken on GitHub runners.
+          # linux-arm64 disabled: libglib2.0-dev arm64 deps unresolvable on GitHub runners.
           - name: macos-arm64
             os: macos-latest
             target: aarch64-apple-darwin
@@ -45,48 +49,22 @@ jobs:
 
     steps:
       - name: Checkout tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Tauri build environment
+        uses: ./.github/actions/setup-tauri
         with:
-          node-version: 20
-          cache: npm
-
-      - name: Install JS dependencies
-        run: npm ci
-
-      - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          cache-on-failure: true
-
-      - name: Install system dependencies (Linux)
-        if: matrix.is_linux
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential curl git pkg-config protobuf-compiler \
-            libgtk-3-dev libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev \
-            libsoup-3.0-dev libappindicator3-dev libssl-dev ca-certificates
-
-      - name: Install system dependencies (macOS)
-        if: matrix.is_macos
-        run: brew install pkg-config protobuf
-
-      - name: Install protoc (Windows)
-        if: matrix.is_windows
-        run: choco install protoc --no-progress
+          target: ${{ matrix.target }}
+          is_linux: ${{ matrix.is_linux || false }}
+          is_macos: ${{ matrix.is_macos || false }}
+          is_windows: ${{ matrix.is_windows || false }}
+          # tauri-action bundles its own CLI, don't install again
+          install_tauri_cli: 'false'
 
       - name: Build, sign, and release
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5  # action-v0.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -94,10 +72,7 @@ jobs:
         with:
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
           releaseName: ${{ github.event.inputs.tag || github.ref_name }}
-          releaseBody: |
-            See [CHANGELOG.md](https://github.com/Dudude-bit/k8s-gui/blob/main/CHANGELOG.md) for details.
-
-            Download the appropriate binary for your platform below.
+          releaseBodyPath: CHANGELOG.md
           releaseDraft: true
           prerelease: false
           includeUpdaterJson: true
