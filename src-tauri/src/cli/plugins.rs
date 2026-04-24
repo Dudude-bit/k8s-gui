@@ -38,7 +38,7 @@ impl PluginDiscovery {
     /// # Examples
     ///
     /// ```
-    /// use crate::cli::plugins::PluginDiscovery;
+    /// use k8s_gui_lib::cli::plugins::PluginDiscovery;
     ///
     /// let discovery = PluginDiscovery::new("kubectl-");
     /// ```

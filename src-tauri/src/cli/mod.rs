@@ -18,7 +18,7 @@
 //! ```rust
 //! use std::path::PathBuf;
 //! use std::time::Duration;
-//! use crate::cli::{CliTool, CliToolManager, paths::PathResolver};
+//! use k8s_gui_lib::cli::{CliTool, CliToolManager, paths::PathResolver};
 //!
 //! struct MyTool;
 //!
@@ -42,12 +42,13 @@
 //! ## Discovering plugins
 //!
 //! ```rust
-//! use crate::cli::plugins::PluginDiscovery;
+//! use k8s_gui_lib::cli::plugins::PluginDiscovery;
 //!
 //! let mut discovery = PluginDiscovery::new("kubectl-");
-//! let plugins = discovery.discover()?;
-//! for plugin in plugins {
-//!     println!("Found plugin: {} at {:?}", plugin.name, plugin.path);
+//! if let Ok(plugins) = discovery.discover() {
+//!     for plugin in plugins {
+//!         println!("Found plugin: {} at {:?}", plugin.name, plugin.path);
+//!     }
 //! }
 //! ```
 

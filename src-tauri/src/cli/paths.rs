@@ -13,7 +13,7 @@ impl PathResolver {
     /// # Examples
     ///
     /// ```
-    /// use crate::cli::paths::PathResolver;
+    /// use k8s_gui_lib::cli::paths::PathResolver;
     ///
     /// #[cfg(windows)]
     /// assert_eq!(PathResolver::separator(), ';');
@@ -42,7 +42,7 @@ impl PathResolver {
     /// # Examples
     ///
     /// ```
-    /// use crate::cli::paths::PathResolver;
+    /// use k8s_gui_lib::cli::paths::PathResolver;
     ///
     /// let paths = PathResolver::search_paths("kubectl");
     /// assert!(!paths.is_empty());
@@ -110,7 +110,7 @@ impl PathResolver {
     /// # Examples
     ///
     /// ```
-    /// use crate::cli::paths::PathResolver;
+    /// use k8s_gui_lib::cli::paths::PathResolver;
     /// use std::path::PathBuf;
     ///
     /// let shell_path = Some("/usr/bin:/usr/local/bin");
