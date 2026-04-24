@@ -1,0 +1,689 @@
+//! Application configuration
+//!
+//! This module provides configuration management for the K8s GUI application.
+//! Configuration is loaded from TOML files with sensible defaults.
+
+use crate::error::{Error, Result};
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+
+/// Application configuration
+///
+/// Contains all application settings including theme, Kubernetes connection,
+/// cache, plugins, and logging configuration.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AppConfig {
+    /// UI theme
+    pub theme: ThemeConfig,
+    /// Kubernetes configuration
+    pub kubernetes: KubernetesConfig,
+    /// Cache configuration
+    pub cache: CacheConfig,
+    /// Plugin configuration
+    pub plugins: PluginsConfig,
+    /// Logging configuration
+    pub logging: LoggingConfig,
+    /// Cloud provider configuration
+    #[serde(default)]
+    pub cloud: CloudConfig,
+    /// Port-forward configuration
+    #[serde(default)]
+    pub port_forward: PortForwardConfigStore,
+    /// CLI tools paths
+    #[serde(default)]
+    pub cli_paths: CliPathsConfig,
+    /// Registry configurations (connection settings, not credentials)
+    #[serde(default)]
+    pub registries: RegistriesConfig,
+    /// YAML editor history
+    #[serde(default)]
+    pub yaml_editor: YamlEditorConfig,
+    /// Infrastructure builder state per context
+    #[serde(default)]
+    pub infrastructure_builder: InfrastructureBuilderConfig,
+    /// Recent items for command palette
+    #[serde(default)]
+    pub recent_items: RecentItemsConfig,
+    /// Updater configuration
+    #[serde(default)]
+    pub updater: UpdaterConfig,
+    /// Cluster preferences (last context, namespaces)
+    #[serde(default)]
+    pub cluster_preferences: ClusterPreferences,
+}
+
+/// Theme configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThemeConfig {
+    /// Theme mode (light, dark, system)
+    #[serde(default = "default_theme")]
+    pub theme: String,
+    /// Accent color
+    #[serde(default = "default_accent_color")]
+    pub accent_color: String,
+    /// Font size
+    #[serde(default = "default_font_size")]
+    pub font_size: u8,
+    /// Compact mode
+    #[serde(default)]
+    pub compact: bool,
+}
+
+fn default_theme() -> String {
+    "dark".to_string()
+}
+fn default_accent_color() -> String {
+    "#3b82f6".to_string()
+}
+fn default_font_size() -> u8 {
+    14
+}
+
+impl Default for ThemeConfig {
+    fn default() -> Self {
+        Self {
+            theme: default_theme(),
+            accent_color: default_accent_color(),
+            font_size: default_font_size(),
+            compact: false,
+        }
+    }
+}
+
+/// Kubernetes configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KubernetesConfig {
+    /// Default kubeconfig path
+    pub kubeconfig_path: Option<PathBuf>,
+    /// Default namespace
+    #[serde(default = "default_namespace")]
+    pub default_namespace: String,
+    /// Request timeout in seconds
+    #[serde(default = "default_timeout")]
+    pub timeout_seconds: u64,
+    /// Enable watch functionality
+    #[serde(default = "default_true")]
+    pub enable_watch: bool,
+    /// Refresh interval in seconds
+    #[serde(default = "default_refresh_interval")]
+    pub refresh_interval: u64,
+}
+
+fn default_namespace() -> String {
+    "default".to_string()
+}
+fn default_timeout() -> u64 {
+    30
+}
+fn default_true() -> bool {
+    true
+}
+fn default_refresh_interval() -> u64 {
+    30
+}
+
+impl Default for KubernetesConfig {
+    fn default() -> Self {
+        Self {
+            kubeconfig_path: None,
+            default_namespace: default_namespace(),
+            timeout_seconds: default_timeout(),
+            enable_watch: true,
+            refresh_interval: default_refresh_interval(),
+        }
+    }
+}
+
+/// Cache configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CacheConfig {
+    /// Enable caching
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    /// Cache TTL in seconds
+    #[serde(default = "default_cache_ttl")]
+    pub ttl_seconds: u64,
+    /// Maximum cache entries
+    #[serde(default = "default_max_entries")]
+    pub max_entries: usize,
+}
+
+fn default_cache_ttl() -> u64 {
+    60
+}
+fn default_max_entries() -> usize {
+    1000
+}
+
+impl Default for CacheConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            ttl_seconds: default_cache_ttl(),
+            max_entries: default_max_entries(),
+        }
+    }
+}
+
+/// Plugin configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginsConfig {
+    /// Enable kubectl plugins
+    #[serde(default = "default_true")]
+    pub kubectl_plugins: bool,
+    /// Additional plugin directories
+    #[serde(default)]
+    pub plugin_dirs: Vec<PathBuf>,
+    /// Plugin execution timeout in seconds
+    #[serde(default = "default_plugin_timeout")]
+    pub timeout_seconds: u64,
+    /// Disabled plugins
+    #[serde(default)]
+    pub disabled: Vec<String>,
+}
+
+fn default_plugin_timeout() -> u64 {
+    60
+}
+
+impl Default for PluginsConfig {
+    fn default() -> Self {
+        Self {
+            kubectl_plugins: true,
+            plugin_dirs: vec![],
+            timeout_seconds: default_plugin_timeout(),
+            disabled: vec![],
+        }
+    }
+}
+
+/// Logging configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoggingConfig {
+    /// Log level
+    #[serde(default = "default_log_level")]
+    pub level: String,
+    /// Log to file
+    #[serde(default)]
+    pub file: Option<PathBuf>,
+    /// Max log file size in MB
+    #[serde(default = "default_log_size")]
+    pub max_size_mb: u64,
+}
+
+fn default_log_level() -> String {
+    "info".to_string()
+}
+fn default_log_size() -> u64 {
+    10
+}
+
+impl Default for LoggingConfig {
+    fn default() -> Self {
+        Self {
+            level: default_log_level(),
+            file: None,
+            max_size_mb: default_log_size(),
+        }
+    }
+}
+
+/// Cloud provider configuration
+///
+/// Settings for GCP, Azure, and other cloud provider authentication using profiles.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct CloudConfig {
+    /// GCP profiles (key = profile name)
+    #[serde(default, alias = "gcp_profiles")]
+    pub gcp_profiles: std::collections::HashMap<String, GcpProfile>,
+    /// Azure profiles (key = profile name)
+    #[serde(default, alias = "azure_profiles")]
+    pub azure_profiles: std::collections::HashMap<String, AzureProfile>,
+    /// Context to profile bindings (key = kubeconfig context name)
+    #[serde(default, alias = "context_bindings")]
+    pub context_bindings: std::collections::HashMap<String, ContextBinding>,
+}
+
+
+/// CLI tools paths configuration
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct CliPathsConfig {
+    /// Custom path to helm binary (if not in PATH)
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "helm_path")]
+    pub helm_path: Option<String>,
+    /// Custom path to kubectl binary (if not in PATH)
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "kubectl_path")]
+    pub kubectl_path: Option<String>,
+}
+
+/// Port-forward configuration store
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PortForwardConfigStore {
+    /// Saved port-forward configs
+    #[serde(default)]
+    pub configs: Vec<PortForwardConfig>,
+}
+
+/// Stored port-forward configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PortForwardConfig {
+    pub id: String,
+    pub context: String,
+    pub name: String,
+    pub pod: String,
+    pub namespace: String,
+    pub local_port: u16,
+    pub remote_port: u16,
+    #[serde(default)]
+    pub auto_reconnect: bool,
+    #[serde(default)]
+    pub auto_start: bool,
+    pub created_at: String,
+}
+
+/// Binding of a kubeconfig context to cloud profiles
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextBinding {
+    /// GCP profile name for this context (None = use ADC)
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "gcp_profile")]
+    pub gcp_profile: Option<String>,
+    /// Azure profile name for this context (None = use default az login)
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "azure_profile")]
+    pub azure_profile: Option<String>,
+}
+
+/// GCP authentication profile
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GcpProfile {
+    /// Human-readable description
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Path to service account JSON key file (optional)
+    /// If not set, uses Application Default Credentials
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "service_account_key_path")]
+    pub service_account_key_path: Option<String>,
+    /// Custom path to gcloud CLI binary (for exec fallback)
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "gcloud_path")]
+    pub gcloud_path: Option<String>,
+    /// Default GCP project ID
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "default_project")]
+    pub default_project: Option<String>,
+    /// Prefer native SDK auth over exec plugin
+    #[serde(default = "default_true", alias = "prefer_native_auth")]
+    pub prefer_native_auth: bool,
+}
+
+impl Default for GcpProfile {
+    fn default() -> Self {
+        Self {
+            description: None,
+            service_account_key_path: None,
+            gcloud_path: None,
+            default_project: None,
+            prefer_native_auth: true,
+        }
+    }
+}
+
+impl GcpProfile {
+    /// Filter out empty strings from optional fields
+    #[must_use]
+    pub fn clean_empty_strings(self) -> Self {
+        Self {
+            description: self.description.filter(|s| !s.is_empty()),
+            service_account_key_path: self.service_account_key_path.filter(|s| !s.is_empty()),
+            gcloud_path: self.gcloud_path.filter(|s| !s.is_empty()),
+            default_project: self.default_project.filter(|s| !s.is_empty()),
+            prefer_native_auth: self.prefer_native_auth,
+        }
+    }
+}
+
+/// Azure authentication profile
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AzureProfile {
+    /// Human-readable description
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Custom path to az CLI binary (for exec fallback)
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "az_path")]
+    pub az_path: Option<String>,
+    /// Custom path to kubelogin binary (for exec fallback)
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "kubelogin_path")]
+    pub kubelogin_path: Option<String>,
+    /// Default Azure subscription ID
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "default_subscription")]
+    pub default_subscription: Option<String>,
+    /// Azure tenant ID
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "tenant_id")]
+    pub tenant_id: Option<String>,
+    /// Use Azure CLI credentials as fallback when SDK auth fails
+    #[serde(default, alias = "use_cli_fallback")]
+    pub use_cli_fallback: bool,
+    /// Prefer native SDK auth over exec plugin
+    #[serde(default = "default_true", alias = "prefer_native_auth")]
+    pub prefer_native_auth: bool,
+}
+
+impl Default for AzureProfile {
+    fn default() -> Self {
+        Self {
+            description: None,
+            az_path: None,
+            kubelogin_path: None,
+            default_subscription: None,
+            tenant_id: None,
+            use_cli_fallback: false,
+            prefer_native_auth: true,
+        }
+    }
+}
+
+impl AzureProfile {
+    /// Filter out empty strings from optional fields
+    #[must_use]
+    pub fn clean_empty_strings(self) -> Self {
+        Self {
+            description: self.description.filter(|s| !s.is_empty()),
+            az_path: self.az_path.filter(|s| !s.is_empty()),
+            kubelogin_path: self.kubelogin_path.filter(|s| !s.is_empty()),
+            default_subscription: self.default_subscription.filter(|s| !s.is_empty()),
+            tenant_id: self.tenant_id.filter(|s| !s.is_empty()),
+            use_cli_fallback: self.use_cli_fallback,
+            prefer_native_auth: self.prefer_native_auth,
+        }
+    }
+}
+
+impl CloudConfig {
+    /// Get GCP profile for a context
+    /// Returns the profile if bound, or None to use ADC
+    pub fn get_gcp_profile_for_context(&self, context: &str) -> Option<&GcpProfile> {
+        self.context_bindings
+            .get(context)
+            .and_then(|binding| binding.gcp_profile.as_ref())
+            .and_then(|profile_name| self.gcp_profiles.get(profile_name))
+    }
+
+    /// Get Azure profile for a context
+    /// Returns the profile if bound, or None to use default az login
+    pub fn get_azure_profile_for_context(&self, context: &str) -> Option<&AzureProfile> {
+        self.context_bindings
+            .get(context)
+            .and_then(|binding| binding.azure_profile.as_ref())
+            .and_then(|profile_name| self.azure_profiles.get(profile_name))
+    }
+}
+
+impl AppConfig {
+    /// Load configuration from file
+    ///
+    /// Attempts to load configuration from the default config file location.
+    /// If the file doesn't exist, returns the default configuration.
+    ///
+    /// # Returns
+    ///
+    /// Returns the loaded configuration or default configuration if file doesn't exist.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::Config` if:
+    /// - Config directory cannot be determined
+    /// - Config file cannot be read
+    /// - Config file contains invalid TOML
+    pub fn load() -> Result<Self> {
+        let config_path = Self::config_path()?;
+
+        if config_path.exists() {
+            let content = std::fs::read_to_string(&config_path)
+                .map_err(|e| Error::Config(format!("Failed to read config: {e}")))?;
+
+            let config: Self = toml::from_str(&content)
+                .map_err(|e| Error::Config(format!("Failed to parse config: {e}")))?;
+
+            Ok(config)
+        } else {
+            // Return default config
+            Ok(Self::default())
+        }
+    }
+
+    /// Get the configuration file path
+    ///
+    /// Returns the default path where the configuration file should be located.
+    ///
+    /// # Returns
+    ///
+    /// Returns the path to the configuration file.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::Config` if the config directory cannot be determined.
+    pub fn config_path() -> Result<PathBuf> {
+        let config_dir = dirs::config_dir()
+            .ok_or_else(|| Error::Config("Could not determine config directory".to_string()))?;
+
+        Ok(config_dir.join("k8s-gui").join("config.toml"))
+    }
+}
+
+// ============================================================================
+// Registry configurations (connection settings)
+// ============================================================================
+
+/// Registry configurations storage
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RegistriesConfig {
+    /// Registry configurations (key = registry ID)
+    #[serde(default)]
+    pub registries: std::collections::HashMap<String, RegistryConfigEntry>,
+}
+
+/// Stored registry configuration (unified: connection settings + credentials)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegistryConfigEntry {
+    /// Display label
+    pub label: String,
+    /// Provider type (docker-hub, registry-v2, harbor, gcr, ecr)
+    pub provider: String,
+    /// Base URL for API access
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
+    /// Host for the registry
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host: Option<String>,
+    /// Project (for GCR, Harbor)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
+    /// AWS Account ID (for ECR)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account_id: Option<String>,
+    /// AWS Region (for ECR)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub region: Option<String>,
+    
+    // Credentials (merged from RegistryCredential)
+    /// Auth type (none, basic, bearer)
+    #[serde(default = "default_auth_type")]
+    pub auth_type: String,
+    /// Username for basic auth
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
+    /// Password for basic auth
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub password: Option<String>,
+    /// Token for bearer auth
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token: Option<String>,
+}
+
+fn default_auth_type() -> String {
+    "none".to_string()
+}
+
+// ============================================================================
+// YAML Editor History
+// ============================================================================
+
+/// YAML editor configuration
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct YamlEditorConfig {
+    /// History entries by resource key (kind:namespace:name)
+    #[serde(default)]
+    pub history: std::collections::HashMap<String, Vec<YamlHistoryEntry>>,
+}
+
+/// YAML history entry
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct YamlHistoryEntry {
+    /// Timestamp in milliseconds
+    pub timestamp: i64,
+    /// YAML content
+    pub content: String,
+    /// Optional label
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+}
+
+// ============================================================================
+// Infrastructure Builder State
+// ============================================================================
+
+/// Infrastructure builder configuration
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct InfrastructureBuilderConfig {
+    /// State per context
+    #[serde(default)]
+    pub contexts: std::collections::HashMap<String, InfrastructureBuilderState>,
+}
+
+/// Infrastructure builder state for a context
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct InfrastructureBuilderState {
+    /// ReactFlow nodes as JSON
+    #[serde(default)]
+    pub nodes: Vec<serde_json::Value>,
+    /// ReactFlow edges as JSON
+    #[serde(default)]
+    pub edges: Vec<serde_json::Value>,
+    /// YAML text content
+    #[serde(default)]
+    pub yaml_text: String,
+    /// Extra manifests that couldn't be parsed
+    #[serde(default)]
+    pub extra_manifests: Vec<serde_json::Value>,
+}
+
+// ============================================================================
+// Recent Items (Command Palette)
+// ============================================================================
+
+/// Maximum number of recent items to store
+const MAX_RECENT_ITEMS: usize = 10;
+
+/// Recent items configuration
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RecentItemsConfig {
+    /// Recent items list
+    #[serde(default)]
+    pub items: Vec<RecentItem>,
+}
+
+/// Recent item entry
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecentItem {
+    /// Resource name
+    pub name: String,
+    /// Namespace (if namespaced)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub namespace: Option<String>,
+    /// Resource kind
+    pub kind: String,
+    /// Navigation path
+    pub path: String,
+    /// Timestamp in milliseconds
+    pub timestamp: i64,
+}
+
+impl RecentItemsConfig {
+    /// Add a recent item, maintaining the max limit
+    pub fn add_item(&mut self, item: RecentItem) {
+        // Remove existing item with same path
+        self.items.retain(|i| i.path != item.path);
+        // Add to front
+        self.items.insert(0, item);
+        // Truncate to max
+        self.items.truncate(MAX_RECENT_ITEMS);
+    }
+}
+
+// ============================================================================
+// Updater Configuration
+// ============================================================================
+
+/// Updater configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdaterConfig {
+    /// Enable automatic update checks
+    #[serde(default = "default_true")]
+    pub auto_check_enabled: bool,
+}
+
+impl Default for UpdaterConfig {
+    fn default() -> Self {
+        Self {
+            auto_check_enabled: true,
+        }
+    }
+}
+
+// ============================================================================
+// Cluster Preferences
+// ============================================================================
+
+/// Cluster preferences configuration
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ClusterPreferences {
+    /// Last selected context
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "last_context")]
+    pub last_context: Option<String>,
+    /// Namespace per context
+    #[serde(default)]
+    pub namespaces: std::collections::HashMap<String, String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_config() {
+        let config = AppConfig::default();
+        assert_eq!(config.theme.theme, "dark");
+        assert_eq!(config.kubernetes.default_namespace, "default");
+    }
+
+    #[test]
+    fn test_config_serialization() {
+        let config = AppConfig::default();
+        let toml_str = toml::to_string(&config).unwrap();
+        let parsed: AppConfig = toml::from_str(&toml_str).unwrap();
+
+        assert_eq!(config.theme.theme, parsed.theme.theme);
+    }
+}

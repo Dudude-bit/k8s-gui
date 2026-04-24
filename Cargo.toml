@@ -1,0 +1,3 @@
+[workspace]
+members = ["src-tauri", "k8s-gui-common"]
+resolver = "2"

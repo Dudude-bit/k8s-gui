@@ -1,0 +1,46 @@
+# Rust
+/target/
+
+# Node
+node_modules/
+ui/node_modules/
+
+# Build outputs
+/ui/dist/
+/dist/
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Tauri
+/src-tauri/target/
+/src-tauri/.force_rebuild
+
+# Test coverage
+coverage/
+*.lcov
+
+# Temporary files
+*.tmp
+*.temp
+
+.cursor/
+
+artifacts/
+__pycache__/
+
+# Worktrees
+.worktrees/

@@ -1,0 +1,152 @@
+import { useMemo } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
+import { ColumnDef } from "@tanstack/react-table";
+import { Eye, Trash2, Layers, Star } from "lucide-react";
+import { ResourceList } from "@/components/resources/ResourceList";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import type { QuickAction } from "@/components/ui/quick-actions";
+import { commands } from "@/lib/commands";
+import type { StorageClassInfo } from "@/generated/types";
+import { ResourceType, toPlural } from "@/lib/resource-registry";
+import { getResourceDetailUrl } from "@/lib/navigation-utils";
+import { queryKeys } from "@/lib/query-keys";
+import { STALE_TIMES } from "@/lib/refresh";
+import { getResourceRowId } from "@/lib/table-utils";
+
+
+
+const columns: ColumnDef<StorageClassInfo>[] = [
+  {
+    accessorKey: "name",
+    header: "Name",
+    cell: ({ row }) => (
+      <div className="flex items-center gap-2">
+        <Layers className="h-4 w-4 text-muted-foreground" />
+        <Link
+          to={getResourceDetailUrl(ResourceType.StorageClass, row.original.name)}
+          className="font-medium text-primary hover:underline"
+        >
+          {row.original.name}
+        </Link>
+        {row.original.isDefault && (
+          <Tooltip>
+            <TooltipTrigger>
+              <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+            </TooltipTrigger>
+            <TooltipContent>Default Storage Class</TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "provisioner",
+    header: "Provisioner",
+    cell: ({ row }) => (
+      <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+        {row.original.provisioner}
+      </code>
+    ),
+  },
+  {
+    accessorKey: "reclaimPolicy",
+    header: "Reclaim Policy",
+    cell: ({ row }) => (
+      <Badge variant="outline">{row.original.reclaimPolicy}</Badge>
+    ),
+  },
+  {
+    accessorKey: "volumeBindingMode",
+    header: "Binding Mode",
+    cell: ({ row }) => (
+      <Badge variant="secondary">{row.original.volumeBindingMode}</Badge>
+    ),
+  },
+  {
+    accessorKey: "allowVolumeExpansion",
+    header: "Expansion",
+    cell: ({ row }) => (
+      <Badge
+        variant={row.original.allowVolumeExpansion ? "default" : "outline"}
+      >
+        {row.original.allowVolumeExpansion ? "Allowed" : "Disabled"}
+      </Badge>
+    ),
+  },
+  {
+    accessorKey: "parameters",
+    header: "Parameters",
+    cell: ({ row }) => {
+      const params = row.original.parameters;
+      const paramCount = Object.keys(params).length;
+      if (paramCount === 0) return "-";
+      return (
+        <Tooltip>
+          <TooltipTrigger>
+            <Badge variant="outline">{paramCount} params</Badge>
+          </TooltipTrigger>
+          <TooltipContent>
+            <div className="space-y-1">
+              {Object.entries(params).map(([key, value]) => (
+                <div key={key} className="text-xs">
+                  <span className="font-medium">{key}:</span> {value}
+                </div>
+              ))}
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      );
+    },
+  },
+  {
+    accessorKey: "age",
+    header: "Age",
+  },
+];
+
+export function StorageClassList() {
+  const navigate = useNavigate();
+
+  const quickActions = useMemo<(setDeleteTarget: (item: StorageClassInfo) => void) => QuickAction<StorageClassInfo>[]>(
+    () => (setDeleteTarget) => [
+      {
+        icon: Eye,
+        label: "View Details",
+        onClick: (item) => navigate(getResourceDetailUrl(ResourceType.StorageClass, item.name)),
+      },
+      {
+        icon: Trash2,
+        label: "Delete",
+        onClick: (item) => setDeleteTarget(item),
+        variant: "destructive",
+      },
+    ],
+    [navigate]
+  );
+
+  return (
+    <ResourceList<StorageClassInfo>
+      title="Storage Classes"
+      description="Describes the classes of storage available in the cluster"
+      queryKey={queryKeys.resources(ResourceType.StorageClass, null)}
+      getRowId={getResourceRowId}
+      queryFn={() => commands.listStorageClasses(null)}
+      columns={columns}
+      quickActions={quickActions}
+      emptyStateLabel={toPlural(ResourceType.StorageClass)}
+      deleteConfig={{
+        mutationFn: (item) => commands.deleteStorageClass(item.name),
+        invalidateQueryKeys: [queryKeys.resources(ResourceType.StorageClass, null)],
+        resourceType: ResourceType.StorageClass,
+      }}
+      staleTime={STALE_TIMES.resourceList}
+      searchKey="name"
+      getRowHref={(row) => getResourceDetailUrl(ResourceType.StorageClass, row.name)}
+    />
+  );
+}

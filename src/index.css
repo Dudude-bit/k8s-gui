@@ -1,0 +1,310 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ============================================
+     * Core Theme Variables
+     * ============================================ */
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
+
+    /* ============================================
+     * Status Colors (unified design system)
+     * ============================================ */
+    --status-running: 142.1 76.2% 36.3%;
+    --status-ready: 142.1 76.2% 36.3%;
+    --status-available: 142.1 76.2% 36.3%;
+    --status-active: 142.1 76.2% 36.3%;
+    --status-succeeded: 142.1 76.2% 36.3%;
+
+    --status-pending: 221.2 83.2% 53.3%;
+    --status-waiting: 221.2 83.2% 53.3%;
+    --status-progressing: 221.2 83.2% 53.3%;
+
+    --status-warning: 38 92% 50%;
+    --status-degraded: 38 92% 50%;
+
+    --status-error: 0 84.2% 60.2%;
+    --status-failed: 0 84.2% 60.2%;
+    --status-crashloopbackoff: 0 84.2% 60.2%;
+    --status-evicted: 0 84.2% 60.2%;
+    --status-oomkilled: 0 84.2% 60.2%;
+
+    --status-terminated: 215 16.3% 46.9%;
+    --status-completed: 215 16.3% 46.9%;
+    --status-unknown: 215 16.3% 46.9%;
+
+    /* ============================================
+     * Resource Type Colors (unified design system)
+     * ============================================ */
+    --resource-pod: 217 91% 60%;
+    --resource-pod-bg: 213 100% 96%;
+    --resource-deployment: 271 91% 65%;
+    --resource-deployment-bg: 270 100% 96%;
+    --resource-service: 142 71% 45%;
+    --resource-service-bg: 142 76% 94%;
+    --resource-configmap: 47 95% 53%;
+    --resource-configmap-bg: 47 100% 94%;
+    --resource-secret: 0 84% 60%;
+    --resource-secret-bg: 0 100% 96%;
+    --resource-node: 215 16% 47%;
+    --resource-node-bg: 210 40% 96%;
+    --resource-namespace: 200 90% 50%;
+    --resource-namespace-bg: 200 100% 96%;
+    --resource-ingress: 320 72% 55%;
+    --resource-ingress-bg: 320 100% 96%;
+    --resource-pv: 160 60% 45%;
+    --resource-pv-bg: 160 76% 94%;
+    --resource-pvc: 180 60% 45%;
+    --resource-pvc-bg: 180 76% 94%;
+
+    /* ============================================
+     * Utilization Colors (CPU/Memory gauges)
+     * ============================================ */
+    --utilization-low: 142.1 76.2% 36.3%;
+    --utilization-medium: 38 92% 50%;
+    --utilization-high: 0 84.2% 60.2%;
+    --utilization-critical: 0 84.2% 40%;
+
+    /* ============================================
+     * Spacing Scale (design system)
+     * ============================================ */
+    --space-xs: 0.25rem;
+    --space-sm: 0.5rem;
+    --space-md: 1rem;
+    --space-lg: 1.5rem;
+    --space-xl: 2rem;
+    --space-2xl: 3rem;
+    --space-3xl: 4rem;
+
+    /* ============================================
+     * Animation Timings
+     * ============================================ */
+    --animation-fast: 150ms;
+    --animation-normal: 200ms;
+    --animation-slow: 300ms;
+    --animation-very-slow: 500ms;
+  }
+
+  .dark {
+    /* Core Theme Variables */
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
+
+    /* Resource Type Colors (dark mode adjustments) */
+    --resource-pod-bg: 217 91% 15%;
+    --resource-deployment-bg: 271 91% 15%;
+    --resource-service-bg: 142 71% 15%;
+    --resource-configmap-bg: 47 95% 15%;
+    --resource-secret-bg: 0 84% 15%;
+    --resource-node-bg: 215 16% 20%;
+    --resource-namespace-bg: 200 90% 15%;
+    --resource-ingress-bg: 320 72% 15%;
+    --resource-pv-bg: 160 60% 15%;
+    --resource-pvc-bg: 180 60% 15%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
+  }
+
+  /* Smooth transitions for theme changes */
+  *,
+  *::before,
+  *::after {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+  }
+}
+
+@layer utilities {
+  /* Custom scrollbar */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted)) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted));
+    border-radius: 4px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+
+  /* Status indicators */
+  .status-running {
+    @apply text-success;
+  }
+
+  .status-pending {
+    @apply text-pending;
+  }
+
+  .status-warning {
+    @apply text-warning;
+  }
+
+  .status-error {
+    @apply text-error;
+  }
+
+  /* Resource badge colors */
+  .badge-pod {
+    @apply bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200;
+  }
+
+  .badge-deployment {
+    @apply bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200;
+  }
+
+  .badge-service {
+    @apply bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200;
+  }
+
+  .badge-configmap {
+    @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200;
+  }
+
+  .badge-secret {
+    @apply bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200;
+  }
+
+  .badge-node {
+    @apply bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200;
+  }
+
+  /* Terminal styles */
+  .terminal-container {
+    @apply bg-black text-green-400 font-mono text-sm;
+  }
+}
+
+/* XTerm.js overrides for better theme integration */
+.xterm {
+  padding: 8px;
+}
+
+.xterm-viewport {
+  overflow-y: auto !important;
+}
+
+/* Monaco editor theme support (for YAML editing) */
+.monaco-editor {
+  @apply rounded-md;
+}
+
+/* Page transition animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Utility animation classes */
+.animate-in {
+  animation-duration: 200ms;
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fade-in {
+  animation-name: fadeIn;
+}
+
+.slide-in {
+  animation-name: slideIn;
+}
+
+.duration-150 {
+  animation-duration: 150ms;
+}
+
+.duration-200 {
+  animation-duration: 200ms;
+}
+
+.duration-300 {
+  animation-duration: 300ms;
+}
+
+/* Smooth loading state transitions */
+.loading-fade {
+  transition: opacity 150ms ease-in-out;
+}
+
+.loading-fade.is-loading {
+  opacity: 0.6;
+}

@@ -1,0 +1,352 @@
+# Test resources for k8s-gui UI coverage.
+# Apply CRDs first: `kubectl apply -f test-manifests/k8s-gui-crds.yaml`.
+# Minikube setup: `minikube addons enable ingress` and `minikube addons enable metrics-server`.
+# Some documents (CRD/PV/StorageClass) require cluster-admin privileges.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: k8s-gui-test
+  labels:
+    app.kubernetes.io/part-of: k8s-gui-test
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: k8s-gui-test
+  namespace: k8s-gui-test
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-config
+  namespace: k8s-gui-test
+data:
+  app.conf: |
+    message=hello-from-configmap
+  info.json: |
+    {"level":"info","msg":"from configmap","source":"demo-config"}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-secret
+  namespace: k8s-gui-test
+type: Opaque
+stringData:
+  username: demo-user
+  password: demo-pass
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: demo-reader
+  namespace: k8s-gui-test
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: demo-reader-binding
+  namespace: k8s-gui-test
+subjects:
+  - kind: ServiceAccount
+    name: k8s-gui-test
+    namespace: k8s-gui-test
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: demo-reader
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-demo
+  namespace: k8s-gui-test
+  labels:
+    app: log-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: log-demo
+  template:
+    metadata:
+      labels:
+        app: log-demo
+    spec:
+      serviceAccountName: k8s-gui-test
+      containers:
+        - name: json-logger
+          image: busybox:1.36
+          command: ["sh", "-c"]
+          args:
+            - |
+              i=0
+              while true; do
+                echo "{\"level\":\"info\",\"msg\":\"json log\",\"request_id\":\"req-$i\",\"user\":\"alice\"}"
+                i=$((i+1))
+                sleep 2
+              done
+          env:
+            - name: DEMO_ENV
+              value: json-logger
+          envFrom:
+            - configMapRef:
+                name: demo-config
+        - name: logfmt-logger
+          image: busybox:1.36
+          command: ["sh", "-c"]
+          args:
+            - |
+              i=0
+              while true; do
+                echo "level=warn msg=\"logfmt log\" user=bob request_id=req-$i"
+                i=$((i+1))
+                sleep 3
+              done
+        - name: klog-logger
+          image: busybox:1.36
+          command: ["sh", "-c"]
+          args:
+            - |
+              i=0
+              while true; do
+                echo "I0102 03:04:05.678901 1 main.go:12] klog message $i"
+                i=$((i+1))
+                sleep 4
+              done
+        - name: logback-logger
+          image: busybox:1.36
+          command: ["sh", "-c"]
+          args:
+            - |
+              i=0
+              while true; do
+                echo "2025-01-02 03:04:05,678 INFO [main] com.example.App - logback message $i"
+                i=$((i+1))
+                sleep 5
+              done
+        - name: web
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: log-demo
+  namespace: k8s-gui-test
+spec:
+  type: ClusterIP
+  selector:
+    app: log-demo
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: log-demo
+  namespace: k8s-gui-test
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: log-demo.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: log-demo
+                port:
+                  number: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: shell-demo
+  namespace: k8s-gui-test
+  labels:
+    app: shell-demo
+spec:
+  containers:
+    - name: shell
+      image: alpine:3.20
+      command: ["sh", "-c", "sleep 3600"]
+      tty: true
+      stdin: true
+      volumeMounts:
+        - name: demo-volume
+          mountPath: /data
+  volumes:
+    - name: demo-volume
+      persistentVolumeClaim:
+        claimName: pvc-demo
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: job-demo
+  namespace: k8s-gui-test
+spec:
+  template:
+    metadata:
+      labels:
+        app: job-demo
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: job
+          image: busybox:1.36
+          command: ["sh", "-c", "echo job-start && sleep 10 && echo job-done"]
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cron-demo
+  namespace: k8s-gui-test
+spec:
+  schedule: "*/5 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: cron
+              image: busybox:1.36
+              command: ["sh", "-c", "date && echo cron-run"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stateful-demo
+  namespace: k8s-gui-test
+spec:
+  clusterIP: None
+  selector:
+    app: stateful-demo
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: stateful-demo
+  namespace: k8s-gui-test
+spec:
+  serviceName: stateful-demo
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stateful-demo
+  template:
+    metadata:
+      labels:
+        app: stateful-demo
+    spec:
+      containers:
+        - name: stateful
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: data
+              mountPath: /usr/share/nginx/html
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: daemon-demo
+  namespace: k8s-gui-test
+spec:
+  selector:
+    matchLabels:
+      app: daemon-demo
+  template:
+    metadata:
+      labels:
+        app: daemon-demo
+    spec:
+      containers:
+        - name: daemon
+          image: busybox:1.36
+          command: ["sh", "-c", "while true; do echo daemon-demo; sleep 30; done"]
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: k8s-gui-hostpath
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: Immediate
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-demo
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: k8s-gui-hostpath
+  persistentVolumeReclaimPolicy: Delete
+  hostPath:
+    path: /tmp/k8s-gui-pv
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-manual
+  namespace: k8s-gui-test
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: k8s-gui-hostpath
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-demo
+  namespace: k8s-gui-test
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: demo.k8s-gui.io/v1
+kind: Widget
+metadata:
+  name: widget-demo
+  namespace: k8s-gui-test
+spec:
+  tier: gold
+  size: 3
+  description: "Widget for k8s-gui CRD testing"
+status:
+  ready: "true"

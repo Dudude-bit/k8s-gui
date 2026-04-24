@@ -1,0 +1,76 @@
+# Tauri Build Environment for Linux
+# Supports: x86_64 and aarch64 via QEMU emulation
+#
+# Usage:
+#   docker build -t k8s-gui-linux-builder -f Dockerfile.linux-build .
+#   docker run --rm -v $(pwd):/app k8s-gui-linux-builder cargo tauri build --target x86_64-unknown-linux-gnu
+#
+# For ARM64 builds (requires Docker buildx with QEMU):
+#   docker buildx create --use --name multiarch
+#   docker buildx build --platform linux/arm64 -t k8s-gui-linux-builder:arm64 -f Dockerfile.linux-build .
+#   docker run --rm --platform linux/arm64 -v $(pwd):/app k8s-gui-linux-builder:arm64 cargo tauri build --target aarch64-unknown-linux-gnu
+
+FROM rust:latest
+
+# Arguments for multi-arch support
+ARG TARGETARCH
+
+# Install system dependencies for Tauri
+RUN apt-get update && apt-get install -y \
+    # Build essentials
+    build-essential \
+    curl \
+    wget \
+    git \
+    pkg-config \
+    # Tauri/WebKit dependencies
+    libgtk-3-dev \
+    libwebkit2gtk-4.1-dev \
+    libjavascriptcoregtk-4.1-dev \
+    libsoup-3.0-dev \
+    libappindicator3-dev \
+    librsvg2-dev \
+    # SSL
+    libssl-dev \
+    ca-certificates \
+    # AppImage tools
+    file \
+    patchelf \
+    squashfs-tools \
+    # Desktop integration (xdg-open for URL handling)
+    xdg-utils \
+    # Protobuf compiler
+    protobuf-compiler \
+    # Node.js
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    # Cleanup
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Tauri CLI
+RUN cargo install tauri-cli --locked
+
+# Install Rust targets for cross-compilation
+# Both targets are installed to allow building for either architecture
+RUN rustup target add x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
+
+# Install AppImage tools (architecture-aware)
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "amd64" ]; then \
+    wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /usr/local/bin/appimagetool; \
+    elif [ "$ARCH" = "arm64" ]; then \
+    wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-aarch64.AppImage -O /usr/local/bin/appimagetool; \
+    fi && \
+    chmod +x /usr/local/bin/appimagetool && \
+    cd /usr/local/bin && \
+    ./appimagetool --appimage-extract 2>/dev/null || true && \
+    if [ -d squashfs-root ]; then \
+    mv squashfs-root appimagetool-extracted && \
+    ln -sf /usr/local/bin/appimagetool-extracted/AppRun /usr/local/bin/appimagetool; \
+    fi
+
+# Set working directory
+WORKDIR /app
+
+# Default command shows help
+CMD ["cargo", "tauri", "--help"]

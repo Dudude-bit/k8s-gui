@@ -1,0 +1,49 @@
+//! Resource management module
+//!
+//! Provides abstractions for working with Kubernetes resources.
+
+use k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
+
+/// Extension trait for converting Kubernetes Time to RFC3339 string
+pub trait TimeExt {
+    /// Convert to RFC3339 formatted string
+    fn to_rfc3339_string(&self) -> String;
+}
+
+impl TimeExt for Time {
+    fn to_rfc3339_string(&self) -> String {
+        self.0.to_rfc3339()
+    }
+}
+
+/// Extension trait for Option<Time> convenience
+pub trait OptionTimeExt {
+    /// Convert Option<Time> to Option<String> in RFC3339 format
+    fn to_rfc3339_opt(&self) -> Option<String>;
+}
+
+impl OptionTimeExt for Option<Time> {
+    fn to_rfc3339_opt(&self) -> Option<String> {
+        self.as_ref().map(|t| t.0.to_rfc3339())
+    }
+}
+
+impl OptionTimeExt for Option<&Time> {
+    fn to_rfc3339_opt(&self) -> Option<String> {
+        self.map(|t| t.0.to_rfc3339())
+    }
+}
+
+mod network;
+mod resource_types;
+mod serialization;
+mod storage;
+mod types;
+mod workloads;
+
+pub use network::*;
+pub use resource_types::ResourceType;
+pub use serialization::*;
+pub use storage::*;
+pub use types::*;
+pub use workloads::*;

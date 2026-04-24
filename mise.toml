@@ -1,0 +1,3 @@
+[tools]
+node = "latest"
+rust = "1.88"

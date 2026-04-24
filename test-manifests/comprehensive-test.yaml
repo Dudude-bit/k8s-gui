@@ -1,0 +1,970 @@
+# =============================================================================
+# COMPREHENSIVE TEST MANIFEST FOR K8S-GUI
+# =============================================================================
+# Этот манифест создаёт все типы ресурсов для тестирования GUI
+# Применить: kubectl apply -f comprehensive-test.yaml
+# Удалить:   kubectl delete -f comprehensive-test.yaml
+# =============================================================================
+
+---
+# =============================================================================
+# NAMESPACE
+# =============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+    purpose: testing
+
+---
+# =============================================================================
+# CONFIGMAPS
+# =============================================================================
+
+# ConfigMap с простыми данными
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+    component: config
+data:
+  APP_ENV: "development"
+  APP_DEBUG: "true"
+  LOG_LEVEL: "debug"
+  DATABASE_HOST: "postgres.k8s-gui-test.svc.cluster.local"
+  DATABASE_PORT: "5432"
+
+---
+# ConfigMap с многострочными данными
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+    component: nginx
+data:
+  nginx.conf: |
+    worker_processes auto;
+    events {
+        worker_connections 1024;
+    }
+    http {
+        server {
+            listen 80;
+            server_name localhost;
+
+            location / {
+                root /usr/share/nginx/html;
+                index index.html;
+            }
+
+            location /api {
+                proxy_pass http://backend:8080;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+            }
+
+            location /health {
+                return 200 'OK';
+                add_header Content-Type text/plain;
+            }
+        }
+    }
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head><title>K8s GUI Test</title></head>
+    <body>
+      <h1>Welcome to K8s GUI Test</h1>
+      <p>This is a test page for k8s-gui application.</p>
+    </body>
+    </html>
+
+---
+# =============================================================================
+# SECRETS
+# =============================================================================
+
+# Opaque Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+    component: secrets
+type: Opaque
+stringData:
+  DATABASE_USER: "admin"
+  DATABASE_PASSWORD: "super-secret-password-123"
+  API_KEY: "sk-test-api-key-1234567890abcdef"
+  APP_SECRET: "app-secret-very-long-string"
+
+---
+# Docker Registry Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: docker-registry-creds
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+type: kubernetes.io/dockerconfigjson
+stringData:
+  .dockerconfigjson: |
+    {
+      "auths": {
+        "https://index.docker.io/v1/": {
+          "username": "testuser",
+          "password": "testpassword",
+          "email": "test@example.com",
+          "auth": "dGVzdHVzZXI6dGVzdHBhc3N3b3Jk"
+        }
+      }
+    }
+
+---
+# TLS Secret (self-signed certificate for app.k8s-gui-test.local)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tls-secret
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+type: kubernetes.io/tls
+stringData:
+  tls.crt: |
+    -----BEGIN CERTIFICATE-----
+    MIIDIzCCAgugAwIBAgIUf1w9jMdhW0P8gN9+drRL5le8YDIwDQYJKoZIhvcNAQEL
+    BQAwITEfMB0GA1UEAwwWYXBwLms4cy1ndWktdGVzdC5sb2NhbDAeFw0yNjAxMDcy
+    MDE0MDRaFw0yNzAxMDcyMDE0MDRaMCExHzAdBgNVBAMMFmFwcC5rOHMtZ3VpLXRl
+    c3QubG9jYWwwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC+ovvKHlHx
+    K9PesH6C7MiAnEYfzSe5ql4iJuSE3O6ayRGG5GIfzxdidH0Hw2LVMKpSp2a5DJTc
+    TvrZRulzHWKOQYPf/b8SguWxXsMDMvkeewmtYgPMhZXGCdog4LvMGeIXPIwGMoQM
+    Pv48TB/I5BocRgrTtsWqfge5GCSbOLRrrB9HsMFtwEsuBOcqjjhpT+7kDD3NaZvr
+    vBdKbOLhOlqeuZ5tZoHIuEtICkgDGre/uFOjE0s/aPXEfy3SU98ft8kE2DIAlluy
+    UESuFFt/fjbhVtWsmX0F4WtVX/9GfdhKIeNNjc81s7oyDlHK0nUBjBOY1zvvA6dc
+    drWEF0beICfVAgMBAAGjUzBRMB0GA1UdDgQWBBRsNXfjT4ntsA4CM9V1JKHhq41C
+    6TAfBgNVHSMEGDAWgBRsNXfjT4ntsA4CM9V1JKHhq41C6TAPBgNVHRMBAf8EBTAD
+    AQH/MA0GCSqGSIb3DQEBCwUAA4IBAQCw8OrAQzhj3nmFlJvRbagI3ShFSsfzZ/vw
+    pmjU1vBd0+7G5Rb9xa3qOpOU9Te6SREKPOZ+QmsCTcJoBQF2RWTwc4WTQYhHzXv+
+    +qlIE6lmMuUMV/k3TU/TGMwTMW4uutXTa06rJ+CIBcvZLN4AdbTlCKOcAPZDP++u
+    BFvsePwarKzIkjLtCtkJruEvRJtYoR+2x69+ua3hxtoJPdB3r2VSMzT7t/eNgzmn
+    aXhNeZkhNFidP60tXiFsDuVgPo4btkrTydBuTJUQnsWQgPbWXmEEJiRK2EPc3h7O
+    GE3LRtsaj7wVGkNnItnNHb4oLXCwtjN17RIkpkHAkc3Ofqy6oBPE
+    -----END CERTIFICATE-----
+  tls.key: |
+    -----BEGIN PRIVATE KEY-----
+    MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC+ovvKHlHxK9Pe
+    sH6C7MiAnEYfzSe5ql4iJuSE3O6ayRGG5GIfzxdidH0Hw2LVMKpSp2a5DJTcTvrZ
+    RulzHWKOQYPf/b8SguWxXsMDMvkeewmtYgPMhZXGCdog4LvMGeIXPIwGMoQMPv48
+    TB/I5BocRgrTtsWqfge5GCSbOLRrrB9HsMFtwEsuBOcqjjhpT+7kDD3NaZvrvBdK
+    bOLhOlqeuZ5tZoHIuEtICkgDGre/uFOjE0s/aPXEfy3SU98ft8kE2DIAlluyUESu
+    FFt/fjbhVtWsmX0F4WtVX/9GfdhKIeNNjc81s7oyDlHK0nUBjBOY1zvvA6dcdrWE
+    F0beICfVAgMBAAECggEAF4qO51W5LrwHzN8ksExHMkKaEkFGX5IfT75Xx+R0fp7H
+    0E2RpHXxYFIcQoIpSURaNBzB/aYFF/OU3JH6MCH30rNacqWmG8YYUT/vewynYNE2
+    z7dj2rTAWxVKX3cBGeI0XkQ20mkYj16UDKQl5KvuYYFwwtY2MKihkYTeuGBXP1hq
+    LCFisC9R15xfydyq/83IkISvm+VzMB0d4JfVACmkZJ2n4kVYXhoqzw/awQDgA5e9
+    PK61Ve0FZacVtS6XRs9o72uSX2q5aIUktGjo9T0004MpJVV+K1OCamP+Q9+YkDiF
+    a+WhZxTd9RQpJ70ycnuMwp2bo8ODptHWlCUiWOzQ4QKBgQDz76L/tRM90XFxWQfv
+    i6USOHpRbueQfcPgNZocIv4l7rDDwIxqzipQrlEU7SXacS/g6OvLTRUFTxwhaNRA
+    mHrrJUGpVqN7P/uhzBvfnnR5VCHwOupi8chhCDLVMihAiQSgjtluS8UrZK3WcCZL
+    d1q9KcvASlTJHkIdO4sl9+++rQKBgQDIEIwR9FWOdIPKJINg/IQJnDBVbuRCnCy5
+    mvQQ+/YHIQYF6zk4La/kOq3ZccPdk6AtgJ3uMlcfujwxUYseb76xj9vQqMZ4dq2s
+    i2/aO8EUO6CdbvGDg7z/nOiQmpYLqSp+jGBCRW99X+TS6l3l646U9y2zdmZy31s8
+    pSz+o7l6yQKBgQClY2puWMTs+t4hba21ukZ3LhewsrMKAlsV3wHX5dnOuiDa9+e8
+    Wn/SJ/4NZCRwEKHXqdSFCIQiD1sRQ9P03+0nFSGJwJYi8GSZdJvJZ9Osl2BTUn6s
+    CyZCs55TcihcaQncGj5NS84o95/tbihorkm1S2s7uqn1mjBVRZO4cHv6GQKBgGUq
+    mOnrV+g1Wv84/4Znqo0Bgh9xd9OHDca9aHW+M2bfeCA+Fi0mTS9nzMmMEbNWF0Vr
+    KHFu20eb8RwvU94MO62mRU16SwJXYPNDf0gntzb3//wcQdxzHXtUaPXWddFntalQ
+    asyYOAx6FUfiY6EEQJFrfJynXp7v+z7rd5k8SWqhAoGAI+NpqC0RYbwlN6t1iDc8
+    7IP0181dE6RabYPxuYe44FU014CjMxA2MyJr3v4MxuAyYW62GdHJDZov+6ba5MfG
+    l5H+XXLcimKVwalnIa78XiRxzXmZlk308Rg6zRv1JD9BI7enEuetjCknBbrc4PkQ
+    To/q60EP5eyJzibRSFf2V3I=
+    -----END PRIVATE KEY-----
+
+---
+# =============================================================================
+# PERSISTENT VOLUME & PERSISTENT VOLUME CLAIM
+# =============================================================================
+
+# PersistentVolume (hostPath для локального тестирования)
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: k8s-gui-test-pv
+  labels:
+    app: k8s-gui-test
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  hostPath:
+    path: /tmp/k8s-gui-test-data
+
+---
+# PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-pvc
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+
+---
+# =============================================================================
+# DEPLOYMENTS
+# =============================================================================
+
+# Frontend Deployment (nginx)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+    component: frontend
+  annotations:
+    description: "Frontend nginx deployment for testing"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: k8s-gui-test
+      component: frontend
+  template:
+    metadata:
+      labels:
+        app: k8s-gui-test
+        component: frontend
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.25-alpine
+          ports:
+            - containerPort: 80
+              name: http
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: nginx-config
+              mountPath: /usr/share/nginx/html/index.html
+              subPath: index.html
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 5
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: nginx-config
+
+---
+# Backend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+    component: backend
+  annotations:
+    description: "Backend API deployment for testing"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: k8s-gui-test
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: k8s-gui-test
+        component: backend
+    spec:
+      containers:
+        - name: backend
+          image: hashicorp/http-echo:latest
+          args:
+            - "-text=Hello from Backend API"
+            - "-listen=:8080"
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: APP_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: APP_ENV
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DATABASE_HOST
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DATABASE_USER
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DATABASE_PASSWORD
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+
+---
+# Worker Deployment (с проблемным подом для тестирования)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+    component: worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: k8s-gui-test
+      component: worker
+  template:
+    metadata:
+      labels:
+        app: k8s-gui-test
+        component: worker
+    spec:
+      containers:
+        - name: worker
+          image: busybox:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Worker started at $(date)"
+              while true; do
+                echo "[$(date)] Processing task..."
+                sleep 10
+              done
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "32Mi"
+            limits:
+              cpu: "100m"
+              memory: "64Mi"
+
+---
+# =============================================================================
+# STATEFULSET
+# =============================================================================
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+    component: redis
+spec:
+  serviceName: redis-headless
+  replicas: 3
+  selector:
+    matchLabels:
+      app: k8s-gui-test
+      component: redis
+  template:
+    metadata:
+      labels:
+        app: k8s-gui-test
+        component: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+              name: redis
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 100Mi
+
+---
+# =============================================================================
+# DAEMONSET
+# =============================================================================
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: log-collector
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+    component: log-collector
+spec:
+  selector:
+    matchLabels:
+      app: k8s-gui-test
+      component: log-collector
+  template:
+    metadata:
+      labels:
+        app: k8s-gui-test
+        component: log-collector
+    spec:
+      containers:
+        - name: log-collector
+          image: busybox:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Log collector started on $(hostname)"
+              while true; do
+                echo "[$(date)] Collecting logs from node..."
+                sleep 30
+              done
+          resources:
+            requests:
+              cpu: "10m"
+              memory: "16Mi"
+            limits:
+              cpu: "50m"
+              memory: "32Mi"
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          effect: NoSchedule
+        - key: node-role.kubernetes.io/master
+          effect: NoSchedule
+
+---
+# =============================================================================
+# JOB
+# =============================================================================
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migration
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+    component: migration
+spec:
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: k8s-gui-test
+        component: migration
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migration
+          image: busybox:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Starting database migration..."
+              echo "Step 1: Checking database connection..."
+              sleep 2
+              echo "Step 2: Running migrations..."
+              sleep 3
+              echo "Step 3: Verifying schema..."
+              sleep 1
+              echo "Migration completed successfully!"
+          env:
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DATABASE_HOST
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+
+---
+# =============================================================================
+# CRONJOB
+# =============================================================================
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: backup-job
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+    component: backup
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: k8s-gui-test
+            component: backup
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: busybox:latest
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  echo "[$(date)] Starting backup..."
+                  echo "Backing up data..."
+                  sleep 5
+                  echo "[$(date)] Backup completed!"
+              resources:
+                requests:
+                  cpu: "25m"
+                  memory: "32Mi"
+                limits:
+                  cpu: "100m"
+                  memory: "64Mi"
+
+---
+# =============================================================================
+# SERVICES
+# =============================================================================
+
+# ClusterIP Service для frontend
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+    component: frontend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+  selector:
+    app: k8s-gui-test
+    component: frontend
+
+---
+# ClusterIP Service для backend
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+    component: backend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: k8s-gui-test
+    component: backend
+
+---
+# NodePort Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-nodeport
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+    component: frontend
+    service-type: nodeport
+spec:
+  type: NodePort
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30080
+      protocol: TCP
+      name: http
+  selector:
+    app: k8s-gui-test
+    component: frontend
+
+---
+# LoadBalancer Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-lb
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+    component: backend
+    service-type: loadbalancer
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: k8s-gui-test
+    component: backend
+
+---
+# Headless Service для StatefulSet
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-headless
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+    component: redis
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP
+      name: redis
+  selector:
+    app: k8s-gui-test
+    component: redis
+
+---
+# ExternalName Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: external-api
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+    service-type: externalname
+spec:
+  type: ExternalName
+  externalName: api.example.com
+
+---
+# =============================================================================
+# INGRESS
+# =============================================================================
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: main-ingress
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - app.k8s-gui-test.local
+      secretName: tls-secret
+  rules:
+    - host: app.k8s-gui-test.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8080
+
+---
+# Ingress без TLS
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-ingress
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: api.k8s-gui-test.local
+      http:
+        paths:
+          - path: /v1/(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8080
+
+---
+# =============================================================================
+# STANDALONE POD (для тестирования логов и exec)
+# =============================================================================
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: debug-pod
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+    component: debug
+  annotations:
+    description: "Debug pod for testing logs, exec, and port-forward"
+spec:
+  containers:
+    - name: main
+      image: nginx:1.25-alpine
+      ports:
+        - containerPort: 80
+          name: http
+      resources:
+        requests:
+          cpu: "25m"
+          memory: "32Mi"
+        limits:
+          cpu: "100m"
+          memory: "64Mi"
+    - name: sidecar
+      image: busybox:latest
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          i=0
+          while true; do
+            i=$((i+1))
+            echo "[$(date)] Log entry #$i from sidecar container"
+            if [ $((i % 5)) -eq 0 ]; then
+              echo "[$(date)] WARNING: This is a warning message"
+            fi
+            if [ $((i % 10)) -eq 0 ]; then
+              echo "[$(date)] ERROR: This is an error message"
+            fi
+            sleep 3
+          done
+      resources:
+        requests:
+          cpu: "10m"
+          memory: "16Mi"
+        limits:
+          cpu: "50m"
+          memory: "32Mi"
+
+---
+# Pod с проблемами (для тестирования состояний)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: failing-pod
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+    component: failing
+  annotations:
+    description: "Pod that fails to test error states"
+spec:
+  restartPolicy: Always
+  containers:
+    - name: failing
+      image: busybox:latest
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          echo "Starting container..."
+          echo "Simulating work..."
+          sleep 10
+          echo "Simulating failure..."
+          exit 1
+      resources:
+        requests:
+          cpu: "10m"
+          memory: "16Mi"
+        limits:
+          cpu: "50m"
+          memory: "32Mi"
+
+---
+# Pod с init контейнером
+apiVersion: v1
+kind: Pod
+metadata:
+  name: init-pod
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+    component: init-demo
+  annotations:
+    description: "Pod with init container for testing"
+spec:
+  initContainers:
+    - name: init-wait
+      image: busybox:latest
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          echo "Init container starting..."
+          echo "Waiting for dependencies..."
+          sleep 5
+          echo "Init complete!"
+  containers:
+    - name: main
+      image: busybox:latest
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          echo "Main container started after init"
+          while true; do
+            echo "[$(date)] Main container running..."
+            sleep 10
+          done
+      resources:
+        requests:
+          cpu: "10m"
+          memory: "16Mi"
+        limits:
+          cpu: "50m"
+          memory: "32Mi"
+
+---
+# =============================================================================
+# ENDPOINTS (автоматически создаются, но вот пример manual)
+# =============================================================================
+
+# Manual Endpoints для external service
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: external-db
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+subsets:
+  - addresses:
+      - ip: 10.0.0.100
+      - ip: 10.0.0.101
+    ports:
+      - port: 5432
+        name: postgres
+        protocol: TCP
+
+---
+# Service для manual endpoints
+apiVersion: v1
+kind: Service
+metadata:
+  name: external-db
+  namespace: k8s-gui-test
+  labels:
+    app: k8s-gui-test
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+      name: postgres

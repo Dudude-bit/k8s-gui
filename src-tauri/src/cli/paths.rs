@@ -1,0 +1,349 @@
+//! Platform-agnostic path resolution utilities for CLI tools.
+
+use std::path::PathBuf;
+
+/// Platform-aware path utilities for CLI tool resolution.
+pub struct PathResolver;
+
+impl PathResolver {
+    /// Get OS-specific path separator.
+    ///
+    /// Returns ';' on Windows, ':' on Unix-like systems.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::cli::paths::PathResolver;
+    ///
+    /// #[cfg(windows)]
+    /// assert_eq!(PathResolver::separator(), ';');
+    ///
+    /// #[cfg(not(windows))]
+    /// assert_eq!(PathResolver::separator(), ':');
+    /// ```
+    #[inline]
+    pub fn separator() -> char {
+        if cfg!(windows) {
+            ';'
+        } else {
+            ':'
+        }
+    }
+
+    /// Build common search paths for a binary.
+    ///
+    /// Returns a list of paths where the binary might be installed,
+    /// based on common conventions for each platform.
+    ///
+    /// # Arguments
+    ///
+    /// * `binary_name` - Name of the binary to search for (e.g., "kubectl", "helm")
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::cli::paths::PathResolver;
+    ///
+    /// let paths = PathResolver::search_paths("kubectl");
+    /// assert!(!paths.is_empty());
+    /// ```
+    pub fn search_paths(binary_name: &str) -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+
+        #[cfg(not(windows))]
+        {
+            // Homebrew paths (macOS)
+            paths.push(PathBuf::from(format!("/opt/homebrew/bin/{}", binary_name))); // ARM macOS
+            paths.push(PathBuf::from(format!("/usr/local/bin/{}", binary_name)));    // Intel macOS, Linux
+
+            // System paths
+            paths.push(PathBuf::from(format!("/usr/bin/{}", binary_name)));
+            paths.push(PathBuf::from(format!("/bin/{}", binary_name)));
+
+            // Snap (Linux)
+            paths.push(PathBuf::from(format!("/snap/bin/{}", binary_name)));
+
+            // User local paths
+            if let Some(home) = dirs::home_dir() {
+                paths.push(home.join(".local/bin").join(binary_name));
+                paths.push(home.join(".asdf/shims").join(binary_name));
+                paths.push(home.join(".cargo/bin").join(binary_name));
+
+                // Tool-specific paths
+                if binary_name == "kubectl" {
+                    paths.push(home.join(".krew/bin").join(binary_name));
+                }
+            }
+        }
+
+        #[cfg(windows)]
+        {
+            // Windows common paths
+            if let Some(home) = dirs::home_dir() {
+                paths.push(home.join(".cargo\\bin").join(format!("{}.exe", binary_name)));
+                paths.push(home.join("scoop\\shims").join(format!("{}.exe", binary_name)));
+            }
+            if let Ok(program_files) = std::env::var("ProgramFiles") {
+                paths.push(PathBuf::from(program_files).join(format!("{}.exe", binary_name)));
+            }
+        }
+
+        // Just binary name for PATH lookup (last resort)
+        paths.push(PathBuf::from(binary_name));
+
+        paths
+    }
+
+    /// Merge shell PATH with fallback paths, removing duplicates.
+    ///
+    /// Paths from `shell_path` take priority over `fallback_paths`.
+    ///
+    /// # Arguments
+    ///
+    /// * `shell_path` - Optional PATH string from shell (e.g., from `$PATH` env var)
+    /// * `fallback_paths` - Fallback paths to include if not in shell_path
+    ///
+    /// # Returns
+    ///
+    /// A PATH string with OS-appropriate separator, with duplicates removed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use crate::cli::paths::PathResolver;
+    /// use std::path::PathBuf;
+    ///
+    /// let shell_path = Some("/usr/bin:/usr/local/bin");
+    /// let fallback = vec![PathBuf::from("/opt/homebrew/bin")];
+    /// let merged = PathResolver::merge_paths(shell_path, &fallback);
+    /// assert!(merged.contains("/usr/bin"));
+    /// assert!(merged.contains("/opt/homebrew/bin"));
+    /// ```
+    pub fn merge_paths(shell_path: Option<&str>, fallback_paths: &[PathBuf]) -> String {
+        let separator = Self::separator();
+        let mut all_paths: Vec<PathBuf> = Vec::new();
+        let mut seen: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
+
+        // First, add paths from shell PATH (these take priority)
+        if let Some(path_str) = shell_path {
+            for entry in path_str.split(separator) {
+                if !entry.is_empty() {
+                    let path = PathBuf::from(entry);
+                    if seen.insert(path.clone()) {
+                        all_paths.push(path);
+                    }
+                }
+            }
+        }
+
+        // Then merge with fallback paths
+        for path in fallback_paths {
+            if seen.insert(path.clone()) {
+                all_paths.push(path.clone());
+            }
+        }
+
+        // Use std::env::join_paths for OS-specific separator
+        std::env::join_paths(&all_paths)
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default()
+    }
+
+    /// Get the standard fallback directories for CLI tools.
+    ///
+    /// Returns common installation directories based on platform conventions.
+    pub fn fallback_directories() -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+
+        #[cfg(not(windows))]
+        {
+            // Homebrew paths (macOS)
+            paths.push(PathBuf::from("/opt/homebrew/bin")); // ARM macOS
+            paths.push(PathBuf::from("/usr/local/bin"));    // Intel macOS, Linux
+
+            // System paths
+            paths.push(PathBuf::from("/usr/bin"));
+            paths.push(PathBuf::from("/bin"));
+            paths.push(PathBuf::from("/usr/sbin"));
+            paths.push(PathBuf::from("/sbin"));
+
+            // Snap (Linux)
+            paths.push(PathBuf::from("/snap/bin"));
+
+            // User local paths
+            if let Some(home) = dirs::home_dir() {
+                paths.push(home.join(".local/bin"));
+                paths.push(home.join(".asdf/shims"));
+                paths.push(home.join(".cargo/bin"));
+                paths.push(home.join(".krew/bin"));
+            }
+        }
+
+        #[cfg(windows)]
+        {
+            // Windows common paths
+            if let Some(home) = dirs::home_dir() {
+                paths.push(home.join(".cargo\\bin"));
+                paths.push(home.join("scoop\\shims"));
+            }
+            if let Ok(program_files) = std::env::var("ProgramFiles") {
+                paths.push(PathBuf::from(program_files));
+            }
+        }
+
+        paths
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_separator_is_os_specific() {
+        #[cfg(windows)]
+        assert_eq!(PathResolver::separator(), ';');
+
+        #[cfg(not(windows))]
+        assert_eq!(PathResolver::separator(), ':');
+    }
+
+    #[test]
+    fn test_search_paths_not_empty() {
+        let paths = PathResolver::search_paths("kubectl");
+        assert!(!paths.is_empty(), "Should return at least one search path");
+
+        // Last entry should be just the binary name
+        assert_eq!(
+            paths.last().unwrap(),
+            &PathBuf::from("kubectl"),
+            "Last path should be bare binary name for PATH lookup"
+        );
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn test_search_paths_includes_common_locations() {
+        let paths = PathResolver::search_paths("kubectl");
+        let path_strs: Vec<String> = paths.iter()
+            .map(|p| p.to_string_lossy().to_string())
+            .collect();
+
+        assert!(
+            path_strs.iter().any(|p| p.contains("/usr/local/bin")),
+            "Should include /usr/local/bin"
+        );
+        assert!(
+            path_strs.iter().any(|p| p.contains("/opt/homebrew/bin")),
+            "Should include /opt/homebrew/bin for ARM macOS"
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_search_paths_uses_exe_extension() {
+        let paths = PathResolver::search_paths("kubectl");
+        let has_exe = paths.iter().any(|p| {
+            p.to_string_lossy().ends_with(".exe") || p == &PathBuf::from("kubectl")
+        });
+        assert!(has_exe, "Windows paths should use .exe extension");
+    }
+
+    #[test]
+    fn test_merge_paths_removes_duplicates() {
+        let fallback = vec![
+            PathBuf::from("/usr/bin"),
+            PathBuf::from("/usr/local/bin"),
+        ];
+
+        #[cfg(not(windows))]
+        let shell_path = Some("/usr/bin:/opt/bin");
+
+        #[cfg(windows)]
+        let shell_path = Some("C:\\Windows\\System32;C:\\bin");
+
+        let merged = PathResolver::merge_paths(shell_path, &fallback);
+
+        // Should contain paths from both sources
+        assert!(!merged.is_empty());
+
+        // Count occurrences of separator to verify no duplicates
+        let separator = PathResolver::separator();
+        let entries: Vec<&str> = merged.split(separator).collect();
+        let unique_entries: std::collections::HashSet<&str> = entries.iter().copied().collect();
+        assert_eq!(
+            entries.len(),
+            unique_entries.len(),
+            "Should not have duplicate entries"
+        );
+    }
+
+    #[test]
+    fn test_merge_paths_prioritizes_shell_path() {
+        let fallback = vec![
+            PathBuf::from("/fallback1"),
+            PathBuf::from("/fallback2"),
+        ];
+
+        #[cfg(not(windows))]
+        let shell_path = Some("/shell1:/shell2");
+
+        #[cfg(windows)]
+        let shell_path = Some("C:\\shell1;C:\\shell2");
+
+        let merged = PathResolver::merge_paths(shell_path, &fallback);
+        let separator = PathResolver::separator();
+        let entries: Vec<&str> = merged.split(separator).collect();
+
+        // Shell paths should come first
+        #[cfg(not(windows))]
+        {
+            assert!(entries[0].contains("shell1"));
+            assert!(entries[1].contains("shell2"));
+        }
+
+        #[cfg(windows)]
+        {
+            assert!(entries[0].contains("shell1"));
+            assert!(entries[1].contains("shell2"));
+        }
+    }
+
+    #[test]
+    fn test_merge_paths_with_none_shell_path() {
+        let fallback = vec![
+            PathBuf::from("/usr/bin"),
+            PathBuf::from("/usr/local/bin"),
+        ];
+
+        let merged = PathResolver::merge_paths(None, &fallback);
+        assert!(!merged.is_empty(), "Should still include fallback paths");
+
+        let separator = PathResolver::separator();
+        assert!(merged.contains(separator), "Should contain path separator");
+    }
+
+    #[test]
+    fn test_fallback_directories_not_empty() {
+        let dirs = PathResolver::fallback_directories();
+        assert!(!dirs.is_empty(), "Should return at least one fallback directory");
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn test_fallback_directories_includes_system_paths() {
+        let dirs = PathResolver::fallback_directories();
+        let dir_strs: Vec<String> = dirs.iter()
+            .map(|d| d.to_string_lossy().to_string())
+            .collect();
+
+        assert!(
+            dir_strs.iter().any(|d| d == "/usr/bin"),
+            "Should include /usr/bin"
+        );
+        assert!(
+            dir_strs.iter().any(|d| d == "/usr/local/bin"),
+            "Should include /usr/local/bin"
+        );
+    }
+}
