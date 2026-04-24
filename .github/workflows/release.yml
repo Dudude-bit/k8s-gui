@@ -1,0 +1,152 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to release (e.g. v2.0.0). Must already exist.'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            is_linux: true
+          - name: linux-arm64
+            os: ubuntu-24.04
+            target: aarch64-unknown-linux-gnu
+            is_linux: true
+          - name: macos-arm64
+            os: [self-hosted, macOS, ARM64]
+            target: aarch64-apple-darwin
+            is_macos: true
+          - name: macos-x64
+            os: [self-hosted, macOS, ARM64]
+            target: x86_64-apple-darwin
+            is_macos: true
+          - name: windows-x64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            is_windows: true
+
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: 1
+
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Install system dependencies (Linux x64)
+        if: matrix.is_linux && matrix.target != 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential curl git pkg-config protobuf-compiler \
+            libgtk-3-dev libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev \
+            libsoup-3.0-dev libappindicator3-dev libssl-dev ca-certificates \
+            desktop-file-utils appstream patchelf squashfs-tools zsync
+          if ! sudo apt-get install -y libfuse2; then
+            sudo apt-get install -y libfuse2t64
+          fi
+          echo "APPIMAGE_EXTRACT_AND_RUN=1" >> $GITHUB_ENV
+
+      - name: Install system dependencies (Linux ARM64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo dpkg --add-architecture arm64
+          if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+            sudo sed -i 's/^Types: deb/Types: deb\nArchitectures: amd64/' /etc/apt/sources.list.d/ubuntu.sources
+          fi
+          cat <<'EOF' | sudo tee /etc/apt/sources.list.d/ubuntu-arm64.sources
+          Types: deb
+          URIs: http://ports.ubuntu.com/ubuntu-ports
+          Suites: noble noble-updates noble-backports noble-security
+          Components: main universe restricted multiverse
+          Architectures: arm64
+          Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+          EOF
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential curl git pkg-config protobuf-compiler \
+            ca-certificates desktop-file-utils appstream patchelf squashfs-tools zsync
+          if ! sudo apt-get install -y libfuse2; then
+            sudo apt-get install -y libfuse2t64
+          fi
+          echo "APPIMAGE_EXTRACT_AND_RUN=1" >> $GITHUB_ENV
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+            libgtk-3-dev:arm64 libwebkit2gtk-4.1-dev:arm64 \
+            libjavascriptcoregtk-4.1-dev:arm64 libsoup-3.0-dev:arm64 \
+            libappindicator3-dev:arm64 libssl-dev:arm64
+
+      - name: Install system dependencies (macOS)
+        if: matrix.is_macos
+        run: brew install pkg-config protobuf
+
+      - name: Install protoc (Windows)
+        if: matrix.is_windows
+        run: choco install protoc --no-progress
+
+      - name: Configure cross-compilation for ARM64
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++" >> $GITHUB_ENV
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig" >> $GITHUB_ENV
+          echo "PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig" >> $GITHUB_ENV
+          echo "PKG_CONFIG_SYSROOT_DIR=/" >> $GITHUB_ENV
+
+      - name: Build, sign, and release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.event.inputs.tag || github.ref_name }}
+          releaseName: ${{ github.event.inputs.tag || github.ref_name }}
+          releaseBody: |
+            See [CHANGELOG.md](https://github.com/Dudude-bit/k8s-gui/blob/main/CHANGELOG.md) for details.
+
+            Download the appropriate binary for your platform below.
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true
+          args: --target ${{ matrix.target }}
