@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    name: Lint + Test
+    runs-on: ubuntu-24.04
+
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: 1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - name: Setup Tauri build environment
+        uses: ./.github/actions/setup-tauri
+        with:
+          target: x86_64-unknown-linux-gnu
+          is_linux: 'true'
+          install_tauri_cli: 'false'
+
+      - name: Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+
+      - name: Rust clippy
+        # Informational for now — a single new warning breaking CI for all
+        # contributors is too strict until we've settled into clippy's
+        # current preferences. Promote to `-D warnings` once the tree is
+        # quiet again.
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --no-deps --all-targets -- -W clippy::all
+
+      - name: Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Frontend type check
+        run: npx tsc --noEmit
+
+      - name: Frontend lint
+        # Informational while the react-hooks@7 upgrade rule set is being
+        # triaged. Flip to required once remaining violations are addressed
+        # or rules are explicitly dialled down in eslint.config.js.
+        continue-on-error: true
+        run: npm run lint
