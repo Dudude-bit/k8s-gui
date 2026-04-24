@@ -65,10 +65,6 @@ export function JobDetail() {
     refetchInterval: REFRESH_INTERVALS.resourceList,
   });
 
-  if (!job && !isLoading && !error) {
-    return null;
-  }
-
   const getStatusInfo = () => {
     if (!job) return { variant: "secondary" as const, text: "Unknown", icon: Clock };
     if (job.status === "Complete") {
@@ -243,6 +239,10 @@ export function JobDetail() {
       ),
     },
   ], [job, pods, yaml, copyYaml, namespace, name]);
+
+  if (!job && !isLoading && !error) {
+    return null;
+  }
 
   return (
     <ResourceDetailLayout

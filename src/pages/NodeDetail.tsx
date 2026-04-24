@@ -21,6 +21,8 @@ import { useMetrics } from "@/hooks/useMetrics";
 import { MetricsStatusBanner } from "@/components/metrics";
 import { mergeNodesWithMetrics } from "@/lib/metrics";
 
+const NodeIcon = getResourceIcon(ResourceType.Node);
+
 export function NodeDetail() {
   const navigate = useNavigate();
   const [debugDialogOpen, setDebugDialogOpen] = useState(false);
@@ -172,7 +174,7 @@ export function NodeDetail() {
           </>
         )
       }
-      icon={(() => { const NodeIcon = getResourceIcon(ResourceType.Node); return <NodeIcon className="h-8 w-8 text-muted-foreground" />; })()}
+      icon={<NodeIcon className="h-8 w-8 text-muted-foreground" />}
       onBack={goBack}
       tabs={tabs}
       activeTab={activeTab}

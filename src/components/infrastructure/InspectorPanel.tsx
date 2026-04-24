@@ -327,6 +327,9 @@ export function InspectorPanel({
     );
   }, [allNodes, node]);
 
+  // Initialise form state ONLY when the selected node changes (by id).
+  // Depending on `node` or `node.data` would reset the form on every edit,
+  // which is the opposite of what the inspector should do.
   useEffect(() => {
     if (!node) {
       return;
@@ -350,6 +353,7 @@ export function InspectorPanel({
     } else {
       setPortsText("");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node?.id]);
 
   if (!node) {

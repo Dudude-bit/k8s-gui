@@ -66,10 +66,6 @@ export function StatefulSetDetail() {
     refetchInterval: REFRESH_INTERVALS.resourceList,
   });
 
-  if (!statefulSet && !isLoading && !error) {
-    return null;
-  }
-
   const isReady =
     statefulSet?.replicas.ready === statefulSet?.replicas.desired;
   const statusVariant = isReady ? "success" : "warning";
@@ -216,6 +212,10 @@ export function StatefulSetDetail() {
       ),
     },
   ], [statefulSet, pods, yaml, copyYaml, namespace, name]);
+
+  if (!statefulSet && !isLoading && !error) {
+    return null;
+  }
 
   return (
     <ResourceDetailLayout

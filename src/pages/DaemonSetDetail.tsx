@@ -66,10 +66,6 @@ export function DaemonSetDetail() {
     refetchInterval: REFRESH_INTERVALS.resourceList,
   });
 
-  if (!daemonSet && !isLoading && !error) {
-    return null;
-  }
-
   const isReady = daemonSet?.ready === daemonSet?.desired;
   const statusVariant = isReady ? "success" : "warning";
   const statusText = isReady ? "Ready" : "Updating";
@@ -205,6 +201,10 @@ export function DaemonSetDetail() {
       ),
     },
   ], [daemonSet, pods, yaml, copyYaml, namespace, name]);
+
+  if (!daemonSet && !isLoading && !error) {
+    return null;
+  }
 
   return (
     <ResourceDetailLayout
