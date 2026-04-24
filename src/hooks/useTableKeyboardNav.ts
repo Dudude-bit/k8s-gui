@@ -26,7 +26,7 @@ interface UseTableKeyboardNavOptions {
 
 interface UseTableKeyboardNavReturn {
   /** Ref for the table container */
-  containerRef: React.RefObject<HTMLDivElement>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
   /** Currently focused row index (-1 if none) */
   focusedRowIndex: number;
   /** Set focused row index */
