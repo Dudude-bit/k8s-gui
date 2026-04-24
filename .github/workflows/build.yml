@@ -29,13 +29,13 @@ jobs:
           # Re-enable after upstream fix or switching to self-hosted arm64 runner.
 
           - name: macos-arm64
-            os: [self-hosted, macOS, ARM64]
+            os: macos-latest
             artifact_name: k8s-gui-macos-arm64
             target: aarch64-apple-darwin
             is_macos: true
 
           - name: macos-x64
-            os: [self-hosted, macOS, ARM64]
+            os: macos-latest
             artifact_name: k8s-gui-macos-x64
             target: x86_64-apple-darwin
             is_macos: true
