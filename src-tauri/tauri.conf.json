@@ -33,7 +33,7 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
-    "targets": "all",
+    "targets": ["deb", "rpm", "app", "dmg", "nsis", "msi"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -77,7 +77,7 @@
       "open": true
     },
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJDQzVCRjcxMTNCRTdDNjIKUldSaWZMNFRjYi9GdktzRG55YVUxNlV3U0x3VkF1N25Xa2xERmJtZVdOSWxDMXhobFptbTlGcEIK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZBMEQxODgyNEUwRjVERTYKUldUbVhROU9naGdOK3RLdi9MTmdWRlNUR29Tc1RCNjVtWDFTRnBYc2I4ZHhJTUFWU2pkVUYwRHYK",
       "endpoints": [
         "https://github.com/Dudude-bit/k8s-gui/releases/latest/download/latest.json"
       ]
