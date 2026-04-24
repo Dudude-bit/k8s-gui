@@ -360,9 +360,7 @@ impl From<&Job> for JobDetailInfo {
             failed,
             active,
             status: job_status.to_string(),
-            start_time: status
-                .and_then(|s| s.start_time.as_ref())
-                .to_rfc3339_opt(),
+            start_time: status.and_then(|s| s.start_time.as_ref()).to_rfc3339_opt(),
             completion_time: status
                 .and_then(|s| s.completion_time.as_ref())
                 .to_rfc3339_opt(),
@@ -412,9 +410,7 @@ impl From<&CronJob> for CronJobInfo {
         Self {
             name: meta.name.clone().unwrap_or_default(),
             namespace: meta.namespace.clone().unwrap_or_default(),
-            schedule: spec
-                .map(|s| s.schedule.clone())
-                .unwrap_or_else(String::new),
+            schedule: spec.map(|s| s.schedule.clone()).unwrap_or_else(String::new),
             suspend: spec.and_then(|s| s.suspend).unwrap_or(false),
             active: status
                 .and_then(|s| s.active.as_ref())
@@ -472,9 +468,7 @@ impl From<&CronJob> for CronJobDetailInfo {
             name: cj.name_any(),
             namespace: cj.namespace().unwrap_or_default(),
             uid: cj.uid().unwrap_or_default(),
-            schedule: spec
-                .map(|s| s.schedule.clone())
-                .unwrap_or_else(String::new),
+            schedule: spec.map(|s| s.schedule.clone()).unwrap_or_else(String::new),
             timezone: spec.and_then(|s| s.time_zone.clone()),
             suspend: spec.and_then(|s| s.suspend).unwrap_or(false),
             concurrency_policy: spec.and_then(|s| s.concurrency_policy.clone()),

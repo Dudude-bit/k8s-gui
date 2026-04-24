@@ -167,17 +167,21 @@ struct HelmSecretChartMetadata {
 /// Decode Helm release from Kubernetes Secret data
 fn decode_helm_release(data: &[u8]) -> Result<HelmSecretRelease> {
     // Base64 decode
-    let compressed = STANDARD
-        .decode(data)
-        .map_err(|e| Error::Plugin(PluginError::ExecutionFailed(format!("Base64 decode error: {e}"))))?;
+    let compressed = STANDARD.decode(data).map_err(|e| {
+        Error::Plugin(PluginError::ExecutionFailed(format!(
+            "Base64 decode error: {e}"
+        )))
+    })?;
 
     // Check for gzip magic bytes and decompress
     let json_bytes = if compressed.len() >= 2 && compressed[0] == 0x1f && compressed[1] == 0x8b {
         let mut decoder = GzDecoder::new(&compressed[..]);
         let mut decompressed = Vec::new();
-        decoder
-            .read_to_end(&mut decompressed)
-            .map_err(|e| Error::Plugin(PluginError::ExecutionFailed(format!("Gzip decompress error: {e}"))))?;
+        decoder.read_to_end(&mut decompressed).map_err(|e| {
+            Error::Plugin(PluginError::ExecutionFailed(format!(
+                "Gzip decompress error: {e}"
+            )))
+        })?;
         decompressed
     } else {
         // Old format: not compressed
@@ -185,8 +189,11 @@ fn decode_helm_release(data: &[u8]) -> Result<HelmSecretRelease> {
     };
 
     // Parse JSON
-    serde_json::from_slice(&json_bytes)
-        .map_err(|e| Error::Plugin(PluginError::ExecutionFailed(format!("JSON parse error: {e}"))))
+    serde_json::from_slice(&json_bytes).map_err(|e| {
+        Error::Plugin(PluginError::ExecutionFailed(format!(
+            "JSON parse error: {e}"
+        )))
+    })
 }
 
 /// Check if Helm CLI is available
@@ -221,7 +228,7 @@ pub async fn list_helm_releases_native(
                 match decode_helm_release(&release_data.0) {
                     Ok(release) => {
                         let key = (release.namespace.clone(), release.name.clone());
-                        
+
                         // Keep only the latest revision for each release
                         let should_insert = releases_map
                             .get(&key)
@@ -372,10 +379,15 @@ async fn exec_helm_cli(args: &[&str], timeout_secs: u64) -> Result<String> {
 }
 
 /// Helper to execute helm CLI commands with optional kube context
-async fn exec_helm_cli_with_context(args: &[&str], timeout_secs: u64, context: Option<&str>) -> Result<String> {
+async fn exec_helm_cli_with_context(
+    args: &[&str],
+    timeout_secs: u64,
+    context: Option<&str>,
+) -> Result<String> {
     let manager = helm_manager().await;
     let mut cmd = manager.command().await?;
-    cmd = cmd.args(args.iter().map(|s| s.to_string()))
+    cmd = cmd
+        .args(args.iter().map(|s| s.to_string()))
         .timeout(Duration::from_secs(timeout_secs));
 
     if let Some(ctx) = context {
@@ -433,19 +445,19 @@ pub async fn helm_uninstall(
 #[tauri::command]
 pub async fn list_helm_repos() -> Result<Vec<HelmRepository>> {
     let output = exec_helm_cli(&["repo", "list", "-o", "json"], 30).await?;
-    
-    let repos: Vec<HelmRepository> = serde_json::from_str(&output)
-        .map_err(|e| Error::Plugin(PluginError::ExecutionFailed(format!("Failed to parse repos: {e}"))))?;
-    
+
+    let repos: Vec<HelmRepository> = serde_json::from_str(&output).map_err(|e| {
+        Error::Plugin(PluginError::ExecutionFailed(format!(
+            "Failed to parse repos: {e}"
+        )))
+    })?;
+
     Ok(repos)
 }
 
 /// Add Helm repository
 #[tauri::command]
-pub async fn add_helm_repo(
-    name: String,
-    url: String,
-) -> Result<String> {
+pub async fn add_helm_repo(name: String, url: String) -> Result<String> {
     exec_helm_cli(&["repo", "add", &name, &url], 60).await
 }
 
@@ -463,12 +475,10 @@ pub async fn update_helm_repos() -> Result<String> {
 
 /// Search for Helm charts in repositories
 #[tauri::command]
-pub async fn helm_search_charts(
-    keyword: String,
-) -> Result<Vec<HelmChartSearchResult>> {
+pub async fn helm_search_charts(keyword: String) -> Result<Vec<HelmChartSearchResult>> {
     // Search in all repos
     let output = exec_helm_cli(&["search", "repo", &keyword, "-o", "json"], 30).await?;
-    
+
     // Parse JSON output
     #[derive(Deserialize)]
     struct SearchResult {
@@ -477,16 +487,22 @@ pub async fn helm_search_charts(
         app_version: String,
         description: String,
     }
-    
-    let results: Vec<SearchResult> = serde_json::from_str(&output)
-        .map_err(|e| Error::Plugin(PluginError::ExecutionFailed(format!("Failed to parse search results: {e}"))))?;
-    
-    Ok(results.into_iter().map(|r| HelmChartSearchResult {
-        name: r.name,
-        version: r.version,
-        app_version: r.app_version,
-        description: r.description,
-    }).collect())
+
+    let results: Vec<SearchResult> = serde_json::from_str(&output).map_err(|e| {
+        Error::Plugin(PluginError::ExecutionFailed(format!(
+            "Failed to parse search results: {e}"
+        )))
+    })?;
+
+    Ok(results
+        .into_iter()
+        .map(|r| HelmChartSearchResult {
+            name: r.name,
+            version: r.version,
+            app_version: r.app_version,
+            description: r.description,
+        })
+        .collect())
 }
 
 /// Helper for install/upgrade operations
@@ -527,8 +543,11 @@ async fn helm_install_or_upgrade(
         if !values.trim().is_empty() {
             let temp_dir = std::env::temp_dir();
             let temp_path = temp_dir.join(format!("helm-values-{}.yaml", uuid::Uuid::new_v4()));
-            std::fs::write(&temp_path, values)
-                .map_err(|e| Error::Plugin(PluginError::ExecutionFailed(format!("Failed to write values file: {e}"))))?;
+            std::fs::write(&temp_path, values).map_err(|e| {
+                Error::Plugin(PluginError::ExecutionFailed(format!(
+                    "Failed to write values file: {e}"
+                )))
+            })?;
             args.push("-f".to_string());
             args.push(temp_path.to_string_lossy().to_string());
             Some(temp_path)

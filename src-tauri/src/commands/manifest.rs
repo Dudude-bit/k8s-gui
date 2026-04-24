@@ -248,8 +248,6 @@ pub async fn apply_manifest(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<ManifestResult> {
-
-
     let parsed_docs = match parse_all_documents(&manifest) {
         Ok(docs) => docs,
         Err(e) => return Ok(ManifestResult::error(e.to_string())),
@@ -292,8 +290,6 @@ pub async fn delete_manifest(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<ManifestResult> {
-
-
     let parsed_docs = match parse_all_documents(&manifest) {
         Ok(docs) => docs,
         Err(e) => return Ok(ManifestResult::error(e.to_string())),
@@ -361,8 +357,6 @@ pub async fn get_manifest(
     namespace: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String> {
-
-
     // Parse group and version from apiVersion
     let (group, version) = if api_version.contains('/') {
         let parts: Vec<&str> = api_version.splitn(2, '/').collect();
@@ -385,8 +379,7 @@ pub async fn get_manifest(
 
     let resource = api.get(&name).await?;
 
-    let yaml = serde_yaml::to_string(&resource)
-        .map_err(|e| Error::Serialization(e.to_string()))?;
+    let yaml = serde_yaml::to_string(&resource).map_err(|e| Error::Serialization(e.to_string()))?;
 
     crate::commands::helpers::clean_yaml_for_editor(&yaml)
 }
@@ -407,7 +400,7 @@ mod tests {
 
     #[test]
     fn test_split_yaml_documents() {
-                let yaml = r"
+        let yaml = r"
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -424,7 +417,7 @@ metadata:
 
     #[test]
     fn test_parse_manifest_document() {
-                let yaml = r"
+        let yaml = r"
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -441,7 +434,7 @@ data:
 
     #[test]
     fn test_parse_apps_api() {
-                let yaml = r"
+        let yaml = r"
 apiVersion: apps/v1
 kind: Deployment
 metadata:

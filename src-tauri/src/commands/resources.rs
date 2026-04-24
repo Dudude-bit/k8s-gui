@@ -49,10 +49,8 @@ pub async fn list_resources(
 
     let discovery = Discovery::new(ctx.client.clone()).run().await?;
 
-    let (api_resource, caps) =
-        resolve_api_resource(&discovery, &query.kind).ok_or_else(|| {
-            Error::InvalidInput(format!("Unsupported resource kind: {}", query.kind))
-        })?;
+    let (api_resource, caps) = resolve_api_resource(&discovery, &query.kind)
+        .ok_or_else(|| Error::InvalidInput(format!("Unsupported resource kind: {}", query.kind)))?;
 
     if !caps.supports_operation(verbs::LIST) {
         return Err(Error::InvalidInput(format!(

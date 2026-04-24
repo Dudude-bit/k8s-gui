@@ -245,7 +245,6 @@ pub struct CloudConfig {
     pub context_bindings: std::collections::HashMap<String, ContextBinding>,
 }
 
-
 /// CLI tools paths configuration
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -254,7 +253,11 @@ pub struct CliPathsConfig {
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "helm_path")]
     pub helm_path: Option<String>,
     /// Custom path to kubectl binary (if not in PATH)
-    #[serde(default, skip_serializing_if = "Option::is_none", alias = "kubectl_path")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        alias = "kubectl_path"
+    )]
     pub kubectl_path: Option<String>,
 }
 
@@ -288,10 +291,18 @@ pub struct PortForwardConfig {
 #[serde(rename_all = "camelCase")]
 pub struct ContextBinding {
     /// GCP profile name for this context (None = use ADC)
-    #[serde(default, skip_serializing_if = "Option::is_none", alias = "gcp_profile")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        alias = "gcp_profile"
+    )]
     pub gcp_profile: Option<String>,
     /// Azure profile name for this context (None = use default az login)
-    #[serde(default, skip_serializing_if = "Option::is_none", alias = "azure_profile")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        alias = "azure_profile"
+    )]
     pub azure_profile: Option<String>,
 }
 
@@ -304,13 +315,25 @@ pub struct GcpProfile {
     pub description: Option<String>,
     /// Path to service account JSON key file (optional)
     /// If not set, uses Application Default Credentials
-    #[serde(default, skip_serializing_if = "Option::is_none", alias = "service_account_key_path")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        alias = "service_account_key_path"
+    )]
     pub service_account_key_path: Option<String>,
     /// Custom path to gcloud CLI binary (for exec fallback)
-    #[serde(default, skip_serializing_if = "Option::is_none", alias = "gcloud_path")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        alias = "gcloud_path"
+    )]
     pub gcloud_path: Option<String>,
     /// Default GCP project ID
-    #[serde(default, skip_serializing_if = "Option::is_none", alias = "default_project")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        alias = "default_project"
+    )]
     pub default_project: Option<String>,
     /// Prefer native SDK auth over exec plugin
     #[serde(default = "default_true", alias = "prefer_native_auth")]
@@ -354,10 +377,18 @@ pub struct AzureProfile {
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "az_path")]
     pub az_path: Option<String>,
     /// Custom path to kubelogin binary (for exec fallback)
-    #[serde(default, skip_serializing_if = "Option::is_none", alias = "kubelogin_path")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        alias = "kubelogin_path"
+    )]
     pub kubelogin_path: Option<String>,
     /// Default Azure subscription ID
-    #[serde(default, skip_serializing_if = "Option::is_none", alias = "default_subscription")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        alias = "default_subscription"
+    )]
     pub default_subscription: Option<String>,
     /// Azure tenant ID
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "tenant_id")]
@@ -508,7 +539,7 @@ pub struct RegistryConfigEntry {
     /// AWS Region (for ECR)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub region: Option<String>,
-    
+
     // Credentials (merged from RegistryCredential)
     /// Auth type (none, basic, bearer)
     #[serde(default = "default_auth_type")]
@@ -660,7 +691,11 @@ impl Default for UpdaterConfig {
 #[serde(rename_all = "camelCase")]
 pub struct ClusterPreferences {
     /// Last selected context
-    #[serde(default, skip_serializing_if = "Option::is_none", alias = "last_context")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        alias = "last_context"
+    )]
     pub last_context: Option<String>,
     /// Namespace per context
     #[serde(default)]

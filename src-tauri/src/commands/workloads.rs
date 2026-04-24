@@ -172,4 +172,3 @@ pub async fn delete_cronjob(
     crate::validation::validate_dns_label(&name)?;
     crate::commands::helpers::delete_resource::<CronJob>(name, namespace, state, None).await
 }
-

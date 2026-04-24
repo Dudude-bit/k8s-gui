@@ -1,6 +1,9 @@
 //! Settings and configuration commands
 
-use crate::config::{AppConfig, GcpProfile, AzureProfile, ContextBinding, CliPathsConfig, RecentItem, ClusterPreferences};
+use crate::config::{
+    AppConfig, AzureProfile, CliPathsConfig, ClusterPreferences, ContextBinding, GcpProfile,
+    RecentItem,
+};
 use crate::error::Result;
 use serde::{Deserialize, Serialize};
 
@@ -98,9 +101,14 @@ pub struct GcpProfileInfo {
 #[tauri::command]
 pub fn list_gcp_profiles() -> Result<Vec<GcpProfileInfo>> {
     read_config(|config| {
-        config.cloud.gcp_profiles
+        config
+            .cloud
+            .gcp_profiles
             .iter()
-            .map(|(name, profile)| GcpProfileInfo { name: name.clone(), profile: profile.clone() })
+            .map(|(name, profile)| GcpProfileInfo {
+                name: name.clone(),
+                profile: profile.clone(),
+            })
             .collect()
     })
 }
@@ -115,7 +123,10 @@ pub fn get_gcp_profile(name: String) -> Result<Option<GcpProfile>> {
 #[tauri::command]
 pub fn save_gcp_profile(name: String, profile: GcpProfile) -> Result<()> {
     with_config(|config| {
-        config.cloud.gcp_profiles.insert(name, profile.clean_empty_strings());
+        config
+            .cloud
+            .gcp_profiles
+            .insert(name, profile.clean_empty_strings());
     })
 }
 
@@ -137,24 +148,28 @@ pub fn delete_gcp_profile(name: String) -> Result<()> {
 #[tauri::command]
 pub async fn test_gcp_profile(name: String) -> Result<String> {
     use crate::auth::{AuthProvider, GcpGkeAuth};
-    
+
     let config = AppConfig::load()?;
     let profile = config.cloud.gcp_profiles.get(&name);
-    
+
     let service_account_path = profile
         .and_then(|p| p.service_account_key_path.clone())
         .map(std::path::PathBuf::from);
-    
+
     let auth = GcpGkeAuth::new(service_account_path);
-    
+
     match auth.authenticate().await {
         Ok(result) => {
-            let expires = result.expires_at
+            let expires = result
+                .expires_at
                 .map(|t| t.format("%Y-%m-%d %H:%M:%S UTC").to_string())
                 .unwrap_or_else(|| "unknown".to_string());
-            Ok(format!("Authentication successful! Token expires: {}", expires))
+            Ok(format!(
+                "Authentication successful! Token expires: {}",
+                expires
+            ))
         }
-        Err(e) => Ok(format!("Authentication failed: {}", e))
+        Err(e) => Ok(format!("Authentication failed: {}", e)),
     }
 }
 
@@ -174,9 +189,14 @@ pub struct AzureProfileInfo {
 #[tauri::command]
 pub fn list_azure_profiles() -> Result<Vec<AzureProfileInfo>> {
     read_config(|config| {
-        config.cloud.azure_profiles
+        config
+            .cloud
+            .azure_profiles
             .iter()
-            .map(|(name, profile)| AzureProfileInfo { name: name.clone(), profile: profile.clone() })
+            .map(|(name, profile)| AzureProfileInfo {
+                name: name.clone(),
+                profile: profile.clone(),
+            })
             .collect()
     })
 }
@@ -191,7 +211,10 @@ pub fn get_azure_profile(name: String) -> Result<Option<AzureProfile>> {
 #[tauri::command]
 pub fn save_azure_profile(name: String, profile: AzureProfile) -> Result<()> {
     with_config(|config| {
-        config.cloud.azure_profiles.insert(name, profile.clean_empty_strings());
+        config
+            .cloud
+            .azure_profiles
+            .insert(name, profile.clean_empty_strings());
     })
 }
 
@@ -213,24 +236,28 @@ pub fn delete_azure_profile(name: String) -> Result<()> {
 #[tauri::command]
 pub async fn test_azure_profile(name: String) -> Result<String> {
     use crate::auth::{AuthProvider, AzureAksAuth};
-    
+
     let config = AppConfig::load()?;
     let profile = config.cloud.azure_profiles.get(&name);
-    
+
     let (use_cli_fallback, tenant_id) = profile
         .map(|p| (p.use_cli_fallback, p.tenant_id.clone()))
         .unwrap_or((false, None));
-    
+
     let auth = AzureAksAuth::new(use_cli_fallback, tenant_id);
-    
+
     match auth.authenticate().await {
         Ok(result) => {
-            let expires = result.expires_at
+            let expires = result
+                .expires_at
                 .map(|t| t.format("%Y-%m-%d %H:%M:%S UTC").to_string())
                 .unwrap_or_else(|| "unknown".to_string());
-            Ok(format!("Authentication successful! Token expires: {}", expires))
+            Ok(format!(
+                "Authentication successful! Token expires: {}",
+                expires
+            ))
         }
-        Err(e) => Ok(format!("Authentication failed: {}", e))
+        Err(e) => Ok(format!("Authentication failed: {}", e)),
     }
 }
 
@@ -251,7 +278,9 @@ pub struct ContextBindingInfo {
 #[tauri::command]
 pub fn list_context_bindings() -> Result<Vec<ContextBindingInfo>> {
     read_config(|config| {
-        config.cloud.context_bindings
+        config
+            .cloud
+            .context_bindings
             .iter()
             .map(|(context_name, binding)| ContextBindingInfo {
                 context_name: context_name.clone(),
@@ -266,7 +295,9 @@ pub fn list_context_bindings() -> Result<Vec<ContextBindingInfo>> {
 #[tauri::command]
 pub fn get_context_binding(context: String) -> Result<ContextBinding> {
     read_config(|config| {
-        config.cloud.context_bindings
+        config
+            .cloud
+            .context_bindings
             .get(&context)
             .cloned()
             .unwrap_or_default()
@@ -373,8 +404,7 @@ where
 // ============================================================================
 
 use crate::config::{
-    RegistryConfigEntry, YamlHistoryEntry,
-    InfrastructureBuilderState as ConfigBuilderState,
+    InfrastructureBuilderState as ConfigBuilderState, RegistryConfigEntry, YamlHistoryEntry,
 };
 
 /// Registry config info for frontend
@@ -408,7 +438,9 @@ pub struct RegistryConfigInfo {
 #[tauri::command]
 pub fn list_registry_configs() -> Result<Vec<RegistryConfigInfo>> {
     read_config(|config| {
-        config.registries.registries
+        config
+            .registries
+            .registries
             .iter()
             .map(|(id, entry)| RegistryConfigInfo {
                 id: id.clone(),
@@ -422,7 +454,7 @@ pub fn list_registry_configs() -> Result<Vec<RegistryConfigInfo>> {
                 auth_type: entry.auth_type.clone(),
                 username: entry.username.clone(),
                 password: None, // Don't expose password in list
-                token: None, // Don't expose token in list
+                token: None,    // Don't expose token in list
             })
             .collect()
     })
@@ -432,7 +464,7 @@ pub fn list_registry_configs() -> Result<Vec<RegistryConfigInfo>> {
 #[tauri::command]
 pub fn save_registry_config(id: String, config_entry: RegistryConfigInfo) -> Result<()> {
     let mut config = AppConfig::load()?;
-    
+
     // Preserve existing credentials if not provided
     let existing = config.registries.registries.get(&id);
     let (auth_type, username, password, token) = if config_entry.auth_type == "none" {
@@ -441,11 +473,17 @@ pub fn save_registry_config(id: String, config_entry: RegistryConfigInfo) -> Res
         (
             config_entry.auth_type,
             config_entry.username.filter(|s| !s.is_empty()),
-            config_entry.password.filter(|s| !s.is_empty()).or_else(|| existing.and_then(|e| e.password.clone())),
-            config_entry.token.filter(|s| !s.is_empty()).or_else(|| existing.and_then(|e| e.token.clone())),
+            config_entry
+                .password
+                .filter(|s| !s.is_empty())
+                .or_else(|| existing.and_then(|e| e.password.clone())),
+            config_entry
+                .token
+                .filter(|s| !s.is_empty())
+                .or_else(|| existing.and_then(|e| e.token.clone())),
         )
     };
-    
+
     let entry = RegistryConfigEntry {
         label: config_entry.label,
         provider: config_entry.provider,
@@ -459,7 +497,7 @@ pub fn save_registry_config(id: String, config_entry: RegistryConfigInfo) -> Res
         password,
         token,
     };
-    
+
     config.registries.registries.insert(id, entry);
     save_config(&config)
 }
@@ -516,13 +554,20 @@ pub struct YamlHistoryEntryDto {
 #[tauri::command]
 pub fn get_yaml_history(resource_key: String) -> Result<Vec<YamlHistoryEntryDto>> {
     read_config(|config| {
-        config.yaml_editor.history
+        config
+            .yaml_editor
+            .history
             .get(&resource_key)
-            .map(|entries| entries.iter().map(|e| YamlHistoryEntryDto {
-                timestamp: e.timestamp,
-                content: e.content.clone(),
-                label: e.label.clone(),
-            }).collect())
+            .map(|entries| {
+                entries
+                    .iter()
+                    .map(|e| YamlHistoryEntryDto {
+                        timestamp: e.timestamp,
+                        content: e.content.clone(),
+                        label: e.label.clone(),
+                    })
+                    .collect()
+            })
             .unwrap_or_default()
     })
 }
@@ -537,9 +582,7 @@ pub fn add_yaml_history_entry(resource_key: String, entry: YamlHistoryEntryDto) 
     };
 
     with_config(|config| {
-        let entries = config.yaml_editor.history
-            .entry(resource_key)
-            .or_default();
+        let entries = config.yaml_editor.history.entry(resource_key).or_default();
         // Add to front, limit to 20 entries
         entries.insert(0, history_entry);
         entries.truncate(20);
@@ -548,16 +591,22 @@ pub fn add_yaml_history_entry(resource_key: String, entry: YamlHistoryEntryDto) 
 
 /// Get all YAML history
 #[tauri::command]
-pub fn get_all_yaml_history() -> Result<std::collections::HashMap<String, Vec<YamlHistoryEntryDto>>> {
+pub fn get_all_yaml_history() -> Result<std::collections::HashMap<String, Vec<YamlHistoryEntryDto>>>
+{
     read_config(|config| {
-        config.yaml_editor.history
+        config
+            .yaml_editor
+            .history
             .iter()
             .map(|(k, v)| {
-                let entries = v.iter().map(|e| YamlHistoryEntryDto {
-                    timestamp: e.timestamp,
-                    content: e.content.clone(),
-                    label: e.label.clone(),
-                }).collect();
+                let entries = v
+                    .iter()
+                    .map(|e| YamlHistoryEntryDto {
+                        timestamp: e.timestamp,
+                        content: e.content.clone(),
+                        label: e.label.clone(),
+                    })
+                    .collect();
                 (k.clone(), entries)
             })
             .collect()
@@ -582,7 +631,9 @@ pub struct InfrastructureBuilderStateDto {
 #[tauri::command]
 pub fn get_infrastructure_state(context: String) -> Result<InfrastructureBuilderStateDto> {
     read_config(|config| {
-        let state = config.infrastructure_builder.contexts
+        let state = config
+            .infrastructure_builder
+            .contexts
             .get(&context)
             .cloned()
             .unwrap_or_default();
@@ -597,7 +648,10 @@ pub fn get_infrastructure_state(context: String) -> Result<InfrastructureBuilder
 
 /// Save infrastructure builder state for a context
 #[tauri::command]
-pub fn save_infrastructure_state(context: String, state: InfrastructureBuilderStateDto) -> Result<()> {
+pub fn save_infrastructure_state(
+    context: String,
+    state: InfrastructureBuilderStateDto,
+) -> Result<()> {
     let builder_state = ConfigBuilderState {
         nodes: state.nodes,
         edges: state.edges,
@@ -606,7 +660,10 @@ pub fn save_infrastructure_state(context: String, state: InfrastructureBuilderSt
     };
 
     with_config(|config| {
-        config.infrastructure_builder.contexts.insert(context, builder_state);
+        config
+            .infrastructure_builder
+            .contexts
+            .insert(context, builder_state);
     })
 }
 

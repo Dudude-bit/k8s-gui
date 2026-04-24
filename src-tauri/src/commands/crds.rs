@@ -312,7 +312,11 @@ fn dynamic_object_to_custom_resource_info(obj: &DynamicObject) -> CustomResource
         })
         .unwrap_or_default();
 
-    let spec = obj.data.get("spec").cloned().unwrap_or(serde_json::Value::Null);
+    let spec = obj
+        .data
+        .get("spec")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
     let status = obj.data.get("status").cloned();
 
     CustomResourceInfo {
@@ -361,7 +365,11 @@ fn dynamic_object_to_detail_info(obj: &DynamicObject) -> CustomResourceDetailInf
         })
         .unwrap_or_default();
 
-    let spec = obj.data.get("spec").cloned().unwrap_or(serde_json::Value::Null);
+    let spec = obj
+        .data
+        .get("spec")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
     let status = obj.data.get("status").cloned();
 
     CustomResourceDetailInfo {
@@ -400,15 +408,9 @@ fn dynamic_object_to_detail_info(obj: &DynamicObject) -> CustomResourceDetailInf
 
 /// List all CRDs, optionally grouped by API group
 #[tauri::command]
-pub async fn list_crds(
-    grouped: Option<bool>,
-    state: State<'_, AppState>,
-) -> Result<Vec<CrdGroup>> {
+pub async fn list_crds(grouped: Option<bool>, state: State<'_, AppState>) -> Result<Vec<CrdGroup>> {
     let list = crate::commands::helpers::list_cluster_resources::<CustomResourceDefinition>(
-        state,
-        None,
-        None,
-        None,
+        state, None, None, None,
     )
     .await?;
 
@@ -455,8 +457,7 @@ pub async fn get_crd_yaml(name: String, state: State<'_, AppState>) -> Result<St
     let api: Api<CustomResourceDefinition> = ctx.cluster_api();
     let crd = api.get(&name).await?;
 
-    let yaml =
-        serde_yaml::to_string(&crd).map_err(|e| Error::Serialization(e.to_string()))?;
+    let yaml = serde_yaml::to_string(&crd).map_err(|e| Error::Serialization(e.to_string()))?;
     crate::commands::helpers::clean_yaml_for_editor(&yaml)
 }
 

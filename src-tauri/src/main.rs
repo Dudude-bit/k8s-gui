@@ -5,9 +5,9 @@
     windows_subsystem = "windows"
 )]
 
+use k8s_gui_common::init_tracing;
 use k8s_gui_lib::{commands, shell, state::AppState};
 use tauri::{Emitter, Manager};
-use k8s_gui_common::init_tracing;
 
 fn main() {
     // Install rustls crypto provider before any TLS operations

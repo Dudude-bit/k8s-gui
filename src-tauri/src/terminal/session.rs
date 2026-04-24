@@ -37,9 +37,7 @@ pub struct TerminalSession {
 }
 
 impl TerminalSession {
-    pub(crate) fn new(
-        id: String,
-    ) -> (Self, mpsc::Receiver<TerminalInput>, oneshot::Receiver<()>) {
+    pub(crate) fn new(id: String) -> (Self, mpsc::Receiver<TerminalInput>, oneshot::Receiver<()>) {
         let (input_tx, input_rx) = mpsc::channel(100);
         let (cancel_tx, cancel_rx) = oneshot::channel();
         let state = Arc::new(RwLock::new(TerminalState::Idle));

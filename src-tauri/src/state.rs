@@ -110,7 +110,6 @@ pub struct Session {
     pub connected_at: chrono::DateTime<chrono::Utc>,
 }
 
-
 /// Port-forward session information
 #[derive(Debug, Clone)]
 pub struct PortForwardSession {

@@ -21,16 +21,12 @@ pub async fn get_pods_metrics(
 
 /// Get node metrics from Metrics API
 #[tauri::command]
-pub async fn get_nodes_metrics(
-    state: State<'_, AppState>,
-) -> Result<NodeMetricsResponse> {
+pub async fn get_nodes_metrics(state: State<'_, AppState>) -> Result<NodeMetricsResponse> {
     get_node_metrics(&state).await
 }
 
 /// Get aggregated cluster metrics
 #[tauri::command]
-pub async fn get_cluster_metrics(
-    state: State<'_, AppState>,
-) -> Result<ClusterMetricsResponse> {
+pub async fn get_cluster_metrics(state: State<'_, AppState>) -> Result<ClusterMetricsResponse> {
     fetch_cluster_metrics(&state).await
 }

@@ -54,7 +54,7 @@ impl PathResolver {
         {
             // Homebrew paths (macOS)
             paths.push(PathBuf::from(format!("/opt/homebrew/bin/{}", binary_name))); // ARM macOS
-            paths.push(PathBuf::from(format!("/usr/local/bin/{}", binary_name)));    // Intel macOS, Linux
+            paths.push(PathBuf::from(format!("/usr/local/bin/{}", binary_name))); // Intel macOS, Linux
 
             // System paths
             paths.push(PathBuf::from(format!("/usr/bin/{}", binary_name)));
@@ -80,8 +80,14 @@ impl PathResolver {
         {
             // Windows common paths
             if let Some(home) = dirs::home_dir() {
-                paths.push(home.join(".cargo\\bin").join(format!("{}.exe", binary_name)));
-                paths.push(home.join("scoop\\shims").join(format!("{}.exe", binary_name)));
+                paths.push(
+                    home.join(".cargo\\bin")
+                        .join(format!("{}.exe", binary_name)),
+                );
+                paths.push(
+                    home.join("scoop\\shims")
+                        .join(format!("{}.exe", binary_name)),
+                );
             }
             if let Ok(program_files) = std::env::var("ProgramFiles") {
                 paths.push(PathBuf::from(program_files).join(format!("{}.exe", binary_name)));
@@ -159,7 +165,7 @@ impl PathResolver {
         {
             // Homebrew paths (macOS)
             paths.push(PathBuf::from("/opt/homebrew/bin")); // ARM macOS
-            paths.push(PathBuf::from("/usr/local/bin"));    // Intel macOS, Linux
+            paths.push(PathBuf::from("/usr/local/bin")); // Intel macOS, Linux
 
             // System paths
             paths.push(PathBuf::from("/usr/bin"));
@@ -225,7 +231,8 @@ mod tests {
     #[test]
     fn test_search_paths_includes_common_locations() {
         let paths = PathResolver::search_paths("kubectl");
-        let path_strs: Vec<String> = paths.iter()
+        let path_strs: Vec<String> = paths
+            .iter()
             .map(|p| p.to_string_lossy().to_string())
             .collect();
 
@@ -243,18 +250,15 @@ mod tests {
     #[test]
     fn test_search_paths_uses_exe_extension() {
         let paths = PathResolver::search_paths("kubectl");
-        let has_exe = paths.iter().any(|p| {
-            p.to_string_lossy().ends_with(".exe") || p == &PathBuf::from("kubectl")
-        });
+        let has_exe = paths
+            .iter()
+            .any(|p| p.to_string_lossy().ends_with(".exe") || p == &PathBuf::from("kubectl"));
         assert!(has_exe, "Windows paths should use .exe extension");
     }
 
     #[test]
     fn test_merge_paths_removes_duplicates() {
-        let fallback = vec![
-            PathBuf::from("/usr/bin"),
-            PathBuf::from("/usr/local/bin"),
-        ];
+        let fallback = vec![PathBuf::from("/usr/bin"), PathBuf::from("/usr/local/bin")];
 
         #[cfg(not(windows))]
         let shell_path = Some("/usr/bin:/opt/bin");
@@ -280,10 +284,7 @@ mod tests {
 
     #[test]
     fn test_merge_paths_prioritizes_shell_path() {
-        let fallback = vec![
-            PathBuf::from("/fallback1"),
-            PathBuf::from("/fallback2"),
-        ];
+        let fallback = vec![PathBuf::from("/fallback1"), PathBuf::from("/fallback2")];
 
         #[cfg(not(windows))]
         let shell_path = Some("/shell1:/shell2");
@@ -311,10 +312,7 @@ mod tests {
 
     #[test]
     fn test_merge_paths_with_none_shell_path() {
-        let fallback = vec![
-            PathBuf::from("/usr/bin"),
-            PathBuf::from("/usr/local/bin"),
-        ];
+        let fallback = vec![PathBuf::from("/usr/bin"), PathBuf::from("/usr/local/bin")];
 
         let merged = PathResolver::merge_paths(None, &fallback);
         assert!(!merged.is_empty(), "Should still include fallback paths");
@@ -326,14 +324,18 @@ mod tests {
     #[test]
     fn test_fallback_directories_not_empty() {
         let dirs = PathResolver::fallback_directories();
-        assert!(!dirs.is_empty(), "Should return at least one fallback directory");
+        assert!(
+            !dirs.is_empty(),
+            "Should return at least one fallback directory"
+        );
     }
 
     #[cfg(not(windows))]
     #[test]
     fn test_fallback_directories_includes_system_paths() {
         let dirs = PathResolver::fallback_directories();
-        let dir_strs: Vec<String> = dirs.iter()
+        let dir_strs: Vec<String> = dirs
+            .iter()
             .map(|d| d.to_string_lossy().to_string())
             .collect();
 

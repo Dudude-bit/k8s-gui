@@ -231,7 +231,6 @@ impl K8sClientManager {
             git_version: version.git_version,
         })
     }
-
 }
 
 impl Default for K8sClientManager {

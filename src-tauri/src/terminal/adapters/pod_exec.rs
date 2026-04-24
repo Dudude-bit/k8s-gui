@@ -53,8 +53,8 @@ impl TerminalAdapter for PodExecAdapter {
         let attach_params = AttachParams::default()
             .stdin(true)
             .stdout(true)
-            .stderr(false)  // MUST be false when tty=true (Kubernetes API requirement)
-            .tty(true)      // CRITICAL: TTY must be true for interactive shells
+            .stderr(false) // MUST be false when tty=true (Kubernetes API requirement)
+            .tty(true) // CRITICAL: TTY must be true for interactive shells
             .container(&self.container);
 
         let mut attached = api
@@ -65,8 +65,12 @@ impl TerminalAdapter for PodExecAdapter {
         // Extract stdin and stdout writers/readers once and store them
         // This is critical - kube-rs AttachedProcess.stdin()/stdout() consume the values via .take()
         // We must call these methods ONCE and store the results
-        self.stdin_writer = attached.stdin().map(|w| Box::new(w) as Box<dyn AsyncWrite + Unpin + Send + Sync>);
-        self.stdout_reader = attached.stdout().map(|r| Box::new(r) as Box<dyn AsyncRead + Unpin + Send + Sync>);
+        self.stdin_writer = attached
+            .stdin()
+            .map(|w| Box::new(w) as Box<dyn AsyncWrite + Unpin + Send + Sync>);
+        self.stdout_reader = attached
+            .stdout()
+            .map(|r| Box::new(r) as Box<dyn AsyncRead + Unpin + Send + Sync>);
 
         self.attached = Some(attached);
         Ok(())
@@ -80,10 +84,9 @@ impl TerminalAdapter for PodExecAdapter {
         // With tty=true, all output comes through stdout (PTY behavior)
         // stderr is not used when TTY is enabled
         if let Some(stdout) = &mut self.stdout_reader {
-            match tokio::time::timeout(
-                std::time::Duration::from_millis(10),
-                stdout.read(&mut buf)
-            ).await {
+            match tokio::time::timeout(std::time::Duration::from_millis(10), stdout.read(&mut buf))
+                .await
+            {
                 Ok(Ok(0)) => {
                     // EOF - connection closed
                     Ok(None)
@@ -109,24 +112,24 @@ impl TerminalAdapter for PodExecAdapter {
     async fn write_input(&mut self, data: &[u8]) -> Result<()> {
         use tokio::io::AsyncWriteExt;
 
-        let stdin = self.stdin_writer.as_mut()
-            .ok_or_else(|| {
-                tracing::error!("PodExec: write_input called but stdin not available");
-                crate::error::Error::Terminal("stdin not available".to_string())
-            })?;
+        let stdin = self.stdin_writer.as_mut().ok_or_else(|| {
+            tracing::error!("PodExec: write_input called but stdin not available");
+            crate::error::Error::Terminal("stdin not available".to_string())
+        })?;
 
         tracing::debug!("PodExec: writing {} bytes to stdin", data.len());
-        stdin.write_all(data).await
-            .map_err(|e| {
-                tracing::error!("PodExec: write_all failed: {}", e);
-                crate::error::Error::Terminal(format!("Write failed: {e}"))
-            })?;
-        stdin.flush().await
-            .map_err(|e| {
-                tracing::error!("PodExec: flush failed: {}", e);
-                crate::error::Error::Terminal(format!("Flush failed: {e}"))
-            })?;
-        tracing::debug!("PodExec: successfully wrote and flushed {} bytes", data.len());
+        stdin.write_all(data).await.map_err(|e| {
+            tracing::error!("PodExec: write_all failed: {}", e);
+            crate::error::Error::Terminal(format!("Write failed: {e}"))
+        })?;
+        stdin.flush().await.map_err(|e| {
+            tracing::error!("PodExec: flush failed: {}", e);
+            crate::error::Error::Terminal(format!("Flush failed: {e}"))
+        })?;
+        tracing::debug!(
+            "PodExec: successfully wrote and flushed {} bytes",
+            data.len()
+        );
         Ok(())
     }
 

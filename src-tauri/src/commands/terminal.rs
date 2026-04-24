@@ -35,7 +35,10 @@ pub async fn terminal_resize(
     rows: u16,
     state: State<'_, AppState>,
 ) -> Result<()> {
-    state.terminal_manager.resize_session(&session_id, cols, rows).await
+    state
+        .terminal_manager
+        .resize_session(&session_id, cols, rows)
+        .await
 }
 
 /// Close terminal session
@@ -82,15 +85,13 @@ pub async fn open_pod_shell(
         ]
     };
 
-    let adapter = crate::terminal::PodExecAdapter::new(
-        client,
-        namespace,
-        pod,
-        container_name,
-        shell_command,
-    );
+    let adapter =
+        crate::terminal::PodExecAdapter::new(client, namespace, pod, container_name, shell_command);
 
-    let session_id = state.terminal_manager.create_session(Box::new(adapter)).await?;
+    let session_id = state
+        .terminal_manager
+        .create_session(Box::new(adapter))
+        .await?;
 
     Ok(session_id)
 }
@@ -104,5 +105,8 @@ pub async fn open_process_shell(
     state: State<'_, AppState>,
 ) -> Result<String> {
     let adapter = crate::terminal::LocalProcessAdapter::new(command, args, env);
-    state.terminal_manager.create_session(Box::new(adapter)).await
+    state
+        .terminal_manager
+        .create_session(Box::new(adapter))
+        .await
 }

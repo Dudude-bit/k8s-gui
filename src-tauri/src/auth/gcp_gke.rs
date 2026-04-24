@@ -50,7 +50,7 @@ impl GcpGkeAuth {
     /// Get an access token using gcp_auth
     async fn get_token(&self) -> Result<(String, Option<chrono::DateTime<chrono::Utc>>)> {
         let provider = self.create_auth_provider().await?;
-        
+
         let scopes: Vec<&str> = self.scopes.iter().map(String::as_str).collect();
         let token = provider.token(&scopes).await.map_err(|e| {
             Error::Auth(AuthError::GcpAuth(format!(
@@ -81,8 +81,8 @@ impl GcpGkeAuth {
                 )))
             })?;
 
-            let service_account = gcp_auth::CustomServiceAccount::from_json(&key_json)
-                .map_err(|e| {
+            let service_account =
+                gcp_auth::CustomServiceAccount::from_json(&key_json).map_err(|e| {
                     Error::Auth(AuthError::GcpAuth(format!(
                         "Invalid service account key file: {e}"
                     )))

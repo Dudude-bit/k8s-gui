@@ -244,7 +244,10 @@ mod tests {
         assert_eq!(tool.name(), "gcloud");
         assert_eq!(tool.binary_name(), "gcloud");
         assert!(!tool.search_paths().is_empty());
-        assert_eq!(tool.version_args(), vec!["version", "--format=value(version)"]);
+        assert_eq!(
+            tool.version_args(),
+            vec!["version", "--format=value(version)"]
+        );
     }
 
     #[test]

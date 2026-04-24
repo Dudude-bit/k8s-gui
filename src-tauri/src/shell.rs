@@ -77,10 +77,7 @@ pub enum ShellError {
     Exec(String),
 
     #[error("Command failed with exit code {code:?}: {stderr}")]
-    Failed {
-        code: Option<i32>,
-        stderr: String,
-    },
+    Failed { code: Option<i32>, stderr: String },
 }
 
 pub type Result<T> = std::result::Result<T, ShellError>;
@@ -137,7 +134,8 @@ impl ShellCommand {
         I: IntoIterator<Item = S>,
         S: AsRef<OsStr>,
     {
-        self.args.extend(args.into_iter().map(|s| s.as_ref().to_owned()));
+        self.args
+            .extend(args.into_iter().map(|s| s.as_ref().to_owned()));
         self
     }
 
@@ -221,7 +219,7 @@ fn build_fallback_path() -> String {
     {
         // Homebrew paths (macOS)
         paths.push(PathBuf::from("/opt/homebrew/bin")); // ARM macOS
-        paths.push(PathBuf::from("/usr/local/bin"));    // Intel macOS, Linux
+        paths.push(PathBuf::from("/usr/local/bin")); // Intel macOS, Linux
 
         // System paths
         paths.push(PathBuf::from("/usr/bin"));
@@ -337,7 +335,10 @@ mod tests {
     #[test]
     fn test_fallback_path_contains_homebrew_arm() {
         let path = build_fallback_path();
-        assert!(path.contains("/opt/homebrew/bin"), "Missing /opt/homebrew/bin on ARM");
+        assert!(
+            path.contains("/opt/homebrew/bin"),
+            "Missing /opt/homebrew/bin on ARM"
+        );
     }
 
     #[cfg(windows)]
@@ -345,8 +346,10 @@ mod tests {
     fn test_fallback_path_contains_windows_paths() {
         let path = build_fallback_path();
         // On Windows, should use semicolon separator and include current PATH
-        assert!(path.contains(';') || path.is_empty() || !path.contains(':'),
-                "Windows PATH should use semicolon separator");
+        assert!(
+            path.contains(';') || path.is_empty() || !path.contains(':'),
+            "Windows PATH should use semicolon separator"
+        );
     }
 
     #[tokio::test]
@@ -357,7 +360,10 @@ mod tests {
         if let Some(p) = path {
             assert!(!p.is_empty(), "PATH should not be empty");
             let separator = if cfg!(windows) { ';' } else { ':' };
-            assert!(p.contains(separator), "PATH should contain multiple entries");
+            assert!(
+                p.contains(separator),
+                "PATH should contain multiple entries"
+            );
         }
     }
 
@@ -398,7 +404,14 @@ mod tests {
             .timeout(Duration::from_secs(60));
 
         assert_eq!(cmd.program, OsString::from("echo"));
-        assert_eq!(cmd.args, vec![OsString::from("hello"), OsString::from("world"), OsString::from("!")]);
+        assert_eq!(
+            cmd.args,
+            vec![
+                OsString::from("hello"),
+                OsString::from("world"),
+                OsString::from("!")
+            ]
+        );
         assert_eq!(cmd.envs.get("FOO"), Some(&"bar".to_string()));
         assert_eq!(cmd.timeout, Duration::from_secs(60));
     }

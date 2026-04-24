@@ -1,16 +1,16 @@
 //! Helper functions for Tauri commands
 
-use crate::error::{Error, Result};
 use crate::commands::filters::ResourceFilters;
+use crate::error::{Error, Result};
 use crate::state::AppState;
-use std::collections::BTreeMap;
 use crate::utils::normalize_optional_namespace;
-use kube::api::DynamicObject;
 use kube::api::DeleteParams;
+use kube::api::DynamicObject;
 use kube::api::ListParams;
 use kube::discovery::{ApiCapabilities, ApiResource, Scope};
 use kube::Resource;
 use kube::{Api, Client};
+use std::collections::BTreeMap;
 use tauri::State;
 
 /// Build `ListParams` from optional selectors and limit
@@ -122,10 +122,7 @@ impl ResourceContext {
     }
 
     /// For list commands without Tauri state - namespace is optional (None = all namespaces)
-    pub fn for_list_from_app_state(
-        state: &AppState,
-        namespace: Option<String>,
-    ) -> Result<Self> {
+    pub fn for_list_from_app_state(state: &AppState, namespace: Option<String>) -> Result<Self> {
         Self::from_app_state(state, namespace, false)
     }
 
@@ -196,8 +193,6 @@ impl ResourceContext {
     }
 }
 
-
-
 // =============================================================================
 // Namespaced Resource Helpers
 // =============================================================================
@@ -216,7 +211,10 @@ where
     K::DynamicType: Default,
 {
     let ctx = ResourceContext::for_command(&state, namespace)?;
-    ctx.namespaced_api::<K>().get(&name).await.map_err(Error::from)
+    ctx.namespaced_api::<K>()
+        .get(&name)
+        .await
+        .map_err(Error::from)
 }
 
 /// Delete a namespaced resource
@@ -256,7 +254,10 @@ where
 {
     let ctx = ResourceContext::for_list(&state, namespace)?;
     let params = build_list_params(label_selector, field_selector, limit);
-    ctx.namespaced_or_cluster_api::<K>().list(&params).await.map_err(Error::from)
+    ctx.namespaced_or_cluster_api::<K>()
+        .list(&params)
+        .await
+        .map_err(Error::from)
 }
 
 /// List namespaced resources and map into info types.
@@ -308,10 +309,7 @@ where
 // =============================================================================
 
 /// Get a single cluster-scoped resource
-pub async fn get_cluster_resource<K>(
-    name: String,
-    state: State<'_, AppState>,
-) -> Result<K>
+pub async fn get_cluster_resource<K>(name: String, state: State<'_, AppState>) -> Result<K>
 where
     K: kube::Resource<Scope = k8s_openapi::ClusterResourceScope>
         + Clone
@@ -358,7 +356,10 @@ where
 {
     let ctx = ResourceContext::for_list(&state, None)?;
     let params = build_list_params(label_selector, field_selector, limit);
-    ctx.cluster_api::<K>().list(&params).await.map_err(Error::from)
+    ctx.cluster_api::<K>()
+        .list(&params)
+        .await
+        .map_err(Error::from)
 }
 
 /// List cluster-scoped resources and map into info types.

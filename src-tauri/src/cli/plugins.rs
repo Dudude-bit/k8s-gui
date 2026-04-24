@@ -270,9 +270,7 @@ mod tests {
         let prefix = "kubectl-";
         let filename = "kubectl-oidc_login";
 
-        let plugin_name = filename
-            .trim_start_matches(prefix)
-            .replace('_', "-");
+        let plugin_name = filename.trim_start_matches(prefix).replace('_', "-");
 
         assert_eq!(plugin_name, "oidc-login");
     }

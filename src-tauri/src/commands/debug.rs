@@ -215,7 +215,9 @@ pub async fn debug_pod_ephemeral(
         timeout_seconds,
     };
 
-    state.debug_operations.insert(operation_id, operation.clone());
+    state
+        .debug_operations
+        .insert(operation_id, operation.clone());
 
     Ok(operation)
 }
@@ -290,14 +292,8 @@ pub async fn debug_pod_copy(
     // Create labels for the debug pod
     let mut labels = BTreeMap::new();
     labels.insert("k8s-gui/debug-pod".to_string(), "true".to_string());
-    labels.insert(
-        "k8s-gui/debug-source".to_string(),
-        pod_name.clone(),
-    );
-    labels.insert(
-        "k8s-gui/created-at".to_string(),
-        created_at.to_string(),
-    );
+    labels.insert("k8s-gui/debug-source".to_string(), pod_name.clone());
+    labels.insert("k8s-gui/created-at".to_string(), created_at.to_string());
 
     // Create the debug pod
     let debug_pod = Pod {
@@ -329,7 +325,9 @@ pub async fn debug_pod_copy(
         timeout_seconds,
     };
 
-    state.debug_operations.insert(operation_id, operation.clone());
+    state
+        .debug_operations
+        .insert(operation_id, operation.clone());
 
     Ok(operation)
 }
@@ -352,7 +350,9 @@ pub async fn debug_node(
     let container_name = "debugger".to_string();
 
     // Build command - default to shell if not specified
-    let command = config.command.unwrap_or_else(|| vec!["/bin/sh".to_string()]);
+    let command = config
+        .command
+        .unwrap_or_else(|| vec!["/bin/sh".to_string()]);
 
     // Get current timestamp for labels and operation tracking
     let created_at = SystemTime::now()
@@ -364,10 +364,7 @@ pub async fn debug_node(
     let mut labels = BTreeMap::new();
     labels.insert("k8s-gui/debug-pod".to_string(), "true".to_string());
     labels.insert("k8s-gui/debug-node".to_string(), node_name.clone());
-    labels.insert(
-        "k8s-gui/created-at".to_string(),
-        created_at.to_string(),
-    );
+    labels.insert("k8s-gui/created-at".to_string(), created_at.to_string());
 
     // Create the privileged debug pod
     let debug_pod = Pod {
@@ -438,7 +435,9 @@ pub async fn debug_node(
         timeout_seconds,
     };
 
-    state.debug_operations.insert(operation_id, operation.clone());
+    state
+        .debug_operations
+        .insert(operation_id, operation.clone());
 
     Ok(operation)
 }
@@ -481,8 +480,7 @@ pub async fn list_debug_pods(
     let ctx = ResourceContext::for_list(&state, namespace)?;
     let api: Api<Pod> = ctx.namespaced_or_cluster_api();
 
-    let list_params = kube::api::ListParams::default()
-        .labels("k8s-gui/debug-pod=true");
+    let list_params = kube::api::ListParams::default().labels("k8s-gui/debug-pod=true");
 
     let pods = api.list(&list_params).await?;
 
@@ -491,7 +489,11 @@ pub async fn list_debug_pods(
         .iter()
         .filter_map(|pod| {
             let name = pod.metadata.name.clone()?;
-            let ns = pod.metadata.namespace.clone().unwrap_or_else(|| "default".to_string());
+            let ns = pod
+                .metadata
+                .namespace
+                .clone()
+                .unwrap_or_else(|| "default".to_string());
             let labels = pod.metadata.labels.clone().unwrap_or_default();
 
             // Find the debugger container name

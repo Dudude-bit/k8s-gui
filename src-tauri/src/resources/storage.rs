@@ -154,7 +154,10 @@ impl From<&StorageClass> for StorageClassInfo {
         Self {
             name: sc.name_any(),
             provisioner: sc.provisioner.clone(),
-            reclaim_policy: sc.reclaim_policy.clone().unwrap_or_else(|| "Delete".to_string()),
+            reclaim_policy: sc
+                .reclaim_policy
+                .clone()
+                .unwrap_or_else(|| "Delete".to_string()),
             volume_binding_mode: sc
                 .volume_binding_mode
                 .clone()

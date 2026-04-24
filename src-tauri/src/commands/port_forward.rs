@@ -128,11 +128,7 @@ fn map_config(config: &StoredPortForwardConfig) -> PortForwardConfigInfo {
 fn config_key(config: &StoredPortForwardConfig) -> String {
     format!(
         "{}:{}:{}:{}:{}",
-        config.context,
-        config.namespace,
-        config.pod,
-        config.local_port,
-        config.remote_port
+        config.context, config.namespace, config.pod, config.local_port, config.remote_port
     )
 }
 
@@ -180,8 +176,15 @@ async fn forward_connection(
             Ok(mut portforwarder) => {
                 if attempt > 0 {
                     emit_port_forward_status(
-                        &event_tx, &session_id, &pod, &namespace,
-                        local_port, remote_port, "reconnected", None, Some(attempt),
+                        &event_tx,
+                        &session_id,
+                        &pod,
+                        &namespace,
+                        local_port,
+                        remote_port,
+                        "reconnected",
+                        None,
+                        Some(attempt),
                     );
                 }
 
@@ -190,9 +193,15 @@ async fn forward_connection(
                         tokio::io::copy_bidirectional(&mut local_stream, &mut remote_stream).await;
                 } else {
                     emit_port_forward_status(
-                        &event_tx, &session_id, &pod, &namespace,
-                        local_port, remote_port, "error",
-                        Some("Failed to open port forward stream".to_string()), None,
+                        &event_tx,
+                        &session_id,
+                        &pod,
+                        &namespace,
+                        local_port,
+                        remote_port,
+                        "error",
+                        Some("Failed to open port forward stream".to_string()),
+                        None,
                     );
                 }
 
@@ -201,9 +210,15 @@ async fn forward_connection(
             Err(err) => {
                 if !auto_reconnect {
                     emit_port_forward_status(
-                        &event_tx, &session_id, &pod, &namespace,
-                        local_port, remote_port, "error",
-                        Some(format!("Port-forward failed: {err}")), None,
+                        &event_tx,
+                        &session_id,
+                        &pod,
+                        &namespace,
+                        local_port,
+                        remote_port,
+                        "error",
+                        Some(format!("Port-forward failed: {err}")),
+                        None,
                     );
                     break;
                 }
@@ -211,9 +226,15 @@ async fn forward_connection(
                 attempt += 1;
                 let backoff = Duration::from_secs(u64::from(attempt).min(10));
                 emit_port_forward_status(
-                    &event_tx, &session_id, &pod, &namespace,
-                    local_port, remote_port, "reconnecting",
-                    Some(format!("Retry in {}s", backoff.as_secs())), Some(attempt),
+                    &event_tx,
+                    &session_id,
+                    &pod,
+                    &namespace,
+                    local_port,
+                    remote_port,
+                    "reconnecting",
+                    Some(format!("Retry in {}s", backoff.as_secs())),
+                    Some(attempt),
                 );
                 sleep(backoff).await;
             }
@@ -249,10 +270,7 @@ pub async fn port_forward_pod(
     let listener = TcpListener::bind(("127.0.0.1", config.local_port))
         .await
         .map_err(|e| {
-            Error::Connection(format!(
-                "Failed to bind port {}: {e}",
-                config.local_port
-            ))
+            Error::Connection(format!("Failed to bind port {}: {e}", config.local_port))
         })?;
 
     let session_id = crate::utils::generate_id("pf");
@@ -291,9 +309,17 @@ pub async fn port_forward_pod(
 
     tokio::spawn(async move {
         emit_port_forward_status(
-            &event_tx, &session_id_for_task, &pod_for_task, &namespace_for_task,
-            local_port, remote_port, "listening",
-            Some(format!("127.0.0.1:{local_port} -> {pod_for_task}:{remote_port}")), None,
+            &event_tx,
+            &session_id_for_task,
+            &pod_for_task,
+            &namespace_for_task,
+            local_port,
+            remote_port,
+            "listening",
+            Some(format!(
+                "127.0.0.1:{local_port} -> {pod_for_task}:{remote_port}"
+            )),
+            None,
         );
 
         loop {
@@ -341,8 +367,15 @@ pub async fn port_forward_pod(
         sessions.remove(&session_id_for_task);
 
         emit_port_forward_status(
-            &event_tx, &session_id_for_task, &pod_for_task, &namespace_for_task,
-            local_port, remote_port, "stopped", None, None,
+            &event_tx,
+            &session_id_for_task,
+            &pod_for_task,
+            &namespace_for_task,
+            local_port,
+            remote_port,
+            "stopped",
+            None,
+            None,
         );
     });
 
@@ -360,10 +393,7 @@ pub async fn port_forward_pod(
 
 /// Stop a running port-forward session
 #[tauri::command]
-pub fn stop_port_forward(
-    forward_id: String,
-    state: State<'_, AppState>,
-) -> Result<()> {
+pub fn stop_port_forward(forward_id: String, state: State<'_, AppState>) -> Result<()> {
     // Remove from both maps atomically to avoid race conditions
     // The background task will also try to remove, but that's fine (no-op if already removed)
     state.port_forward_sessions.remove(&forward_id);
@@ -376,9 +406,7 @@ pub fn stop_port_forward(
 
 /// List active port-forward sessions
 #[tauri::command]
-pub fn list_port_forwards(
-    state: State<'_, AppState>,
-) -> Result<Vec<PortForwardSessionInfo>> {
+pub fn list_port_forwards(state: State<'_, AppState>) -> Result<Vec<PortForwardSessionInfo>> {
     let sessions = state
         .port_forward_sessions
         .iter()
@@ -404,12 +432,7 @@ pub fn list_port_forwards(
 #[tauri::command]
 pub fn list_port_forward_configs() -> Result<Vec<PortForwardConfigInfo>> {
     let config = AppConfig::load()?;
-    Ok(config
-        .port_forward
-        .configs
-        .iter()
-        .map(map_config)
-        .collect())
+    Ok(config.port_forward.configs.iter().map(map_config).collect())
 }
 
 /// Create a saved port-forward config
@@ -479,7 +502,9 @@ pub fn delete_port_forward_config(id: String) -> Result<()> {
     let before = app_config.port_forward.configs.len();
     app_config.port_forward.configs.retain(|item| item.id != id);
     if before == app_config.port_forward.configs.len() {
-        return Err(Error::InvalidInput("Port-forward config not found".to_string()));
+        return Err(Error::InvalidInput(
+            "Port-forward config not found".to_string(),
+        ));
     }
     save_config(&app_config)?;
     Ok(())

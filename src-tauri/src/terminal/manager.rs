@@ -21,7 +21,6 @@ impl TerminalManager {
         }
     }
 
-    
     /// Get a session by ID
     pub fn get_session(
         &self,
@@ -29,24 +28,24 @@ impl TerminalManager {
     ) -> Option<dashmap::mapref::one::Ref<'_, String, TerminalSession>> {
         self.sessions.get(id)
     }
-    
+
     /// Send input to a session
     pub async fn send_input(&self, id: &str, data: &str) -> Result<()> {
         if let Some(session) = self.sessions.get(id) {
             session.send(data).await?;
             Ok(())
         } else {
-             Err(Error::Terminal(format!("Session {id} not found")))
+            Err(Error::Terminal(format!("Session {id} not found")))
         }
     }
-    
+
     /// Resize a session
     pub async fn resize_session(&self, id: &str, width: u16, height: u16) -> Result<()> {
-         if let Some(session) = self.sessions.get(id) {
+        if let Some(session) = self.sessions.get(id) {
             session.resize(width, height).await?;
             Ok(())
         } else {
-             Err(Error::Terminal(format!("Session {id} not found")))
+            Err(Error::Terminal(format!("Session {id} not found")))
         }
     }
 
@@ -78,8 +77,7 @@ impl TerminalManager {
         mut adapter: Box<dyn crate::terminal::TerminalAdapter>,
     ) -> Result<String> {
         let session_id = uuid::Uuid::new_v4().to_string();
-        let (session, mut input_rx, mut cancel_rx) =
-            TerminalSession::new(session_id.clone());
+        let (session, mut input_rx, mut cancel_rx) = TerminalSession::new(session_id.clone());
 
         let event_tx = self.event_tx.clone();
         let session_state = session.state.clone();

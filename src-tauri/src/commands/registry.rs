@@ -182,7 +182,7 @@ fn load_saved_auth(registry_id: &str) -> Result<Option<RegistryAuth>> {
 
 fn save_registry_auth(registry_id: &str, auth: &RegistryAuth) -> Result<()> {
     let mut config = AppConfig::load()?;
-    
+
     if let Some(entry) = config.registries.registries.get_mut(registry_id) {
         // Update existing entry
         entry.auth_type = auth.auth_type.clone();
@@ -210,13 +210,13 @@ fn save_registry_auth(registry_id: &str, auth: &RegistryAuth) -> Result<()> {
             },
         );
     }
-    
+
     super::settings::save_config(&config)
 }
 
 fn delete_registry_auth(registry_id: &str) -> Result<()> {
     let mut config = AppConfig::load()?;
-    
+
     if let Some(entry) = config.registries.registries.get_mut(registry_id) {
         // Just clear the auth, don't delete the registry config
         entry.auth_type = "none".to_string();
@@ -224,7 +224,7 @@ fn delete_registry_auth(registry_id: &str) -> Result<()> {
         entry.password = None;
         entry.token = None;
     }
-    
+
     super::settings::save_config(&config)
 }
 
@@ -355,10 +355,7 @@ async fn search_registry_catalog(
     Ok(results)
 }
 
-async fn search_docker_hub(
-    client: &Client,
-    query: &str,
-) -> Result<Vec<RegistryImageResult>> {
+async fn search_docker_hub(client: &Client, query: &str) -> Result<Vec<RegistryImageResult>> {
     let url = format!(
         "https://hub.docker.com/v2/search/repositories/?query={}&page_size={}",
         urlencoding::encode(query),
@@ -488,10 +485,7 @@ async fn search_harbor(
 }
 
 #[tauri::command]
-pub fn set_registry_credentials(
-    registry_id: String,
-    auth: RegistryAuth,
-) -> Result<()> {
+pub fn set_registry_credentials(registry_id: String, auth: RegistryAuth) -> Result<()> {
     if auth.auth_type == "none" {
         delete_registry_auth(&registry_id)?;
         return Ok(());
@@ -507,9 +501,7 @@ pub fn delete_registry_credentials(registry_id: String) -> Result<()> {
 }
 
 #[tauri::command]
-pub fn get_registry_auth_status(
-    registry_id: String,
-) -> Result<Option<RegistryAuthStatus>> {
+pub fn get_registry_auth_status(registry_id: String) -> Result<Option<RegistryAuthStatus>> {
     let auth = load_saved_auth(&registry_id)?;
     if let Some(auth) = auth {
         Ok(Some(RegistryAuthStatus {

@@ -12,8 +12,7 @@ use tauri::State;
 
 use crate::commands::filters::ResourceFilters;
 use crate::commands::helpers::{
-    get_cluster_resource_info, get_resource_info, list_cluster_resource_infos,
-    list_resource_infos,
+    get_cluster_resource_info, get_resource_info, list_cluster_resource_infos, list_resource_infos,
 };
 
 /// List all `PersistentVolumes` in the cluster
@@ -55,10 +54,7 @@ pub async fn get_persistent_volume(
 
 /// Delete a PersistentVolume
 #[tauri::command]
-pub async fn delete_persistent_volume(
-    name: String,
-    state: State<'_, AppState>,
-) -> Result<()> {
+pub async fn delete_persistent_volume(name: String, state: State<'_, AppState>) -> Result<()> {
     crate::validation::validate_dns_subdomain(&name)?;
     crate::commands::helpers::delete_cluster_resource::<PersistentVolume>(name, state, None).await
 }
@@ -83,7 +79,8 @@ pub async fn delete_persistent_volume_claim(
     state: State<'_, AppState>,
 ) -> Result<()> {
     crate::validation::validate_dns_subdomain(&name)?;
-    crate::commands::helpers::delete_resource::<PersistentVolumeClaim>(name, namespace, state, None).await
+    crate::commands::helpers::delete_resource::<PersistentVolumeClaim>(name, namespace, state, None)
+        .await
 }
 
 /// Get a single StorageClass by name
@@ -98,10 +95,7 @@ pub async fn get_storage_class(
 
 /// Delete a StorageClass
 #[tauri::command]
-pub async fn delete_storage_class(
-    name: String,
-    state: State<'_, AppState>,
-) -> Result<()> {
+pub async fn delete_storage_class(name: String, state: State<'_, AppState>) -> Result<()> {
     crate::validation::validate_dns_subdomain(&name)?;
     crate::commands::helpers::delete_cluster_resource::<StorageClass>(name, state, None).await
 }

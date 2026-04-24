@@ -5,7 +5,7 @@ use crate::terminal::TerminalAdapter;
 use std::collections::HashMap;
 use std::process::Stdio;
 use std::sync::Arc;
-use tokio::process::{Child, ChildStdin, ChildStdout, ChildStderr, Command};
+use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command};
 use tokio::sync::RwLock;
 
 /// Maximum stdout size to collect (1MB) - prevents OOM from malicious/buggy auth commands
@@ -27,11 +27,7 @@ pub struct AuthExecAdapter {
 
 impl AuthExecAdapter {
     /// Create new auth exec adapter
-    pub fn new(
-        command: String,
-        args: Vec<String>,
-        env: HashMap<String, String>,
-    ) -> Self {
+    pub fn new(command: String, args: Vec<String>, env: HashMap<String, String>) -> Self {
         Self {
             command,
             args,
@@ -61,8 +57,9 @@ impl TerminalAdapter for AuthExecAdapter {
             .stderr(Stdio::piped())
             .kill_on_drop(true);
 
-        let mut child = cmd.spawn()
-            .map_err(|e| crate::error::Error::Terminal(format!("Failed to spawn auth process: {e}")))?;
+        let mut child = cmd.spawn().map_err(|e| {
+            crate::error::Error::Terminal(format!("Failed to spawn auth process: {e}"))
+        })?;
 
         self.stdin = child.stdin.take();
         self.stdout = child.stdout.take();
@@ -79,10 +76,9 @@ impl TerminalAdapter for AuthExecAdapter {
 
         // Try reading from stdout - collect it but don't return to terminal
         if let Some(stdout) = &mut self.stdout {
-            match tokio::time::timeout(
-                std::time::Duration::from_millis(10),
-                stdout.read(&mut buf)
-            ).await {
+            match tokio::time::timeout(std::time::Duration::from_millis(10), stdout.read(&mut buf))
+                .await
+            {
                 Ok(Ok(n)) if n > 0 => {
                     // Collect stdout for JSON parsing (with size limit to prevent OOM)
                     let data = buf[..n].to_vec();
@@ -104,10 +100,9 @@ impl TerminalAdapter for AuthExecAdapter {
 
         // Try reading from stderr - this goes to terminal
         if let Some(stderr) = &mut self.stderr {
-            match tokio::time::timeout(
-                std::time::Duration::from_millis(10),
-                stderr.read(&mut buf)
-            ).await {
+            match tokio::time::timeout(std::time::Duration::from_millis(10), stderr.read(&mut buf))
+                .await
+            {
                 Ok(Ok(n)) if n > 0 => {
                     return Ok(Some(buf[..n].to_vec()));
                 }
@@ -121,12 +116,18 @@ impl TerminalAdapter for AuthExecAdapter {
     async fn write_input(&mut self, data: &[u8]) -> Result<()> {
         use tokio::io::AsyncWriteExt;
 
-        let stdin = self.stdin.as_mut()
+        let stdin = self
+            .stdin
+            .as_mut()
             .ok_or_else(|| crate::error::Error::Terminal("No stdin available".to_string()))?;
 
-        stdin.write_all(data).await
+        stdin
+            .write_all(data)
+            .await
             .map_err(|e| crate::error::Error::Terminal(format!("Write failed: {e}")))?;
-        stdin.flush().await
+        stdin
+            .flush()
+            .await
             .map_err(|e| crate::error::Error::Terminal(format!("Flush failed: {e}")))?;
 
         Ok(())
@@ -143,11 +144,8 @@ impl TerminalAdapter for AuthExecAdapter {
             self.stdin = None;
 
             // Try graceful shutdown with timeout
-            match tokio::time::timeout(
-                std::time::Duration::from_secs(2),
-                child.wait()
-            ).await {
-                Ok(Ok(_)) => {},
+            match tokio::time::timeout(std::time::Duration::from_secs(2), child.wait()).await {
+                Ok(Ok(_)) => {}
                 _ => {
                     // Force kill if timeout
                     let _ = child.kill().await;

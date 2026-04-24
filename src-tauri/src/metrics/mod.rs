@@ -3,10 +3,10 @@
 //! Provides functionality to fetch resource usage metrics (CPU, Memory)
 //! from the Kubernetes Metrics API (/apis/metrics.k8s.io/v1beta1/)
 
+use crate::commands::helpers::ResourceContext;
 use crate::error::Result;
 use crate::state::AppState;
 use crate::utils::quantities::{parse_cpu, parse_memory};
-use crate::commands::helpers::ResourceContext;
 use kube::api::ListParams;
 use kube::core::DynamicObject;
 use kube::discovery::ApiResource;
@@ -146,7 +146,10 @@ fn metrics_status_from_error(err: &kube::Error) -> MetricsStatus {
             },
             _ => MetricsStatus {
                 status: MetricsStatusKind::Error,
-                message: Some(format!("Metrics API error {}: {}", api_err.code, api_err.message)),
+                message: Some(format!(
+                    "Metrics API error {}: {}",
+                    api_err.code, api_err.message
+                )),
             },
         },
         _ => MetricsStatus {
@@ -243,8 +246,7 @@ pub async fn get_pod_metrics(
     namespace: Option<&str>,
     state: &AppState,
 ) -> Result<PodMetricsResponse> {
-    let ctx =
-        ResourceContext::for_list_from_app_state(state, namespace.map(str::to_string))?;
+    let ctx = ResourceContext::for_list_from_app_state(state, namespace.map(str::to_string))?;
     let api = metrics_api(&ctx, "PodMetrics");
 
     let list = match api.list(&ListParams::default()).await {
@@ -299,9 +301,7 @@ pub async fn get_node_metrics(state: &AppState) -> Result<NodeMetricsResponse> {
 }
 
 /// Get aggregated cluster metrics (total CPU/memory usage and capacity)
-pub async fn get_cluster_metrics(
-    state: &AppState,
-) -> Result<ClusterMetricsResponse> {
+pub async fn get_cluster_metrics(state: &AppState) -> Result<ClusterMetricsResponse> {
     use k8s_openapi::api::core::v1::Node;
     use kube::api::ListParams;
 

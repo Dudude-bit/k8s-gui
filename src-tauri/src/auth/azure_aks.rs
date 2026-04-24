@@ -53,7 +53,7 @@ impl AzureAksAuth {
     async fn get_token(&self) -> Result<(String, Option<chrono::DateTime<chrono::Utc>>)> {
         // Try DefaultAzureCredential first
         let credential = self.create_credential()?;
-        
+
         match self.fetch_token(&credential).await {
             Ok(result) => Ok(result),
             Err(e) if self.use_cli_fallback => {
@@ -74,13 +74,15 @@ impl AzureAksAuth {
         if let Some(ref tenant) = self.tenant_id {
             std::env::set_var("AZURE_TENANT_ID", tenant);
         }
-        
-        azure_identity::DefaultAzureCredential::create(azure_identity::TokenCredentialOptions::default())
-            .map_err(|e| {
-                Error::Auth(AuthError::AzureAuth(format!(
-                    "Failed to create Azure credential: {e}"
-                )))
-            })
+
+        azure_identity::DefaultAzureCredential::create(
+            azure_identity::TokenCredentialOptions::default(),
+        )
+        .map_err(|e| {
+            Error::Auth(AuthError::AzureAuth(format!(
+                "Failed to create Azure credential: {e}"
+            )))
+        })
     }
 
     /// Fetch token using the provided credential
@@ -99,7 +101,7 @@ impl AzureAksAuth {
             })?;
 
         let token = token_response.token.secret().to_string();
-        
+
         // Convert expiry time
         let expires_at = {
             let unix_timestamp = token_response.expires_on.unix_timestamp();
@@ -112,19 +114,16 @@ impl AzureAksAuth {
     /// Fallback to Azure CLI credentials
     async fn get_token_with_cli(&self) -> Result<(String, Option<chrono::DateTime<chrono::Utc>>)> {
         let credential = azure_identity::AzureCliCredential::new();
-        
-        let token_response = credential
-            .get_token(&[&self.scope])
-            .await
-            .map_err(|e| {
-                Error::Auth(AuthError::AzureAuth(format!(
-                    "Azure CLI authentication failed: {e}. \
+
+        let token_response = credential.get_token(&[&self.scope]).await.map_err(|e| {
+            Error::Auth(AuthError::AzureAuth(format!(
+                "Azure CLI authentication failed: {e}. \
                      Please run 'az login' to authenticate."
-                )))
-            })?;
+            )))
+        })?;
 
         let token = token_response.token.secret().to_string();
-        
+
         let expires_at = {
             let unix_timestamp = token_response.expires_on.unix_timestamp();
             chrono::DateTime::<chrono::Utc>::from_timestamp(unix_timestamp, 0)
@@ -280,11 +279,14 @@ mod tests {
             "--tenant-id".to_string(),
             "my-tenant-id".to_string(),
         ];
-        
+
         let info = parse_aks_exec_args(&args);
         assert!(info.is_some());
         let info = info.unwrap();
-        assert_eq!(info.server_id, Some("6dae42f8-4368-4678-94ff-3960e28e3630".to_string()));
+        assert_eq!(
+            info.server_id,
+            Some("6dae42f8-4368-4678-94ff-3960e28e3630".to_string())
+        );
         assert_eq!(info.tenant_id, Some("my-tenant-id".to_string()));
     }
 

@@ -1,7 +1,9 @@
 //! Node commands
 
 use crate::commands::filters::ResourceFilters;
-use crate::commands::helpers::{get_cluster_resource_info, list_cluster_resource_infos, ResourceContext};
+use crate::commands::helpers::{
+    get_cluster_resource_info, list_cluster_resource_infos, ResourceContext,
+};
 use crate::error::Result;
 use crate::resources::NodeInfo;
 use crate::state::AppState;
@@ -133,7 +135,10 @@ pub async fn drain_node(
         }
 
         // Check if pod is unmanaged (no owner references) - requires force
-        let is_unmanaged = pod.metadata.owner_references.as_ref()
+        let is_unmanaged = pod
+            .metadata
+            .owner_references
+            .as_ref()
             .map(|refs| refs.is_empty())
             .unwrap_or(true);
 
@@ -146,7 +151,9 @@ pub async fn drain_node(
         }
 
         // Check for local storage (emptyDir) - requires force
-        let has_local_storage = pod.spec.as_ref()
+        let has_local_storage = pod
+            .spec
+            .as_ref()
             .and_then(|s| s.volumes.as_ref())
             .map(|volumes| volumes.iter().any(|v| v.empty_dir.is_some()))
             .unwrap_or(false);

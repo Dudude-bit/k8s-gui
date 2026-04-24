@@ -2,9 +2,9 @@
 //!
 //! Provides real-time log streaming from Kubernetes pods with filtering and search.
 
+use crate::commands::helpers::ResourceContext;
 use crate::error::{Error, Result};
 use crate::state::AppEvent;
-use crate::commands::helpers::ResourceContext;
 use chrono::{DateTime, Utc};
 use k8s_openapi::api::core::v1::Pod;
 use kube::{
@@ -387,7 +387,7 @@ impl LogStreamer {
         LogLine {
             timestamp,
             message,
-            level,  // Now directly from parse_structured_message
+            level, // Now directly from parse_structured_message
             format,
             fields,
             raw,
@@ -442,7 +442,12 @@ impl LogStreamer {
         }
 
         // CHANGED: Return Unknown instead of guessing from text
-        (LogFormat::Plain, None, message.to_string(), Some(LogLevel::Unknown))
+        (
+            LogFormat::Plain,
+            None,
+            message.to_string(),
+            Some(LogLevel::Unknown),
+        )
     }
 
     fn parse_json_message(
@@ -481,14 +486,10 @@ impl LogStreamer {
             fields.insert(key.clone(), entry);
         }
 
-        let level_value = Self::extract_json_value(
-            object,
-            &["level", "lvl", "severity", "log.level"],
-        );
-        let message_value = Self::extract_json_value(
-            object,
-            &["msg", "message", "log", "event", "error"],
-        );
+        let level_value =
+            Self::extract_json_value(object, &["level", "lvl", "severity", "log.level"]);
+        let message_value =
+            Self::extract_json_value(object, &["msg", "message", "log", "event", "error"]);
 
         let level = level_value.as_deref().and_then(LogLevel::parse_value);
 
@@ -615,10 +616,7 @@ impl LogStreamer {
             && bytes[6..8].iter().all(|b| b.is_ascii_digit())
     }
 
-    fn extract_logfmt_value(
-        fields: &BTreeMap<String, String>,
-        keys: &[&str],
-    ) -> Option<String> {
+    fn extract_logfmt_value(fields: &BTreeMap<String, String>, keys: &[&str]) -> Option<String> {
         for key in keys {
             if let Some(value) = fields.get(*key) {
                 return Some(value.clone());

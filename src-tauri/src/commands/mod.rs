@@ -14,6 +14,7 @@ pub mod deployments;
 pub mod events;
 pub mod helm;
 pub mod kubectl;
+pub mod logging;
 pub mod logs;
 pub mod manifest;
 pub mod metrics;
@@ -30,7 +31,6 @@ pub mod stats;
 pub mod storage;
 pub mod terminal;
 pub mod workloads;
-pub mod logging;
 
 // Re-export all commands for easy registration.
 // These re-exports provide a convenient public API for command registration in main.rs.
@@ -43,6 +43,7 @@ pub use deployments::*;
 pub use events::*;
 pub use helm::*;
 pub use kubectl::*;
+pub use logging::*;
 pub use logs::*;
 pub use manifest::*;
 pub use metrics::*;
@@ -59,7 +60,6 @@ pub use stats::*;
 pub use storage::*;
 pub use terminal::*;
 pub use workloads::*;
-pub use logging::*;
 
 /// Debug command to check PATH and discovered plugins
 #[tauri::command]

@@ -74,14 +74,17 @@ impl From<&Ingress> for IngressInfo {
                                     .iter()
                                     .map(|path| {
                                         // Check for resource backend first
-                                        let resource_backend = path.backend.resource.as_ref().map(|r| {
-                                            format!("{}/{}", r.kind, r.name)
-                                        });
+                                        let resource_backend = path
+                                            .backend
+                                            .resource
+                                            .as_ref()
+                                            .map(|r| format!("{}/{}", r.kind, r.name));
 
-                                        let backend_service = path.backend.service.as_ref().map_or_else(
-                                            || String::new(),
-                                            |s| s.name.clone(),
-                                        );
+                                        let backend_service = path
+                                            .backend
+                                            .service
+                                            .as_ref()
+                                            .map_or_else(|| String::new(), |s| s.name.clone());
 
                                         let backend_port = path
                                             .backend
@@ -162,16 +165,8 @@ impl From<&Ingress> for IngressInfo {
         let has_catch_all_tls = tls_configs.iter().any(|c| c.is_catch_all);
 
         // Extract labels and annotations
-        let labels = ingress
-            .metadata
-            .labels
-            .clone()
-            .unwrap_or_default();
-        let annotations = ingress
-            .metadata
-            .annotations
-            .clone()
-            .unwrap_or_default();
+        let labels = ingress.metadata.labels.clone().unwrap_or_default();
+        let annotations = ingress.metadata.annotations.clone().unwrap_or_default();
 
         Self {
             name: ingress.name_any(),
@@ -244,11 +239,7 @@ impl From<&Endpoints> for EndpointsInfo {
     fn from(ep: &Endpoints) -> Self {
         let name = ep.name_any();
         let ns = ep.namespace().unwrap_or_default();
-        let created_at = ep
-            .metadata
-            .creation_timestamp
-            .as_ref()
-            .to_rfc3339_opt();
+        let created_at = ep.metadata.creation_timestamp.as_ref().to_rfc3339_opt();
 
         let subsets = ep
             .subsets

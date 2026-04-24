@@ -84,7 +84,7 @@ mod tests {
         assert!(validate_dns_label("valid-name").is_ok());
         assert!(validate_dns_label("valid-name-123").is_ok());
         assert!(validate_dns_label("a").is_ok());
-        
+
         // Invalid DNS labels
         assert!(validate_dns_label("").is_err()); // empty
         assert!(validate_dns_label("Invalid-Name").is_err()); // uppercase
@@ -101,7 +101,7 @@ mod tests {
         assert!(validate_dns_subdomain("gateways.networking.istio.io").is_ok());
         assert!(validate_dns_subdomain("node-1.example.com").is_ok());
         assert!(validate_dns_subdomain("my.config.name").is_ok());
-        
+
         // Invalid DNS subdomains
         assert!(validate_dns_subdomain("").is_err()); // empty
         assert!(validate_dns_subdomain("Invalid.Name").is_err()); // uppercase

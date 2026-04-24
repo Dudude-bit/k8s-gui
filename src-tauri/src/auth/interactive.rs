@@ -1,7 +1,10 @@
 //! Interactive authentication helpers for exec and OIDC flows.
 
 use crate::auth::OidcAuth;
-use crate::auth::{is_aks_exec_command, is_gke_exec_command, parse_aks_exec_args, AzureAksAuth, GcpGkeAuth, AuthProvider};
+use crate::auth::{
+    is_aks_exec_command, is_gke_exec_command, parse_aks_exec_args, AuthProvider, AzureAksAuth,
+    GcpGkeAuth,
+};
 use crate::cli::cloud::{AzTool, GcloudTool, GkeAuthPluginTool, KubeloginTool};
 use crate::cli::CliToolManager;
 use crate::commands::kubectl::kubectl_manager;
@@ -22,21 +25,16 @@ use tokio::time::{Duration, Instant};
 use url::Url;
 
 // Global cloud CLI managers
-static GCLOUD: Lazy<CliToolManager<GcloudTool>> = Lazy::new(|| {
-    CliToolManager::new(GcloudTool::new())
-});
+static GCLOUD: Lazy<CliToolManager<GcloudTool>> =
+    Lazy::new(|| CliToolManager::new(GcloudTool::new()));
 
-static GKE_AUTH_PLUGIN: Lazy<CliToolManager<GkeAuthPluginTool>> = Lazy::new(|| {
-    CliToolManager::new(GkeAuthPluginTool::new())
-});
+static GKE_AUTH_PLUGIN: Lazy<CliToolManager<GkeAuthPluginTool>> =
+    Lazy::new(|| CliToolManager::new(GkeAuthPluginTool::new()));
 
-static AZ: Lazy<CliToolManager<AzTool>> = Lazy::new(|| {
-    CliToolManager::new(AzTool::new())
-});
+static AZ: Lazy<CliToolManager<AzTool>> = Lazy::new(|| CliToolManager::new(AzTool::new()));
 
-static KUBELOGIN: Lazy<CliToolManager<KubeloginTool>> = Lazy::new(|| {
-    CliToolManager::new(KubeloginTool::new())
-});
+static KUBELOGIN: Lazy<CliToolManager<KubeloginTool>> =
+    Lazy::new(|| CliToolManager::new(KubeloginTool::new()));
 
 #[derive(Debug, Deserialize)]
 struct ExecCredential {
@@ -198,21 +196,24 @@ async fn try_native_cloud_auth(
 ) -> Option<Result<ExecCredentialStatus>> {
     let command = exec.command.as_ref()?;
     let config = AppConfig::load().ok()?;
-    
+
     // Try GKE native auth
     if is_gke_exec_command(command) {
         // Get profile for this context, or use defaults (ADC)
         let gcp_profile = config.cloud.get_gcp_profile_for_context(context);
         let prefer_native = gcp_profile.map(|p| p.prefer_native_auth).unwrap_or(true);
-        
+
         if prefer_native {
-            tracing::info!("Attempting native GCP authentication for context: {}", context);
-            
+            tracing::info!(
+                "Attempting native GCP authentication for context: {}",
+                context
+            );
+
             let service_account_path = gcp_profile
                 .and_then(|p| p.service_account_key_path.clone())
                 .map(std::path::PathBuf::from);
             let auth = GcpGkeAuth::new(service_account_path);
-            
+
             match auth.authenticate().await {
                 Ok(result) => {
                     tracing::info!("Native GCP authentication successful");
@@ -224,31 +225,40 @@ async fn try_native_cloud_auth(
                     }));
                 }
                 Err(e) => {
-                    tracing::warn!("Native GCP authentication failed, will try exec fallback: {}", e);
+                    tracing::warn!(
+                        "Native GCP authentication failed, will try exec fallback: {}",
+                        e
+                    );
                     // Continue to exec fallback
                 }
             }
         }
     }
-    
+
     // Try AKS native auth
     if is_aks_exec_command(command) {
         // Get profile for this context, or use defaults
         let azure_profile = config.cloud.get_azure_profile_for_context(context);
         let prefer_native = azure_profile.map(|p| p.prefer_native_auth).unwrap_or(true);
-        
+
         if prefer_native {
-            tracing::info!("Attempting native Azure authentication for context: {}", context);
-            
-            let aks_info = exec.args.as_ref().and_then(|args| parse_aks_exec_args(args));
+            tracing::info!(
+                "Attempting native Azure authentication for context: {}",
+                context
+            );
+
+            let aks_info = exec
+                .args
+                .as_ref()
+                .and_then(|args| parse_aks_exec_args(args));
             let tenant_id = aks_info
                 .as_ref()
                 .and_then(|i| i.tenant_id.clone())
                 .or_else(|| azure_profile.and_then(|p| p.tenant_id.clone()));
-            
+
             let use_cli_fallback = azure_profile.map(|p| p.use_cli_fallback).unwrap_or(false);
             let auth = AzureAksAuth::new(use_cli_fallback, tenant_id);
-            
+
             match auth.authenticate().await {
                 Ok(result) => {
                     tracing::info!("Native Azure authentication successful");
@@ -260,13 +270,16 @@ async fn try_native_cloud_auth(
                     }));
                 }
                 Err(e) => {
-                    tracing::warn!("Native Azure authentication failed, will try exec fallback: {}", e);
+                    tracing::warn!(
+                        "Native Azure authentication failed, will try exec fallback: {}",
+                        e
+                    );
                     // Continue to exec fallback
                 }
             }
         }
     }
-    
+
     None
 }
 
@@ -312,7 +325,7 @@ async fn run_exec_auth(
     if let Some(result) = try_native_cloud_auth(exec, context).await {
         return result;
     }
-    
+
     let (session_id, mut cancel_rx) = state.create_auth_session(context, "exec");
     let (browser_script, url_file, bin_dir) = match create_browser_script(&session_id) {
         Ok(paths) => paths,
@@ -322,16 +335,17 @@ async fn run_exec_auth(
         }
     };
 
-    let params = match build_exec_terminal_params(exec, &browser_script, &url_file, &bin_dir, exec_cluster)
-        .await
-    {
-        Ok(params) => params,
-        Err(err) => {
-            cleanup_auth_artifacts(&browser_script, &url_file, &bin_dir);
-            state.remove_auth_session(&session_id);
-            return Err(err);
-        }
-    };
+    let params =
+        match build_exec_terminal_params(exec, &browser_script, &url_file, &bin_dir, exec_cluster)
+            .await
+        {
+            Ok(params) => params,
+            Err(err) => {
+                cleanup_auth_artifacts(&browser_script, &url_file, &bin_dir);
+                state.remove_auth_session(&session_id);
+                return Err(err);
+            }
+        };
 
     // Subscribe to events BEFORE creating session to avoid race condition
     let mut event_rx = state.event_tx.subscribe();
@@ -346,13 +360,16 @@ async fn run_exec_auth(
     // Extract collected_stdout Arc before moving adapter
     let collected_stdout = adapter.collected_stdout();
 
-    let terminal_session_id = state.terminal_manager
+    let terminal_session_id = state
+        .terminal_manager
         .create_session(Box::new(adapter))
         .await
         .map_err(|e| {
             cleanup_auth_artifacts(&browser_script, &url_file, &bin_dir);
             state.remove_auth_session(&session_id);
-            Error::Auth(AuthError::Kubeconfig(format!("Failed to create terminal session: {e}")))
+            Error::Auth(AuthError::Kubeconfig(format!(
+                "Failed to create terminal session: {e}"
+            )))
         })?;
 
     // Emit AuthTerminalSessionCreated event
@@ -434,7 +451,7 @@ async fn run_exec_auth(
             message: Some("No output from auth process".to_string()),
         });
         return Err(Error::Auth(AuthError::Kubeconfig(
-            "No output from auth process".to_string()
+            "No output from auth process".to_string(),
         )));
     }
 
@@ -633,8 +650,14 @@ async fn build_exec_terminal_params(
     })?;
 
     env.insert("KUBERNETES_EXEC_INFO".to_string(), exec_info);
-    env.insert("K8S_GUI_AUTH_URL_FILE".to_string(), url_file.to_string_lossy().to_string());
-    env.insert("BROWSER".to_string(), browser_script.to_string_lossy().to_string());
+    env.insert(
+        "K8S_GUI_AUTH_URL_FILE".to_string(),
+        url_file.to_string_lossy().to_string(),
+    );
+    env.insert(
+        "BROWSER".to_string(),
+        browser_script.to_string_lossy().to_string(),
+    );
 
     // Find kubectl directory to add to PATH (for exec plugins like oidc-login)
     let kubectl_dir = kubectl_manager()

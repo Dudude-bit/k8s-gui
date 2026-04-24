@@ -19,8 +19,7 @@ pub fn format_k8s_age(created_at: Option<&Time>) -> String {
 /// Normalize namespace input, returning None for "all namespaces".
 #[must_use]
 pub fn normalize_namespace(namespace: Option<String>, fallback: String) -> Option<String> {
-    normalize_optional_namespace(namespace)
-        .or_else(|| normalize_optional_namespace(Some(fallback)))
+    normalize_optional_namespace(namespace).or_else(|| normalize_optional_namespace(Some(fallback)))
 }
 
 /// Normalize optional namespace input, returning None for empty/whitespace.
@@ -86,19 +85,19 @@ pub fn is_valid_dns_subdomain(name: &str) -> bool {
     if name.is_empty() || name.len() > 253 {
         return false;
     }
-    
+
     // Check overall pattern
     if !DNS_SUBDOMAIN_REGEX.is_match(name) {
         return false;
     }
-    
+
     // Check each segment is <= 63 chars
     for segment in name.split('.') {
         if segment.len() > 63 {
             return false;
         }
     }
-    
+
     true
 }
 
@@ -113,7 +112,7 @@ mod tests {
         assert!(is_valid_dns_label("app123"));
         assert!(is_valid_dns_label("a"));
         assert!(is_valid_dns_label("a-b-c"));
-        
+
         // Invalid DNS labels
         assert!(!is_valid_dns_label("My-App")); // uppercase
         assert!(!is_valid_dns_label("-app")); // starts with dash
@@ -131,7 +130,7 @@ mod tests {
         assert!(is_valid_dns_subdomain("node-1.example.com"));
         assert!(is_valid_dns_subdomain("my.config.map"));
         assert!(is_valid_dns_subdomain("a.b.c"));
-        
+
         // Invalid DNS subdomains
         assert!(!is_valid_dns_subdomain("")); // empty
         assert!(!is_valid_dns_subdomain("My.App")); // uppercase
@@ -140,11 +139,13 @@ mod tests {
         assert!(!is_valid_dns_subdomain("app..name")); // consecutive dots
         assert!(!is_valid_dns_subdomain("-app.name")); // segment starts with dash
         assert!(!is_valid_dns_subdomain("app-.name")); // segment ends with dash
-        
+
         // Segment too long (> 63 chars)
         let long_segment = "a".repeat(64);
-        assert!(!is_valid_dns_subdomain(&format!("{long_segment}.example.com")));
-        
+        assert!(!is_valid_dns_subdomain(&format!(
+            "{long_segment}.example.com"
+        )));
+
         // Total too long (> 253 chars)
         let long_name = format!("{}.{}.{}", "a".repeat(63), "b".repeat(63), "c".repeat(128));
         assert!(!is_valid_dns_subdomain(&long_name));

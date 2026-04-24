@@ -290,7 +290,6 @@ impl From<&Pod> for PodInfo {
     }
 }
 
-
 /// Pod status information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -568,7 +567,9 @@ impl From<&Deployment> for DeploymentInfo {
             annotations: deployment.annotations().clone(),
             created_at: deployment.creation_timestamp().map(|t| t.0),
             conditions,
-            owner_references: extract_owner_references(deployment.metadata.owner_references.as_ref()),
+            owner_references: extract_owner_references(
+                deployment.metadata.owner_references.as_ref(),
+            ),
         }
     }
 }
