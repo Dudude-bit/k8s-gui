@@ -27,11 +27,11 @@ jobs:
             is_linux: true
           # linux-arm64 disabled: Ubuntu noble arm64 deps are broken on GitHub runners.
           - name: macos-arm64
-            os: macos-14
+            os: macos-latest
             target: aarch64-apple-darwin
             is_macos: true
           - name: macos-x64
-            os: macos-13
+            os: macos-latest
             target: x86_64-apple-darwin
             is_macos: true
           - name: windows-x64
