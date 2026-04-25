@@ -1,0 +1,39 @@
+{
+  "rust-analyzer.check.command": "clippy",
+  "rust-analyzer.cargo.features": "all",
+  "rust-analyzer.linkedProjects": ["src-tauri/Cargo.toml"],
+  "editor.formatOnSave": true,
+  "[rust]": {
+    "editor.defaultFormatter": "rust-lang.rust-analyzer"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "files.exclude": {
+    "**/.DS_Store": true,
+    "**/target": true,
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/artifacts": true
+  },
+  "search.exclude": {
+    "**/target": true,
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/package-lock.json": true,
+    "**/Cargo.lock": true,
+    "**/src/generated": true
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "recommendations": [
+    "rust-lang.rust-analyzer",
+    "tauri-apps.tauri-vscode",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "bradlc.vscode-tailwindcss",
+    "editorconfig.editorconfig",
+    "ms-vscode.vscode-typescript-next"
+  ]
+}

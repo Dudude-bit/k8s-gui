@@ -1,5 +1,11 @@
 # K8s GUI
 
+[![CI](https://github.com/Dudude-bit/k8s-gui/actions/workflows/ci.yml/badge.svg)](https://github.com/Dudude-bit/k8s-gui/actions/workflows/ci.yml)
+[![Build Artifacts](https://github.com/Dudude-bit/k8s-gui/actions/workflows/build.yml/badge.svg)](https://github.com/Dudude-bit/k8s-gui/actions/workflows/build.yml)
+[![License: MIT](https://img.shields.io/github/license/Dudude-bit/k8s-gui)](LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/Dudude-bit/k8s-gui)](https://github.com/Dudude-bit/k8s-gui/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/Dudude-bit/k8s-gui/total)](https://github.com/Dudude-bit/k8s-gui/releases)
+
 A modern, cross-platform Kubernetes GUI client built with Tauri and Rust.
 
 ## Features

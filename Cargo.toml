@@ -1,3 +1,15 @@
 [workspace]
 members = ["src-tauri", "k8s-gui-common"]
 resolver = "2"
+
+# Optimised release profile — used for `cargo tauri build` artifacts.
+# - lto = "fat"          : whole-program inlining; ~10-15% smaller and faster
+# - codegen-units = 1    : single CGU lets LLVM optimise across the whole crate
+# - strip = "symbols"    : drops debug symbols from the final binary
+# - panic = "abort"      : no unwinding -> smaller binary (we don't catch panics)
+# Build is slower on CI as a result; pay it once per release.
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
