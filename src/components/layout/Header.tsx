@@ -37,22 +37,26 @@ import { useQuery } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/spinner";
 
 export function Header() {
-  const {
-    contexts,
-    currentContext,
-    currentNamespace,
-    isConnected,
-    isLoading,
-    isAuthenticating,
-    error,
-    pendingContext,
-    errorContext,
-    loadContexts,
-    switchContext,
-    switchNamespace,
-    connect,
-  } = useClusterStore();
-  const { theme, setTheme } = useThemeStore();
+  // Subscribe to each field individually so the Header (and its
+  // children — RefreshButton, ActivityPanel, the namespace/context
+  // selectors) only re-renders when the field it actually displays
+  // changes. Destructuring the whole store re-renders on every
+  // unrelated field tick (toast queue, port-forward updates, etc.).
+  const contexts = useClusterStore((s) => s.contexts);
+  const currentContext = useClusterStore((s) => s.currentContext);
+  const currentNamespace = useClusterStore((s) => s.currentNamespace);
+  const isConnected = useClusterStore((s) => s.isConnected);
+  const isLoading = useClusterStore((s) => s.isLoading);
+  const isAuthenticating = useClusterStore((s) => s.isAuthenticating);
+  const error = useClusterStore((s) => s.error);
+  const pendingContext = useClusterStore((s) => s.pendingContext);
+  const errorContext = useClusterStore((s) => s.errorContext);
+  const loadContexts = useClusterStore((s) => s.loadContexts);
+  const switchContext = useClusterStore((s) => s.switchContext);
+  const switchNamespace = useClusterStore((s) => s.switchNamespace);
+  const connect = useClusterStore((s) => s.connect);
+  const theme = useThemeStore((s) => s.theme);
+  const setTheme = useThemeStore((s) => s.setTheme);
 
   // Load contexts on mount and auto-connect
   useEffect(() => {
