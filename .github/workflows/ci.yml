@@ -37,6 +37,13 @@ jobs:
       - name: Rust formatting
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
 
+      - name: Build frontend
+        # Required so `tauri::generate_context!()` can read ../dist during
+        # cargo clippy / cargo test. (build.yml goes through cargo tauri
+        # build which runs npm run build via beforeBuildCommand; here we
+        # don't, so we do it explicitly.)
+        run: npm run build
+
       - name: Rust clippy
         # Informational for now — a single new warning breaking CI for all
         # contributors is too strict until we've settled into clippy's
