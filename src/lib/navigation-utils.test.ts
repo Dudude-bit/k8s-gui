@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  getResourceDetailUrl,
-  getResourceListUrl,
-} from "./navigation-utils";
+import { getResourceDetailUrl, getResourceListUrl } from "./navigation-utils";
 
 describe("getResourceDetailUrl", () => {
   it("includes the namespace for namespaced resources", () => {

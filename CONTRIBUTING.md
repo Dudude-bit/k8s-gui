@@ -16,8 +16,14 @@ Thanks for your interest in contributing.
 git clone https://github.com/Dudude-bit/k8s-gui.git
 cd k8s-gui
 npm install
+npx lefthook install   # one-time: enables pre-commit + pre-push hooks
 npm run tauri dev
 ```
+
+The hooks (defined in `lefthook.yml`) run `cargo fmt --check`, `eslint`,
+and `prettier --check` on staged files before each commit, and run the
+test suites before each push. Skip them for a single commit with
+`LEFTHOOK=0 git commit ...`.
 
 ## Code style
 

@@ -1,0 +1,28 @@
+# Lefthook git hooks. Install once after `npm install`:
+#
+#     npx lefthook install
+#
+# Skip a single commit's hooks with `LEFTHOOK=0 git commit ...`.
+
+pre-commit:
+  parallel: true
+  commands:
+    rust-fmt:
+      glob: "*.rs"
+      run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+    eslint:
+      glob: "*.{ts,tsx}"
+      # Lint reports many warnings post-react-hooks@7 upgrade — allow them
+      # for now, fail only on errors. Tighten by removing this once the
+      # warnings backlog is triaged.
+      run: npx eslint {staged_files}
+    prettier:
+      glob: "*.{ts,tsx,css,json,md}"
+      run: npx prettier --check {staged_files}
+
+pre-push:
+  commands:
+    frontend-tests:
+      run: npm test
+    rust-tests:
+      run: cargo test --manifest-path src-tauri/Cargo.toml
