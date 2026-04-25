@@ -182,11 +182,9 @@ export function formatCPU(millicores: number): string {
     return `${Math.round(millicores)}m`;
   }
 
+  // Always show one decimal for cores so the unit is unambiguous: "1.0",
+  // "2.5". `${cores}` would produce "1" / "2.5" — inconsistent.
   const cores = millicores / 1000;
-  if (cores % 1 === 0) {
-    return `${cores}`;
-  }
-
   return cores.toFixed(1);
 }
 
@@ -231,7 +229,9 @@ export function formatBytes(bytes: number, decimals: number = 2): string {
   const sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB"];
 
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  const value = parseFloat((bytes / Math.pow(k, i)).toFixed(dm));
+  // Keep trailing zeros so the caller's `decimals` request is honoured
+  // verbatim — `parseFloat(toFixed(2))` would silently turn "1.00" into "1".
+  const value = (bytes / Math.pow(k, i)).toFixed(dm);
 
   return `${value} ${sizes[i]}`;
 }
@@ -256,18 +256,22 @@ export function formatKubernetesBytes(
 }
 
 /**
- * Calculate utilization percentage
+ * Calculate utilization percentage.
+ *
+ * Returns the raw percentage (can exceed 100% — overcommit is a real
+ * state in Kubernetes that callers need to see). Negative results are
+ * clamped to 0 (treats them as "no usage" rather than nonsense).
  *
  * @param used - Used amount
  * @param total - Total/limit amount
- * @returns Percentage (0-100) or null if invalid
+ * @returns Percentage (>= 0) or null if `total` is missing or non-positive
  */
 export function calculateUtilization(
   used: number,
   total: number
 ): number | null {
   if (total <= 0) return null;
-  return Math.min(100, Math.max(0, (used / total) * 100));
+  return Math.max(0, (used / total) * 100);
 }
 
 /**

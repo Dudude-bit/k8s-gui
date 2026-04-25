@@ -57,6 +57,9 @@ jobs:
       - name: Frontend type check
         run: npx tsc --noEmit
 
+      - name: Frontend tests
+        run: npm test
+
       - name: Frontend lint
         # Informational while the react-hooks@7 upgrade rule set is being
         # triaged. Flip to required once remaining violations are addressed
