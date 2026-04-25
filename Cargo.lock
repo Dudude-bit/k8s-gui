@@ -3199,6 +3199,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "jiff"
+version = "0.2.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f00b5dbd620d61dfdcb6007c9c1f6054ebd75319f163d886a9055cec1155073d"
+dependencies = [
+ "jiff-static",
+ "portable-atomic",
+ "portable-atomic-util",
+ "serde_core",
+]
+
+[[package]]
+name = "jiff-static"
+version = "0.2.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e000de030ff8022ea1da3f466fbb0f3a809f5e51ed31f6dd931c35181ad8e6d7"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
 name = "jni"
 version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3336,7 +3359,7 @@ dependencies = [
  "hyper 1.9.0",
  "hyper-util",
  "k8s-gui-common",
- "k8s-openapi",
+ "k8s-openapi 0.27.1",
  "kube",
  "once_cell",
  "parking_lot",
@@ -3398,6 +3421,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "k8s-openapi"
+version = "0.27.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "51b326f5219dd55872a72c1b6ddd1b830b8334996c667449c29391d657d78d5e"
+dependencies = [
+ "base64 0.22.1",
+ "jiff",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "keyboard-types"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3414,7 +3449,7 @@ version = "0.97.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5fd2596428f922f784ca43907c449f104d69055c811135684474143736c67ae"
 dependencies = [
- "k8s-openapi",
+ "k8s-openapi 0.23.0",
  "kube-client",
  "kube-core",
  "kube-runtime",
@@ -3442,7 +3477,7 @@ dependencies = [
  "hyper-timeout",
  "hyper-util",
  "jsonpath-rust",
- "k8s-openapi",
+ "k8s-openapi 0.23.0",
  "kube-core",
  "pem",
  "rand 0.8.6",
@@ -3472,7 +3507,7 @@ dependencies = [
  "form_urlencoded",
  "http 1.4.0",
  "json-patch",
- "k8s-openapi",
+ "k8s-openapi 0.23.0",
  "serde",
  "serde-value",
  "serde_json",
@@ -3495,7 +3530,7 @@ dependencies = [
  "hashbrown 0.15.5",
  "json-patch",
  "jsonptr",
- "k8s-openapi",
+ "k8s-openapi 0.23.0",
  "kube-client",
  "parking_lot",
  "pin-project",
@@ -4629,6 +4664,21 @@ dependencies = [
  "pin-project-lite",
  "rustix",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "portable-atomic"
+version = "1.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c33a9471896f1c69cecef8d20cbe2f7accd12527ce60845ff44c153bb2a21b49"
+
+[[package]]
+name = "portable-atomic-util"
+version = "0.2.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2a106d1259c23fac8e543272398ae0e3c0b8d33c88ed73d0cc71b0f1d902618"
+dependencies = [
+ "portable-atomic",
 ]
 
 [[package]]
