@@ -20,6 +20,12 @@ updates:
     groups:
       patch-and-minor:
         update-types: ["patch", "minor"]
+    ignore:
+      # Keep @types/node in lockstep with the Node major actually used in CI
+      # (`node-version: 24` in setup-tauri). Major bumps require coordinated
+      # changes to mise.toml, the composite action, and CONTRIBUTING.md.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: "/"

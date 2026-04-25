@@ -7,7 +7,7 @@ Thanks for your interest in contributing.
 ### Prerequisites
 
 - Rust stable (`rustup default stable`)
-- Node.js 20+
+- Node.js 24 LTS (or newer)
 - Tauri platform dependencies: <https://v2.tauri.app/start/prerequisites/>
 
 ### Setup
