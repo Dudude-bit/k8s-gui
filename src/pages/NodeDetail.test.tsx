@@ -121,7 +121,7 @@ function renderPage() {
 describe("NodeDetail", () => {
   beforeEach(() => {
     vi.mocked(useResourceDetail).mockReturnValue(
-      defaultUseResourceDetailReturn(buildNode()) as ReturnType<
+      defaultUseResourceDetailReturn(buildNode()) as unknown as ReturnType<
         typeof useResourceDetail
       >
     );
@@ -151,7 +151,7 @@ describe("NodeDetail", () => {
       },
     });
     vi.mocked(useResourceDetail).mockReturnValue(
-      defaultUseResourceDetailReturn(notReady) as ReturnType<
+      defaultUseResourceDetailReturn(notReady) as unknown as ReturnType<
         typeof useResourceDetail
       >
     );
@@ -184,7 +184,7 @@ describe("NodeDetail", () => {
       },
     });
     vi.mocked(useResourceDetail).mockReturnValue(
-      defaultUseResourceDetailReturn(noExternal) as ReturnType<
+      defaultUseResourceDetailReturn(noExternal) as unknown as ReturnType<
         typeof useResourceDetail
       >
     );
