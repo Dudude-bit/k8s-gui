@@ -1,29 +1,19 @@
-import { useClusterStore } from "@/stores/clusterStore";
+import type { ColumnDef } from "@tanstack/react-table";
+import { Network, CircleDot } from "lucide-react";
+
+import type { EndpointsInfo } from "@/generated/types";
+import { commands } from "@/lib/commands";
+import { ResourceType } from "@/lib/resource-registry";
 import { Badge } from "@/components/ui/badge";
-import { ColumnDef } from "@tanstack/react-table";
-import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { Eye, Network, CircleDot } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ResourceList } from "@/components/resources/ResourceList";
-import { createNamespaceColumn, createAgeColumn } from "@/components/resources/columns";
-import type { QuickAction } from "@/components/ui/quick-actions";
-import { commands } from "@/lib/commands";
+import { createNamespaceColumn, createAgeColumn } from "./columns";
+import { createResourceListPage } from "./createResourceListPage";
 
-import type { EndpointsInfo } from "@/generated/types";
-import { ResourceType, toPlural } from "@/lib/resource-registry";
-import { getResourceDetailUrl } from "@/lib/navigation-utils";
-import { queryKeys } from "@/lib/query-keys";
-import { STALE_TIMES } from "@/lib/refresh";
-import { getResourceRowId } from "@/lib/table-utils";
-
-
-
-const columns: ColumnDef<EndpointsInfo>[] = [
+const columns = (): ColumnDef<EndpointsInfo>[] => [
   {
     accessorKey: "name",
     header: "Name",
@@ -153,41 +143,19 @@ const columns: ColumnDef<EndpointsInfo>[] = [
   createAgeColumn<EndpointsInfo>(),
 ];
 
-export function EndpointsList() {
-  const { currentNamespace } = useClusterStore();
-  const navigate = useNavigate();
-
-  const quickActions = useMemo<() => QuickAction<EndpointsInfo>[]>(
-    () => () => [
-      {
-        icon: Eye,
-        label: "View Details",
-        onClick: (item) => navigate(getResourceDetailUrl(ResourceType.Endpoints, item.name, item.namespace)),
-      },
-    ],
-    [navigate]
-  );
-
-  return (
-    <ResourceList<EndpointsInfo>
-      title="Endpoints"
-      description={`Network endpoints for services in ${currentNamespace || "all namespaces"}`}
-      queryKey={queryKeys.resources(ResourceType.Endpoints, currentNamespace)}
-      getRowId={getResourceRowId}
-      queryFn={() =>
-        commands.listEndpoints({
-          namespace: currentNamespace || null,
-          labelSelector: null,
-          fieldSelector: null,
-          limit: null,
-        })
-      }
-      columns={columns}
-      quickActions={quickActions}
-      emptyStateLabel={toPlural(ResourceType.Endpoints)}
-      staleTime={STALE_TIMES.resourceList}
-      searchKey="name"
-      getRowHref={(row) => getResourceDetailUrl(ResourceType.Endpoints, row.name, row.namespace)}
-    />
-  );
-}
+export const EndpointsList = createResourceListPage<EndpointsInfo>({
+  resourceType: ResourceType.Endpoints,
+  title: "Endpoints",
+  description: ({ namespace }) =>
+    `Network endpoints for services in ${namespace || "all namespaces"}`,
+  searchKey: "name",
+  fetcher: ({ namespace }) =>
+    commands.listEndpoints({
+      namespace,
+      labelSelector: null,
+      fieldSelector: null,
+      limit: null,
+    }),
+  // No deleter — read-only resource
+  columns,
+});
