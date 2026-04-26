@@ -1,28 +1,28 @@
-import { useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+import type { ColumnDef } from "@tanstack/react-table";
+import { HardDrive } from "lucide-react";
+
+import type { PersistentVolumeInfo } from "@/generated/types";
 import { commands } from "@/lib/commands";
+import { ResourceType } from "@/lib/resource-registry";
+import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { ColumnDef } from "@tanstack/react-table";
-import { Eye, Trash2, HardDrive } from "lucide-react";
-import { ResourceList } from "@/components/resources/ResourceList";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { QuickAction } from "@/components/ui/quick-actions";
+import { createResourceListPage } from "./createResourceListPage";
 
-import type { PersistentVolumeInfo } from "@/generated/types";
-import { ResourceType, toPlural } from "@/lib/resource-registry";
-import { getResourceDetailUrl } from "@/lib/navigation-utils";
-import { queryKeys } from "@/lib/query-keys";
-import { STALE_TIMES } from "@/lib/refresh";
-import { getResourceRowId } from "@/lib/table-utils";
+const ACCESS_MODE_TOOLTIP: Record<string, string> = {
+  RWO: "ReadWriteOnce",
+  ROX: "ReadOnlyMany",
+  RWX: "ReadWriteMany",
+  RWOP: "ReadWriteOncePod",
+};
 
-
-
-const columns: ColumnDef<PersistentVolumeInfo>[] = [
+const columns = (): ColumnDef<PersistentVolumeInfo>[] => [
   {
     accessorKey: "name",
     header: "Name",
@@ -30,7 +30,10 @@ const columns: ColumnDef<PersistentVolumeInfo>[] = [
       <div className="flex items-center gap-2">
         <HardDrive className="h-4 w-4 text-muted-foreground" />
         <Link
-          to={getResourceDetailUrl(ResourceType.PersistentVolume, row.original.name)}
+          to={getResourceDetailUrl(
+            ResourceType.PersistentVolume,
+            row.original.name
+          )}
           className="font-medium text-primary hover:underline"
         >
           {row.original.name}
@@ -55,12 +58,7 @@ const columns: ColumnDef<PersistentVolumeInfo>[] = [
                 {mode}
               </Badge>
             </TooltipTrigger>
-            <TooltipContent>
-              {mode === "RWO" && "ReadWriteOnce"}
-              {mode === "ROX" && "ReadOnlyMany"}
-              {mode === "RWX" && "ReadWriteMany"}
-              {mode === "RWOP" && "ReadWriteOncePod"}
-            </TooltipContent>
+            <TooltipContent>{ACCESS_MODE_TOOLTIP[mode] ?? mode}</TooltipContent>
           </Tooltip>
         ))}
       </div>
@@ -94,44 +92,15 @@ const columns: ColumnDef<PersistentVolumeInfo>[] = [
   },
 ];
 
-export function PersistentVolumeList() {
-  const navigate = useNavigate();
-
-  const quickActions = useMemo<(setDeleteTarget: (item: PersistentVolumeInfo) => void) => QuickAction<PersistentVolumeInfo>[]>(
-    () => (setDeleteTarget) => [
-      {
-        icon: Eye,
-        label: "View Details",
-        onClick: (item) => navigate(getResourceDetailUrl(ResourceType.PersistentVolume, item.name)),
-      },
-      {
-        icon: Trash2,
-        label: "Delete",
-        onClick: (item) => setDeleteTarget(item),
-        variant: "destructive",
-      },
-    ],
-    [navigate]
-  );
-
-  return (
-    <ResourceList<PersistentVolumeInfo>
-      title="Persistent Volumes"
-      description="Cluster-wide storage resources provisioned by an administrator"
-      queryKey={queryKeys.resources(ResourceType.PersistentVolume, null)}
-      getRowId={getResourceRowId}
-      queryFn={() => commands.listPersistentVolumes(null)}
-      columns={columns}
-      quickActions={quickActions}
-      emptyStateLabel={toPlural(ResourceType.PersistentVolume)}
-      deleteConfig={{
-        mutationFn: (item) => commands.deletePersistentVolume(item.name),
-        invalidateQueryKeys: [queryKeys.resources(ResourceType.PersistentVolume, null)],
-        resourceType: ResourceType.PersistentVolume,
-      }}
-      staleTime={STALE_TIMES.resourceList}
-      searchKey="name"
-      getRowHref={(row) => getResourceDetailUrl(ResourceType.PersistentVolume, row.name)}
-    />
-  );
-}
+export const PersistentVolumeList =
+  createResourceListPage<PersistentVolumeInfo>({
+    resourceType: ResourceType.PersistentVolume,
+    title: "Persistent Volumes",
+    description:
+      "Cluster-wide storage resources provisioned by an administrator",
+    scope: "cluster",
+    searchKey: "name",
+    fetcher: () => commands.listPersistentVolumes(null),
+    deleter: (item) => commands.deletePersistentVolume(item.name),
+    columns,
+  });

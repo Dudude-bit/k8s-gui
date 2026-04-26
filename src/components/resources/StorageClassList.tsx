@@ -1,26 +1,19 @@
-import { useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+import type { ColumnDef } from "@tanstack/react-table";
+import { Layers, Star } from "lucide-react";
+import type { StorageClassInfo } from "@/generated/types";
+import { commands } from "@/lib/commands";
+import { ResourceType } from "@/lib/resource-registry";
+import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import { Badge } from "@/components/ui/badge";
-import { ColumnDef } from "@tanstack/react-table";
-import { Eye, Trash2, Layers, Star } from "lucide-react";
-import { ResourceList } from "@/components/resources/ResourceList";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { QuickAction } from "@/components/ui/quick-actions";
-import { commands } from "@/lib/commands";
-import type { StorageClassInfo } from "@/generated/types";
-import { ResourceType, toPlural } from "@/lib/resource-registry";
-import { getResourceDetailUrl } from "@/lib/navigation-utils";
-import { queryKeys } from "@/lib/query-keys";
-import { STALE_TIMES } from "@/lib/refresh";
-import { getResourceRowId } from "@/lib/table-utils";
+import { createResourceListPage } from "./createResourceListPage";
 
-
-
-const columns: ColumnDef<StorageClassInfo>[] = [
+const columns = (): ColumnDef<StorageClassInfo>[] => [
   {
     accessorKey: "name",
     header: "Name",
@@ -28,7 +21,10 @@ const columns: ColumnDef<StorageClassInfo>[] = [
       <div className="flex items-center gap-2">
         <Layers className="h-4 w-4 text-muted-foreground" />
         <Link
-          to={getResourceDetailUrl(ResourceType.StorageClass, row.original.name)}
+          to={getResourceDetailUrl(
+            ResourceType.StorageClass,
+            row.original.name
+          )}
           className="font-medium text-primary hover:underline"
         >
           {row.original.name}
@@ -109,44 +105,13 @@ const columns: ColumnDef<StorageClassInfo>[] = [
   },
 ];
 
-export function StorageClassList() {
-  const navigate = useNavigate();
-
-  const quickActions = useMemo<(setDeleteTarget: (item: StorageClassInfo) => void) => QuickAction<StorageClassInfo>[]>(
-    () => (setDeleteTarget) => [
-      {
-        icon: Eye,
-        label: "View Details",
-        onClick: (item) => navigate(getResourceDetailUrl(ResourceType.StorageClass, item.name)),
-      },
-      {
-        icon: Trash2,
-        label: "Delete",
-        onClick: (item) => setDeleteTarget(item),
-        variant: "destructive",
-      },
-    ],
-    [navigate]
-  );
-
-  return (
-    <ResourceList<StorageClassInfo>
-      title="Storage Classes"
-      description="Describes the classes of storage available in the cluster"
-      queryKey={queryKeys.resources(ResourceType.StorageClass, null)}
-      getRowId={getResourceRowId}
-      queryFn={() => commands.listStorageClasses(null)}
-      columns={columns}
-      quickActions={quickActions}
-      emptyStateLabel={toPlural(ResourceType.StorageClass)}
-      deleteConfig={{
-        mutationFn: (item) => commands.deleteStorageClass(item.name),
-        invalidateQueryKeys: [queryKeys.resources(ResourceType.StorageClass, null)],
-        resourceType: ResourceType.StorageClass,
-      }}
-      staleTime={STALE_TIMES.resourceList}
-      searchKey="name"
-      getRowHref={(row) => getResourceDetailUrl(ResourceType.StorageClass, row.name)}
-    />
-  );
-}
+export const StorageClassList = createResourceListPage<StorageClassInfo>({
+  resourceType: ResourceType.StorageClass,
+  title: "Storage Classes",
+  description: "Describes the classes of storage available in the cluster",
+  scope: "cluster",
+  searchKey: "name",
+  fetcher: () => commands.listStorageClasses(null),
+  deleter: (item) => commands.deleteStorageClass(item.name),
+  columns,
+});

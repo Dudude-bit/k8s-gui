@@ -20,8 +20,6 @@ import { queryKeys } from "@/lib/query-keys";
 import { STALE_TIMES } from "@/lib/refresh";
 import { getResourceRowId } from "@/lib/table-utils";
 
-
-
 const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
   {
     accessorKey: "name",
@@ -30,7 +28,11 @@ const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
       <div className="flex items-center gap-2">
         <Database className="h-4 w-4 text-muted-foreground" />
         <Link
-          to={getResourceDetailUrl(ResourceType.PersistentVolumeClaim, row.original.name, row.original.namespace)}
+          to={getResourceDetailUrl(
+            ResourceType.PersistentVolumeClaim,
+            row.original.name,
+            row.original.namespace
+          )}
           className="font-medium text-primary hover:underline"
         >
           {row.original.name}
@@ -97,12 +99,23 @@ export function PersistentVolumeClaimList() {
   const { currentNamespace } = useClusterStore();
   const navigate = useNavigate();
 
-  const quickActions = useMemo<(setDeleteTarget: (item: PersistentVolumeClaimInfo) => void) => QuickAction<PersistentVolumeClaimInfo>[]>(
+  const quickActions = useMemo<
+    (
+      setDeleteTarget: (item: PersistentVolumeClaimInfo) => void
+    ) => QuickAction<PersistentVolumeClaimInfo>[]
+  >(
     () => (setDeleteTarget) => [
       {
         icon: Eye,
         label: "View Details",
-        onClick: (item) => navigate(getResourceDetailUrl(ResourceType.PersistentVolumeClaim, item.name, item.namespace)),
+        onClick: (item) =>
+          navigate(
+            getResourceDetailUrl(
+              ResourceType.PersistentVolumeClaim,
+              item.name,
+              item.namespace
+            )
+          ),
       },
       {
         icon: Trash2,
@@ -118,7 +131,10 @@ export function PersistentVolumeClaimList() {
     <ResourceList<PersistentVolumeClaimInfo>
       title="Persistent Volume Claims"
       description={`Requests for storage by pods in ${currentNamespace || "all namespaces"}`}
-      queryKey={queryKeys.resources(ResourceType.PersistentVolumeClaim, currentNamespace)}
+      queryKey={queryKeys.resources(
+        ResourceType.PersistentVolumeClaim,
+        currentNamespace
+      )}
       getRowId={getResourceRowId}
       queryFn={() =>
         commands.listPersistentVolumeClaims({
@@ -137,12 +153,23 @@ export function PersistentVolumeClaimList() {
             item.name,
             item.namespace ?? null
           ),
-        invalidateQueryKeys: [queryKeys.resources(ResourceType.PersistentVolumeClaim, currentNamespace)],
+        invalidateQueryKeys: [
+          queryKeys.resources(
+            ResourceType.PersistentVolumeClaim,
+            currentNamespace
+          ),
+        ],
         resourceType: ResourceType.PersistentVolumeClaim,
       }}
       staleTime={STALE_TIMES.resourceList}
       searchKey="name"
-      getRowHref={(row) => getResourceDetailUrl(ResourceType.PersistentVolumeClaim, row.name, row.namespace)}
+      getRowHref={(row) =>
+        getResourceDetailUrl(
+          ResourceType.PersistentVolumeClaim,
+          row.name,
+          row.namespace
+        )
+      }
     />
   );
 }

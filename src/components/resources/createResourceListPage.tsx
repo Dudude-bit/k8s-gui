@@ -66,6 +66,14 @@ export interface ResourceListPageConfig<T extends ListableResource> {
   scope?: "namespaced" | "cluster";
   /** Override the empty-state label (defaults to `title`). */
   emptyStateLabel?: string;
+  /**
+   * Optional description rendered under the title. May be a string or a
+   * function that receives the resolved namespace (useful for namespace-
+   * aware lines like "in {namespace}").
+   */
+  description?: string | ((deps: { namespace: string | null }) => string);
+  /** Search key (column accessor) for the in-page search box. */
+  searchKey?: string;
 }
 
 export function createResourceListPage<T extends ListableResource>(
@@ -115,6 +123,12 @@ export function createResourceListPage<T extends ListableResource>(
     return (
       <ResourceList<T>
         title={config.title}
+        description={
+          typeof config.description === "function"
+            ? config.description({ namespace })
+            : config.description
+        }
+        searchKey={config.searchKey}
         queryKey={queryKeys.resources(config.resourceType, namespace)}
         getRowId={getResourceRowId}
         queryFn={() => config.fetcher({ namespace })}
