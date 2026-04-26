@@ -101,6 +101,11 @@ tokio-util = { version = "0.7", features = ["io", "compat"] }
 urlencoding = "2.1"
 flate2 = "1.0"
 
+# Cross-platform PTY for interactive auth-exec processes (kubelogin
+# password prompts, etc.) — pipes are not enough when the tool calls
+# `term.ReadPassword` / `getpass` which require isatty(stdin).
+portable-pty = "0.9"
+
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 
 [build-dependencies]

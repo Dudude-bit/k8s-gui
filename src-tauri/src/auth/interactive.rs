@@ -441,7 +441,7 @@ async fn run_exec_auth(
     state.remove_auth_session(&session_id);
 
     // Read collected stdout from terminal session
-    let stdout_data = collected_stdout.read().await;
+    let stdout_data = collected_stdout.lock();
 
     if stdout_data.is_empty() {
         state.emit(AppEvent::AuthFlowCompleted {

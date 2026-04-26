@@ -1,28 +1,51 @@
-//! Auth exec process adapter - for kubectl exec auth with separate stdout collection
+//! Auth exec process adapter — spawns the kubeconfig `exec` plugin under
+//! a portable PTY so that interactive prompts (kubelogin password input,
+//! `getpass`-style readers that check `isatty(stdin)`) actually appear
+//! and accept input. Stdout+stderr are merged through the PTY master
+//! into one byte stream, mirroring how a real terminal sees the process.
 
 use crate::error::Result;
 use crate::terminal::TerminalAdapter;
+use parking_lot::Mutex;
+use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use std::collections::HashMap;
-use std::process::Stdio;
+use std::io::{Read, Write};
 use std::sync::Arc;
-use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command};
-use tokio::sync::RwLock;
+use tokio::sync::mpsc;
+use tokio::task;
 
-/// Maximum stdout size to collect (1MB) - prevents OOM from malicious/buggy auth commands
+/// Maximum stdout size to collect for JSON parsing (1MB).
+/// The terminal stream itself is bounded by xterm scrollback, not this cap.
 const MAX_STDOUT_SIZE: usize = 1024 * 1024;
 
-/// Adapter for auth exec processes
-/// This adapter separates stdout (for JSON parsing) from stderr (for terminal display)
+/// PTY default size at spawn. The frontend sends a real resize as soon
+/// as xterm measures itself, so this is just a sane initial value.
+const INITIAL_COLS: u16 = 80;
+const INITIAL_ROWS: u16 = 24;
+
+/// Adapter for interactive auth-exec processes.
 pub struct AuthExecAdapter {
     command: String,
     args: Vec<String>,
     env: HashMap<String, String>,
-    child: Option<Child>,
-    stdin: Option<ChildStdin>,
-    stdout: Option<ChildStdout>,
-    stderr: Option<ChildStderr>,
-    /// Collected stdout for JSON parsing
-    collected_stdout: Arc<RwLock<Vec<u8>>>,
+
+    /// PTY master, kept around so we can `resize`. Wrapped because both
+    /// the async caller (resize) and Drop need access.
+    master: Option<Arc<Mutex<Box<dyn MasterPty + Send>>>>,
+    /// Sync writer to the PTY master, used from `spawn_blocking`.
+    writer: Option<Arc<Mutex<Box<dyn Write + Send>>>>,
+    /// Output bytes from the PTY, pushed by the reader thread.
+    output_rx: Option<mpsc::UnboundedReceiver<Vec<u8>>>,
+    /// Tells the wait-thread to stop polling and tear down. Becomes
+    /// disconnected when the adapter is closed/dropped.
+    _shutdown_tx: Option<mpsc::Sender<()>>,
+    /// Liveness flag flipped by the wait-thread when the child exits.
+    is_alive: Arc<std::sync::atomic::AtomicBool>,
+
+    /// Collected output for ExecCredential JSON parsing. The PTY stream
+    /// contains both prompts and the final JSON; downstream `serde_json`
+    /// extracts the credential payload from the buffer's tail.
+    collected_stdout: Arc<Mutex<Vec<u8>>>,
 }
 
 impl AuthExecAdapter {
@@ -32,16 +55,19 @@ impl AuthExecAdapter {
             command,
             args,
             env,
-            child: None,
-            stdin: None,
-            stdout: None,
-            stderr: None,
-            collected_stdout: Arc::new(RwLock::new(Vec::new())),
+            master: None,
+            writer: None,
+            output_rx: None,
+            _shutdown_tx: None,
+            is_alive: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            collected_stdout: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
-    /// Get collected stdout (for JSON parsing after process completes)
-    pub fn collected_stdout(&self) -> Arc<RwLock<Vec<u8>>> {
+    /// Get collected stdout (for JSON parsing after process completes).
+    /// Synchronous lock — the auth flow grabs this once after the
+    /// process exits, so contention is nil.
+    pub fn collected_stdout(&self) -> Arc<Mutex<Vec<u8>>> {
         self.collected_stdout.clone()
     }
 }
@@ -49,124 +75,171 @@ impl AuthExecAdapter {
 #[async_trait::async_trait]
 impl TerminalAdapter for AuthExecAdapter {
     async fn connect(&mut self) -> Result<()> {
-        let mut cmd = Command::new(&self.command);
-        cmd.args(&self.args)
-            .envs(&self.env)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .kill_on_drop(true);
+        let pty_system = native_pty_system();
+        let pair = pty_system
+            .openpty(PtySize {
+                rows: INITIAL_ROWS,
+                cols: INITIAL_COLS,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
+            .map_err(|e| crate::error::Error::Terminal(format!("openpty failed: {e}")))?;
 
-        let mut child = cmd.spawn().map_err(|e| {
-            crate::error::Error::Terminal(format!("Failed to spawn auth process: {e}"))
-        })?;
+        let mut cmd = CommandBuilder::new(&self.command);
+        for arg in &self.args {
+            cmd.arg(arg);
+        }
+        for (k, v) in &self.env {
+            cmd.env(k, v);
+        }
 
-        self.stdin = child.stdin.take();
-        self.stdout = child.stdout.take();
-        self.stderr = child.stderr.take();
-        self.child = Some(child);
+        let mut child = pair
+            .slave
+            .spawn_command(cmd)
+            .map_err(|e| crate::error::Error::Terminal(format!("spawn failed: {e}")))?;
+
+        // Drop the slave handle so EOF propagates on the master once
+        // the child closes its side. Without this, reads block forever
+        // even after the child exits.
+        drop(pair.slave);
+
+        let reader = pair
+            .master
+            .try_clone_reader()
+            .map_err(|e| crate::error::Error::Terminal(format!("clone reader failed: {e}")))?;
+        let writer = pair
+            .master
+            .take_writer()
+            .map_err(|e| crate::error::Error::Terminal(format!("take writer failed: {e}")))?;
+
+        let (output_tx, output_rx) = mpsc::unbounded_channel::<Vec<u8>>();
+        let collected = self.collected_stdout.clone();
+
+        // Reader thread: blocking reads off the PTY master, tees into
+        // the JSON collector, forwards to the async side via mpsc.
+        // Lives until EOF (child exited and slave dropped).
+        std::thread::spawn(move || {
+            let mut reader = reader;
+            let mut buf = vec![0u8; crate::terminal::session::TERMINAL_BUFFER_SIZE];
+            loop {
+                match reader.read(&mut buf) {
+                    Ok(0) => break,
+                    Ok(n) => {
+                        let data = buf[..n].to_vec();
+                        {
+                            let mut c = collected.lock();
+                            if c.len() + data.len() <= MAX_STDOUT_SIZE {
+                                c.extend_from_slice(&data);
+                            } else if c.len() < MAX_STDOUT_SIZE {
+                                let remaining = MAX_STDOUT_SIZE - c.len();
+                                c.extend_from_slice(&data[..remaining]);
+                            }
+                        }
+                        if output_tx.send(data).is_err() {
+                            break;
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+        });
+
+        // Wait thread: blocks on child.wait() so we can flip is_alive
+        // when the process exits, without polling try_wait every tick.
+        let (shutdown_tx, _shutdown_rx) = mpsc::channel::<()>(1);
+        self.is_alive
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        let alive = self.is_alive.clone();
+        std::thread::spawn(move || {
+            let _ = child.wait();
+            alive.store(false, std::sync::atomic::Ordering::SeqCst);
+        });
+
+        self.master = Some(Arc::new(Mutex::new(pair.master)));
+        self.writer = Some(Arc::new(Mutex::new(writer)));
+        self.output_rx = Some(output_rx);
+        self._shutdown_tx = Some(shutdown_tx);
 
         Ok(())
     }
 
     async fn read_output(&mut self) -> Result<Option<Vec<u8>>> {
-        use tokio::io::AsyncReadExt;
+        let rx = match self.output_rx.as_mut() {
+            Some(rx) => rx,
+            None => return Ok(None),
+        };
 
-        let mut buf = vec![0u8; crate::terminal::session::TERMINAL_BUFFER_SIZE];
-
-        // Read from stdout: tee into the JSON collector AND return
-        // to the terminal. Some OIDC drivers (kubelogin, kubectl-oidc_login
-        // depending on grant type) write the "open this URL" prompt to
-        // stdout — silently dropping it leaves the auth modal blank.
-        // The terminal is the user's display surface; the collector is
-        // a separate concern for ExecCredential JSON parsing.
-        if let Some(stdout) = &mut self.stdout {
-            if let Ok(Ok(n)) =
-                tokio::time::timeout(std::time::Duration::from_millis(10), stdout.read(&mut buf))
-                    .await
-            {
-                if n > 0 {
-                    let data = buf[..n].to_vec();
-
-                    // Append to JSON collector with size cap (terminal
-                    // stream itself is bounded by xterm scrollback).
-                    {
-                        let mut collected = self.collected_stdout.write().await;
-                        if collected.len() + data.len() <= MAX_STDOUT_SIZE {
-                            collected.extend_from_slice(&data);
-                        } else if collected.len() < MAX_STDOUT_SIZE {
-                            let remaining = MAX_STDOUT_SIZE - collected.len();
-                            collected.extend_from_slice(&data[..remaining]);
-                        }
-                    }
-
-                    return Ok(Some(data));
-                }
-            }
+        // Short timeout matches the manager's 50ms read tick — it lets
+        // the I/O loop interleave with input and cancel checks.
+        match tokio::time::timeout(std::time::Duration::from_millis(10), rx.recv()).await {
+            Ok(Some(data)) => Ok(Some(data)),
+            Ok(None) => Ok(None), // sender dropped: child exited
+            Err(_) => Ok(None),   // timeout: no bytes this tick
         }
-
-        // Try reading from stderr - this goes to terminal
-        if let Some(stderr) = &mut self.stderr {
-            if let Ok(Ok(n)) =
-                tokio::time::timeout(std::time::Duration::from_millis(10), stderr.read(&mut buf))
-                    .await
-            {
-                if n > 0 {
-                    return Ok(Some(buf[..n].to_vec()));
-                }
-            }
-        }
-
-        Ok(None)
     }
 
     async fn write_input(&mut self, data: &[u8]) -> Result<()> {
-        use tokio::io::AsyncWriteExt;
+        let writer = self
+            .writer
+            .as_ref()
+            .ok_or_else(|| crate::error::Error::Terminal("PTY not connected".to_string()))?
+            .clone();
+        let data = data.to_vec();
 
-        let stdin = self
-            .stdin
-            .as_mut()
-            .ok_or_else(|| crate::error::Error::Terminal("No stdin available".to_string()))?;
-
-        stdin
-            .write_all(data)
-            .await
-            .map_err(|e| crate::error::Error::Terminal(format!("Write failed: {e}")))?;
-        stdin
-            .flush()
-            .await
-            .map_err(|e| crate::error::Error::Terminal(format!("Flush failed: {e}")))?;
+        task::spawn_blocking(move || -> std::io::Result<()> {
+            let mut w = writer.lock();
+            w.write_all(&data)?;
+            w.flush()
+        })
+        .await
+        .map_err(|e| crate::error::Error::Terminal(format!("write join failed: {e}")))?
+        .map_err(|e| crate::error::Error::Terminal(format!("PTY write failed: {e}")))?;
 
         Ok(())
     }
 
-    async fn resize(&mut self, _cols: u16, _rows: u16) -> Result<()> {
-        // No-op for local processes (no PTY support)
+    async fn resize(&mut self, cols: u16, rows: u16) -> Result<()> {
+        let master = match self.master.as_ref() {
+            Some(m) => m.clone(),
+            None => return Ok(()),
+        };
+
+        task::spawn_blocking(move || {
+            let m = master.lock();
+            m.resize(PtySize {
+                rows,
+                cols,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
+        })
+        .await
+        .map_err(|e| crate::error::Error::Terminal(format!("resize join failed: {e}")))?
+        .map_err(|e| crate::error::Error::Terminal(format!("PTY resize failed: {e}")))?;
+
         Ok(())
     }
 
     async fn close(&mut self) -> Result<()> {
-        if let Some(mut child) = self.child.take() {
-            // Close stdin first to signal process to exit
-            self.stdin = None;
+        // Drop the writer first so the child sees stdin EOF.
+        self.writer = None;
+        // Drop the master to close the PTY — this triggers EOF on the
+        // reader and the reader thread exits naturally.
+        self.master = None;
+        self._shutdown_tx = None;
 
-            // Try graceful shutdown with timeout
-            match tokio::time::timeout(std::time::Duration::from_secs(2), child.wait()).await {
-                Ok(Ok(_)) => {}
-                _ => {
-                    // Force kill if timeout
-                    let _ = child.kill().await;
-                }
-            }
+        // Drain any buffered output so callers that read after close
+        // don't block on a closed-empty channel.
+        if let Some(mut rx) = self.output_rx.take() {
+            rx.close();
+            while rx.recv().await.is_some() {}
         }
 
-        self.stdout = None;
-        self.stderr = None;
         Ok(())
     }
 
     fn is_running(&self) -> bool {
-        self.child.is_some()
+        self.is_alive.load(std::sync::atomic::Ordering::SeqCst)
     }
 }
 
@@ -176,8 +249,9 @@ mod tests {
     use std::time::Duration;
 
     /// Drain `read_output` into a single buffer until either the
-    /// process stops emitting for `quiet_for`, or `total_timeout`
-    /// elapses. Use to assert what the terminal would see.
+    /// process stops emitting for several ticks (and is no longer
+    /// running), or `total_timeout` elapses. Used to assert what the
+    /// terminal would see across the full lifetime of a short command.
     async fn drain(adapter: &mut AuthExecAdapter, total_timeout: Duration) -> Vec<u8> {
         let mut out = Vec::new();
         let deadline = tokio::time::Instant::now() + total_timeout;
@@ -190,7 +264,7 @@ mod tests {
                 }
                 Ok(None) => {
                     idle_ticks += 1;
-                    if idle_ticks > 5 && !adapter.is_running() {
+                    if idle_ticks > 10 && !adapter.is_running() {
                         break;
                     }
                     tokio::time::sleep(Duration::from_millis(20)).await;
@@ -205,9 +279,8 @@ mod tests {
     async fn read_output_returns_stdout_to_terminal() {
         // Many OIDC drivers (kubelogin --grant-type=authcode-keyboard,
         // some `kubectl-oidc_login` builds) write the "open this URL"
-        // prompt to stdout, not stderr. Previously this adapter
-        // silently swallowed stdout, so the user saw an empty modal
-        // even after the race fix.
+        // prompt to stdout. PTY merges stdout+stderr into one stream,
+        // so this should arrive whole.
         let mut adapter = AuthExecAdapter::new(
             "/bin/sh".into(),
             vec!["-c".into(), "printf STDOUT_PROMPT".into()],
@@ -244,11 +317,40 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn child_runs_under_a_real_tty() {
+        // The whole reason we adopted portable-pty: tools like kubelogin
+        // call term.ReadPassword / getpass which check isatty(stdin) and
+        // refuse to prompt without a real terminal. `tty` exits 0 and
+        // prints the device name when stdin is a terminal, exits non-zero
+        // and prints "not a tty" otherwise. If we ever regress to pipes,
+        // this test goes red.
+        let mut adapter = AuthExecAdapter::new(
+            "/bin/sh".into(),
+            vec!["-c".into(), "tty".into()],
+            HashMap::new(),
+        );
+
+        adapter.connect().await.expect("spawn");
+        let drained = drain(&mut adapter, Duration::from_secs(2)).await;
+        adapter.close().await.expect("close");
+
+        let text = String::from_utf8_lossy(&drained);
+        assert!(
+            !text.contains("not a tty"),
+            "child saw a pipe, not a tty; got {text:?}"
+        );
+        assert!(
+            text.contains("/dev/"),
+            "expected tty device path in output; got {text:?}"
+        );
+    }
+
     #[tokio::test]
     async fn collected_stdout_still_captures_json_payload() {
         // The auth flow downstream parses JSON ExecCredential from
-        // `collected_stdout()`. Tee'ing stdout to the terminal must
-        // NOT break that parsing path.
+        // `collected_stdout()`. PTY-tee'ing must NOT break that path.
         let mut adapter = AuthExecAdapter::new(
             "/bin/sh".into(),
             vec!["-c".into(), "printf '{\"kind\":\"ExecCredential\"}'".into()],
@@ -260,7 +362,7 @@ mod tests {
         let _ = drain(&mut adapter, Duration::from_secs(2)).await;
         adapter.close().await.expect("close");
 
-        let collected = collected_handle.read().await;
+        let collected = collected_handle.lock();
         let text = String::from_utf8_lossy(&collected);
         assert!(
             text.contains("\"kind\":\"ExecCredential\""),
