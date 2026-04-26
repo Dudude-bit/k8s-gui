@@ -47,6 +47,17 @@ pub fn close_terminal(session_id: String, state: State<'_, AppState>) -> Result<
     state.terminal_manager.close_session(&session_id)
 }
 
+/// Signal that the frontend has registered its `terminal-output` and
+/// `terminal-closed` listeners and is ready to receive events. The
+/// backend I/O loop blocks on this signal before reading from the
+/// adapter, so early output bytes don't get emitted into the void.
+/// Idempotent — calling twice is a no-op. Errors only on unknown
+/// session IDs so a malicious caller cannot release arbitrary sessions.
+#[tauri::command]
+pub fn terminal_subscribed(session_id: String, state: State<'_, AppState>) -> Result<()> {
+    state.terminal_manager.mark_subscribed(&session_id)
+}
+
 /// Open a shell in a pod
 #[tauri::command]
 pub async fn open_pod_shell(

@@ -249,6 +249,7 @@ fn main() {
             commands::terminal::terminal_input,
             commands::terminal::terminal_resize,
             commands::terminal::close_terminal,
+            commands::terminal::terminal_subscribed,
             commands::terminal::open_pod_shell,
             commands::terminal::open_process_shell,
 

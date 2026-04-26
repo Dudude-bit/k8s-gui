@@ -34,12 +34,26 @@ pub struct TerminalSession {
     pub(crate) state: Arc<RwLock<TerminalState>>,
     /// Cancel signal
     cancel_tx: Option<oneshot::Sender<()>>,
+    /// Subscribe gate. Released by `mark_subscribed()` once the
+    /// frontend has registered its event listeners. The I/O loop
+    /// blocks on the matching receiver before reading from the
+    /// adapter, so early output bytes don't get emitted into the
+    /// void before any listener exists.
+    subscribe_tx: Option<oneshot::Sender<()>>,
 }
 
 impl TerminalSession {
-    pub(crate) fn new(id: String) -> (Self, mpsc::Receiver<TerminalInput>, oneshot::Receiver<()>) {
+    pub(crate) fn new(
+        id: String,
+    ) -> (
+        Self,
+        mpsc::Receiver<TerminalInput>,
+        oneshot::Receiver<()>,
+        oneshot::Receiver<()>,
+    ) {
         let (input_tx, input_rx) = mpsc::channel(100);
         let (cancel_tx, cancel_rx) = oneshot::channel();
+        let (subscribe_tx, subscribe_rx) = oneshot::channel();
         let state = Arc::new(RwLock::new(TerminalState::Idle));
 
         let session = Self {
@@ -47,9 +61,20 @@ impl TerminalSession {
             input_tx,
             state,
             cancel_tx: Some(cancel_tx),
+            subscribe_tx: Some(subscribe_tx),
         };
 
-        (session, input_rx, cancel_rx)
+        (session, input_rx, cancel_rx, subscribe_rx)
+    }
+
+    /// Release the subscribe gate so the I/O loop can start reading.
+    /// Idempotent — calling twice is a no-op.
+    pub fn mark_subscribed(&mut self) {
+        if let Some(tx) = self.subscribe_tx.take() {
+            // Receiver may already have been dropped (session closed
+            // during startup). That's fine — nothing to release.
+            let _ = tx.send(());
+        }
     }
 
     /// Get current state
