@@ -130,14 +130,14 @@ export function useGenericTerminalSession({
 
       try {
         // Listen for output
-        const unlistenOutput = await listen<{ session_id: string; data: string }>(
-          "terminal-output",
-          (event) => {
-            if (event.payload.session_id === sessionId && onOutputRef.current) {
-              onOutputRef.current(event.payload.data);
-            }
+        const unlistenOutput = await listen<{
+          session_id: string;
+          data: string;
+        }>("terminal-output", (event) => {
+          if (event.payload.session_id === sessionId && onOutputRef.current) {
+            onOutputRef.current(event.payload.data);
           }
-        );
+        });
         if (cleanupCalled) {
           unlistenOutput();
           return;
@@ -164,6 +164,12 @@ export function useGenericTerminalSession({
           return;
         }
         unlistenRef.current.push(unlistenClosed);
+
+        // Both listeners are now installed. Tell the backend it's safe
+        // to start reading from the adapter — without this signal the
+        // I/O loop blocks (or, after the 60s safety timeout, fires into
+        // the void). See `terminal::manager::create_session`.
+        await commands.terminalSubscribed(sessionId);
       } catch (err) {
         console.error("Failed to setup terminal listeners:", err);
         if (isMountedRef.current) {
