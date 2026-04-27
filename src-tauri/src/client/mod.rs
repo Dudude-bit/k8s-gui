@@ -66,6 +66,12 @@ impl K8sClientManager {
 
     /// Load kubeconfig from a specific path
     pub async fn load_kubeconfig_from_path(&self, path: PathBuf) -> Result<()> {
+        // Resolve symlinks and `..` segments before opening the file.
+        // Defuses both accidental misconfiguration and a class of
+        // path-traversal attacks if the path ever flows from less-
+        // trusted input. Returns a clear error if the file is missing.
+        let path = canonicalize_kubeconfig_path(&path)?;
+
         let kubeconfig = Kubeconfig::read_from(&path).map_err(|e| {
             Error::Auth(AuthError::Kubeconfig(format!(
                 "Failed to read kubeconfig from {path:?}: {e}"
@@ -248,13 +254,78 @@ pub struct ClusterInfo {
     pub git_version: String,
 }
 
+/// Resolve a kubeconfig path: expands `~`, follows symlinks, and
+/// rejects paths whose target does not exist. Used as a chokepoint
+/// before any `Kubeconfig::read_from(...)` so a stray `..` segment
+/// or a stale symlink can't quietly load a different file than
+/// the user thinks they're loading.
+fn canonicalize_kubeconfig_path(path: &std::path::Path) -> Result<PathBuf> {
+    let expanded: PathBuf = if let Some(stripped) = path
+        .to_str()
+        .and_then(|s| s.strip_prefix("~/"))
+        .or_else(|| path.to_str().and_then(|s| s.strip_prefix("~")))
+    {
+        if let Some(home) = dirs::home_dir() {
+            home.join(stripped)
+        } else {
+            path.to_path_buf()
+        }
+    } else {
+        path.to_path_buf()
+    };
+
+    expanded.canonicalize().map_err(|e| {
+        Error::Auth(AuthError::Kubeconfig(format!(
+            "Cannot resolve kubeconfig path {expanded:?}: {e}"
+        )))
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
 
     #[tokio::test]
     async fn test_client_manager_creation() {
         let manager = K8sClientManager::new();
         assert!(manager.connected_contexts().is_empty());
+    }
+
+    #[test]
+    fn canonicalize_resolves_dot_segments() {
+        // a/./b/../b → a/b after canonicalize, given a/b exists.
+        let dir = tempfile::tempdir().expect("tempdir");
+        let real = dir.path().join("real-kubeconfig");
+        std::fs::File::create(&real)
+            .unwrap()
+            .write_all(b"apiVersion: v1\nkind: Config\n")
+            .unwrap();
+
+        let twisty = dir.path().join("./real-kubeconfig");
+
+        let resolved = canonicalize_kubeconfig_path(&twisty).expect("canonicalize");
+        // Compare against the real path's canonical form (handles macOS
+        // /var → /private/var symlink).
+        assert_eq!(
+            resolved,
+            real.canonicalize().unwrap(),
+            "twisty path should resolve to the same canonical path"
+        );
+    }
+
+    #[test]
+    fn canonicalize_rejects_missing_file() {
+        let bogus = std::path::Path::new("/nonexistent/path/to/kubeconfig-xyz-12345");
+        let err = canonicalize_kubeconfig_path(bogus).unwrap_err();
+        match err {
+            Error::Auth(AuthError::Kubeconfig(msg)) => {
+                assert!(
+                    msg.contains("Cannot resolve"),
+                    "expected resolve error, got {msg:?}"
+                );
+            }
+            other => panic!("expected Kubeconfig auth error, got {other:?}"),
+        }
     }
 }

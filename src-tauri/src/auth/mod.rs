@@ -26,8 +26,13 @@ pub use oidc::OidcAuth;
 
 use serde::{Deserialize, Serialize};
 
-/// Authentication result with token and expiry
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Authentication result with token and expiry.
+///
+/// Note: `Debug` is implemented manually so the access and refresh
+/// tokens never leak into logs / panic messages / `dbg!()`. Serde
+/// still round-trips the full struct because that's intentional —
+/// callers explicitly reach for serialization.
+#[derive(Clone, Serialize, Deserialize)]
 pub struct AuthResult {
     /// Access token or credential
     pub token: String,
@@ -40,6 +45,20 @@ pub struct AuthResult {
 
     /// Token type (Bearer, etc.)
     pub token_type: String,
+}
+
+impl std::fmt::Debug for AuthResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AuthResult")
+            .field("token", &"<redacted>")
+            .field("expires_at", &self.expires_at)
+            .field(
+                "refresh_token",
+                &self.refresh_token.as_ref().map(|_| "<redacted>"),
+            )
+            .field("token_type", &self.token_type)
+            .finish()
+    }
 }
 
 impl AuthResult {
