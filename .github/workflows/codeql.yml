@@ -1,0 +1,64 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly drift-catch run on Mondays 06:00 UTC. Catches new
+    # CodeQL queries and any drift in the dependency tree that
+    # the push-trigger missed.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    permissions:
+      # Required for github/codeql-action/upload-sarif to push results.
+      security-events: write
+      # Required to fetch internal/private CodeQL packs.
+      packages: read
+      # Required to read the repository.
+      contents: read
+      # Required by the action's matrix metadata reporting.
+      actions: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Rust support in CodeQL is still in public preview as of
+          # early 2026; skip until GA to avoid noisy false-positives
+          # in the security tab. Frontend coverage catches most of
+          # the OWASP-shaped bugs that matter for this app.
+          - language: javascript-typescript
+            build-mode: none
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4.35.2
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          # `security-extended` adds higher-precision queries that
+          # `security-and-quality` would dilute with style noise.
+          queries: security-extended
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4.35.2
+        with:
+          category: "/language:${{ matrix.language }}"
