@@ -5,13 +5,13 @@ import { renderHook, waitFor } from "@testing-library/react";
 
 // Order tracking shared between the listen mock and the
 // logStreamSubscribed mock so we can assert the contract: the listener
-// for "log-line" MUST be installed before logStreamSubscribed is called.
+// for "log-batch" MUST be installed before logStreamSubscribed is called.
 
 let callCounter = 0;
 const listenCalls: Array<{ event: string; index: number }> = [];
 const subscribedCalls: Array<{ streamId: string; index: number }> = [];
 
-// Captured per-event so tests can synthetically fire log-line payloads
+// Captured per-event so tests can synthetically fire log-batch payloads
 // at the registered handler.
 const listeners: Record<
   string,
@@ -62,16 +62,16 @@ describe("useLogStream deferred-start handshake", () => {
     vi.clearAllMocks();
   });
 
-  it("registers log-line listener before calling logStreamSubscribed", async () => {
+  it("registers log-batch listener before calling logStreamSubscribed", async () => {
     renderHook(() => useLogStream(baseProps));
 
     await waitFor(() => {
       expect(subscribedCalls).toHaveLength(1);
     });
 
-    const lineCall = listenCalls.find((c) => c.event === "log-line");
-    expect(lineCall, "log-line listener was never registered").toBeDefined();
-    expect(lineCall!.index).toBeLessThan(subscribedCalls[0].index);
+    const batchCall = listenCalls.find((c) => c.event === "log-batch");
+    expect(batchCall, "log-batch listener was never registered").toBeDefined();
+    expect(batchCall!.index).toBeLessThan(subscribedCalls[0].index);
   });
 
   it("calls logStreamSubscribed with the streamId returned from streamPodLogs", async () => {
@@ -85,20 +85,21 @@ describe("useLogStream deferred-start handshake", () => {
   });
 });
 
-// Helper: build a log-line event payload of the shape the backend emits.
-function logEvent(streamId: string, message: string) {
+// Helper: build a log-batch event payload of the shape the backend emits.
+// The streamer flushes every 50ms (or every 100 lines), so each event
+// carries an array. Most tests just send one-line batches.
+function logEvent(streamId: string, ...messages: string[]) {
   return {
     payload: {
       stream_id: streamId,
-      line: message,
-      pod: "p",
-      container: "c",
-      message,
-      timestamp: null,
-      level: null,
-      format: null,
-      fields: null,
-      raw: message,
+      lines: messages.map((message) => ({
+        message,
+        timestamp: null,
+        level: null,
+        format: null,
+        fields: null,
+        raw: message,
+      })),
     },
   };
 }
@@ -119,8 +120,8 @@ describe("useLogStream stable line ids", () => {
       expect(subscribedCalls).toHaveLength(1);
     });
 
-    const handler = listeners["log-line"];
-    expect(handler, "log-line handler captured").toBeDefined();
+    const handler = listeners["log-batch"];
+    expect(handler, "log-batch handler captured").toBeDefined();
 
     handler!(logEvent("stream-id-1", "first"));
     handler!(logEvent("stream-id-1", "second"));
@@ -136,6 +137,33 @@ describe("useLogStream stable line ids", () => {
     expect(ids[1]).toBeLessThan(ids[2]);
   });
 
+  it("expands a batched event into one log entry per line", async () => {
+    // Backend flushes every ~50ms, so a single Tauri event commonly
+    // carries multiple lines. Each one must become its own log entry
+    // with its own unique id, in arrival order.
+    const { result } = renderHook(() => useLogStream(baseProps));
+
+    await waitFor(() => {
+      expect(subscribedCalls).toHaveLength(1);
+    });
+
+    const handler = listeners["log-batch"]!;
+    handler(logEvent("stream-id-1", "one", "two", "three", "four"));
+
+    await waitFor(() => {
+      expect(result.current.logs).toHaveLength(4);
+    });
+
+    expect(result.current.logs.map((l) => l.message)).toEqual([
+      "one",
+      "two",
+      "three",
+      "four",
+    ]);
+    const ids = result.current.logs.map((l) => l.id);
+    expect(new Set(ids).size).toBe(4);
+  });
+
   it("preserves ids across renders so React keys stay stable", async () => {
     const { result } = renderHook(() => useLogStream(baseProps));
 
@@ -143,7 +171,7 @@ describe("useLogStream stable line ids", () => {
       expect(subscribedCalls).toHaveLength(1);
     });
 
-    const handler = listeners["log-line"]!;
+    const handler = listeners["log-batch"]!;
     handler(logEvent("stream-id-1", "alpha"));
     handler(logEvent("stream-id-1", "beta"));
 

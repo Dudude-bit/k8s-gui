@@ -46,7 +46,7 @@ fn main() {
 
                 while let Ok(event) = event_rx.recv().await {
                     let event_name = match &event {
-                        AppEvent::LogMessage { .. } => "log-line",
+                        AppEvent::LogBatch { .. } => "log-batch",
                         AppEvent::TerminalOutput { .. } => "terminal-output",
                         AppEvent::TerminalClosed { .. } => "terminal-closed",
                         AppEvent::PortForwardStatus { .. } => "port-forward-status",
@@ -54,7 +54,9 @@ fn main() {
                         AppEvent::AuthUrlRequested { .. } => "auth-url-requested",
                         AppEvent::AuthFlowCompleted { .. } => "auth-flow-completed",
                         AppEvent::AuthFlowCancelled { .. } => "auth-flow-cancelled",
-                        AppEvent::AuthTerminalSessionCreated { .. } => "auth-terminal-session-created",
+                        AppEvent::AuthTerminalSessionCreated { .. } => {
+                            "auth-terminal-session-created"
+                        }
                         AppEvent::ResourceCreated { .. } => "resource-created",
                         AppEvent::ResourceUpdated { .. } => "resource-updated",
                         AppEvent::ResourceDeleted { .. } => "resource-deleted",
@@ -63,43 +65,34 @@ fn main() {
 
                     // Transform event payload for frontend
                     let payload = match &event {
-                        AppEvent::LogMessage {
-                            stream_id,
-                            pod,
-                            container,
-                            message,
-                            timestamp,
-                            level,
-                            format,
-                            fields,
-                            raw,
-                        } => {
+                        AppEvent::LogBatch { stream_id, lines } => {
                             serde_json::json!({
                                 "stream_id": stream_id,
-                                "line": format!("{} {}", timestamp.clone().unwrap_or_default(), message),
-                                "pod": pod,
-                                "container": container,
-                                "message": message,
-                                "timestamp": timestamp,
-                                "level": level,
-                                "format": format,
-                                "fields": fields,
-                                "raw": raw
+                                "lines": lines,
                             })
-                        },
+                        }
                         AppEvent::TerminalOutput { session_id, data } => {
                             serde_json::json!({
                                 "session_id": session_id,
                                 "data": data
                             })
-                        },
+                        }
                         AppEvent::TerminalClosed { session_id, status } => {
                             serde_json::json!({
                                 "session_id": session_id,
                                 "status": status
                             })
-                        },
-                        AppEvent::PortForwardStatus { id, pod, namespace, local_port, remote_port, status, message, attempt } => {
+                        }
+                        AppEvent::PortForwardStatus {
+                            id,
+                            pod,
+                            namespace,
+                            local_port,
+                            remote_port,
+                            status,
+                            message,
+                            attempt,
+                        } => {
                             serde_json::json!({
                                 "id": id,
                                 "pod": pod,
@@ -110,30 +103,44 @@ fn main() {
                                 "message": message,
                                 "attempt": attempt
                             })
-                        },
-                        AppEvent::AuthUrlRequested { context, url, flow, session_id } => {
+                        }
+                        AppEvent::AuthUrlRequested {
+                            context,
+                            url,
+                            flow,
+                            session_id,
+                        } => {
                             serde_json::json!({
                                 "context": context,
                                 "url": url,
                                 "flow": flow,
                                 "session_id": session_id
                             })
-                        },
-                        AppEvent::AuthFlowCompleted { session_id, context, success, message } => {
+                        }
+                        AppEvent::AuthFlowCompleted {
+                            session_id,
+                            context,
+                            success,
+                            message,
+                        } => {
                             serde_json::json!({
                                 "session_id": session_id,
                                 "context": context,
                                 "success": success,
                                 "message": message
                             })
-                        },
-                        AppEvent::AuthFlowCancelled { session_id, context, message } => {
+                        }
+                        AppEvent::AuthFlowCancelled {
+                            session_id,
+                            context,
+                            message,
+                        } => {
                             serde_json::json!({
                                 "session_id": session_id,
                                 "context": context,
                                 "message": message
                             })
-                        },
+                        }
                         _ => serde_json::to_value(&event).unwrap_or_default(),
                     };
 
@@ -156,13 +163,10 @@ fn main() {
             commands::cluster::connect_cluster,
             commands::cluster::disconnect_cluster,
             commands::cluster::get_cluster_info,
-
             // Namespace management
             commands::namespace::list_namespaces,
-
             // Generic resource management
             commands::resources::list_resources,
-
             // CRD commands
             commands::crds::list_crds,
             commands::crds::get_crd,
@@ -173,13 +177,11 @@ fn main() {
             commands::crds::get_custom_resource,
             commands::crds::get_custom_resource_yaml,
             commands::crds::delete_custom_resource,
-
             // Pod commands
             commands::pods::list_pods,
             commands::pods::get_pod,
             commands::pods::delete_pod,
             commands::pods::restart_pod,
-
             // Debug commands
             commands::debug::debug_pod_ephemeral,
             commands::debug::debug_pod_copy,
@@ -189,7 +191,6 @@ fn main() {
             commands::debug::get_debug_status,
             commands::debug::cancel_debug_operation,
             commands::debug::extend_debug_timeout,
-
             // Deployment commands
             commands::deployments::list_deployments,
             commands::deployments::get_deployment,
@@ -199,12 +200,10 @@ fn main() {
             commands::deployments::update_deployment_image,
             commands::deployments::get_deployment_pods,
             commands::deployments::get_rollout_status,
-
             // Service commands
             commands::services::list_services,
             commands::services::get_service,
             commands::services::delete_service,
-
             // Port-forward commands
             commands::port_forward::port_forward_pod,
             commands::port_forward::stop_port_forward,
@@ -213,39 +212,32 @@ fn main() {
             commands::port_forward::create_port_forward_config,
             commands::port_forward::update_port_forward_config,
             commands::port_forward::delete_port_forward_config,
-
             // ConfigMap commands
             commands::config_resources::list_configmaps,
             commands::config_resources::get_configmap,
             commands::config_resources::get_configmap_data,
             commands::config_resources::delete_configmap,
-
             // Secret commands
             commands::config_resources::list_secrets,
             commands::config_resources::get_secret,
             commands::config_resources::get_secret_data,
             commands::config_resources::get_secret_yaml,
             commands::config_resources::delete_secret,
-
             // Resource references command
             commands::config_resources::get_resource_references,
-
             // Node commands
             commands::nodes::list_nodes,
             commands::nodes::get_node,
             commands::nodes::cordon_node,
             commands::nodes::uncordon_node,
             commands::nodes::drain_node,
-
             // Event commands
             commands::events::list_events,
-
             // Log commands
             commands::logs::get_pod_logs,
             commands::logs::stop_log_stream,
             commands::logs::stream_pod_logs,
             commands::logs::log_stream_subscribed,
-
             // Terminal/Exec commands
             commands::terminal::terminal_input,
             commands::terminal::terminal_resize,
@@ -253,11 +245,9 @@ fn main() {
             commands::terminal::terminal_subscribed,
             commands::terminal::open_pod_shell,
             commands::terminal::open_process_shell,
-
             // kubectl commands
             commands::kubectl::check_kubectl_availability,
             commands::debug_kubectl_plugins,
-
             // Helm commands (native + CLI)
             commands::helm::check_helm_availability,
             commands::helm::list_helm_releases_native,
@@ -272,7 +262,6 @@ fn main() {
             commands::helm::helm_search_charts,
             commands::helm::helm_install,
             commands::helm::helm_upgrade,
-
             // Settings commands
             commands::settings::get_app_info,
             // GCP profiles
@@ -319,17 +308,14 @@ fn main() {
             // Cluster preferences
             commands::settings::get_cluster_preferences,
             commands::settings::save_cluster_preferences,
-
             // Registry commands
             commands::registry::set_registry_credentials,
             commands::registry::delete_registry_credentials,
             commands::registry::get_registry_auth_status,
             commands::registry::import_docker_config,
             commands::registry::search_registry_images,
-
             // Authentication commands
             commands::auth::cancel_auth_session,
-
             // Storage commands
             commands::storage::list_persistent_volumes,
             commands::storage::get_persistent_volume,
@@ -340,7 +326,6 @@ fn main() {
             commands::storage::list_storage_classes,
             commands::storage::get_storage_class,
             commands::storage::delete_storage_class,
-
             // Network commands
             commands::network::list_ingresses,
             commands::network::get_ingress,
@@ -348,15 +333,12 @@ fn main() {
             commands::network::list_endpoints,
             commands::network::get_endpoints,
             commands::network::delete_endpoints,
-
             // Stats commands
             commands::stats::get_cluster_stats,
-
             // Metrics API
             commands::metrics::get_pods_metrics,
             commands::metrics::get_nodes_metrics,
             commands::metrics::get_cluster_metrics,
-
             // Workloads commands
             commands::workloads::list_statefulsets,
             commands::workloads::get_statefulset,
@@ -374,13 +356,11 @@ fn main() {
             commands::workloads::get_cronjob,
             commands::workloads::get_cronjob_yaml,
             commands::workloads::delete_cronjob,
-
             // Manifest commands
             commands::manifest::validate_manifest,
             commands::manifest::apply_manifest,
             commands::manifest::delete_manifest,
             commands::manifest::get_manifest,
-
             // Logging commands
             commands::logging::log_frontend_event,
             commands::logging::log_frontend_events_batch,

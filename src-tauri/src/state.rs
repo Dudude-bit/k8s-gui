@@ -17,6 +17,20 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 use uuid::Uuid;
 
+/// One log line as carried inside a `LogBatch`. Mirrors the subset of
+/// `LogLine` that the frontend consumes — pod/container/namespace are
+/// per-batch context (already known by the receiving hook) so they're
+/// omitted here to keep the payload small.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct LogLineEvent {
+    pub message: String,
+    pub timestamp: Option<String>,
+    pub level: Option<LogLevel>,
+    pub format: LogFormat,
+    pub fields: Option<BTreeMap<String, String>>,
+    pub raw: String,
+}
+
 /// Events that can be broadcast to frontend
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(tag = "type", content = "data")]
@@ -41,17 +55,13 @@ pub enum AppEvent {
     },
     /// Connection status changed
     ConnectionStatusChanged { context: String, connected: bool },
-    /// Log message received
-    LogMessage {
+    /// Batch of log lines for a single stream. The streamer flushes
+    /// every ~50ms (or sooner if the buffer fills) so that verbose
+    /// pods don't generate one Tauri round-trip per line. Always
+    /// non-empty.
+    LogBatch {
         stream_id: String,
-        pod: String,
-        container: String,
-        message: String,
-        timestamp: Option<String>,
-        level: Option<LogLevel>,
-        format: LogFormat,
-        fields: Option<BTreeMap<String, String>>,
-        raw: String,
+        lines: Vec<LogLineEvent>,
     },
     /// Terminal output received
     TerminalOutput { session_id: String, data: String },

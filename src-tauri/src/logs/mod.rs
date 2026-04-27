@@ -4,7 +4,7 @@
 
 use crate::commands::helpers::ResourceContext;
 use crate::error::{Error, Result};
-use crate::state::AppEvent;
+use crate::state::{AppEvent, LogLineEvent};
 use chrono::{DateTime, Utc};
 use k8s_openapi::api::core::v1::Pod;
 use kube::{
@@ -15,8 +15,20 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::{broadcast, oneshot};
+use tokio::time::{interval, MissedTickBehavior};
+
+/// Maximum log lines buffered before forcing a flush, regardless of
+/// the timer. Prevents a burst of fast-emitting log output from
+/// growing the buffer unbounded between ticks.
+const MAX_BATCH_SIZE: usize = 100;
+
+/// Flush interval. 50ms keeps perceived latency low (~one frame at 20fps)
+/// while collapsing 100+ events/sec verbose-pod streams into ~20 events/sec
+/// of Tauri round-trips.
+const FLUSH_INTERVAL: Duration = Duration::from_millis(50);
 
 /// Log streaming configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -302,11 +314,27 @@ impl LogStreamer {
         let reader = BufReader::new(stream.compat());
         let mut lines = reader.lines();
 
+        // Buffer + periodic flush, so verbose pods don't generate one
+        // Tauri round-trip per line. Flush triggers: timer tick (every
+        // FLUSH_INTERVAL), buffer hits MAX_BATCH_SIZE, cancel, or EOF.
+        let mut buffer: Vec<LogLineEvent> = Vec::with_capacity(MAX_BATCH_SIZE);
+        let mut flush_timer = interval(FLUSH_INTERVAL);
+        // First tick fires immediately; skip it so an empty buffer
+        // doesn't emit an empty batch right after subscribe.
+        flush_timer.set_missed_tick_behavior(MissedTickBehavior::Skip);
+        flush_timer.tick().await;
+
         loop {
             tokio::select! {
+                biased;
                 _ = &mut cancel_rx => {
                     tracing::debug!("Log stream {} cancelled", stream_id);
                     break;
+                }
+                _ = flush_timer.tick() => {
+                    if !buffer.is_empty() {
+                        Self::flush_batch(&self.event_tx, &stream_id, &mut buffer);
+                    }
                 }
                 result = lines.next_line() => {
                     match result {
@@ -318,17 +346,18 @@ impl LogStreamer {
                                 &namespace,
                             );
 
-                            let _ = self.event_tx.send(AppEvent::LogMessage {
-                                stream_id: stream_id.clone(),
-                                pod: pod.clone(),
-                                container: container.clone(),
-                                message: log_line.message.clone(),
+                            buffer.push(LogLineEvent {
+                                message: log_line.message,
                                 timestamp: log_line.timestamp.map(|t| t.to_rfc3339()),
                                 level: log_line.level,
                                 format: log_line.format,
-                                fields: log_line.fields.clone(),
-                                raw: log_line.raw.clone(),
+                                fields: log_line.fields,
+                                raw: log_line.raw,
                             });
+
+                            if buffer.len() >= MAX_BATCH_SIZE {
+                                Self::flush_batch(&self.event_tx, &stream_id, &mut buffer);
+                            }
                         }
                         Ok(None) => {
                             tracing::debug!("Log stream ended");
@@ -347,7 +376,26 @@ impl LogStreamer {
             }
         }
 
+        // Final flush on exit so trailing lines don't get dropped.
+        if !buffer.is_empty() {
+            Self::flush_batch(&self.event_tx, &stream_id, &mut buffer);
+        }
+
         Ok(())
+    }
+
+    /// Drain the per-stream buffer into a single `AppEvent::LogBatch`.
+    /// Caller guarantees the buffer is non-empty.
+    fn flush_batch(
+        event_tx: &broadcast::Sender<AppEvent>,
+        stream_id: &str,
+        buffer: &mut Vec<LogLineEvent>,
+    ) {
+        let lines = std::mem::take(buffer);
+        let _ = event_tx.send(AppEvent::LogBatch {
+            stream_id: stream_id.to_string(),
+            lines,
+        });
     }
 
     /// Parse log output into log lines

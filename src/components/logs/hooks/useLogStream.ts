@@ -132,39 +132,35 @@ export function useLogStream({
 
         const unlisten = await listen<{
           stream_id: string;
-          line: string;
-          pod: string;
-          container: string;
-          message: string;
-          timestamp: string | null;
-          level: LogLevel | null;
-          format: LogFormat | null;
-          fields: Record<string, string> | null;
-          raw: string;
-        }>("log-line", (event) => {
-          if (event.payload.stream_id === streamId) {
-            const id = nextIdRef.current++;
-            setLogs((prev) =>
-              [
-                ...prev,
-                {
-                  id,
-                  timestamp: event.payload.timestamp,
-                  message: event.payload.message,
-                  level: event.payload.level,
-                  format: event.payload.format ?? "plain",
-                  fields: event.payload.fields,
-                  raw:
-                    event.payload.raw ||
-                    event.payload.line ||
-                    event.payload.message,
-                  pod: event.payload.pod,
-                  container: event.payload.container,
-                  namespace,
-                },
-              ].slice(-MAX_LOG_LINES)
-            );
-          }
+          lines: Array<{
+            message: string;
+            timestamp: string | null;
+            level: LogLevel | null;
+            format: LogFormat | null;
+            fields: Record<string, string> | null;
+            raw: string;
+          }>;
+        }>("log-batch", (event) => {
+          if (event.payload.stream_id !== streamId) return;
+          if (event.payload.lines.length === 0) return;
+
+          // Tag every line in the batch with a unique synthetic id at
+          // receive time so React keys stay stable across filter
+          // changes (see useLogStream.test.ts).
+          const tagged: StreamedLogLine[] = event.payload.lines.map((line) => ({
+            id: nextIdRef.current++,
+            timestamp: line.timestamp,
+            message: line.message,
+            level: line.level,
+            format: line.format ?? "plain",
+            fields: line.fields,
+            raw: line.raw || line.message,
+            pod: podName,
+            container,
+            namespace,
+          }));
+
+          setLogs((prev) => [...prev, ...tagged].slice(-MAX_LOG_LINES));
         });
 
         if (!active) {
