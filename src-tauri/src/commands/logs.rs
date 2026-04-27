@@ -4,10 +4,28 @@ use crate::error::{Error, Result};
 use crate::logs::{LogConfig, LogLine, LogStreamer};
 use crate::state::{AppState, LogStream};
 use crate::utils::normalize_optional_namespace;
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::State;
 use tokio::sync::oneshot;
+
+/// RAII guard that removes a log stream's entry from the global map
+/// when dropped — including on panic-unwind inside the spawned task.
+/// Without this, a panicking `streamer.stream_logs(...)` call leaves a
+/// zombie entry in `state.log_streams` forever, and the natural Ok/Err
+/// return path also leaks because the frontend has no way to know the
+/// stream ended without an explicit notification.
+struct LogStreamCleanup {
+    map: Arc<DashMap<String, LogStream>>,
+    key: String,
+}
+
+impl Drop for LogStreamCleanup {
+    fn drop(&mut self) {
+        self.map.remove(&self.key);
+    }
+}
 
 /// Log stream configuration from frontend
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,6 +81,7 @@ pub async fn stream_pod_logs(
     let (cancel_tx, mut cancel_rx) = oneshot::channel();
     let (subscribe_tx, subscribe_rx) = oneshot::channel::<()>();
     let stream_id_clone = stream_id.clone();
+    let log_streams = state.log_streams.clone();
 
     // Store the log stream info
     let log_stream = LogStream {
@@ -81,10 +100,16 @@ pub async fn stream_pod_logs(
     // covers the entire call. Without it, log-line events emitted
     // between this command returning and the frontend's `listen()`
     // installing are dropped — same race that bit the terminal-auth
-    // modal. Cleanup (removal from `state.log_streams`) is handled by
-    // the explicit `stop_log_stream` command the frontend calls on
-    // unmount.
+    // modal. The RAII cleanup guard handles entry removal on every
+    // exit path: explicit cancel, natural Ok/Err return, and panic
+    // unwind. The `stop_log_stream` command remains a no-op on the
+    // already-removed entry in those cases.
     tokio::spawn(async move {
+        let _cleanup = LogStreamCleanup {
+            map: log_streams,
+            key: stream_id_clone.clone(),
+        };
+
         tokio::select! {
             _ = subscribe_rx => {}
             _ = &mut cancel_rx => {
@@ -181,4 +206,56 @@ pub fn stop_log_stream(stream_id: String, state: State<'_, AppState>) -> Result<
         tracing::info!("Log stream {} stopped", stream_id);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_test_log_stream(id: &str) -> LogStream {
+        let (cancel_tx, _cancel_rx) = oneshot::channel::<()>();
+        let (subscribe_tx, _subscribe_rx) = oneshot::channel::<()>();
+        LogStream {
+            id: id.to_string(),
+            pod: "p".to_string(),
+            container: "c".to_string(),
+            namespace: "n".to_string(),
+            cancel_tx,
+            subscribe_tx: Some(subscribe_tx),
+        }
+    }
+
+    #[test]
+    fn cleanup_guard_removes_entry_on_drop() {
+        let map: Arc<DashMap<String, LogStream>> = Arc::new(DashMap::new());
+        map.insert("k".to_string(), make_test_log_stream("k"));
+        assert_eq!(map.len(), 1);
+
+        {
+            let _guard = LogStreamCleanup {
+                map: map.clone(),
+                key: "k".to_string(),
+            };
+        }
+
+        assert_eq!(
+            map.len(),
+            0,
+            "guard's Drop must remove the entry — same path runs on panic-unwind in tokio::spawn"
+        );
+    }
+
+    #[test]
+    fn cleanup_guard_drop_is_safe_when_entry_already_removed() {
+        // Race: stop_log_stream removes the entry while the spawn task
+        // is still running. The guard's Drop must not panic when the
+        // key is no longer in the map.
+        let map: Arc<DashMap<String, LogStream>> = Arc::new(DashMap::new());
+        let guard = LogStreamCleanup {
+            map: map.clone(),
+            key: "missing".to_string(),
+        };
+        drop(guard); // must not panic
+        assert_eq!(map.len(), 0);
+    }
 }

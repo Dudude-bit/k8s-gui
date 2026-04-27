@@ -174,7 +174,7 @@ pub struct AppState {
     pub port_forward_controls: Arc<DashMap<String, tokio::sync::oneshot::Sender<()>>>,
 
     /// Active log streams
-    pub log_streams: DashMap<String, LogStream>,
+    pub log_streams: Arc<DashMap<String, LogStream>>,
 
     /// Event broadcaster
     pub event_tx: broadcast::Sender<AppEvent>,
@@ -207,7 +207,7 @@ impl AppState {
             terminal_manager: Arc::new(TerminalManager::new(event_tx.clone())),
             port_forward_sessions: Arc::new(DashMap::new()),
             port_forward_controls: Arc::new(DashMap::new()),
-            log_streams: DashMap::new(),
+            log_streams: Arc::new(DashMap::new()),
             event_tx,
             auth_sessions: DashMap::new(),
             connect_generation: AtomicU64::new(0),
