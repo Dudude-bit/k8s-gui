@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ColumnDef } from "@tanstack/react-table";
 import { Eye, Trash2 } from "lucide-react";
@@ -46,27 +46,39 @@ export function CustomResourceList({
   const navigate = useNavigate();
   const namespace = scope === "Namespaced" ? currentNamespace : null;
 
-  // Generate detail path for a custom resource
-  const getDetailPath = (item: CustomResourceListItem) =>
-    scope === "Namespaced"
-      ? `/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(crdName)}/instances/${item.namespace}/${item.name}`
-      : `/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(crdName)}/instances/${item.name}`;
+  // Generate detail path for a custom resource. Wrapped in
+  // `useCallback` so the two `useMemo` blocks below can list it as a
+  // direct dependency — this is what `react-hooks/exhaustive-deps`
+  // wants to see, instead of unrolling its `[scope, crdName]` closure
+  // captures into the consumer's dep arrays.
+  const getDetailPath = useCallback(
+    (item: CustomResourceListItem) =>
+      scope === "Namespaced"
+        ? `/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(crdName)}/instances/${item.namespace}/${item.name}`
+        : `/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(crdName)}/instances/${item.name}`,
+    [scope, crdName]
+  );
 
-  const quickActions = useMemo<(setDeleteTarget: (item: CustomResourceListItem) => void) => QuickAction<CustomResourceListItem>[]>(
+  const quickActions = useMemo<
+    (
+      setDeleteTarget: (item: CustomResourceListItem) => void
+    ) => QuickAction<CustomResourceListItem>[]
+  >(
     () => (setDeleteTarget) => [
       {
         icon: Eye,
         label: "View Details",
-        onClick: (item) => navigate(getDetailPath(item)),
+        onClick: (item: CustomResourceListItem) =>
+          navigate(getDetailPath(item)),
       },
       {
         icon: Trash2,
         label: "Delete",
-        onClick: (item) => setDeleteTarget(item),
-        variant: "destructive",
+        onClick: (item: CustomResourceListItem) => setDeleteTarget(item),
+        variant: "destructive" as const,
       },
     ],
-    [navigate, scope, crdName]
+    [navigate, getDetailPath]
   );
 
   // Build columns from printer columns and plugin
@@ -141,7 +153,7 @@ export function CustomResourceList({
     cols.push(createAgeColumn<CustomResourceListItem>());
 
     return cols;
-  }, [crdName, crdKind, scope, printerColumns, plugin]);
+  }, [crdKind, scope, printerColumns, plugin, getDetailPath]);
 
   return (
     <ResourceList<CustomResourceListItem>
@@ -164,11 +176,12 @@ export function CustomResourceList({
       quickActions={quickActions}
       emptyStateLabel={crdPlural}
       deleteConfig={{
-        mutationFn: (item) => commands.deleteCustomResource(
-          crdName,
-          item.name,
-          item.namespace || null
-        ),
+        mutationFn: (item) =>
+          commands.deleteCustomResource(
+            crdName,
+            item.name,
+            item.namespace || null
+          ),
         invalidateQueryKeys: [["custom-resources", crdName]],
         resourceType: crdKind,
       }}
@@ -183,7 +196,10 @@ export function CustomResourceList({
 }
 
 // Helper function to get value from JSON path
-function getValueFromJsonPath(obj: CustomResourceInfo, jsonPath: string): unknown {
+function getValueFromJsonPath(
+  obj: CustomResourceInfo,
+  jsonPath: string
+): unknown {
   // Remove leading dot if present
   const path = jsonPath.startsWith(".") ? jsonPath.slice(1) : jsonPath;
   const parts = path.split(".");
@@ -210,7 +226,10 @@ function getValueFromJsonPath(obj: CustomResourceInfo, jsonPath: string): unknow
 }
 
 // Helper function to format column value based on type
-function formatColumnValue(value: unknown, columnType: string): React.ReactNode {
+function formatColumnValue(
+  value: unknown,
+  columnType: string
+): React.ReactNode {
   if (value === null || value === undefined) {
     return <span className="text-muted-foreground">-</span>;
   }
@@ -232,9 +251,7 @@ function formatColumnValue(value: unknown, columnType: string): React.ReactNode 
 
     case "boolean":
       return (
-        <Badge variant={value ? "default" : "secondary"}>
-          {String(value)}
-        </Badge>
+        <Badge variant={value ? "default" : "secondary"}>{String(value)}</Badge>
       );
 
     case "string":
