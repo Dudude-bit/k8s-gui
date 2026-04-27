@@ -66,6 +66,7 @@ export const CronJobList = createWorkloadListPage<CronJobInfo>({
       limit: null,
     }),
   matchPods: matchCronJobPods,
+  watch: ({ namespace }) => commands.subscribeCronjobWatch(namespace),
   deleter: (item) => commands.deleteCronjob(item.name, item.namespace),
   columns,
 });

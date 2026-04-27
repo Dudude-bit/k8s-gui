@@ -27,7 +27,7 @@
  * ```
  */
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useNavigate, type NavigateFunction } from "react-router-dom";
 import { Trash2, Eye } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -46,6 +46,7 @@ import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import { getResourceRowId } from "@/lib/table-utils";
 import { toPlural, type ResourceKind } from "@/lib/resource-registry";
 import type { QuickAction } from "@/components/ui/quick-actions";
+import { useResourceWatch } from "@/hooks/useResourceWatch";
 import type { PodInfo } from "@/generated/types";
 
 type Workload = { name: string; namespace: string };
@@ -72,6 +73,13 @@ export interface WorkloadListPageConfig<T extends Workload> {
   }) => QuickAction<T & ResourceMetrics>[];
   /** Override the empty-state label (defaults to plural of `resourceType`). */
   emptyStateLabel?: string;
+  /**
+   * Optional watch subscription factory. When supplied, the page
+   * disables polling on the workload list query and updates its
+   * cache via real-time `resource-event` Tauri events instead.
+   * Pod metrics on the side keep their own usePodsWithMetrics path.
+   */
+  watch?: (params: { namespace: string | null }) => Promise<string>;
 }
 
 export function createWorkloadListPage<T extends Workload>(
@@ -87,10 +95,27 @@ export function createWorkloadListPage<T extends Workload>(
       isLoading: isLoadingPods,
     } = usePodsWithMetrics();
 
-    const listQuery = useResourceList(
-      queryKeys.resources(config.resourceType, currentNamespace),
-      () => config.fetchList({ namespace: currentNamespace || null })
+    const queryKey = useMemo(
+      () => queryKeys.resources(config.resourceType, currentNamespace),
+      [currentNamespace]
     );
+    const watchFactory = config.watch;
+    const subscribe = useCallback(
+      () => watchFactory!({ namespace: currentNamespace || null }),
+      [watchFactory, currentNamespace]
+    );
+
+    const listQuery = useResourceList(
+      queryKey,
+      () => config.fetchList({ namespace: currentNamespace || null }),
+      watchFactory ? { refetchInterval: false } : undefined
+    );
+
+    useResourceWatch<T>({
+      enabled: !!watchFactory,
+      subscribe,
+      queryKey,
+    });
 
     const dataWithMetrics = useMemo(
       () =>

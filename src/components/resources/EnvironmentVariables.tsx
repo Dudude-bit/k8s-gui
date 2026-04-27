@@ -24,7 +24,11 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
-import type { EnvVarInfo, EnvFromInfo, EnvVarSourceType } from "@/generated/types";
+import type {
+  EnvVarInfo,
+  EnvFromInfo,
+  EnvVarSourceType,
+} from "@/generated/types";
 import { commands } from "@/lib/commands";
 import { SourceBadge, type SourceType } from "@/components/ui/source-badge";
 import { MaskedValue } from "@/components/ui/masked-value";
@@ -40,7 +44,14 @@ interface EnvironmentVariablesProps {
 type DataCache = Record<string, Record<string, string>>;
 
 // Filter options for source types
-type FilterOption = "all" | "direct" | "secret" | "configmap" | "field" | "resource" | "envFrom";
+type FilterOption =
+  | "all"
+  | "direct"
+  | "secret"
+  | "configmap"
+  | "field"
+  | "resource"
+  | "envFrom";
 
 // Map EnvVarSourceType to SourceBadge's SourceType
 function mapSourceType(sourceType: EnvVarSourceType): SourceType {
@@ -75,7 +86,9 @@ export function EnvironmentVariables({
   namespace,
 }: EnvironmentVariablesProps) {
   const [showSecrets, setShowSecrets] = useState(false);
-  const [revealedSecrets, setRevealedSecrets] = useState<Set<string>>(new Set());
+  const [revealedSecrets, setRevealedSecrets] = useState<Set<string>>(
+    new Set()
+  );
   const [isExpanded, setIsExpanded] = useState(true);
   const [secretCache, setSecretCache] = useState<DataCache>({});
   const [configMapCache, setConfigMapCache] = useState<DataCache>({});
@@ -86,7 +99,12 @@ export function EnvironmentVariables({
   const hasEnvVars = env.length > 0 || envFrom.length > 0;
 
   // Get unique secret and configMap names that need to be fetched
-  const { secretNames, configMapNames, envFromSecretNames, envFromConfigMapNames } = useMemo(() => {
+  const {
+    secretNames,
+    configMapNames,
+    envFromSecretNames,
+    envFromConfigMapNames,
+  } = useMemo(() => {
     const secrets = new Set<string>();
     const configMaps = new Set<string>();
     const envFromSecrets = new Set<string>();
@@ -94,10 +112,16 @@ export function EnvironmentVariables({
 
     // From env vars
     for (const envVar of env) {
-      if (envVar.valueFrom?.sourceType === "secretKeyRef" && envVar.valueFrom.name) {
+      if (
+        envVar.valueFrom?.sourceType === "secretKeyRef" &&
+        envVar.valueFrom.name
+      ) {
         secrets.add(envVar.valueFrom.name);
       }
-      if (envVar.valueFrom?.sourceType === "configMapKeyRef" && envVar.valueFrom.name) {
+      if (
+        envVar.valueFrom?.sourceType === "configMapKeyRef" &&
+        envVar.valueFrom.name
+      ) {
         configMaps.add(envVar.valueFrom.name);
       }
     }
@@ -133,15 +157,22 @@ export function EnvironmentVariables({
   const secretEnvVars = env.filter(
     (e) => e.valueFrom?.sourceType === "secretKeyRef"
   );
-  const hasSecrets = secretEnvVars.length > 0 || envFrom.some((ef) => ef.secretRef);
+  const hasSecrets =
+    secretEnvVars.length > 0 || envFrom.some((ef) => ef.secretRef);
 
   // Fetch ConfigMap data on mount (not sensitive, load immediately)
   useEffect(() => {
     if (!namespace || allConfigMapNames.length === 0) return;
 
-    const configMapsToFetch = allConfigMapNames.filter((name) => !(name in configMapCache));
+    const configMapsToFetch = allConfigMapNames.filter(
+      (name) => !(name in configMapCache)
+    );
     if (configMapsToFetch.length === 0) return;
 
+    // Genuine side-effect: async network fetch + a started-request
+    // flag, same shape as VolumeMounts. TanStack-Query migration is
+    // tracked separately.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingConfigMaps(true);
 
     Promise.all(
@@ -172,9 +203,12 @@ export function EnvironmentVariables({
   useEffect(() => {
     if (!showSecrets || !namespace || allSecretNames.length === 0) return;
 
-    const secretsToFetch = allSecretNames.filter((name) => !(name in secretCache));
+    const secretsToFetch = allSecretNames.filter(
+      (name) => !(name in secretCache)
+    );
     if (secretsToFetch.length === 0) return;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingSecrets(true);
 
     Promise.all(
@@ -282,7 +316,14 @@ export function EnvironmentVariables({
     }
 
     return result;
-  }, [env, envFrom, configMapCache, secretCache, showSecrets, loadingConfigMaps]);
+  }, [
+    env,
+    envFrom,
+    configMapCache,
+    secretCache,
+    showSecrets,
+    loadingConfigMaps,
+  ]);
 
   // Filter expanded env vars based on selected filter
   const filteredEnvVars = useMemo(() => {
@@ -301,7 +342,10 @@ export function EnvironmentVariables({
         case "resource":
           return ev.sourceType === "resource";
         case "envFrom":
-          return ev.sourceType === "envFromSecret" || ev.sourceType === "envFromConfigMap";
+          return (
+            ev.sourceType === "envFromSecret" ||
+            ev.sourceType === "envFromConfigMap"
+          );
         default:
           return true;
       }
@@ -310,7 +354,8 @@ export function EnvironmentVariables({
 
   // Get the value to display for an env var
   const getDisplayValue = (ev: ExpandedEnvVar): string => {
-    const isSecret = ev.sourceType === "secret" || ev.sourceType === "envFromSecret";
+    const isSecret =
+      ev.sourceType === "secret" || ev.sourceType === "envFromSecret";
     const isRevealed = revealedSecrets.has(ev.name);
 
     // For envFrom placeholders
@@ -380,7 +425,9 @@ export function EnvironmentVariables({
   // Get all secret env var names for bulk reveal
   const allSecretEnvNames = useMemo(() => {
     return expandedEnvVars
-      .filter((ev) => ev.sourceType === "secret" || ev.sourceType === "envFromSecret")
+      .filter(
+        (ev) => ev.sourceType === "secret" || ev.sourceType === "envFromSecret"
+      )
       .filter((ev) => !ev.name.endsWith("*")) // Exclude placeholders
       .map((ev) => ev.name);
   }, [expandedEnvVars]);
@@ -400,14 +447,20 @@ export function EnvironmentVariables({
                 Environment Variables
                 {hasEnvVars && (
                   <Badge variant="secondary" className="ml-2">
-                    {expandedEnvVars.filter((ev) => !ev.name.endsWith("*")).length}
+                    {
+                      expandedEnvVars.filter((ev) => !ev.name.endsWith("*"))
+                        .length
+                    }
                   </Badge>
                 )}
               </CardTitle>
             </CollapsibleTrigger>
             <div className="flex items-center gap-4">
               {/* Filter dropdown */}
-              <Select value={filter} onValueChange={(value) => setFilter(value as FilterOption)}>
+              <Select
+                value={filter}
+                onValueChange={(value) => setFilter(value as FilterOption)}
+              >
                 <SelectTrigger className="w-[140px] h-8">
                   <SelectValue placeholder="Filter by source" />
                 </SelectTrigger>
@@ -441,7 +494,10 @@ export function EnvironmentVariables({
                     }}
                     disabled={loadingSecrets}
                   />
-                  <Label htmlFor={`show-secrets-${containerName}`} className="text-sm">
+                  <Label
+                    htmlFor={`show-secrets-${containerName}`}
+                    className="text-sm"
+                  >
                     Show secrets
                   </Label>
                 </div>
@@ -452,7 +508,9 @@ export function EnvironmentVariables({
         <CollapsibleContent>
           <CardContent className="pt-0">
             {!hasEnvVars ? (
-              <p className="text-sm text-muted-foreground">No environment variables defined</p>
+              <p className="text-sm text-muted-foreground">
+                No environment variables defined
+              </p>
             ) : filteredEnvVars.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No environment variables match the selected filter
@@ -469,13 +527,17 @@ export function EnvironmentVariables({
                   </TableHeader>
                   <TableBody>
                     {filteredEnvVars.map((ev) => {
-                      const isSecret = ev.sourceType === "secret" || ev.sourceType === "envFromSecret";
+                      const isSecret =
+                        ev.sourceType === "secret" ||
+                        ev.sourceType === "envFromSecret";
                       const isRevealed = revealedSecrets.has(ev.name);
                       const displayValue = getDisplayValue(ev);
                       const isPlaceholder = ev.name.endsWith("*");
 
                       return (
-                        <TableRow key={`${ev.sourceType}-${ev.sourceName || ""}-${ev.name}`}>
+                        <TableRow
+                          key={`${ev.sourceType}-${ev.sourceName || ""}-${ev.name}`}
+                        >
                           <TableCell className="font-mono text-xs font-medium">
                             {isPlaceholder ? (
                               <span className="text-muted-foreground italic">

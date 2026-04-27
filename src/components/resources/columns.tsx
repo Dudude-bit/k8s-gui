@@ -71,7 +71,9 @@ export function createNameColumn<T extends BaseResource>(
       ) : (
         <Link
           to={`${linkPrefix}/${row.original.namespace}/${row.original.name}`}
-          className={options?.className ?? "font-medium text-primary hover:underline"}
+          className={
+            options?.className ?? "font-medium text-primary hover:underline"
+          }
         >
           {row.original.name}
         </Link>
@@ -88,7 +90,9 @@ export function createSimpleNameColumn<
   return {
     accessorKey: "name",
     header: "Name",
-    cell: ({ row }) => <span className="font-medium text-primary">{row.original.name}</span>,
+    cell: ({ row }) => (
+      <span className="font-medium text-primary">{row.original.name}</span>
+    ),
   };
 }
 
@@ -150,12 +154,7 @@ export function createCpuColumn<
         ? parseCPU(row.original.cpuLimits)
         : null;
       return (
-        <MetricBadge
-          used={used}
-          request={request}
-          limit={limit}
-          type="cpu"
-        />
+        <MetricBadge used={used} request={request} limit={limit} type="cpu" />
       );
     },
   };
@@ -330,7 +329,7 @@ export function createActionsColumn<T extends BaseResource>(
     cell: ({ row }) => {
       const resolvedActions =
         typeof actions === "function"
-          ? actions(setDeleteTarget ?? (() => { }))
+          ? actions(setDeleteTarget ?? (() => {}))
           : actions;
 
       return (

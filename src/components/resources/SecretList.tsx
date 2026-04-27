@@ -56,6 +56,7 @@ export const SecretList = createResourceListPage<SecretInfo>({
       secretType: null,
       limit: null,
     }),
+  watch: ({ namespace }) => commands.subscribeSecretWatch(namespace),
   deleter: (item) => commands.deleteSecret(item.name, item.namespace),
   columns,
 });

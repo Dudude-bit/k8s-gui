@@ -1,12 +1,14 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { commands } from "@/lib/commands";
 import { useClusterStore } from "@/stores/clusterStore";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { useMetrics } from "@/hooks/useMetrics";
 import { mergePodsWithMetrics, type PodWithMetrics } from "@/lib/metrics";
-import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
+import { STALE_TIMES } from "@/lib/refresh";
 import { queryKeys } from "@/lib/query-keys";
+import { useResourceWatch } from "@/hooks/useResourceWatch";
+import type { PodInfo } from "@/generated/types";
 
 export type { PodWithMetrics } from "@/lib/metrics";
 
@@ -26,13 +28,19 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
   const { isConnected, currentNamespace } = useClusterStore();
   const enabled = isConnected && options?.enabled !== false;
 
-  // Fetch pods - cached by TanStack Query
+  // Fetch pods - cached by TanStack Query. Real-time updates after
+  // the initial fetch arrive through `useResourceWatch` below; the
+  // 2-second `refetchInterval` is intentionally absent.
+  const queryKey = useMemo(
+    () => queryKeys.pods(currentNamespace),
+    [currentNamespace]
+  );
   const {
     data: pods = [],
     isLoading: isLoadingPods,
     dataUpdatedAt,
   } = useQuery({
-    queryKey: queryKeys.pods(currentNamespace),
+    queryKey,
     queryFn: async () => {
       try {
         return await commands.listPods({
@@ -45,22 +53,29 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
           nodeName: null,
         });
       } catch (err) {
-        throw new Error(normalizeTauriError(err));
+        throw new Error(normalizeTauriError(err), { cause: err });
       }
     },
     enabled,
     placeholderData: keepPreviousData,
     staleTime: STALE_TIMES.resourceList,
-    refetchInterval: REFRESH_INTERVALS.resourceList,
     refetchOnWindowFocus: false,
+  });
+
+  const subscribePods = useCallback(
+    () => commands.subscribePodWatch(currentNamespace || null),
+    [currentNamespace]
+  );
+  useResourceWatch<PodInfo>({
+    enabled,
+    subscribe: subscribePods,
+    queryKey,
   });
 
   const {
     podMetrics,
     podStatus,
-    podMetricsQuery: {
-      isLoading: isLoadingMetrics,
-    },
+    podMetricsQuery: { isLoading: isLoadingMetrics },
   } = useMetrics({
     namespace: currentNamespace || null,
     enabled,

@@ -20,7 +20,10 @@ import { commands } from "@/lib/commands";
 import { ResourceList } from "./ResourceList";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
 import { queryKeys } from "@/lib/query-keys";
-import { getResourceDetailUrl, getResourceListUrl } from "@/lib/navigation-utils";
+import {
+  getResourceDetailUrl,
+  getResourceListUrl,
+} from "@/lib/navigation-utils";
 import { MetricsStatusBanner } from "@/components/metrics";
 import { getResourceRowId } from "@/lib/table-utils";
 import type { QuickAction } from "@/components/ui/quick-actions";
@@ -88,22 +91,35 @@ export function PodList() {
     []
   );
 
-  const quickActions = useMemo<(setDeleteTarget: (item: PodWithMetrics) => void) => QuickAction<PodWithMetrics>[]>(
+  const quickActions = useMemo<
+    (
+      setDeleteTarget: (item: PodWithMetrics) => void
+    ) => QuickAction<PodWithMetrics>[]
+  >(
     () => (setDeleteTarget) => [
       {
         icon: Eye,
         label: "View Details",
-        onClick: (item) => navigate(getResourceDetailUrl(ResourceType.Pod, item.name, item.namespace)),
+        onClick: (item) =>
+          navigate(
+            getResourceDetailUrl(ResourceType.Pod, item.name, item.namespace)
+          ),
       },
       {
         icon: FileText,
         label: "View Logs",
-        onClick: (item) => navigate(`${getResourceDetailUrl(ResourceType.Pod, item.name, item.namespace)}?tab=logs`),
+        onClick: (item) =>
+          navigate(
+            `${getResourceDetailUrl(ResourceType.Pod, item.name, item.namespace)}?tab=logs`
+          ),
       },
       {
         icon: Terminal,
         label: "Shell",
-        onClick: (item) => navigate(`${getResourceDetailUrl(ResourceType.Pod, item.name, item.namespace)}?tab=terminal`),
+        onClick: (item) =>
+          navigate(
+            `${getResourceDetailUrl(ResourceType.Pod, item.name, item.namespace)}?tab=terminal`
+          ),
       },
       {
         icon: Trash2,
@@ -129,9 +145,12 @@ export function PodList() {
         columns={columns}
         quickActions={quickActions}
         emptyStateLabel={toPlural(ResourceType.Pod)}
-        getRowHref={(row) => getResourceDetailUrl(ResourceType.Pod, row.name, row.namespace)}
+        getRowHref={(row) =>
+          getResourceDetailUrl(ResourceType.Pod, row.name, row.namespace)
+        }
         deleteConfig={{
-          mutationFn: (item) => commands.deletePod(item.name, item.namespace, false),
+          mutationFn: (item) =>
+            commands.deletePod(item.name, item.namespace, false),
           invalidateQueryKeys: [queryKeys.pods()],
           resourceType: ResourceType.Pod,
         }}

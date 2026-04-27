@@ -39,6 +39,7 @@ export const StatefulSetList = createWorkloadListPage<StatefulSetInfo>({
       limit: null,
     }),
   matchPods: matchStatefulSetPods,
+  watch: ({ namespace }) => commands.subscribeStatefulsetWatch(namespace),
   deleter: (item) => commands.deleteStatefulset(item.name, item.namespace),
   columns,
 });

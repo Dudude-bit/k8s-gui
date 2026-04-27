@@ -5,48 +5,163 @@
 //! `resource_watch_subscribed` releases the deferred-start gate; a
 //! generic `unsubscribe_resource_watch` cancels.
 //!
-//! Phase 1 ships ConfigMap end-to-end as the proof. Other resource
-//! kinds get their own typed `subscribe_*_watch` command in follow-up
-//! PRs — they all share the gate / unsubscribe / event plumbing.
+//! Each typed command is ~10 lines because all the heavy lifting
+//! lives in `WatchManager::subscribe` / `subscribe_cluster`.
+//! Adding a new kind:
+//!   1. import `K8sType` from k8s_openapi and `KindInfo` from
+//!      `crate::resources`
+//!   2. write `subscribe_<kind>_watch(...)` calling
+//!      `state.watch_manager.subscribe[_cluster]::<K8sType, _, _>(...)`
+//!   3. register in main.rs invoke_handler
+//!   4. add binding to `src/generated/commands.ts`
+//!   5. set `watch:` field on the page's `createResourceListPage`
+//!      / `createWorkloadListPage` config.
 
 use crate::error::{Error, Result};
-use crate::resources::ConfigMapInfo;
+use crate::resources::{
+    ConfigMapInfo, CronJobInfo, DaemonSetInfo, DeploymentInfo, EndpointsInfo, IngressInfo, JobInfo,
+    NamespaceInfo, NodeInfo, PersistentVolumeClaimInfo, PersistentVolumeInfo, PodInfo, SecretInfo,
+    ServiceInfo, StatefulSetInfo, StorageClassInfo,
+};
 use crate::state::AppState;
 use crate::utils::normalize_optional_namespace;
-use k8s_openapi::api::core::v1::ConfigMap;
+use k8s_openapi::api::apps::v1::{DaemonSet, Deployment, StatefulSet};
+use k8s_openapi::api::batch::v1::{CronJob, Job};
+use k8s_openapi::api::core::v1::{
+    ConfigMap, Endpoints, Namespace, Node, PersistentVolume, PersistentVolumeClaim, Pod, Secret,
+    Service,
+};
+use k8s_openapi::api::networking::v1::Ingress;
+use k8s_openapi::api::storage::v1::StorageClass;
 use tauri::State;
 
-/// Subscribe to ConfigMap changes for a namespace (or cluster-wide if
-/// `namespace` is `None`/empty). Returns a stream id the frontend uses
-/// to listen for `resource-event` Tauri events and to unsubscribe.
-///
-/// Each watch event payload is the same `ConfigMapInfo` shape the
-/// `list_configmaps` command returns, so the frontend hook can plug
-/// the watch directly into the existing TanStack Query cache via
-/// `setQueryData`.
-#[tauri::command]
-pub fn subscribe_configmap_watch(
-    namespace: Option<String>,
-    state: State<'_, AppState>,
-) -> Result<String> {
+/// Resolve the `(context, client)` pair for a watch command. Returns
+/// the standard NO_CLUSTER / NO_CLIENT errors so the frontend hook
+/// can report a real failure instead of a wedged stream.
+fn current_client(state: &State<'_, AppState>) -> Result<kube::Client> {
     let context = state
         .get_current_context()
         .ok_or_else(|| Error::Internal(crate::error::messages::NO_CLUSTER.to_string()))?;
-
     let client = state
         .client_manager
         .get_client(&context)
         .ok_or_else(|| Error::Internal(crate::error::messages::NO_CLIENT.to_string()))?;
-
-    let namespace = normalize_optional_namespace(namespace);
-
-    Ok(state.watch_manager.subscribe::<ConfigMap, _, _>(
-        (*client).clone(),
-        "ConfigMap",
-        namespace,
-        |cm| Some(ConfigMapInfo::from(cm)),
-    ))
+    Ok((*client).clone())
 }
+
+/// Macro to stamp out a typed namespace-scoped subscribe command.
+/// Each `KindInfo` impl provides `From<&K>`, so the transform is
+/// just `|k| Some(KindInfo::from(k))`. The macro keeps every command
+/// to 6 lines and avoids 11 near-identical copies.
+macro_rules! subscribe_namespaced {
+    (
+        $cmd_name:ident,
+        $k8s_type:ty,
+        $info_type:ty,
+        $kind_label:literal $(,)?
+    ) => {
+        #[tauri::command]
+        pub fn $cmd_name(namespace: Option<String>, state: State<'_, AppState>) -> Result<String> {
+            let client = current_client(&state)?;
+            let namespace = normalize_optional_namespace(namespace);
+            Ok(state.watch_manager.subscribe::<$k8s_type, _, _>(
+                client,
+                $kind_label,
+                namespace,
+                |o| Some(<$info_type>::from(o)),
+            ))
+        }
+    };
+}
+
+/// Macro for cluster-scoped resources (no namespace argument).
+macro_rules! subscribe_cluster {
+    (
+        $cmd_name:ident,
+        $k8s_type:ty,
+        $info_type:ty,
+        $kind_label:literal $(,)?
+    ) => {
+        #[tauri::command]
+        pub fn $cmd_name(state: State<'_, AppState>) -> Result<String> {
+            let client = current_client(&state)?;
+            Ok(state
+                .watch_manager
+                .subscribe_cluster::<$k8s_type, _, _>(client, $kind_label, |o| {
+                    Some(<$info_type>::from(o))
+                }))
+        }
+    };
+}
+
+// ----- Namespace-scoped -----
+
+subscribe_namespaced!(
+    subscribe_configmap_watch,
+    ConfigMap,
+    ConfigMapInfo,
+    "ConfigMap"
+);
+subscribe_namespaced!(subscribe_secret_watch, Secret, SecretInfo, "Secret");
+subscribe_namespaced!(subscribe_service_watch, Service, ServiceInfo, "Service");
+subscribe_namespaced!(
+    subscribe_endpoints_watch,
+    Endpoints,
+    EndpointsInfo,
+    "Endpoints"
+);
+subscribe_namespaced!(subscribe_ingress_watch, Ingress, IngressInfo, "Ingress");
+subscribe_namespaced!(
+    subscribe_pvc_watch,
+    PersistentVolumeClaim,
+    PersistentVolumeClaimInfo,
+    "PersistentVolumeClaim"
+);
+subscribe_namespaced!(subscribe_pod_watch, Pod, PodInfo, "Pod");
+subscribe_namespaced!(
+    subscribe_deployment_watch,
+    Deployment,
+    DeploymentInfo,
+    "Deployment"
+);
+subscribe_namespaced!(
+    subscribe_statefulset_watch,
+    StatefulSet,
+    StatefulSetInfo,
+    "StatefulSet"
+);
+subscribe_namespaced!(
+    subscribe_daemonset_watch,
+    DaemonSet,
+    DaemonSetInfo,
+    "DaemonSet"
+);
+subscribe_namespaced!(subscribe_job_watch, Job, JobInfo, "Job");
+subscribe_namespaced!(subscribe_cronjob_watch, CronJob, CronJobInfo, "CronJob");
+
+// ----- Cluster-scoped -----
+
+subscribe_cluster!(
+    subscribe_namespace_watch,
+    Namespace,
+    NamespaceInfo,
+    "Namespace"
+);
+subscribe_cluster!(subscribe_node_watch, Node, NodeInfo, "Node");
+subscribe_cluster!(
+    subscribe_persistentvolume_watch,
+    PersistentVolume,
+    PersistentVolumeInfo,
+    "PersistentVolume"
+);
+subscribe_cluster!(
+    subscribe_storageclass_watch,
+    StorageClass,
+    StorageClassInfo,
+    "StorageClass"
+);
+
+// ----- Lifecycle -----
 
 /// Signal that the frontend has registered its `resource-event`
 /// listener. The watcher task is gated on this signal so the very

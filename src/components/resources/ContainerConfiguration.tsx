@@ -8,7 +8,11 @@
 import { EnvironmentVariables } from "./EnvironmentVariables";
 import { VolumeMounts } from "./VolumeMounts";
 import { ImagePullSecrets } from "./ImagePullSecrets";
-import type { EnvVarInfo, EnvFromInfo, VolumeReference } from "@/generated/types";
+import type {
+  EnvVarInfo,
+  EnvFromInfo,
+  VolumeReference,
+} from "@/generated/types";
 
 interface ContainerConfigurationProps {
   env: EnvVarInfo[];
@@ -35,14 +39,8 @@ export function ContainerConfiguration({
         containerName={containerName}
         namespace={namespace}
       />
-      <VolumeMounts
-        volumes={volumes}
-        namespace={namespace}
-      />
-      <ImagePullSecrets
-        secrets={imagePullSecrets}
-        namespace={namespace}
-      />
+      <VolumeMounts volumes={volumes} namespace={namespace} />
+      <ImagePullSecrets secrets={imagePullSecrets} namespace={namespace} />
     </div>
   );
 }

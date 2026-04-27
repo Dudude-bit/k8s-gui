@@ -156,6 +156,7 @@ export const EndpointsList = createResourceListPage<EndpointsInfo>({
       fieldSelector: null,
       limit: null,
     }),
+  watch: ({ namespace }) => commands.subscribeEndpointsWatch(namespace),
   // No deleter — read-only resource
   columns,
 });

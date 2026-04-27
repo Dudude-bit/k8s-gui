@@ -1161,6 +1161,88 @@ export async function subscribeConfigmapWatch(
   return invoke<string>("subscribe_configmap_watch", { namespace });
 }
 
+export async function subscribeSecretWatch(
+  namespace: string | null
+): Promise<string> {
+  return invoke<string>("subscribe_secret_watch", { namespace });
+}
+
+export async function subscribeServiceWatch(
+  namespace: string | null
+): Promise<string> {
+  return invoke<string>("subscribe_service_watch", { namespace });
+}
+
+export async function subscribeEndpointsWatch(
+  namespace: string | null
+): Promise<string> {
+  return invoke<string>("subscribe_endpoints_watch", { namespace });
+}
+
+export async function subscribeIngressWatch(
+  namespace: string | null
+): Promise<string> {
+  return invoke<string>("subscribe_ingress_watch", { namespace });
+}
+
+export async function subscribePvcWatch(
+  namespace: string | null
+): Promise<string> {
+  return invoke<string>("subscribe_pvc_watch", { namespace });
+}
+
+export async function subscribePodWatch(
+  namespace: string | null
+): Promise<string> {
+  return invoke<string>("subscribe_pod_watch", { namespace });
+}
+
+export async function subscribeDeploymentWatch(
+  namespace: string | null
+): Promise<string> {
+  return invoke<string>("subscribe_deployment_watch", { namespace });
+}
+
+export async function subscribeStatefulsetWatch(
+  namespace: string | null
+): Promise<string> {
+  return invoke<string>("subscribe_statefulset_watch", { namespace });
+}
+
+export async function subscribeDaemonsetWatch(
+  namespace: string | null
+): Promise<string> {
+  return invoke<string>("subscribe_daemonset_watch", { namespace });
+}
+
+export async function subscribeJobWatch(
+  namespace: string | null
+): Promise<string> {
+  return invoke<string>("subscribe_job_watch", { namespace });
+}
+
+export async function subscribeCronjobWatch(
+  namespace: string | null
+): Promise<string> {
+  return invoke<string>("subscribe_cronjob_watch", { namespace });
+}
+
+export async function subscribeNamespaceWatch(): Promise<string> {
+  return invoke<string>("subscribe_namespace_watch");
+}
+
+export async function subscribeNodeWatch(): Promise<string> {
+  return invoke<string>("subscribe_node_watch");
+}
+
+export async function subscribePersistentvolumeWatch(): Promise<string> {
+  return invoke<string>("subscribe_persistentvolume_watch");
+}
+
+export async function subscribeStorageclassWatch(): Promise<string> {
+  return invoke<string>("subscribe_storageclass_watch");
+}
+
 export async function resourceWatchSubscribed(streamId: string): Promise<void> {
   return invoke<void>("resource_watch_subscribed", { streamId });
 }

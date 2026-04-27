@@ -40,8 +40,8 @@ export interface ResourceListProps<
   dataUpdatedAt?: number;
   /** Table column definitions - can use setDeleteTarget from useResourceListDelete hook */
   columns:
-  | ColumnDef<T>[]
-  | ((setDeleteTarget: (item: T) => void) => ColumnDef<T>[]);
+    | ColumnDef<T>[]
+    | ((setDeleteTarget: (item: T) => void) => ColumnDef<T>[]);
   /** Label for empty state (e.g., "pods", "services") */
   emptyStateLabel: string;
   /** Delete configuration */
@@ -70,7 +70,9 @@ export interface ResourceListProps<
   getRowId?: (row: T, index: number) => string;
 }
 
-export function ResourceList<T extends { name: string; namespace?: string | null }>({
+export function ResourceList<
+  T extends { name: string; namespace?: string | null },
+>({
   title,
   description,
   queryKey,
@@ -214,8 +216,6 @@ export function ResourceList<T extends { name: string; namespace?: string | null
   }
 
   return (
-    <div className="space-y-4 animate-in fade-in duration-200">
-      {content}
-    </div>
+    <div className="space-y-4 animate-in fade-in duration-200">{content}</div>
   );
 }

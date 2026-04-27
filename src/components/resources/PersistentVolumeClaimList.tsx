@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import { queryKeys } from "@/lib/query-keys";
 import { STALE_TIMES } from "@/lib/refresh";
 import { getResourceRowId } from "@/lib/table-utils";
+import { useResourceWatch } from "@/hooks/useResourceWatch";
 
 const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
   {
@@ -99,6 +100,21 @@ export function PersistentVolumeClaimList() {
   const { currentNamespace } = useClusterStore();
   const navigate = useNavigate();
 
+  const queryKey = useMemo(
+    () =>
+      queryKeys.resources(ResourceType.PersistentVolumeClaim, currentNamespace),
+    [currentNamespace]
+  );
+  const subscribe = useCallback(
+    () => commands.subscribePvcWatch(currentNamespace || null),
+    [currentNamespace]
+  );
+  useResourceWatch<PersistentVolumeClaimInfo>({
+    enabled: true,
+    subscribe,
+    queryKey,
+  });
+
   const quickActions = useMemo<
     (
       setDeleteTarget: (item: PersistentVolumeClaimInfo) => void
@@ -162,6 +178,7 @@ export function PersistentVolumeClaimList() {
         resourceType: ResourceType.PersistentVolumeClaim,
       }}
       staleTime={STALE_TIMES.resourceList}
+      refetchInterval={false}
       searchKey="name"
       getRowHref={(row) =>
         getResourceDetailUrl(

@@ -67,6 +67,7 @@ export const ServiceList = createResourceListPage<ServiceInfo>({
       limit: null,
       serviceType: null,
     }),
+  watch: ({ namespace }) => commands.subscribeServiceWatch(namespace),
   deleter: (item) => commands.deleteService(item.name, item.namespace),
   columns,
 });

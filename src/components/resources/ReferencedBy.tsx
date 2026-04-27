@@ -8,7 +8,16 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronRight, Layers, Lock, FileKey, HardDrive, Globe, Image } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Layers,
+  Lock,
+  FileKey,
+  HardDrive,
+  Globe,
+  Image,
+} from "lucide-react";
 import { useState } from "react";
 import { ResourceLink } from "@/components/shared";
 import { commands } from "@/lib/commands";
@@ -29,22 +38,37 @@ interface SectionProps {
   children: React.ReactNode;
 }
 
-function Section({ title, icon: Icon, count, defaultOpen = false, children }: SectionProps) {
+function Section({
+  title,
+  icon: Icon,
+  count,
+  defaultOpen = false,
+  children,
+}: SectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen || count > 0);
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 hover:bg-muted/50 rounded-md transition-colors">
-        {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        {isOpen ? (
+          <ChevronDown className="h-4 w-4" />
+        ) : (
+          <ChevronRight className="h-4 w-4" />
+        )}
         <Icon className="h-4 w-4 text-muted-foreground" />
         <span className="font-medium text-sm">{title}</span>
-        <Badge variant={count > 0 ? "default" : "secondary"} className="ml-auto">
+        <Badge
+          variant={count > 0 ? "default" : "secondary"}
+          className="ml-auto"
+        >
           {count}
         </Badge>
       </CollapsibleTrigger>
       <CollapsibleContent className="pl-8 pr-2 pb-2 space-y-2">
         {count === 0 ? (
-          <p className="text-sm text-muted-foreground py-2">No references found</p>
+          <p className="text-sm text-muted-foreground py-2">
+            No references found
+          </p>
         ) : (
           children
         )}
@@ -53,10 +77,15 @@ function Section({ title, icon: Icon, count, defaultOpen = false, children }: Se
   );
 }
 
-export function ReferencedBy({ resourceType, name, namespace }: ReferencedByProps) {
+export function ReferencedBy({
+  resourceType,
+  name,
+  namespace,
+}: ReferencedByProps) {
   const { data, isLoading, error } = useQuery<ResourceReferences>({
     queryKey: ["resourceReferences", resourceType, name, namespace],
-    queryFn: () => commands.getResourceReferences(resourceType, name, namespace),
+    queryFn: () =>
+      commands.getResourceReferences(resourceType, name, namespace),
   });
 
   if (isLoading) {
@@ -64,7 +93,9 @@ export function ReferencedBy({ resourceType, name, namespace }: ReferencedByProp
       <Card>
         <CardContent className="flex items-center justify-center py-8">
           <Spinner className="h-6 w-6" />
-          <span className="ml-2 text-muted-foreground">Loading references...</span>
+          <span className="ml-2 text-muted-foreground">
+            Loading references...
+          </span>
         </CardContent>
       </Card>
     );
@@ -74,15 +105,27 @@ export function ReferencedBy({ resourceType, name, namespace }: ReferencedByProp
     return (
       <Card>
         <CardContent className="py-4">
-          <p className="text-destructive text-sm">Failed to load references: {String(error)}</p>
+          <p className="text-destructive text-sm">
+            Failed to load references: {String(error)}
+          </p>
         </CardContent>
       </Card>
     );
   }
 
-  const refs = data || { envVars: [], envFrom: [], volumes: [], imagePullSecrets: [], tlsIngress: [] };
-  const totalCount = refs.envVars.length + refs.envFrom.length + refs.volumes.length +
-                     refs.imagePullSecrets.length + refs.tlsIngress.length;
+  const refs = data || {
+    envVars: [],
+    envFrom: [],
+    volumes: [],
+    imagePullSecrets: [],
+    tlsIngress: [],
+  };
+  const totalCount =
+    refs.envVars.length +
+    refs.envFrom.length +
+    refs.volumes.length +
+    refs.imagePullSecrets.length +
+    refs.tlsIngress.length;
 
   return (
     <Card>
@@ -90,7 +133,9 @@ export function ReferencedBy({ resourceType, name, namespace }: ReferencedByProp
         <CardTitle className="text-base flex items-center gap-2">
           <Layers className="h-4 w-4" />
           Referenced By
-          <Badge variant="secondary" className="ml-2">{totalCount}</Badge>
+          <Badge variant="secondary" className="ml-2">
+            {totalCount}
+          </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-1">
@@ -106,7 +151,11 @@ export function ReferencedBy({ resourceType, name, namespace }: ReferencedByProp
               kind={ref.kind}
               name={ref.name}
               namespace={ref.namespace}
-              subtitle={ref.containerName ? `Container: ${ref.containerName}${ref.key ? ` → ${ref.key}` : ""}` : undefined}
+              subtitle={
+                ref.containerName
+                  ? `Container: ${ref.containerName}${ref.key ? ` → ${ref.key}` : ""}`
+                  : undefined
+              }
             />
           ))}
         </Section>
@@ -123,7 +172,11 @@ export function ReferencedBy({ resourceType, name, namespace }: ReferencedByProp
               kind={ref.kind}
               name={ref.name}
               namespace={ref.namespace}
-              subtitle={ref.containerName ? `Container: ${ref.containerName} (all keys)` : undefined}
+              subtitle={
+                ref.containerName
+                  ? `Container: ${ref.containerName} (all keys)`
+                  : undefined
+              }
             />
           ))}
         </Section>
@@ -173,7 +226,11 @@ export function ReferencedBy({ resourceType, name, namespace }: ReferencedByProp
                   kind="Ingress"
                   name={ref.name}
                   namespace={ref.namespace}
-                  subtitle={ref.hosts.length > 0 ? `Hosts: ${ref.hosts.join(", ")}` : undefined}
+                  subtitle={
+                    ref.hosts.length > 0
+                      ? `Hosts: ${ref.hosts.join(", ")}`
+                      : undefined
+                  }
                 />
               ))}
             </Section>

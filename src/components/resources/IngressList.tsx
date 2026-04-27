@@ -2,7 +2,7 @@ import { commands } from "@/lib/commands";
 import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
 import { ColumnDef } from "@tanstack/react-table";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, Trash2, Globe, ExternalLink } from "lucide-react";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
@@ -14,15 +14,17 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ResourceList } from "@/components/resources/ResourceList";
-import { createNamespaceColumn, createAgeColumn } from "@/components/resources/columns";
+import {
+  createNamespaceColumn,
+  createAgeColumn,
+} from "@/components/resources/columns";
 import type { QuickAction } from "@/components/ui/quick-actions";
 import { TlsBadge } from "@/components/network";
+import { useResourceWatch } from "@/hooks/useResourceWatch";
 
 import type { IngressInfo } from "@/generated/types";
 import { STALE_TIMES } from "@/lib/refresh";
 import { getResourceRowId } from "@/lib/table-utils";
-
-
 
 const getIngressOpenUrl = (ingress: IngressInfo): string | null => {
   const host =
@@ -147,12 +149,35 @@ export function IngressList() {
   const { currentNamespace } = useClusterStore();
   const navigate = useNavigate();
 
-  const quickActions = useMemo<(setDeleteTarget: (item: IngressInfo) => void) => QuickAction<IngressInfo>[]>(
+  const queryKey = useMemo(
+    () => queryKeys.resources(ResourceType.Ingress, currentNamespace),
+    [currentNamespace]
+  );
+  const subscribe = useCallback(
+    () => commands.subscribeIngressWatch(currentNamespace || null),
+    [currentNamespace]
+  );
+  useResourceWatch<IngressInfo>({
+    enabled: true,
+    subscribe,
+    queryKey,
+  });
+
+  const quickActions = useMemo<
+    (setDeleteTarget: (item: IngressInfo) => void) => QuickAction<IngressInfo>[]
+  >(
     () => (setDeleteTarget) => [
       {
         icon: Eye,
         label: "View Details",
-        onClick: (item) => navigate(getResourceDetailUrl(ResourceType.Ingress, item.name, item.namespace)),
+        onClick: (item) =>
+          navigate(
+            getResourceDetailUrl(
+              ResourceType.Ingress,
+              item.name,
+              item.namespace
+            )
+          ),
       },
       {
         icon: ExternalLink,
@@ -192,12 +217,17 @@ export function IngressList() {
       deleteConfig={{
         mutationFn: (item) =>
           commands.deleteIngress(item.name, item.namespace ?? null),
-        invalidateQueryKeys: [queryKeys.resources(ResourceType.Ingress, currentNamespace)],
+        invalidateQueryKeys: [
+          queryKeys.resources(ResourceType.Ingress, currentNamespace),
+        ],
         resourceType: ResourceType.Ingress,
       }}
       staleTime={STALE_TIMES.resourceList}
+      refetchInterval={false}
       searchKey="name"
-      getRowHref={(row) => getResourceDetailUrl(ResourceType.Ingress, row.name, row.namespace)}
+      getRowHref={(row) =>
+        getResourceDetailUrl(ResourceType.Ingress, row.name, row.namespace)
+      }
     />
   );
 }

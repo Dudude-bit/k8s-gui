@@ -11,23 +11,35 @@ import { ResourceType, toPlural } from "@/lib/resource-registry";
 import type { QuickAction } from "@/components/ui/quick-actions";
 import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import { MetricBadge } from "@/components/ui/metric-card";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { commands } from "@/lib/commands";
 import { useMetrics } from "@/hooks/useMetrics";
 import { parseCPU, parseMemory } from "@/lib/k8s-quantity";
 import { MetricsStatusBanner } from "@/components/metrics";
 import { ResourceList } from "@/components/resources/ResourceList";
 import type { NodeInfo } from "@/generated/types";
-import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
+import { STALE_TIMES } from "@/lib/refresh";
 import { queryKeys } from "@/lib/query-keys";
 import { RealtimeAge } from "@/components/ui/realtime";
 import { getResourceRowId } from "@/lib/table-utils";
+import { useResourceWatch } from "@/hooks/useResourceWatch";
 
 export function NodeList() {
   const { isConnected } = useClusterStore();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+
+  const queryKey = useMemo(
+    () => queryKeys.resources(ResourceType.Node, null),
+    []
+  );
+  const subscribeNodes = useCallback(() => commands.subscribeNodeWatch(), []);
+  useResourceWatch<NodeInfo>({
+    enabled: isConnected,
+    subscribe: subscribeNodes,
+    queryKey,
+  });
 
   const { nodeMetrics, nodeStatus } = useMetrics({
     includePods: false,
@@ -36,7 +48,7 @@ export function NodeList() {
   });
 
   const nodeMetricsByName = useMemo(() => {
-    const metricsMap = new Map<string, typeof nodeMetrics[number]>();
+    const metricsMap = new Map<string, (typeof nodeMetrics)[number]>();
     for (const metric of nodeMetrics) {
       metricsMap.set(metric.name, metric);
     }
@@ -46,7 +58,9 @@ export function NodeList() {
   const cordonMutation = useMutation({
     mutationFn: (nodeName: string) => commands.cordonNode(nodeName),
     onSuccess: (_, nodeName) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.resources(ResourceType.Node, null) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.resources(ResourceType.Node, null),
+      });
       toast({
         title: "Node cordoned",
         description: `Node ${nodeName} has been cordoned.`,
@@ -64,7 +78,9 @@ export function NodeList() {
   const uncordonMutation = useMutation({
     mutationFn: (nodeName: string) => commands.uncordonNode(nodeName),
     onSuccess: (_, nodeName) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.resources(ResourceType.Node, null) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.resources(ResourceType.Node, null),
+      });
       toast({
         title: "Node uncordoned",
         description: `Node ${nodeName} has been uncordoned.`,
@@ -82,7 +98,9 @@ export function NodeList() {
   const drainMutation = useMutation({
     mutationFn: (nodeName: string) => commands.drainNode(nodeName, true, true),
     onSuccess: (_, nodeName) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.resources(ResourceType.Node, null) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.resources(ResourceType.Node, null),
+      });
       toast({
         title: "Node drained",
         description: `Node ${nodeName} has been drained.`,
@@ -196,7 +214,8 @@ export function NodeList() {
       {
         icon: Eye,
         label: "View Details",
-        onClick: (item) => navigate(getResourceDetailUrl(ResourceType.Node, item.name)),
+        onClick: (item) =>
+          navigate(getResourceDetailUrl(ResourceType.Node, item.name)),
       },
       {
         icon: ShieldOff,
@@ -228,7 +247,7 @@ export function NodeList() {
       quickActions={quickActions}
       emptyStateLabel={toPlural(ResourceType.Node)}
       staleTime={STALE_TIMES.resourceList}
-      refetchInterval={REFRESH_INTERVALS.resourceList}
+      refetchInterval={false}
       headerContent={
         nodeStatus?.status !== "available" ? (
           <MetricsStatusBanner status={nodeStatus} />

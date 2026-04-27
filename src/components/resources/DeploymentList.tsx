@@ -88,6 +88,7 @@ export const DeploymentList = createWorkloadListPage<DeploymentInfo>({
       limit: null,
     }),
   matchPods: matchDeploymentPods,
+  watch: ({ namespace }) => commands.subscribeDeploymentWatch(namespace),
   deleter: (item) => commands.deleteDeployment(item.name, item.namespace),
   columns,
   extraActions,

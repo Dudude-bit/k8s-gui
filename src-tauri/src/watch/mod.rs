@@ -20,7 +20,7 @@ use crate::state::{AppEvent, WatchOp};
 use crate::utils::generate_id;
 use dashmap::DashMap;
 use futures::StreamExt;
-use k8s_openapi::NamespaceResourceScope;
+use k8s_openapi::{ClusterResourceScope, NamespaceResourceScope};
 use kube::runtime::watcher::{watcher, Config as WatcherConfig, Event};
 use kube::{Api, Client};
 use serde::Serialize;
@@ -140,13 +140,60 @@ impl WatchManager {
         F: Fn(&K) -> Option<U> + Send + Sync + 'static,
         U: Serialize,
     {
-        let stream_id = generate_id("rw");
-        let stream_id_clone = stream_id.clone();
-
         let api: Api<K> = match &namespace {
             Some(ns) => Api::namespaced(client, ns),
             None => Api::all(client),
         };
+        self.spawn_watcher(api, kind_label, namespace, transform)
+    }
+
+    /// Cluster-scoped sibling of `subscribe`. For resources like
+    /// Node, Namespace, PersistentVolume, StorageClass that don't
+    /// belong to any single namespace.
+    pub fn subscribe_cluster<K, F, U>(
+        &self,
+        client: Client,
+        kind_label: &str,
+        transform: F,
+    ) -> String
+    where
+        K: kube::Resource<DynamicType = (), Scope = ClusterResourceScope>
+            + Clone
+            + std::fmt::Debug
+            + serde::de::DeserializeOwned
+            + Send
+            + Sync
+            + 'static,
+        F: Fn(&K) -> Option<U> + Send + Sync + 'static,
+        U: Serialize,
+    {
+        let api: Api<K> = Api::all(client);
+        self.spawn_watcher(api, kind_label, None, transform)
+    }
+
+    /// Shared spawn loop for both subscribe variants. Holds the
+    /// session-table insert, the deferred-start gate, the watcher
+    /// loop, and the RAII cleanup guard.
+    fn spawn_watcher<K, F, U>(
+        &self,
+        api: Api<K>,
+        kind_label: &str,
+        namespace: Option<String>,
+        transform: F,
+    ) -> String
+    where
+        K: kube::Resource<DynamicType = ()>
+            + Clone
+            + std::fmt::Debug
+            + serde::de::DeserializeOwned
+            + Send
+            + Sync
+            + 'static,
+        F: Fn(&K) -> Option<U> + Send + Sync + 'static,
+        U: Serialize,
+    {
+        let stream_id = generate_id("rw");
+        let stream_id_clone = stream_id.clone();
 
         let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
         let (subscribe_tx, subscribe_rx) = oneshot::channel::<()>();
@@ -158,7 +205,7 @@ impl WatchManager {
             WatchSession {
                 id: stream_id.clone(),
                 kind: kind_label.to_string(),
-                namespace: namespace.clone(),
+                namespace,
                 cancel_tx: Some(cancel_tx),
                 subscribe_tx: Some(subscribe_tx),
             },

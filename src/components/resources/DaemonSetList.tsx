@@ -61,6 +61,7 @@ export const DaemonSetList = createWorkloadListPage<DaemonSetInfo>({
       limit: null,
     }),
   matchPods: matchDaemonSetPods,
+  watch: ({ namespace }) => commands.subscribeDaemonsetWatch(namespace),
   deleter: (item) => commands.deleteDaemonset(item.name, item.namespace),
   columns,
 });

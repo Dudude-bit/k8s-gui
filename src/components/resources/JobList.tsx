@@ -47,6 +47,7 @@ export const JobList = createWorkloadListPage<JobInfo>({
       limit: null,
     }),
   matchPods: matchJobPods,
+  watch: ({ namespace }) => commands.subscribeJobWatch(namespace),
   deleter: (item) => commands.deleteJob(item.name, item.namespace),
   columns,
 });

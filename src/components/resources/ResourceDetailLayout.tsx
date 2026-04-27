@@ -19,7 +19,6 @@ import { ConditionsDisplay } from "./ConditionsDisplay";
 import { ArrowLeft, AlertCircle, RefreshCw } from "lucide-react";
 import { isResourceNotFoundError } from "@/hooks/useResourceDetail";
 
-
 /**
  * Error state for detail pages
  */

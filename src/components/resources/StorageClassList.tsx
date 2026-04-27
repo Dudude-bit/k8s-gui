@@ -112,6 +112,7 @@ export const StorageClassList = createResourceListPage<StorageClassInfo>({
   scope: "cluster",
   searchKey: "name",
   fetcher: () => commands.listStorageClasses(null),
+  watch: () => commands.subscribeStorageclassWatch(),
   deleter: (item) => commands.deleteStorageClass(item.name),
   columns,
 });

@@ -10,7 +10,9 @@ interface PodListCardProps {
   emptyMessage?: string;
 }
 
-function getStatusVariant(status: string): "success" | "warning" | "destructive" | "default" {
+function getStatusVariant(
+  status: string
+): "success" | "warning" | "destructive" | "default" {
   switch (status) {
     case "Running":
       return "success";
@@ -23,13 +25,17 @@ function getStatusVariant(status: string): "success" | "warning" | "destructive"
   }
 }
 
-export function PodListCard({ pods, emptyMessage = "No pods found" }: PodListCardProps) {
+export function PodListCard({
+  pods,
+  emptyMessage = "No pods found",
+}: PodListCardProps) {
   return (
     <Card>
       <CardContent className="pt-6">
         <div className="space-y-2">
           {pods.map((pod) => {
-            const readyCount = pod.containers?.filter((c) => c.ready).length ?? 0;
+            const readyCount =
+              pod.containers?.filter((c) => c.ready).length ?? 0;
             const totalCount = pod.containers?.length ?? 0;
             const readyText = `${readyCount}/${totalCount}`;
             const status = pod.status?.phase || "Unknown";
@@ -41,9 +47,7 @@ export function PodListCard({ pods, emptyMessage = "No pods found" }: PodListCar
                 className="flex items-center justify-between p-3 rounded-md hover:bg-muted transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <Badge variant={getStatusVariant(status)}>
-                    {status}
-                  </Badge>
+                  <Badge variant={getStatusVariant(status)}>{status}</Badge>
                   <span className="font-medium">{pod.name}</span>
                 </div>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">

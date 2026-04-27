@@ -101,6 +101,7 @@ export const PersistentVolumeList =
     scope: "cluster",
     searchKey: "name",
     fetcher: () => commands.listPersistentVolumes(null),
+    watch: () => commands.subscribePersistentvolumeWatch(),
     deleter: (item) => commands.deletePersistentVolume(item.name),
     columns,
   });
