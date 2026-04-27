@@ -30,6 +30,7 @@ pub mod settings;
 pub mod stats;
 pub mod storage;
 pub mod terminal;
+pub mod watch;
 pub mod workloads;
 
 // Re-export all commands for easy registration.

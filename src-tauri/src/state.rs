@@ -31,6 +31,20 @@ pub struct LogLineEvent {
     pub raw: String,
 }
 
+/// Operation type for a resource-watch event. Mirrors `kube::runtime::watcher::Event`
+/// flattened to a string the frontend can switch on.
+#[derive(Debug, Clone, Copy, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum WatchOp {
+    /// Resource was added or updated (the watcher merges these).
+    Applied,
+    /// Resource was deleted.
+    Deleted,
+    /// Watcher restarted (resync) — frontend should clear its cache
+    /// before the burst of `applied` events that follows.
+    Restarted,
+}
+
 /// Events that can be broadcast to frontend
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(tag = "type", content = "data")]
@@ -62,6 +76,19 @@ pub enum AppEvent {
     LogBatch {
         stream_id: String,
         lines: Vec<LogLineEvent>,
+    },
+    /// One Kubernetes watch event for a resource of a known kind.
+    /// Forwarded to the frontend so it can update the TanStack Query
+    /// cache directly, replacing the old 2s polling refresh model.
+    /// The `resource` JSON is the typed resource serialized via
+    /// the same path the existing list/get commands use.
+    ResourceWatchEvent {
+        stream_id: String,
+        op: WatchOp,
+        /// Set on `applied`/`deleted`. None on `restarted` resyncs —
+        /// the frontend clears its cache and waits for the burst of
+        /// `applied` events that follows.
+        resource: Option<serde_json::Value>,
     },
     /// Terminal output received
     TerminalOutput { session_id: String, data: String },
@@ -177,6 +204,12 @@ pub struct AppState {
     /// Terminal session manager
     pub terminal_manager: Arc<TerminalManager>,
 
+    /// Resource watch manager. Owns active `kube::runtime::watcher`
+    /// streams keyed by stream id; the frontend subscribes per
+    /// resource list and gets `resource-event` Tauri events instead
+    /// of polling every 2 seconds.
+    pub watch_manager: Arc<crate::watch::WatchManager>,
+
     /// Active port-forward sessions
     pub port_forward_sessions: Arc<DashMap<String, PortForwardSession>>,
 
@@ -215,6 +248,7 @@ impl AppState {
             sessions: DashMap::new(),
             current_context: Arc::new(RwLock::new(None)),
             terminal_manager: Arc::new(TerminalManager::new(event_tx.clone())),
+            watch_manager: Arc::new(crate::watch::WatchManager::new(event_tx.clone())),
             port_forward_sessions: Arc::new(DashMap::new()),
             port_forward_controls: Arc::new(DashMap::new()),
             log_streams: Arc::new(DashMap::new()),

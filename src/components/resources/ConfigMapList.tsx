@@ -20,6 +20,13 @@ export const ConfigMapList = createResourceListPage<ConfigMapInfo>({
       fieldSelector: null,
       limit: null,
     }),
+  // Real-time updates via the resource-watch subsystem. Initial state
+  // still comes from `listConfigmaps` (TanStack Query's first fetch);
+  // every change after that is delivered through `resource-event`
+  // Tauri events and applied to the cache via `setQueryData`. The
+  // factory disables `refetchInterval` automatically when `watch` is
+  // set so we don't double-load.
+  watch: ({ namespace }) => commands.subscribeConfigmapWatch(namespace),
   deleter: (item) => commands.deleteConfigmap(item.name, item.namespace),
   columns: () => [
     createNameColumn<ConfigMapInfo>(

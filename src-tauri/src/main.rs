@@ -47,6 +47,7 @@ fn main() {
                 while let Ok(event) = event_rx.recv().await {
                     let event_name = match &event {
                         AppEvent::LogBatch { .. } => "log-batch",
+                        AppEvent::ResourceWatchEvent { .. } => "resource-event",
                         AppEvent::TerminalOutput { .. } => "terminal-output",
                         AppEvent::TerminalClosed { .. } => "terminal-closed",
                         AppEvent::PortForwardStatus { .. } => "port-forward-status",
@@ -69,6 +70,17 @@ fn main() {
                             serde_json::json!({
                                 "stream_id": stream_id,
                                 "lines": lines,
+                            })
+                        }
+                        AppEvent::ResourceWatchEvent {
+                            stream_id,
+                            op,
+                            resource,
+                        } => {
+                            serde_json::json!({
+                                "stream_id": stream_id,
+                                "op": op,
+                                "resource": resource,
                             })
                         }
                         AppEvent::TerminalOutput { session_id, data } => {
@@ -245,6 +257,10 @@ fn main() {
             commands::terminal::terminal_subscribed,
             commands::terminal::open_pod_shell,
             commands::terminal::open_process_shell,
+            // Resource watch (replaces 2s polling for migrated lists)
+            commands::watch::subscribe_configmap_watch,
+            commands::watch::resource_watch_subscribed,
+            commands::watch::unsubscribe_resource_watch,
             // kubectl commands
             commands::kubectl::check_kubectl_availability,
             commands::debug_kubectl_plugins,

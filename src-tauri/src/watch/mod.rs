@@ -1,0 +1,343 @@
+//! Kubernetes resource watch subsystem.
+//!
+//! Replaces the old 2-second polling model with a `kube::runtime::watcher`
+//! per (cluster, kind, namespace) tuple. The watcher streams `applied`
+//! / `deleted` / `restarted` events; we forward each to the frontend
+//! over the same broadcast channel as the rest of the app's events.
+//! The frontend updates the TanStack Query cache directly via
+//! `setQueryData` — no refetch round-trip.
+//!
+//! Same deferred-start handshake as terminal-auth and log-stream lives
+//! here too: the spawned watcher task blocks on a oneshot gate until
+//! the frontend has installed its `listen("resource-event")` callback,
+//! and only then does it call `kube::runtime::watcher` and start
+//! emitting events. Without the gate the initial `restarted` event
+//! (which the watcher always emits before its first applied burst)
+//! could land in the void.
+
+use crate::error::{Error, Result};
+use crate::state::{AppEvent, WatchOp};
+use crate::utils::generate_id;
+use dashmap::DashMap;
+use futures::StreamExt;
+use k8s_openapi::NamespaceResourceScope;
+use kube::runtime::watcher::{watcher, Config as WatcherConfig, Event};
+use kube::{Api, Client};
+use serde::Serialize;
+use std::sync::Arc;
+use tokio::sync::{broadcast, oneshot};
+
+/// Live watch session bookkeeping. Stored in `WatchManager` so the
+/// `unsubscribe` and `mark_subscribed` Tauri commands can find a
+/// session by its stream id.
+pub struct WatchSession {
+    pub id: String,
+    pub kind: String,
+    pub namespace: Option<String>,
+    /// Cancel signal to the watcher task.
+    cancel_tx: Option<oneshot::Sender<()>>,
+    /// Subscribe gate. Released by `mark_subscribed` once the
+    /// frontend has registered `listen("resource-event")`.
+    subscribe_tx: Option<oneshot::Sender<()>>,
+}
+
+impl WatchSession {
+    pub fn close(&mut self) {
+        if let Some(tx) = self.cancel_tx.take() {
+            let _ = tx.send(());
+        }
+    }
+
+    pub fn mark_subscribed(&mut self) {
+        if let Some(tx) = self.subscribe_tx.take() {
+            let _ = tx.send(());
+        }
+    }
+}
+
+/// RAII guard that removes a watch session entry on every spawn-task
+/// exit path — natural completion, error return, panic-unwind. Same
+/// pattern as `LogStreamCleanup` and `PortForwardCleanup`.
+struct WatchCleanup {
+    sessions: Arc<DashMap<String, WatchSession>>,
+    key: String,
+}
+
+impl Drop for WatchCleanup {
+    fn drop(&mut self) {
+        self.sessions.remove(&self.key);
+    }
+}
+
+/// Manages all active resource watches.
+pub struct WatchManager {
+    event_tx: broadcast::Sender<AppEvent>,
+    sessions: Arc<DashMap<String, WatchSession>>,
+}
+
+impl WatchManager {
+    #[must_use]
+    pub fn new(event_tx: broadcast::Sender<AppEvent>) -> Self {
+        Self {
+            event_tx,
+            sessions: Arc::new(DashMap::new()),
+        }
+    }
+
+    /// Number of active watch sessions. Used by `AppStats`.
+    #[must_use]
+    pub fn session_count(&self) -> usize {
+        self.sessions.len()
+    }
+
+    /// Release the subscribe gate for a session. Errors only on
+    /// unknown ids so a malicious caller cannot release arbitrary
+    /// streams. Idempotent.
+    pub fn mark_subscribed(&self, id: &str) -> Result<()> {
+        if let Some(mut entry) = self.sessions.get_mut(id) {
+            entry.mark_subscribed();
+            Ok(())
+        } else {
+            Err(Error::Internal(format!("Resource watch {id} not found")))
+        }
+    }
+
+    /// Cancel and remove a watch session. Idempotent — removing an
+    /// already-removed session is a no-op so racing `unsubscribe`
+    /// calls don't fail.
+    pub fn unsubscribe(&self, id: &str) {
+        if let Some((_, mut session)) = self.sessions.remove(id) {
+            session.close();
+        }
+    }
+
+    /// Subscribe to changes on a typed Kubernetes resource list and
+    /// return a stream id the frontend can use to listen for events
+    /// and to unsubscribe later.
+    ///
+    /// `K` is the typed resource kind from `k8s_openapi`.
+    /// `transform` converts each watched resource into the shape the
+    /// frontend's TanStack Query cache holds (e.g. `ConfigMapInfo`,
+    /// `PodInfo`). Returning `None` drops the event — used for
+    /// resources the UI doesn't care about (system pods, etc.).
+    ///
+    /// `kind_label` is a debug-only string stored on the session.
+    pub fn subscribe<K, F, U>(
+        &self,
+        client: Client,
+        kind_label: &str,
+        namespace: Option<String>,
+        transform: F,
+    ) -> String
+    where
+        K: kube::Resource<DynamicType = (), Scope = NamespaceResourceScope>
+            + Clone
+            + std::fmt::Debug
+            + serde::de::DeserializeOwned
+            + Send
+            + Sync
+            + 'static,
+        F: Fn(&K) -> Option<U> + Send + Sync + 'static,
+        U: Serialize,
+    {
+        let stream_id = generate_id("rw");
+        let stream_id_clone = stream_id.clone();
+
+        let api: Api<K> = match &namespace {
+            Some(ns) => Api::namespaced(client, ns),
+            None => Api::all(client),
+        };
+
+        let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
+        let (subscribe_tx, subscribe_rx) = oneshot::channel::<()>();
+        let event_tx = self.event_tx.clone();
+        let sessions = self.sessions.clone();
+
+        self.sessions.insert(
+            stream_id.clone(),
+            WatchSession {
+                id: stream_id.clone(),
+                kind: kind_label.to_string(),
+                namespace: namespace.clone(),
+                cancel_tx: Some(cancel_tx),
+                subscribe_tx: Some(subscribe_tx),
+            },
+        );
+
+        tokio::spawn(async move {
+            // RAII: removes the session entry on every exit path.
+            let _cleanup = WatchCleanup {
+                sessions: sessions.clone(),
+                key: stream_id_clone.clone(),
+            };
+
+            // Wait for the frontend to install its listener (or for
+            // an early cancel / 60s safety timeout). Mirrors the
+            // terminal-auth and log-stream gates.
+            let mut cancel_rx = cancel_rx;
+            tokio::select! {
+                _ = subscribe_rx => {}
+                _ = &mut cancel_rx => {
+                    tracing::debug!(
+                        "Resource watch {} cancelled before subscribe",
+                        stream_id_clone
+                    );
+                    return;
+                }
+                _ = tokio::time::sleep(std::time::Duration::from_secs(60)) => {
+                    tracing::warn!(
+                        "Resource watch {} subscribe gate timed out after 60s; \
+                         starting watcher anyway",
+                        stream_id_clone
+                    );
+                }
+            }
+
+            let mut stream = watcher(api, WatcherConfig::default()).boxed();
+
+            loop {
+                tokio::select! {
+                    _ = &mut cancel_rx => {
+                        tracing::debug!("Resource watch {} cancelled", stream_id_clone);
+                        break;
+                    }
+                    next = stream.next() => {
+                        match next {
+                            Some(Ok(event)) => {
+                                emit_event(&event_tx, &stream_id_clone, event, &transform);
+                            }
+                            Some(Err(e)) => {
+                                tracing::error!(
+                                    "Resource watch {} error: {}",
+                                    stream_id_clone,
+                                    e
+                                );
+                                // The kube watcher recovers from
+                                // transient errors internally and
+                                // emits a fresh `restarted` event
+                                // when it does. Keep looping.
+                            }
+                            None => {
+                                tracing::debug!(
+                                    "Resource watch {} stream ended",
+                                    stream_id_clone
+                                );
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        stream_id
+    }
+}
+
+/// Emit a single watcher event to the broadcast channel. Centralised
+/// so the op-tag logic lives in one place. `transform` converts a
+/// resource of kind `K` to whatever shape the frontend cache expects.
+fn emit_event<K, F, U>(
+    event_tx: &broadcast::Sender<AppEvent>,
+    stream_id: &str,
+    event: Event<K>,
+    transform: &F,
+) where
+    F: Fn(&K) -> Option<U>,
+    U: Serialize,
+{
+    match event {
+        Event::Apply(obj) => send(event_tx, stream_id, WatchOp::Applied, transform(&obj)),
+        Event::Delete(obj) => {
+            send(event_tx, stream_id, WatchOp::Deleted, transform(&obj));
+        }
+        Event::Init => {
+            // Ignore — `InitApply` events follow and `InitDone` ends
+            // the resync. We only emit a `restarted` once below.
+        }
+        Event::InitApply(obj) => {
+            send(event_tx, stream_id, WatchOp::Applied, transform(&obj));
+        }
+        Event::InitDone => {
+            send::<()>(event_tx, stream_id, WatchOp::Restarted, None);
+        }
+    }
+}
+
+fn send<U: Serialize>(
+    event_tx: &broadcast::Sender<AppEvent>,
+    stream_id: &str,
+    op: WatchOp,
+    obj: Option<U>,
+) {
+    let resource = obj.and_then(|o| serde_json::to_value(&o).ok());
+    let _ = event_tx.send(AppEvent::ResourceWatchEvent {
+        stream_id: stream_id.to_string(),
+        op,
+        resource,
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_session(
+        id: &str,
+        kind: &str,
+    ) -> (WatchSession, oneshot::Receiver<()>, oneshot::Receiver<()>) {
+        let (cancel_tx, cancel_rx) = oneshot::channel();
+        let (subscribe_tx, subscribe_rx) = oneshot::channel();
+        let session = WatchSession {
+            id: id.to_string(),
+            kind: kind.to_string(),
+            namespace: None,
+            cancel_tx: Some(cancel_tx),
+            subscribe_tx: Some(subscribe_tx),
+        };
+        (session, cancel_rx, subscribe_rx)
+    }
+
+    #[test]
+    fn watch_cleanup_guard_removes_entry_on_drop() {
+        let sessions: Arc<DashMap<String, WatchSession>> = Arc::new(DashMap::new());
+        let (session, _crx, _srx) = make_session("k", "ConfigMap");
+        sessions.insert("k".to_string(), session);
+        assert_eq!(sessions.len(), 1);
+
+        {
+            let _guard = WatchCleanup {
+                sessions: sessions.clone(),
+                key: "k".to_string(),
+            };
+        }
+
+        assert_eq!(
+            sessions.len(),
+            0,
+            "guard's Drop must remove the entry — same path runs on panic-unwind"
+        );
+    }
+
+    #[test]
+    fn mark_subscribed_unknown_id_errors() {
+        let (event_tx, _rx) = broadcast::channel(8);
+        let manager = WatchManager::new(event_tx);
+
+        let err = manager.mark_subscribed("does-not-exist").unwrap_err();
+        assert!(
+            matches!(err, Error::Internal(_)),
+            "expected Error::Internal, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn unsubscribe_unknown_id_is_a_noop() {
+        let (event_tx, _rx) = broadcast::channel(8);
+        let manager = WatchManager::new(event_tx);
+
+        // Must not panic.
+        manager.unsubscribe("does-not-exist");
+        assert_eq!(manager.session_count(), 0);
+    }
+}

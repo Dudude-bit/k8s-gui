@@ -22,6 +22,7 @@ pub mod state;
 pub mod terminal;
 pub mod utils;
 pub mod validation;
+pub mod watch;
 
 pub use error::{Error, Result};
 pub use state::AppState;

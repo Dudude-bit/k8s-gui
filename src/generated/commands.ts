@@ -1154,3 +1154,19 @@ export async function stopLogStream(streamId: string): Promise<void> {
 export async function logStreamSubscribed(streamId: string): Promise<void> {
   return invoke<void>("log_stream_subscribed", { streamId });
 }
+
+export async function subscribeConfigmapWatch(
+  namespace: string | null
+): Promise<string> {
+  return invoke<string>("subscribe_configmap_watch", { namespace });
+}
+
+export async function resourceWatchSubscribed(streamId: string): Promise<void> {
+  return invoke<void>("resource_watch_subscribed", { streamId });
+}
+
+export async function unsubscribeResourceWatch(
+  streamId: string
+): Promise<void> {
+  return invoke<void>("unsubscribe_resource_watch", { streamId });
+}

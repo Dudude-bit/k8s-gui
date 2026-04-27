@@ -26,7 +26,7 @@
  * ```
  */
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useNavigate, type NavigateFunction } from "react-router-dom";
 import { Trash2, Eye } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -39,6 +39,7 @@ import { STALE_TIMES } from "@/lib/refresh";
 import { getResourceRowId } from "@/lib/table-utils";
 import type { ResourceKind } from "@/lib/resource-registry";
 import type { QuickAction } from "@/components/ui/quick-actions";
+import { useResourceWatch } from "@/hooks/useResourceWatch";
 
 /** A resource that can show up in a list page. */
 type ListableResource = { name: string; namespace?: string | null };
@@ -74,6 +75,16 @@ export interface ResourceListPageConfig<T extends ListableResource> {
   description?: string | ((deps: { namespace: string | null }) => string);
   /** Search key (column accessor) for the in-page search box. */
   searchKey?: string;
+  /**
+   * Optional watch subscription factory. When supplied, the page
+   * subscribes to backend `resource-event` updates and the polling
+   * `refetchInterval` is disabled — the cache is kept fresh by
+   * incremental setQueryData updates instead. Receives the resolved
+   * namespace (`null` for cluster-scoped pages or "all namespaces")
+   * and returns a stream id from the matching `subscribe_*_watch`
+   * Tauri command.
+   */
+  watch?: (params: { namespace: string | null }) => Promise<string>;
 }
 
 export function createResourceListPage<T extends ListableResource>(
@@ -119,6 +130,22 @@ export function createResourceListPage<T extends ListableResource>(
       [navigate]
     );
 
+    const watchFactory = config.watch;
+    const subscribe = useCallback(
+      () => watchFactory!({ namespace }),
+      [watchFactory, namespace]
+    );
+    const queryKey = useMemo(
+      () => queryKeys.resources(config.resourceType, namespace),
+      [namespace]
+    );
+
+    useResourceWatch<T>({
+      enabled: !!watchFactory,
+      subscribe,
+      queryKey,
+    });
+
     const deleter = config.deleter;
     return (
       <ResourceList<T>
@@ -152,6 +179,7 @@ export function createResourceListPage<T extends ListableResource>(
             : undefined
         }
         staleTime={STALE_TIMES.resourceList}
+        refetchInterval={watchFactory ? false : undefined}
       />
     );
   };
