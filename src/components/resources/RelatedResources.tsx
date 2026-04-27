@@ -9,7 +9,8 @@ import { Link } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Layers } from "lucide-react";
-import { getResourceIcon, isResourceType } from "@/lib/resource-registry";
+import { ResourceIcon } from "@/components/shared/ResourceIcon";
+import { isResourceType } from "@/lib/resource-registry";
 import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import type { OwnerReference } from "@/generated/types";
 
@@ -18,7 +19,10 @@ interface RelatedResourcesProps {
   namespace?: string;
 }
 
-export function RelatedResources({ ownerReferences, namespace }: RelatedResourcesProps) {
+export function RelatedResources({
+  ownerReferences,
+  namespace,
+}: RelatedResourcesProps) {
   if (!ownerReferences || ownerReferences.length === 0) {
     return null;
   }
@@ -74,12 +78,16 @@ interface OwnerLinkProps {
 }
 
 function OwnerLink({ owner, namespace }: OwnerLinkProps) {
-  const Icon = getResourceIcon(owner.kind);
   const isSupported = isResourceType(owner.kind);
 
   const content = (
-    <div className={`flex items-center gap-2 rounded-md border p-2 text-sm ${isSupported ? "hover:bg-accent cursor-pointer" : ""} transition-colors`}>
-      <Icon className="h-4 w-4 text-muted-foreground" />
+    <div
+      className={`flex items-center gap-2 rounded-md border p-2 text-sm ${isSupported ? "hover:bg-accent cursor-pointer" : ""} transition-colors`}
+    >
+      <ResourceIcon
+        kind={owner.kind}
+        className="h-4 w-4 text-muted-foreground"
+      />
       <span className="font-medium">{owner.name}</span>
       <Badge variant="outline" className="ml-auto text-xs">
         {owner.kind}

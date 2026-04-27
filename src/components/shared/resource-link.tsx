@@ -1,7 +1,7 @@
 // src/components/shared/resource-link.tsx
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
-import { getResourceIcon } from "@/lib/resource-registry";
+import { ResourceIcon } from "@/components/shared/ResourceIcon";
 import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import { cn } from "@/lib/utils";
 
@@ -23,7 +23,6 @@ export function ResourceLink({
   showKindBadge = true,
   subtitle,
 }: ResourceLinkProps) {
-  const Icon = getResourceIcon(kind);
   const path = getResourceDetailUrl(kind, name, namespace);
 
   return (
@@ -34,11 +33,16 @@ export function ResourceLink({
         className
       )}
     >
-      <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+      <ResourceIcon
+        kind={kind}
+        className="h-4 w-4 text-muted-foreground shrink-0"
+      />
       <div className="flex flex-col min-w-0 flex-1">
         <span className="font-medium truncate">{name}</span>
         {subtitle && (
-          <span className="text-xs text-muted-foreground truncate">{subtitle}</span>
+          <span className="text-xs text-muted-foreground truncate">
+            {subtitle}
+          </span>
         )}
       </div>
       {showKindBadge && (
