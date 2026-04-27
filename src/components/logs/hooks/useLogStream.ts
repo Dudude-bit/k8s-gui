@@ -174,7 +174,7 @@ export function useLogStream({
         unlistenRef.current = unlisten;
 
         // Listener is installed — release the backend gate so it can
-        // start emitting log-line events without losing the first ones.
+        // start emitting log-batch events without losing the first ones.
         // See `commands::logs::stream_pod_logs` for the gate.
         try {
           await commands.logStreamSubscribed(streamId);

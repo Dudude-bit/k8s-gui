@@ -97,7 +97,7 @@ pub async fn stream_pod_logs(
     // Spawn background task to stream logs.
     //
     // `streamer.stream_logs(...)` IS the read+emit loop, so the gate
-    // covers the entire call. Without it, log-line events emitted
+    // covers the entire call. Without it, log-batch events emitted
     // between this command returning and the frontend's `listen()`
     // installing are dropped — same race that bit the terminal-auth
     // modal. The RAII cleanup guard handles entry removal on every
@@ -136,7 +136,7 @@ pub async fn stream_pod_logs(
     Ok(stream_id)
 }
 
-/// Signal that the frontend has registered its `log-line` listener and
+/// Signal that the frontend has registered its `log-batch` listener and
 /// is ready to receive events. The backend stream task blocks until
 /// this is called. Idempotent — calling twice is a no-op. Errors only
 /// on unknown stream IDs so a malicious caller cannot release arbitrary

@@ -151,7 +151,7 @@ pub struct LogStream {
     pub cancel_tx: tokio::sync::oneshot::Sender<()>,
     /// Subscribe gate. The streaming task blocks until the frontend
     /// calls `log_stream_subscribed`, mirroring the terminal-auth fix.
-    /// Without this, log-line events emitted between command return
+    /// Without this, log-batch events emitted between command return
     /// and frontend listener registration are lost (Tauri events have
     /// no replay). `Option` so it can be taken once and dropped.
     pub subscribe_tx: Option<tokio::sync::oneshot::Sender<()>>,
