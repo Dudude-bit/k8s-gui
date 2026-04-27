@@ -42,7 +42,12 @@ interface VolumeMountsProps {
 // Cache for ConfigMap and Secret data
 type DataCache = Record<string, Record<string, string>>;
 
-type VolumeType = "Secret" | "ConfigMap" | "PersistentVolumeClaim" | "EmptyDir" | "Other";
+type VolumeType =
+  | "Secret"
+  | "ConfigMap"
+  | "PersistentVolumeClaim"
+  | "EmptyDir"
+  | "Other";
 
 function getVolumeType(kind: string): VolumeType {
   switch (kind.toLowerCase()) {
@@ -110,14 +115,31 @@ function VolumeMountItem({
   isLoadingConfigMap,
 }: VolumeMountItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [revealedKeys, setRevealedKeys] = useState<Set<string>>(new Set());
+  const [userRevealedKeys, setUserRevealedKeys] = useState<Set<string>>(
+    new Set()
+  );
 
   const hasExpandableContent =
     (volumeType === ResourceType.Secret && secretData) ||
     (volumeType === ResourceType.ConfigMap && configMapData);
 
+  // Derived: when the parent's "show all" toggle is on, every key in
+  // the loaded secretData is revealed. Otherwise we honour the user's
+  // per-key reveal toggles. Computing this during render avoids the
+  // useEffect → setState cascade that the prior implementation used.
+  const revealedKeys =
+    showSecrets && secretData
+      ? new Set(Object.keys(secretData))
+      : userRevealedKeys;
+
   const toggleReveal = (key: string) => {
-    setRevealedKeys((prev) => {
+    if (showSecrets) {
+      // No-op when "show all" is active — the derived value above is
+      // already the union of every key, so toggling does nothing
+      // visible.
+      return;
+    }
+    setUserRevealedKeys((prev) => {
       const next = new Set(prev);
       if (next.has(key)) {
         next.delete(key);
@@ -127,15 +149,6 @@ function VolumeMountItem({
       return next;
     });
   };
-
-  // Auto-reveal all secret keys when showSecrets toggle is on
-  useEffect(() => {
-    if (showSecrets && secretData) {
-      setRevealedKeys(new Set(Object.keys(secretData)));
-    } else if (!showSecrets) {
-      setRevealedKeys(new Set());
-    }
-  }, [showSecrets, secretData]);
 
   const isLoading =
     (volumeType === ResourceType.Secret && isLoadingSecret) ||
@@ -212,7 +225,10 @@ function VolumeMountItem({
                 <>
                   {Object.entries(configMapData).length > 0 ? (
                     Object.entries(configMapData).map(([key, value]) => (
-                      <div key={key} className="rounded-lg border p-3 space-y-2">
+                      <div
+                        key={key}
+                        className="rounded-lg border p-3 space-y-2"
+                      >
                         <div className="flex items-center gap-2">
                           <FileKey className="h-4 w-4 text-muted-foreground" />
                           <span className="font-medium">{key}</span>
@@ -273,7 +289,13 @@ export function VolumeMounts({ volumes, namespace }: VolumeMountsProps) {
     };
   }, [volumes]);
 
-  // Fetch ConfigMap data on mount (not sensitive, load immediately)
+  // Fetch ConfigMap data on mount (not sensitive, load immediately).
+  //
+  // Genuine side-effect: async network fetch + a loading-state flag.
+  // The setLoadingConfigMaps below is the "I just started this
+  // request" marker, not derived state. Migrating to TanStack Query
+  // would replace the manual flag with `useQuery`'s built-in
+  // isLoading; tracked separately.
   useEffect(() => {
     if (!namespace || configMapNames.length === 0) return;
 
@@ -282,6 +304,7 @@ export function VolumeMounts({ volumes, namespace }: VolumeMountsProps) {
     );
     if (configMapsToFetch.length === 0) return;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingConfigMaps(new Set(configMapsToFetch));
 
     Promise.all(
@@ -308,13 +331,17 @@ export function VolumeMounts({ volumes, namespace }: VolumeMountsProps) {
       });
   }, [namespace, configMapNames, configMapCache]);
 
-  // Fetch secret data when showSecrets is enabled
+  // Fetch secret data when showSecrets is enabled.
+  // Same genuine side-effect shape as the ConfigMap fetcher above —
+  // the setLoadingSecrets is a request-started marker, not derived
+  // state. Same TanStack Query migration path applies.
   useEffect(() => {
     if (!showSecrets || !namespace || secretNames.length === 0) return;
 
     const secretsToFetch = secretNames.filter((name) => !(name in secretCache));
     if (secretsToFetch.length === 0) return;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingSecrets(new Set(secretsToFetch));
 
     Promise.all(

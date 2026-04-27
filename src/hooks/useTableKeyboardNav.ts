@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef, useEffect } from "react";
+import { useCallback, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 /** Keyboard action mapping: key -> callback */
@@ -48,29 +48,37 @@ export function useTableKeyboardNav({
   enabled = true,
   keyboardActions = [],
 }: UseTableKeyboardNavOptions): UseTableKeyboardNavReturn {
-  const [focusedRowIndex, setFocusedRowIndex] = useState(-1);
+  const [rawFocusedRowIndex, setFocusedRowIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  // Reset focus when row count changes
-  useEffect(() => {
-    if (focusedRowIndex >= rowCount) {
-      setFocusedRowIndex(rowCount > 0 ? rowCount - 1 : -1);
-    }
-  }, [rowCount, focusedRowIndex]);
+  // Clamp the stored index to the current row count at *read* time
+  // rather than syncing via a useEffect → setState dance. The effect
+  // form fired `set-state-in-effect`, caused a cascading render every
+  // time `rowCount` shrank, and was load-bearing only for keeping the
+  // exposed value in range. Derived state has no such hazard.
+  const focusedRowIndex =
+    rawFocusedRowIndex >= rowCount
+      ? rowCount > 0
+        ? rowCount - 1
+        : -1
+      : rawFocusedRowIndex;
 
-  const focusRow = useCallback((index: number) => {
-    if (index < 0 || index >= rowCount) return;
+  const focusRow = useCallback(
+    (index: number) => {
+      if (index < 0 || index >= rowCount) return;
 
-    const rowElement = containerRef.current?.querySelector(
-      `[data-row-index="${index}"]`
-    ) as HTMLElement;
+      const rowElement = containerRef.current?.querySelector(
+        `[data-row-index="${index}"]`
+      ) as HTMLElement;
 
-    if (rowElement) {
-      rowElement.focus();
-      setFocusedRowIndex(index);
-    }
-  }, [rowCount]);
+      if (rowElement) {
+        rowElement.focus();
+        setFocusedRowIndex(index);
+      }
+    },
+    [rowCount]
+  );
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent, currentIndex: number) => {
@@ -125,12 +133,23 @@ export function useTableKeyboardNav({
           break;
       }
     },
-    [enabled, rowCount, getRowHref, onRowAction, navigate, focusRow, keyboardActions]
+    [
+      enabled,
+      rowCount,
+      getRowHref,
+      onRowAction,
+      navigate,
+      focusRow,
+      keyboardActions,
+    ]
   );
 
   const getRowProps = useCallback(
     (index: number) => ({
-      tabIndex: focusedRowIndex === index || (focusedRowIndex === -1 && index === 0) ? 0 : -1,
+      tabIndex:
+        focusedRowIndex === index || (focusedRowIndex === -1 && index === 0)
+          ? 0
+          : -1,
       "data-row-index": index,
       "data-focused": focusedRowIndex === index,
       onFocus: () => setFocusedRowIndex(index),
