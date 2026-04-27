@@ -4,14 +4,36 @@ use crate::commands::helpers::ResourceContext;
 use crate::commands::settings::save_config;
 use crate::config::{AppConfig, PortForwardConfig as StoredPortForwardConfig};
 use crate::error::{Error, Result};
-use crate::state::{AppEvent, AppState};
+use crate::state::{AppEvent, AppState, PortForwardSession};
 use crate::utils::require_namespace;
+use dashmap::DashMap;
 use kube::Api;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tauri::State;
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use tokio::time::{sleep, Duration};
+
+/// RAII guard that removes a port-forward's entries from both the
+/// session and control maps when dropped — including on panic-unwind
+/// inside the spawned listener task. Without this, a panic in
+/// `listener.accept()` (or anywhere else in the outer loop) leaves
+/// orphaned entries in `state.port_forward_sessions` /
+/// `state.port_forward_controls` forever. Mirrors the LogStreamCleanup
+/// pattern in commands/logs.rs.
+struct PortForwardCleanup {
+    sessions: Arc<DashMap<String, PortForwardSession>>,
+    controls: Arc<DashMap<String, oneshot::Sender<()>>>,
+    key: String,
+}
+
+impl Drop for PortForwardCleanup {
+    fn drop(&mut self) {
+        self.sessions.remove(&self.key);
+        self.controls.remove(&self.key);
+    }
+}
 
 /// Port-forward request payload
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -308,6 +330,16 @@ pub async fn port_forward_pod(
     let controls = state.port_forward_controls.clone();
 
     tokio::spawn(async move {
+        // Drop guard ensures map entries are removed on every exit
+        // path — including a panic in listener.accept() or anywhere
+        // else inside the loop. The explicit removes that used to live
+        // at the bottom of this task have moved into the guard.
+        let _cleanup = PortForwardCleanup {
+            sessions: sessions.clone(),
+            controls: controls.clone(),
+            key: session_id_for_task.clone(),
+        };
+
         emit_port_forward_status(
             &event_tx,
             &session_id_for_task,
@@ -363,9 +395,6 @@ pub async fn port_forward_pod(
             }
         }
 
-        controls.remove(&session_id_for_task);
-        sessions.remove(&session_id_for_task);
-
         emit_port_forward_status(
             &event_tx,
             &session_id_for_task,
@@ -377,6 +406,7 @@ pub async fn port_forward_pod(
             None,
             None,
         );
+        // _cleanup drops here, removing both map entries.
     });
 
     Ok(PortForwardSessionInfo {
@@ -508,4 +538,72 @@ pub fn delete_port_forward_config(id: String) -> Result<()> {
     }
     save_config(&app_config)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_test_session(id: &str) -> PortForwardSession {
+        PortForwardSession {
+            id: id.to_string(),
+            context: "ctx".to_string(),
+            pod: "p".to_string(),
+            namespace: "n".to_string(),
+            local_port: 8080,
+            remote_port: 80,
+            auto_reconnect: false,
+            created_at: chrono::Utc::now(),
+        }
+    }
+
+    #[test]
+    fn cleanup_guard_removes_from_both_maps_on_drop() {
+        let sessions: Arc<DashMap<String, PortForwardSession>> = Arc::new(DashMap::new());
+        let controls: Arc<DashMap<String, oneshot::Sender<()>>> = Arc::new(DashMap::new());
+
+        sessions.insert("k".to_string(), make_test_session("k"));
+        let (tx, _rx) = oneshot::channel::<()>();
+        controls.insert("k".to_string(), tx);
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(controls.len(), 1);
+
+        {
+            let _guard = PortForwardCleanup {
+                sessions: sessions.clone(),
+                controls: controls.clone(),
+                key: "k".to_string(),
+            };
+        }
+
+        assert_eq!(
+            sessions.len(),
+            0,
+            "guard's Drop must remove the session entry — same path runs on panic-unwind"
+        );
+        assert_eq!(
+            controls.len(),
+            0,
+            "guard's Drop must remove the control entry"
+        );
+    }
+
+    #[test]
+    fn cleanup_guard_drop_is_safe_when_entries_already_removed() {
+        // Race: stop_port_forward removes both entries while the
+        // listener task is still running. The guard's Drop must not
+        // panic when the keys are no longer in either map.
+        let sessions: Arc<DashMap<String, PortForwardSession>> = Arc::new(DashMap::new());
+        let controls: Arc<DashMap<String, oneshot::Sender<()>>> = Arc::new(DashMap::new());
+
+        let guard = PortForwardCleanup {
+            sessions: sessions.clone(),
+            controls: controls.clone(),
+            key: "missing".to_string(),
+        };
+        drop(guard); // must not panic
+
+        assert_eq!(sessions.len(), 0);
+        assert_eq!(controls.len(), 0);
+    }
 }
