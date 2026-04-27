@@ -100,7 +100,10 @@ export function useResourceDetail<T>(
   } = options;
 
   // For cluster-scoped resources, namespace won't be in the URL
-  const { namespace: nsParam, name } = useParams<{ namespace?: string; name: string }>();
+  const { namespace: nsParam, name } = useParams<{
+    namespace?: string;
+    name: string;
+  }>();
   const namespace = isClusterScoped ? undefined : nsParam;
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -163,7 +166,11 @@ export function useResourceDetail<T>(
       queryClient.invalidateQueries({
         queryKey: [resourceKind.toLowerCase()],
       });
-      onDeleted?.() ?? goBack();
+      if (onDeleted) {
+        onDeleted();
+      } else {
+        goBack();
+      }
     },
     onError: (err) => {
       toast({

@@ -4,7 +4,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { LucideIcon } from "lucide-react";
+import { Eye, Pencil, Trash2, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface QuickAction<T> {
@@ -86,12 +86,16 @@ export function QuickActions<T>({
   );
 }
 
-// Helper to create common quick actions
+// Helper to create common quick actions.
+// Co-locating these factories with the component breaks fast-refresh
+// in dev (each save remounts the whole module). The trade-off favours
+// callsite ergonomics — splitting into quick-actions-factories.ts
+// would mean two imports for every consumer page.
+/* eslint-disable react-refresh/only-export-components */
 export function createViewAction<T>(
   onClick: (item: T) => void,
   icon?: LucideIcon
 ): QuickAction<T> {
-  const Eye = require("lucide-react").Eye as LucideIcon;
   return {
     icon: icon ?? Eye,
     label: "View Details",
@@ -102,7 +106,6 @@ export function createViewAction<T>(
 export function createDeleteAction<T>(
   onClick: (item: T) => void
 ): QuickAction<T> {
-  const Trash2 = require("lucide-react").Trash2 as LucideIcon;
   return {
     icon: Trash2,
     label: "Delete",
@@ -111,11 +114,13 @@ export function createDeleteAction<T>(
   };
 }
 
-export function createEditAction<T>(onClick: (item: T) => void): QuickAction<T> {
-  const Pencil = require("lucide-react").Pencil as LucideIcon;
+export function createEditAction<T>(
+  onClick: (item: T) => void
+): QuickAction<T> {
   return {
     icon: Pencil,
     label: "Edit",
     onClick,
   };
 }
+/* eslint-enable react-refresh/only-export-components */
