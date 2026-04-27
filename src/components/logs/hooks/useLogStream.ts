@@ -11,6 +11,15 @@ import { normalizeTauriError } from "@/lib/error-utils";
 
 const MAX_LOG_LINES = 5000;
 
+/**
+ * `LogLine` from the backend has no stable identity — two events can
+ * carry identical timestamp + message bytes (rapid duplicate logs are
+ * common). React needs a stable, unique key to avoid remounting
+ * unrelated rows when a filter shrinks the visible array. Tag each log
+ * with a monotonic id assigned at receive time.
+ */
+export type StreamedLogLine = LogLine & { id: number };
+
 interface UseLogStreamOptions {
   podName: string;
   namespace: string;
@@ -20,7 +29,7 @@ interface UseLogStreamOptions {
 }
 
 interface UseLogStreamResult {
-  logs: LogLine[];
+  logs: StreamedLogLine[];
   isStreaming: boolean;
   isConnecting: boolean;
   error: string | null;
@@ -37,7 +46,8 @@ export function useLogStream({
   tailLines,
   onPodNotFound,
 }: UseLogStreamOptions): UseLogStreamResult {
-  const [logs, setLogs] = useState<LogLine[]>([]);
+  const [logs, setLogs] = useState<StreamedLogLine[]>([]);
+  const nextIdRef = useRef(0);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -133,10 +143,12 @@ export function useLogStream({
           raw: string;
         }>("log-line", (event) => {
           if (event.payload.stream_id === streamId) {
+            const id = nextIdRef.current++;
             setLogs((prev) =>
               [
                 ...prev,
                 {
+                  id,
                   timestamp: event.payload.timestamp,
                   message: event.payload.message,
                   level: event.payload.level,

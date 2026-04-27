@@ -61,9 +61,10 @@ export function LogViewer({
     // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter((log) =>
-        log.message.toLowerCase().includes(query) ||
-        log.raw.toLowerCase().includes(query)
+      result = result.filter(
+        (log) =>
+          log.message.toLowerCase().includes(query) ||
+          log.raw.toLowerCase().includes(query)
       );
     }
 
@@ -203,7 +204,11 @@ export function LogViewer({
     setActiveFilters((prev) =>
       prev.filter(
         (f) =>
-          !(f.type === filter.type && f.key === filter.key && f.value === filter.value)
+          !(
+            f.type === filter.type &&
+            f.key === filter.key &&
+            f.value === filter.value
+          )
       )
     );
   };
@@ -258,9 +263,9 @@ export function LogViewer({
                   : 'Click "Stream" to start viewing logs'}
             </div>
           ) : (
-            filteredLogs.map((log, index) => (
+            filteredLogs.map((log) => (
               <LogLineComponent
-                key={index}
+                key={log.id}
                 log={log}
                 viewMode={viewMode}
                 searchQuery={searchQuery}
