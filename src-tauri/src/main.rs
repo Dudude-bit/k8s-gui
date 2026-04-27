@@ -244,6 +244,7 @@ fn main() {
             commands::logs::get_pod_logs,
             commands::logs::stop_log_stream,
             commands::logs::stream_pod_logs,
+            commands::logs::log_stream_subscribed,
 
             // Terminal/Exec commands
             commands::terminal::terminal_input,

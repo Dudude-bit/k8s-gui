@@ -1150,3 +1150,7 @@ export async function getPodLogs(
 export async function stopLogStream(streamId: string): Promise<void> {
   return invoke<void>("stop_log_stream", { streamId });
 }
+
+export async function logStreamSubscribed(streamId: string): Promise<void> {
+  return invoke<void>("log_stream_subscribed", { streamId });
+}

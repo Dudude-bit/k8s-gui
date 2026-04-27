@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { commands } from "@/lib/commands";
-import type { LogFormat, LogLevel, LogLine, StreamLogConfig } from "@/generated/types";
+import type {
+  LogFormat,
+  LogLevel,
+  LogLine,
+  StreamLogConfig,
+} from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
 
 const MAX_LOG_LINES = 5000;
@@ -137,7 +142,10 @@ export function useLogStream({
                   level: event.payload.level,
                   format: event.payload.format ?? "plain",
                   fields: event.payload.fields,
-                  raw: event.payload.raw || event.payload.line || event.payload.message,
+                  raw:
+                    event.payload.raw ||
+                    event.payload.line ||
+                    event.payload.message,
                   pod: event.payload.pod,
                   container: event.payload.container,
                   namespace,
@@ -156,6 +164,22 @@ export function useLogStream({
 
         currentUnlisten = unlisten;
         unlistenRef.current = unlisten;
+
+        // Listener is installed — release the backend gate so it can
+        // start emitting log-line events without losing the first ones.
+        // See `commands::logs::stream_pod_logs` for the gate.
+        try {
+          await commands.logStreamSubscribed(streamId);
+        } catch (err) {
+          // Map entry was removed (e.g. another stop_log_stream raced
+          // us). Stream will not emit anything; surface as error.
+          if (active) {
+            console.error("Failed to subscribe log stream:", err);
+            setError(normalizeTauriError(err));
+            setIsConnecting(false);
+            return;
+          }
+        }
 
         setIsStreaming(true);
         setIsConnecting(false);
@@ -182,7 +206,15 @@ export function useLogStream({
     return () => {
       cleanup();
     };
-  }, [container, tailLines, podName, namespace, isPaused, retryTrigger, onPodNotFound]);
+  }, [
+    container,
+    tailLines,
+    podName,
+    namespace,
+    isPaused,
+    retryTrigger,
+    onPodNotFound,
+  ]);
 
   return {
     logs,

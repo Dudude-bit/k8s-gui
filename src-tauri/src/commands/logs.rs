@@ -60,7 +60,8 @@ pub async fn stream_pod_logs(
 
     let streamer = LogStreamer::new(Arc::new((*client).clone()), event_tx);
 
-    let (cancel_tx, cancel_rx) = oneshot::channel();
+    let (cancel_tx, mut cancel_rx) = oneshot::channel();
+    let (subscribe_tx, subscribe_rx) = oneshot::channel::<()>();
     let stream_id_clone = stream_id.clone();
 
     // Store the log stream info
@@ -70,11 +71,35 @@ pub async fn stream_pod_logs(
         container: config.container.unwrap_or_default(),
         namespace: namespace.clone(),
         cancel_tx,
+        subscribe_tx: Some(subscribe_tx),
     };
     state.log_streams.insert(stream_id.clone(), log_stream);
 
-    // Spawn background task to stream logs
+    // Spawn background task to stream logs.
+    //
+    // `streamer.stream_logs(...)` IS the read+emit loop, so the gate
+    // covers the entire call. Without it, log-line events emitted
+    // between this command returning and the frontend's `listen()`
+    // installing are dropped — same race that bit the terminal-auth
+    // modal. Cleanup (removal from `state.log_streams`) is handled by
+    // the explicit `stop_log_stream` command the frontend calls on
+    // unmount.
     tokio::spawn(async move {
+        tokio::select! {
+            _ = subscribe_rx => {}
+            _ = &mut cancel_rx => {
+                tracing::debug!("Log stream {} cancelled before subscribe", stream_id_clone);
+                return;
+            }
+            _ = tokio::time::sleep(std::time::Duration::from_secs(60)) => {
+                tracing::warn!(
+                    "Log stream {} subscribe gate timed out after 60s; \
+                     starting stream anyway",
+                    stream_id_clone
+                );
+            }
+        }
+
         if let Err(e) = streamer
             .stream_logs(stream_id_clone.clone(), log_config, cancel_rx)
             .await
@@ -84,6 +109,25 @@ pub async fn stream_pod_logs(
     });
 
     Ok(stream_id)
+}
+
+/// Signal that the frontend has registered its `log-line` listener and
+/// is ready to receive events. The backend stream task blocks until
+/// this is called. Idempotent — calling twice is a no-op. Errors only
+/// on unknown stream IDs so a malicious caller cannot release arbitrary
+/// streams.
+#[tauri::command]
+pub fn log_stream_subscribed(stream_id: String, state: State<'_, AppState>) -> Result<()> {
+    if let Some(mut entry) = state.log_streams.get_mut(&stream_id) {
+        if let Some(tx) = entry.subscribe_tx.take() {
+            // Receiver may already have been dropped (stream cancelled
+            // during startup). That's fine — nothing to release.
+            let _ = tx.send(());
+        }
+        Ok(())
+    } else {
+        Err(Error::Internal(format!("Log stream {stream_id} not found")))
+    }
 }
 
 /// Get pod logs (non-streaming, returns all at once)
