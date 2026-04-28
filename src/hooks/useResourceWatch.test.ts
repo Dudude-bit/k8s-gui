@@ -56,7 +56,17 @@ function emit(
 ) {
   const handler = listeners["resource-event"];
   if (!handler) throw new Error("resource-event handler not registered");
-  handler({ payload: { stream_id: streamId, op, resource } });
+  handler({
+    payload: { stream_id: streamId, op, resource, error: null },
+  });
+}
+
+function emitFailed(streamId: string, error: string) {
+  const handler = listeners["resource-event"];
+  if (!handler) throw new Error("resource-event handler not registered");
+  handler({
+    payload: { stream_id: streamId, op: "failed", resource: null, error },
+  });
 }
 
 describe("useResourceWatch", () => {
@@ -271,6 +281,42 @@ describe("useResourceWatch", () => {
     expect(client.getQueryData<Item[]>(["configmaps", "default"])).toHaveLength(
       1
     );
+  });
+
+  it("calls onError on a failed event without mutating the cache", async () => {
+    const client = new QueryClient();
+    client.setQueryData<Item[]>(
+      ["configmaps", "default"],
+      [{ name: "a", namespace: "default" }]
+    );
+    const onError = vi.fn();
+
+    renderHook(
+      () =>
+        useResourceWatch<Item>({
+          enabled: true,
+          subscribe: subscribeMock,
+          queryKey: ["configmaps", "default"],
+          onError,
+        }),
+      { wrapper: makeWrapper(client) }
+    );
+
+    await waitFor(() => {
+      expect(subscribedCalls).toHaveLength(1);
+    });
+
+    emitFailed("stream-cm-1", "watch verb forbidden");
+
+    await waitFor(() => {
+      expect(onError).toHaveBeenCalledWith("watch verb forbidden");
+    });
+
+    // Failed events MUST NOT touch the cache. The consumer is the one
+    // that decides what to do (toast + re-enable polling, etc.).
+    expect(client.getQueryData<Item[]>(["configmaps", "default"])).toEqual([
+      { name: "a", namespace: "default" },
+    ]);
   });
 
   it("calls unsubscribeResourceWatch on unmount", async () => {

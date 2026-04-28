@@ -2,7 +2,7 @@ import { commands } from "@/lib/commands";
 import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
 import { ColumnDef } from "@tanstack/react-table";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, Trash2, Globe, ExternalLink } from "lucide-react";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
@@ -21,6 +21,7 @@ import {
 import type { QuickAction } from "@/components/ui/quick-actions";
 import { TlsBadge } from "@/components/network";
 import { useResourceWatch } from "@/hooks/useResourceWatch";
+import { useToast } from "@/components/ui/use-toast";
 
 import type { IngressInfo } from "@/generated/types";
 import { STALE_TIMES } from "@/lib/refresh";
@@ -157,10 +158,25 @@ export function IngressList() {
     () => commands.subscribeIngressWatch(currentNamespace || null),
     [currentNamespace]
   );
+
+  const { toast } = useToast();
+  const [watchFailed, setWatchFailed] = useState(false);
+  const handleWatchError = useCallback(
+    (err: string) => {
+      if (watchFailed) return;
+      setWatchFailed(true);
+      toast({
+        title: "Real-time updates unavailable",
+        description: `Ingresses: falling back to periodic refresh. ${err}`,
+      });
+    },
+    [toast, watchFailed]
+  );
   useResourceWatch<IngressInfo>({
     enabled: true,
     subscribe,
     queryKey,
+    onError: handleWatchError,
   });
 
   const quickActions = useMemo<
@@ -223,7 +239,7 @@ export function IngressList() {
         resourceType: ResourceType.Ingress,
       }}
       staleTime={STALE_TIMES.resourceList}
-      refetchInterval={false}
+      refetchInterval={watchFailed ? undefined : false}
       searchKey="name"
       getRowHref={(row) =>
         getResourceDetailUrl(ResourceType.Ingress, row.name, row.namespace)

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useClusterStore } from "@/stores/clusterStore";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { STALE_TIMES } from "@/lib/refresh";
 import { getResourceRowId } from "@/lib/table-utils";
 import { useResourceWatch } from "@/hooks/useResourceWatch";
+import { useToast } from "@/components/ui/use-toast";
 
 const columns: ColumnDef<PersistentVolumeClaimInfo>[] = [
   {
@@ -109,10 +110,25 @@ export function PersistentVolumeClaimList() {
     () => commands.subscribePvcWatch(currentNamespace || null),
     [currentNamespace]
   );
+
+  const { toast } = useToast();
+  const [watchFailed, setWatchFailed] = useState(false);
+  const handleWatchError = useCallback(
+    (err: string) => {
+      if (watchFailed) return;
+      setWatchFailed(true);
+      toast({
+        title: "Real-time updates unavailable",
+        description: `Persistent Volume Claims: falling back to periodic refresh. ${err}`,
+      });
+    },
+    [toast, watchFailed]
+  );
   useResourceWatch<PersistentVolumeClaimInfo>({
     enabled: true,
     subscribe,
     queryKey,
+    onError: handleWatchError,
   });
 
   const quickActions = useMemo<
@@ -178,7 +194,7 @@ export function PersistentVolumeClaimList() {
         resourceType: ResourceType.PersistentVolumeClaim,
       }}
       staleTime={STALE_TIMES.resourceList}
-      refetchInterval={false}
+      refetchInterval={watchFailed ? undefined : false}
       searchKey="name"
       getRowHref={(row) =>
         getResourceDetailUrl(

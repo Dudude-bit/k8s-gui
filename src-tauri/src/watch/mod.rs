@@ -242,6 +242,21 @@ impl WatchManager {
 
             let mut stream = watcher(api, WatcherConfig::default()).boxed();
 
+            // Surface watcher failures (RBAC denial, network hiccups)
+            // to the frontend as a `Failed` event after a streak of
+            // consecutive errors without a successful event between
+            // them. We don't emit on every error: a single 503 from a
+            // stressed apiserver should heal silently. We DO emit
+            // when the watcher is permanently denied (403 forbidden
+            // from missing `watch` verb), so the UI can fall back to
+            // polling instead of showing a frozen list. The kube
+            // watcher itself keeps retrying with backoff regardless;
+            // a recovered stream emits a fresh `restarted` which
+            // resets the counter and the failed-emitted latch.
+            const ERROR_THRESHOLD: u32 = 3;
+            let mut consecutive_errors: u32 = 0;
+            let mut failed_emitted = false;
+
             loop {
                 tokio::select! {
                     _ = &mut cancel_rx => {
@@ -251,18 +266,27 @@ impl WatchManager {
                     next = stream.next() => {
                         match next {
                             Some(Ok(event)) => {
+                                consecutive_errors = 0;
+                                failed_emitted = false;
                                 emit_event(&event_tx, &stream_id_clone, event, &transform);
                             }
                             Some(Err(e)) => {
+                                consecutive_errors += 1;
                                 tracing::error!(
-                                    "Resource watch {} error: {}",
+                                    "Resource watch {} error ({} in a row): {}",
                                     stream_id_clone,
+                                    consecutive_errors,
                                     e
                                 );
-                                // The kube watcher recovers from
-                                // transient errors internally and
-                                // emits a fresh `restarted` event
-                                // when it does. Keep looping.
+                                if consecutive_errors >= ERROR_THRESHOLD && !failed_emitted {
+                                    let _ = event_tx.send(AppEvent::ResourceWatchEvent {
+                                        stream_id: stream_id_clone.clone(),
+                                        op: WatchOp::Failed,
+                                        resource: None,
+                                        error: Some(e.to_string()),
+                                    });
+                                    failed_emitted = true;
+                                }
                             }
                             None => {
                                 tracing::debug!(
@@ -322,6 +346,7 @@ fn send<U: Serialize>(
         stream_id: stream_id.to_string(),
         op,
         resource,
+        error: None,
     });
 }
 

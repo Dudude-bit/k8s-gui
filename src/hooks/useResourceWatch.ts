@@ -1,17 +1,20 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
 
 import { commands } from "@/lib/commands";
 
 /** Operation tag — mirrors backend `WatchOp`. */
-type WatchOp = "applied" | "deleted" | "restarted";
+type WatchOp = "applied" | "deleted" | "restarted" | "failed";
 
 interface ResourceEventPayload<T> {
   stream_id: string;
   op: WatchOp;
-  /** `null` on `restarted`. */
+  /** `null` on `restarted` and `failed`. */
   resource: T | null;
+  /** Set on `failed` — backend's error description. `null` for every
+   *  other op. */
+  error: string | null;
 }
 
 interface UseResourceWatchOptions {
@@ -27,6 +30,13 @@ interface UseResourceWatchOptions {
   subscribe: () => Promise<string>;
   /** TanStack Query cache key the watch should keep up to date. */
   queryKey: QueryKey;
+  /**
+   * Called when the backend emits a `failed` event — typically RBAC
+   * `watch` denial or a persistent network problem. The cache is NOT
+   * mutated for failed events; the consumer decides what to do
+   * (show a toast, fall back to polling, etc.).
+   */
+  onError?: (error: string) => void;
 }
 
 /**
@@ -42,8 +52,14 @@ interface UseResourceWatchOptions {
  */
 export function useResourceWatch<
   T extends { name: string; namespace?: string | null },
->({ enabled, subscribe, queryKey }: UseResourceWatchOptions) {
+>({ enabled, subscribe, queryKey, onError }: UseResourceWatchOptions) {
   const queryClient = useQueryClient();
+  // Latest onError captured via ref so flipping a useState in the
+  // callback doesn't tear down the subscription.
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -83,6 +99,10 @@ export function useResourceWatch<
           (event) => {
             const payload = event.payload;
             if (payload.stream_id !== id) return;
+            if (payload.op === "failed") {
+              onErrorRef.current?.(payload.error ?? "Resource watch failed");
+              return;
+            }
             applyEvent<T>(queryClient, queryKey, payload);
           }
         );

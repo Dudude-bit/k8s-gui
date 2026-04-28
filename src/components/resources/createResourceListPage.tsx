@@ -26,13 +26,14 @@
  * ```
  */
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate, type NavigateFunction } from "react-router-dom";
 import { Trash2, Eye } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { ResourceList } from "./ResourceList";
 import { useClusterStore } from "@/stores/clusterStore";
+import { useToast } from "@/components/ui/use-toast";
 import { queryKeys } from "@/lib/query-keys";
 import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import { STALE_TIMES } from "@/lib/refresh";
@@ -140,10 +141,31 @@ export function createResourceListPage<T extends ListableResource>(
       [namespace]
     );
 
+    // When the backend's watcher fails N times in a row (typical
+    // cause: kubeconfig user lacks the `watch` verb on this kind),
+    // fall back to periodic refresh so the list doesn't appear
+    // frozen. The toast warns the user once; the watcher keeps
+    // retrying in the background and a recovered stream resets the
+    // failed flag.
+    const { toast } = useToast();
+    const [watchFailed, setWatchFailed] = useState(false);
+    const handleWatchError = useCallback(
+      (err: string) => {
+        if (watchFailed) return;
+        setWatchFailed(true);
+        toast({
+          title: "Real-time updates unavailable",
+          description: `${config.title}: falling back to periodic refresh. ${err}`,
+        });
+      },
+      [toast, watchFailed]
+    );
+
     useResourceWatch<T>({
       enabled: !!watchFactory,
       subscribe,
       queryKey,
+      onError: handleWatchError,
     });
 
     const deleter = config.deleter;
@@ -179,7 +201,7 @@ export function createResourceListPage<T extends ListableResource>(
             : undefined
         }
         staleTime={STALE_TIMES.resourceList}
-        refetchInterval={watchFactory ? false : undefined}
+        refetchInterval={watchFactory && !watchFailed ? false : undefined}
       />
     );
   };

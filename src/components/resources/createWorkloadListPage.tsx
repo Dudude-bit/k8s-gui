@@ -27,7 +27,7 @@
  * ```
  */
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate, type NavigateFunction } from "react-router-dom";
 import { Trash2, Eye } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -47,6 +47,7 @@ import { getResourceRowId } from "@/lib/table-utils";
 import { toPlural, type ResourceKind } from "@/lib/resource-registry";
 import type { QuickAction } from "@/components/ui/quick-actions";
 import { useResourceWatch } from "@/hooks/useResourceWatch";
+import { useToast } from "@/components/ui/use-toast";
 import type { PodInfo } from "@/generated/types";
 
 type Workload = { name: string; namespace: string };
@@ -105,16 +106,34 @@ export function createWorkloadListPage<T extends Workload>(
       [watchFactory, currentNamespace]
     );
 
+    // See createResourceListPage for the watch-failure rationale.
+    // Same fallback pattern: toast once, flip state, let useResourceList
+    // resume polling.
+    const { toast } = useToast();
+    const [watchFailed, setWatchFailed] = useState(false);
+    const handleWatchError = useCallback(
+      (err: string) => {
+        if (watchFailed) return;
+        setWatchFailed(true);
+        toast({
+          title: "Real-time updates unavailable",
+          description: `${config.title}: falling back to periodic refresh. ${err}`,
+        });
+      },
+      [toast, watchFailed]
+    );
+
     const listQuery = useResourceList(
       queryKey,
       () => config.fetchList({ namespace: currentNamespace || null }),
-      watchFactory ? { refetchInterval: false } : undefined
+      watchFactory && !watchFailed ? { refetchInterval: false } : undefined
     );
 
     useResourceWatch<T>({
       enabled: !!watchFactory,
       subscribe,
       queryKey,
+      onError: handleWatchError,
     });
 
     const dataWithMetrics = useMemo(

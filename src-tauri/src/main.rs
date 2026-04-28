@@ -76,11 +76,13 @@ fn main() {
                             stream_id,
                             op,
                             resource,
+                            error,
                         } => {
                             serde_json::json!({
                                 "stream_id": stream_id,
                                 "op": op,
                                 "resource": resource,
+                                "error": error,
                             })
                         }
                         AppEvent::TerminalOutput { session_id, data } => {

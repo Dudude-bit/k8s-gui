@@ -11,7 +11,7 @@ import { ResourceType, toPlural } from "@/lib/resource-registry";
 import type { QuickAction } from "@/components/ui/quick-actions";
 import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import { MetricBadge } from "@/components/ui/metric-card";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { commands } from "@/lib/commands";
 import { useMetrics } from "@/hooks/useMetrics";
 import { parseCPU, parseMemory } from "@/lib/k8s-quantity";
@@ -35,10 +35,24 @@ export function NodeList() {
     []
   );
   const subscribeNodes = useCallback(() => commands.subscribeNodeWatch(), []);
+
+  const [watchFailed, setWatchFailed] = useState(false);
+  const handleWatchError = useCallback(
+    (err: string) => {
+      if (watchFailed) return;
+      setWatchFailed(true);
+      toast({
+        title: "Real-time updates unavailable",
+        description: `Nodes: falling back to periodic refresh. ${err}`,
+      });
+    },
+    [toast, watchFailed]
+  );
   useResourceWatch<NodeInfo>({
     enabled: isConnected,
     subscribe: subscribeNodes,
     queryKey,
+    onError: handleWatchError,
   });
 
   const { nodeMetrics, nodeStatus } = useMetrics({
@@ -247,7 +261,7 @@ export function NodeList() {
       quickActions={quickActions}
       emptyStateLabel={toPlural(ResourceType.Node)}
       staleTime={STALE_TIMES.resourceList}
-      refetchInterval={false}
+      refetchInterval={watchFailed ? undefined : false}
       headerContent={
         nodeStatus?.status !== "available" ? (
           <MetricsStatusBanner status={nodeStatus} />

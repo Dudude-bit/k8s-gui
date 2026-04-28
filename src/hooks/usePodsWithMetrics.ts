@@ -1,11 +1,12 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { commands } from "@/lib/commands";
 import { useClusterStore } from "@/stores/clusterStore";
+import { useToast } from "@/components/ui/use-toast";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { useMetrics } from "@/hooks/useMetrics";
 import { mergePodsWithMetrics, type PodWithMetrics } from "@/lib/metrics";
-import { STALE_TIMES } from "@/lib/refresh";
+import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
 import { queryKeys } from "@/lib/query-keys";
 import { useResourceWatch } from "@/hooks/useResourceWatch";
 import type { PodInfo } from "@/generated/types";
@@ -29,12 +30,28 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
   const enabled = isConnected && options?.enabled !== false;
 
   // Fetch pods - cached by TanStack Query. Real-time updates after
-  // the initial fetch arrive through `useResourceWatch` below; the
-  // 2-second `refetchInterval` is intentionally absent.
+  // the initial fetch arrive through `useResourceWatch` below.
+  // Polling falls back on if the watcher reports a sustained failure
+  // (e.g. RBAC `watch` denial); see handleWatchError below.
   const queryKey = useMemo(
     () => queryKeys.pods(currentNamespace),
     [currentNamespace]
   );
+
+  const { toast } = useToast();
+  const [watchFailed, setWatchFailed] = useState(false);
+  const handleWatchError = useCallback(
+    (err: string) => {
+      if (watchFailed) return;
+      setWatchFailed(true);
+      toast({
+        title: "Real-time updates unavailable",
+        description: `Pods: falling back to periodic refresh. ${err}`,
+      });
+    },
+    [toast, watchFailed]
+  );
+
   const {
     data: pods = [],
     isLoading: isLoadingPods,
@@ -59,6 +76,7 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
     enabled,
     placeholderData: keepPreviousData,
     staleTime: STALE_TIMES.resourceList,
+    refetchInterval: watchFailed ? REFRESH_INTERVALS.resourceList : false,
     refetchOnWindowFocus: false,
   });
 
@@ -70,6 +88,7 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
     enabled,
     subscribe: subscribePods,
     queryKey,
+    onError: handleWatchError,
   });
 
   const {

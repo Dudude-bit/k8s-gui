@@ -43,6 +43,14 @@ pub enum WatchOp {
     /// Watcher restarted (resync) — frontend should clear its cache
     /// before the burst of `applied` events that follows.
     Restarted,
+    /// Watch failed N times in a row without recovery (typically RBAC
+    /// `watch` verb missing, or kube-apiserver unreachable). The
+    /// frontend should fall back to periodic refresh and tell the
+    /// user. The watcher task keeps retrying in the background; if
+    /// it eventually recovers, an `applied`/`restarted` resets the
+    /// state and a fresh `failed` would only be emitted after another
+    /// streak of errors.
+    Failed,
 }
 
 /// Events that can be broadcast to frontend
@@ -85,10 +93,12 @@ pub enum AppEvent {
     ResourceWatchEvent {
         stream_id: String,
         op: WatchOp,
-        /// Set on `applied`/`deleted`. None on `restarted` resyncs —
-        /// the frontend clears its cache and waits for the burst of
-        /// `applied` events that follows.
+        /// Set on `applied`/`deleted`. None on `restarted` resyncs
+        /// and on `failed` events.
         resource: Option<serde_json::Value>,
+        /// Set on `failed` events with the error string (RBAC
+        /// denial, network error, etc.). None for every other op.
+        error: Option<String>,
     },
     /// Terminal output received
     TerminalOutput { session_id: String, data: String },
