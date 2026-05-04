@@ -41,15 +41,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  buildEdgesFromResources,
-  buildManifestYaml,
-} from "@/features/infrastructure/utils";
+import { buildManifestYaml } from "@/features/infrastructure/utils";
 import {
   ResourceKind,
   ResourceNodeData,
-  ServiceResourceData,
 } from "@/features/infrastructure/types";
+import { useImportFromCluster } from "@/features/infrastructure/useImportFromCluster";
+import { applyInfrastructureTemplate } from "@/features/infrastructure/templates";
 import {
   RefreshCw,
   CheckCircle2,
@@ -63,13 +61,6 @@ import { normalizeTauriError } from "@/lib/error-utils";
 import { ResourceType } from "@/lib/resource-registry";
 
 const LOCAL_CONTEXT = "__local__";
-const GRID_SPACING_X = 260;
-const GRID_SPACING_Y = 180;
-
-const layoutPosition = (index: number) => ({
-  x: (index % 4) * GRID_SPACING_X,
-  y: Math.floor(index / 4) * GRID_SPACING_Y,
-});
 
 const isValidConnection = (source: ResourceKind, target: ResourceKind) => {
   if (source === ResourceType.Ingress && target === ResourceType.Service) {
@@ -108,7 +99,6 @@ export function InfrastructureBuilder() {
     clearCanvas,
     syncFromYaml,
     syncToYaml,
-    replaceResources,
   } = useInfrastructureBuilderStore();
   const [mode, setMode] = useState<"visual" | "yaml">("visual");
   const [filter, setFilter] = useState("");
@@ -116,7 +106,6 @@ export function InfrastructureBuilder() {
     useState<ReactFlowInstance | null>(null);
   const [isApplying, setIsApplying] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
   const [clearOpen, setClearOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [includeImported, setIncludeImported] = useState(false);
@@ -652,303 +641,18 @@ export function InfrastructureBuilder() {
     toast,
   ]);
 
-  const handleImportFromCluster = useCallback(async () => {
-    if (!isConnected) {
-      toast({
-        title: "Cluster not connected",
-        description: "Connect to a cluster to import live resources.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setIsImporting(true);
-    const namespaceFilter = currentNamespace || null;
-
-    try {
-      const [pods, deployments, services, ingresses, configmaps, secrets] =
-        await Promise.all([
-          commands.listPods({
-            namespace: namespaceFilter,
-            labelSelector: null,
-            fieldSelector: null,
-            limit: null,
-            statusFilter: null,
-            selector: null,
-            nodeName: null,
-          }),
-          commands.listDeployments({
-            namespace: namespaceFilter,
-            labelSelector: null,
-            fieldSelector: null,
-            limit: null,
-          }),
-          commands.listServices({
-            namespace: namespaceFilter,
-            labelSelector: null,
-            fieldSelector: null,
-            limit: null,
-            serviceType: null,
-          }),
-          commands.listIngresses({
-            namespace: namespaceFilter,
-            labelSelector: null,
-            fieldSelector: null,
-            limit: null,
-          }),
-          commands.listConfigmaps({
-            namespace: namespaceFilter,
-            labelSelector: null,
-            fieldSelector: null,
-            limit: null,
-          }),
-          commands.listSecrets({
-            namespace: namespaceFilter,
-            labelSelector: null,
-            fieldSelector: null,
-            limit: null,
-            secretType: null,
-          }),
-        ]);
-
-      const resources: ResourceNodeData[] = [];
-      pods.forEach((pod) => {
-        const container = pod.containers?.[0];
-        resources.push({
-          kind: ResourceType.Pod,
-          name: pod.name,
-          namespace: pod.namespace,
-          labels: pod.labels || {},
-          origin: "cluster",
-          image: container?.image || "nginx:latest",
-          ports: container?.ports?.map((port) => port.containerPort) || [],
-          status: pod.status?.phase,
-        });
-      });
-      deployments.forEach((deployment) => {
-        const container = deployment.containers?.[0];
-        resources.push({
-          kind: ResourceType.Deployment,
-          name: deployment.name,
-          namespace: deployment.namespace,
-          labels: deployment.labels || {},
-          origin: "cluster",
-          replicas: deployment.replicas?.desired ?? 1,
-          image: container?.image || "nginx:latest",
-          ports: container?.ports || [],
-          status:
-            deployment.replicas?.available >=
-            (deployment.replicas?.desired ?? 1)
-              ? "Available"
-              : "Progressing",
-        });
-      });
-      services.forEach((service) => {
-        resources.push({
-          kind: ResourceType.Service,
-          name: service.name,
-          namespace: service.namespace,
-          labels: service.labels || {},
-          origin: "cluster",
-          serviceType: (service.type ||
-            "ClusterIP") as ServiceResourceData["serviceType"],
-          sessionAffinity:
-            service.sessionAffinity && service.sessionAffinity.trim()
-              ? (service.sessionAffinity as ServiceResourceData["sessionAffinity"])
-              : "None",
-          ports: service.ports?.map((port) => port.port) || [],
-          selectors: service.selector || {},
-        });
-      });
-      ingresses.forEach((ingress) => {
-        const rule = ingress.rules?.[0];
-        const path = rule?.paths?.[0];
-        const portValue = path?.backendPort ?? "80";
-        const port =
-          typeof portValue === "number"
-            ? portValue
-            : Number.parseInt(String(portValue), 10) || 80;
-        resources.push({
-          kind: ResourceType.Ingress,
-          name: ingress.name,
-          namespace: ingress.namespace,
-          labels: {},
-          origin: "cluster",
-          host: rule?.host || "",
-          path: path?.path || "/",
-          pathType:
-            path?.pathType && path.pathType.trim()
-              ? (path.pathType as "Prefix" | "Exact" | "ImplementationSpecific")
-              : "Prefix",
-          serviceName: path?.backendService || "",
-          servicePort: port,
-        });
-      });
-      configmaps.forEach((configmap) => {
-        const data = configmap.dataKeys.reduce<Record<string, string>>(
-          (acc, key) => {
-            acc[key] = "";
-            return acc;
-          },
-          {}
-        );
-        resources.push({
-          kind: ResourceType.ConfigMap,
-          name: configmap.name,
-          namespace: configmap.namespace,
-          labels: configmap.labels || {},
-          origin: "cluster",
-          data,
-        });
-      });
-      secrets.forEach((secret) => {
-        const data = secret.dataKeys.reduce<Record<string, string>>(
-          (acc, key) => {
-            acc[key] = "";
-            return acc;
-          },
-          {}
-        );
-        resources.push({
-          kind: ResourceType.Secret,
-          name: secret.name,
-          namespace: secret.namespace,
-          labels: secret.labels || {},
-          origin: "cluster",
-          secretType: secret.type || "Opaque",
-          data,
-        });
-      });
-
-      const nodes: Node<ResourceNodeData>[] = resources.map(
-        (resource, index) => ({
-          id: crypto.randomUUID(),
-          type: "resource",
-          position: layoutPosition(index),
-          data: resource,
-        })
-      );
-      const newEdges = buildEdgesFromResources(nodes);
-      replaceResources(nodes, newEdges);
-      toast({
-        title: "Imported from cluster",
-        description: `Loaded ${nodes.length} resources from the cluster.`,
-      });
-      setMode("visual");
-    } catch (error) {
-      toast({
-        title: "Import failed",
-        description: normalizeTauriError(error),
-        variant: "destructive",
-      });
-    } finally {
-      setIsImporting(false);
-    }
-  }, [currentNamespace, isConnected, replaceResources, toast]);
+  const { importFromCluster: handleImportFromCluster, isImporting } =
+    useImportFromCluster(() => setMode("visual"));
 
   const handleTemplate = useCallback(
     (templateId: string) => {
-      const namespace = currentNamespace || "default";
-      const basePosition = reactFlowInstance
-        ? reactFlowInstance.project({ x: 200, y: 140 })
-        : { x: 0, y: 0 };
-      const offset = 240;
-      const makePosition = (index: number) => ({
-        x: basePosition.x + index * offset,
-        y: basePosition.y,
+      applyInfrastructureTemplate(templateId, {
+        addResource,
+        updateNode,
+        onConnect,
+        reactFlowInstance,
+        namespace: currentNamespace || "default",
       });
-
-      if (templateId === "web-service") {
-        const suffix = crypto.randomUUID().slice(0, 4);
-        const appLabel = `web-${suffix}`;
-        const deployment = addResource(
-          ResourceType.Deployment,
-          makePosition(0),
-          namespace
-        );
-        updateNode(deployment.id, {
-          name: `${appLabel}-deploy`,
-          labels: { app: appLabel },
-          replicas: 2,
-          image: "nginx:latest",
-        });
-        const service = addResource(
-          ResourceType.Service,
-          makePosition(1),
-          namespace
-        );
-        updateNode(service.id, {
-          name: `${appLabel}-svc`,
-          labels: { app: appLabel },
-          selectors: { app: appLabel },
-          ports: [80],
-        });
-        const ingress = addResource(
-          ResourceType.Ingress,
-          makePosition(2),
-          namespace
-        );
-        updateNode(ingress.id, {
-          name: `${appLabel}-ing`,
-          serviceName: `${appLabel}-svc`,
-          servicePort: 80,
-          path: "/",
-        });
-        onConnect({
-          source: service.id,
-          target: deployment.id,
-          sourceHandle: null,
-          targetHandle: null,
-        });
-        onConnect({
-          source: ingress.id,
-          target: service.id,
-          sourceHandle: null,
-          targetHandle: null,
-        });
-        return;
-      }
-
-      if (templateId === "config-backed-app") {
-        const suffix = crypto.randomUUID().slice(0, 4);
-        const appLabel = `cfg-${suffix}`;
-        const config = addResource(
-          ResourceType.ConfigMap,
-          makePosition(0),
-          namespace
-        );
-        updateNode(config.id, {
-          name: `${appLabel}-config`,
-          labels: { app: appLabel },
-          data: { "app.config": "" },
-        });
-        const deployment = addResource(
-          ResourceType.Deployment,
-          makePosition(1),
-          namespace
-        );
-        updateNode(deployment.id, {
-          name: `${appLabel}-deploy`,
-          labels: { app: appLabel },
-          image: "nginx:latest",
-          ports: [80],
-        });
-        const service = addResource(
-          ResourceType.Service,
-          makePosition(2),
-          namespace
-        );
-        updateNode(service.id, {
-          name: `${appLabel}-svc`,
-          selectors: { app: appLabel },
-          ports: [80],
-        });
-        onConnect({
-          source: service.id,
-          target: deployment.id,
-          sourceHandle: null,
-          targetHandle: null,
-        });
-      }
     },
     [addResource, currentNamespace, onConnect, reactFlowInstance, updateNode]
   );
