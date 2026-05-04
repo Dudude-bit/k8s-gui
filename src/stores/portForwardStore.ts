@@ -217,7 +217,10 @@ export const usePortForwardStore = create<PortForwardState>((set, get) => ({
     const created = await commands.createPortForwardConfig(payload);
     const mapped = mapConfig(created);
     set((state) => ({
-      configs: [...state.configs.filter((item) => item.id !== mapped.id), mapped],
+      configs: [
+        ...state.configs.filter((item) => item.id !== mapped.id),
+        mapped,
+      ],
     }));
     return mapped;
   },

@@ -150,8 +150,7 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
     } catch (error) {
       set({
         downloading: false,
-        error:
-          error instanceof Error ? error.message : "Installation failed",
+        error: error instanceof Error ? error.message : "Installation failed",
       });
     }
   },

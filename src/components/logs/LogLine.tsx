@@ -155,28 +155,34 @@ export const LogLineComponent = memo(function LogLineComponent({
 function HighlightedText({ text, query }: { text: string; query: string }) {
   if (!query) return <>{text}</>;
 
+  // Build the parts array OUTSIDE the JSX so the try/catch wraps the
+  // RegExp construction (the actual throwable) rather than the JSX
+  // tree. JSX in try/catch trips react-hooks/error-boundaries
+  // because rendering errors don't throw synchronously and the catch
+  // wouldn't see them anyway.
+  let parts: string[];
   try {
-    const parts = text.split(new RegExp(`(${escapeRegex(query)})`, "gi"));
-
-    return (
-      <>
-        {parts.map((part, i) =>
-          part.toLowerCase() === query.toLowerCase() ? (
-            <mark
-              key={i}
-              className="bg-yellow-500/30 text-foreground rounded px-0.5"
-            >
-              {part}
-            </mark>
-          ) : (
-            part
-          )
-        )}
-      </>
-    );
+    parts = text.split(new RegExp(`(${escapeRegex(query)})`, "gi"));
   } catch {
     return <>{text}</>;
   }
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.toLowerCase() ? (
+          <mark
+            key={i}
+            className="bg-yellow-500/30 text-foreground rounded px-0.5"
+          >
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
 }
 
 function escapeRegex(string: string): string {

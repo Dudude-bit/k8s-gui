@@ -23,14 +23,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Search,
-  Moon,
-  Sun,
-  Monitor,
-  Command,
-  AlertCircle,
-} from "lucide-react";
+import { Search, Moon, Sun, Monitor, Command, AlertCircle } from "lucide-react";
 import { ActivityPanel } from "./ActivityPanel";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -185,9 +178,7 @@ export function Header() {
                   size="icon"
                 />
               </TooltipTrigger>
-              <TooltipContent side="bottom">
-                Retry connection
-              </TooltipContent>
+              <TooltipContent side="bottom">Retry connection</TooltipContent>
             </Tooltip>
           )}
         </div>

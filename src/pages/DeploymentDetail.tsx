@@ -2,10 +2,7 @@ import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { commands } from "@/lib/commands";
 import { useState, useEffect, useMemo } from "react";
-import {
-  useResourceMutation,
-  useResourceDetail,
-} from "@/hooks";
+import { useResourceMutation, useResourceDetail } from "@/hooks";
 import { useMetrics } from "@/hooks/useMetrics";
 import type { DeploymentInfo } from "@/generated/types";
 import { ResourceType, toPlural } from "@/lib/resource-registry";
@@ -55,7 +52,6 @@ import { aggregatePodMetrics, mergePodsWithMetrics } from "@/lib/metrics";
 import { normalizeTauriError } from "@/lib/error-utils";
 
 export function DeploymentDetail() {
-
   const [scaleDialogOpen, setScaleDialogOpen] = useState(false);
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
   const [newReplicas, setNewReplicas] = useState(1);
@@ -67,7 +63,7 @@ export function DeploymentDetail() {
     namespace,
     resource: deployment,
     isLoading,
-        error,
+    error,
     yaml: deploymentYaml,
     copyYaml,
     activeTab,
@@ -92,7 +88,7 @@ export function DeploymentDetail() {
         );
         return result;
       } catch (err) {
-        throw new Error(normalizeTauriError(err));
+        throw new Error(normalizeTauriError(err), { cause: err });
       }
     },
     enabled: !!namespace && !!name,
@@ -120,9 +116,14 @@ export function DeploymentDetail() {
     return aggregatePodMetrics(podsWithMetrics);
   }, [podsWithMetrics]);
 
-  // Auto-select first pod for logs when pods load
+  // Auto-select first pod for logs when pods load. Genuine
+  // sync-async-data-into-local-state — could be derived as
+  // `selectedLogPod ?? pods[0]?.name` at use sites, but the user
+  // can also explicitly pick a different pod via the dropdown,
+  // and that user choice has to win over auto-selection.
   useEffect(() => {
     if (pods.length > 0 && !selectedLogPod) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedLogPod(pods[0].name);
     }
   }, [pods, selectedLogPod]);
@@ -132,7 +133,13 @@ export function DeploymentDetail() {
 
   // Calculate total CPU/Memory limits/requests from containers
   const totalResources = useMemo(() => {
-    if (!deployment?.containers) return { cpuLimit: null, cpuRequest: null, memoryLimit: null, memoryRequest: null };
+    if (!deployment?.containers)
+      return {
+        cpuLimit: null,
+        cpuRequest: null,
+        memoryLimit: null,
+        memoryRequest: null,
+      };
 
     const replicas = deployment.replicas.desired || 1;
     let totalCpuLimits = 0;
@@ -161,7 +168,8 @@ export function DeploymentDetail() {
       cpuLimit: totalCpuLimits > 0 ? totalCpuLimits * replicas : null,
       cpuRequest: totalCpuRequests > 0 ? totalCpuRequests * replicas : null,
       memoryLimit: totalMemoryLimits > 0 ? totalMemoryLimits * replicas : null,
-      memoryRequest: totalMemoryRequests > 0 ? totalMemoryRequests * replicas : null,
+      memoryRequest:
+        totalMemoryRequests > 0 ? totalMemoryRequests * replicas : null,
     };
   }, [deployment]);
 
@@ -173,7 +181,7 @@ export function DeploymentDetail() {
         const result = await commands.getRolloutStatus(name, namespace || null);
         return result;
       } catch (err) {
-        throw new Error(normalizeTauriError(err));
+        throw new Error(normalizeTauriError(err), { cause: err });
       }
     },
     enabled: !!namespace && !!name,
@@ -256,7 +264,8 @@ export function DeploymentDetail() {
     return null;
   }
 
-  const rolloutDesired = rolloutStatus?.replicas ?? deployment?.replicas.desired ?? 0;
+  const rolloutDesired =
+    rolloutStatus?.replicas ?? deployment?.replicas.desired ?? 0;
   const rolloutReady =
     rolloutStatus?.readyReplicas ?? deployment?.replicas.ready ?? 0;
   const rolloutUpdated =
@@ -405,12 +414,13 @@ export function DeploymentDetail() {
                       <SelectItem key={pod.name} value={pod.name}>
                         <div className="flex items-center gap-2">
                           <span
-                            className={`h-2 w-2 rounded-full ${status === "Running"
-                              ? "bg-green-500"
-                              : status === "Pending"
-                                ? "bg-yellow-500"
-                                : "bg-red-500"
-                              }`}
+                            className={`h-2 w-2 rounded-full ${
+                              status === "Running"
+                                ? "bg-green-500"
+                                : status === "Pending"
+                                  ? "bg-yellow-500"
+                                  : "bg-red-500"
+                            }`}
                           />
                           {pod.name}
                         </div>
@@ -511,7 +521,12 @@ export function DeploymentDetail() {
             onClick={() => restartMutation.mutate()}
             disabled={restartMutation.isPending}
           >
-            <RefreshCw className={cn("mr-2 h-4 w-4", restartMutation.isPending && "animate-spin")} />
+            <RefreshCw
+              className={cn(
+                "mr-2 h-4 w-4",
+                restartMutation.isPending && "animate-spin"
+              )}
+            />
             Restart
           </Button>
           <Button

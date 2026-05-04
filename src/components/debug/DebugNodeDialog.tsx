@@ -19,7 +19,11 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle, Server, Clock, Loader2 } from "lucide-react";
-import type { DebugConfig, DebugOperation, DebugResult } from "@/generated/types";
+import type {
+  DebugConfig,
+  DebugOperation,
+  DebugResult,
+} from "@/generated/types";
 import { commands } from "@/lib/commands";
 import { useToast } from "@/components/ui/use-toast";
 import { DEBUG_IMAGES } from "./constants";
@@ -49,24 +53,31 @@ export function DebugNodeDialog({
 
   // Timeout dialog state
   const [showTimeoutDialog, setShowTimeoutDialog] = useState(false);
-  const [timeoutOperation, setTimeoutOperation] = useState<DebugOperation | null>(null);
+  const [timeoutOperation, setTimeoutOperation] =
+    useState<DebugOperation | null>(null);
 
-  const handleReady = useCallback((result: DebugResult) => {
-    toast({
-      title: "Debug pod ready",
-      description: `Debug pod "${result.podName}" created on node "${nodeName}"`,
-    });
-    onDebugStart(result);
-    onOpenChange(false);
-  }, [toast, nodeName, onDebugStart, onOpenChange]);
+  const handleReady = useCallback(
+    (result: DebugResult) => {
+      toast({
+        title: "Debug pod ready",
+        description: `Debug pod "${result.podName}" created on node "${nodeName}"`,
+      });
+      onDebugStart(result);
+      onOpenChange(false);
+    },
+    [toast, nodeName, onDebugStart, onOpenChange]
+  );
 
-  const handleError = useCallback((error: string) => {
-    toast({
-      title: "Debug failed",
-      description: error,
-      variant: "destructive",
-    });
-  }, [toast]);
+  const handleError = useCallback(
+    (error: string) => {
+      toast({
+        title: "Debug failed",
+        description: error,
+        variant: "destructive",
+      });
+    },
+    [toast]
+  );
 
   const handleTimeout = useCallback((operation: DebugOperation) => {
     setTimeoutOperation(operation);
@@ -89,7 +100,10 @@ export function DebugNodeDialog({
 
   const isPolling = state === "creating" || state === "polling";
   const timeoutSeconds = operation?.timeoutSeconds ?? 120;
-  const progressPercent = Math.min((elapsedSeconds / timeoutSeconds) * 100, 100);
+  const progressPercent = Math.min(
+    (elapsedSeconds / timeoutSeconds) * 100,
+    100
+  );
 
   const handleDebug = async () => {
     if (!isImageValid) {
@@ -134,7 +148,10 @@ export function DebugNodeDialog({
   const handleDeletePod = async () => {
     if (timeoutOperation) {
       try {
-        await commands.deleteDebugPod(timeoutOperation.podName, timeoutOperation.namespace);
+        await commands.deleteDebugPod(
+          timeoutOperation.podName,
+          timeoutOperation.namespace
+        );
         toast({
           title: "Debug pod deleted",
           description: `Pod "${timeoutOperation.podName}" has been deleted`,
@@ -169,9 +186,10 @@ export function DebugNodeDialog({
               Debug Pod Not Ready
             </DialogTitle>
             <DialogDescription>
-              The debug pod <span className="font-medium">{timeoutOperation.podName}</span> on
-              node <span className="font-medium">{nodeName}</span> did not become ready within
-              the timeout period.
+              The debug pod{" "}
+              <span className="font-medium">{timeoutOperation.podName}</span> on
+              node <span className="font-medium">{nodeName}</span> did not
+              become ready within the timeout period.
             </DialogDescription>
           </DialogHeader>
 
@@ -194,9 +212,7 @@ export function DebugNodeDialog({
             <Button variant="destructive" onClick={handleDeletePod}>
               Delete Pod
             </Button>
-            <Button onClick={handleKeepWaiting}>
-              Keep Waiting
-            </Button>
+            <Button onClick={handleKeepWaiting}>Keep Waiting</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -211,7 +227,9 @@ export function DebugNodeDialog({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Loader2 className="h-5 w-5 animate-spin" />
-              {state === "creating" ? "Creating debug pod..." : "Waiting for pod..."}
+              {state === "creating"
+                ? "Creating debug pod..."
+                : "Waiting for pod..."}
             </DialogTitle>
             <DialogDescription>
               Debug pod on node <span className="font-medium">{nodeName}</span>
@@ -223,7 +241,9 @@ export function DebugNodeDialog({
             <div className="rounded-md border p-3 bg-muted/30">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Status</span>
-                <span className="font-medium">{statusReason || "Initializing..."}</span>
+                <span className="font-medium">
+                  {statusReason || "Initializing..."}
+                </span>
               </div>
             </div>
 
@@ -315,8 +335,8 @@ export function DebugNodeDialog({
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              This will create a <strong>privileged pod</strong> with full access to
-              the host. The host filesystem will be mounted at{" "}
+              This will create a <strong>privileged pod</strong> with full
+              access to the host. The host filesystem will be mounted at{" "}
               <code className="bg-muted px-1 rounded">/host</code>.
             </AlertDescription>
           </Alert>

@@ -52,7 +52,10 @@ export function KeyValueList({
   };
 
   const handleCopyAll = () => {
-    copyToClipboard(JSON.stringify(data, null, 2), "All data copied to clipboard.");
+    copyToClipboard(
+      JSON.stringify(data, null, 2),
+      "All data copied to clipboard."
+    );
   };
 
   const handleCopyValue = (key: string, value: string) => {
@@ -78,17 +81,32 @@ export function KeyValueList({
             <>
               {isSensitive && (
                 <>
-                  <Button variant="outline" size="sm" onClick={revealAll} disabled={isLoading}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={revealAll}
+                    disabled={isLoading}
+                  >
                     <Eye className="h-4 w-4 mr-2" />
                     Reveal All
                   </Button>
-                  <Button variant="outline" size="sm" onClick={hideAll} disabled={isLoading}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={hideAll}
+                    disabled={isLoading}
+                  >
                     <EyeOff className="h-4 w-4 mr-2" />
                     Hide All
                   </Button>
                 </>
               )}
-              <Button variant="outline" size="sm" onClick={handleCopyAll} disabled={isLoading}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyAll}
+                disabled={isLoading}
+              >
                 <Copy className="h-4 w-4 mr-2" />
                 Copy All
               </Button>

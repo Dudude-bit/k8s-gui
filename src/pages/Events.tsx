@@ -37,7 +37,12 @@ export function Events() {
     isLoading,
     dataUpdatedAt,
   } = useQuery({
-    queryKey: [toPlural(ResourceType.Event), currentNamespace, eventType, eventLimit],
+    queryKey: [
+      toPlural(ResourceType.Event),
+      currentNamespace,
+      eventType,
+      eventLimit,
+    ],
     queryFn: async () => {
       const limit = eventLimit === "all" ? null : Number(eventLimit);
       const filters: EventFilters = {
@@ -62,7 +67,9 @@ export function Events() {
   });
 
   if (!isConnected) {
-    return <ConnectClusterEmptyState resourceLabel={toPlural(ResourceType.Event)} />;
+    return (
+      <ConnectClusterEmptyState resourceLabel={toPlural(ResourceType.Event)} />
+    );
   }
 
   const warningCount = events.filter((e) => e.type === "Warning").length;

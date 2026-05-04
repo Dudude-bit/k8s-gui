@@ -115,21 +115,21 @@ export function setupFrontendLogger(): Cleanup | undefined {
 
   const wrap =
     (level: LogLevel, fn: (...args: unknown[]) => void) =>
-      (...args: unknown[]) => {
-        fn(...args);
+    (...args: unknown[]) => {
+      fn(...args);
 
-        if (isForwarding) {
-          return;
-        }
+      if (isForwarding) {
+        return;
+      }
 
-        isForwarding = true;
-        const context = window.location?.pathname || "frontend";
-        try {
-          logFrontend(level, args, context);
-        } finally {
-          isForwarding = false;
-        }
-      };
+      isForwarding = true;
+      const context = window.location?.pathname || "frontend";
+      try {
+        logFrontend(level, args, context);
+      } finally {
+        isForwarding = false;
+      }
+    };
 
   console.log = wrap("info", original.log);
   console.debug = wrap("debug", original.debug);
@@ -139,7 +139,7 @@ export function setupFrontendLogger(): Cleanup | undefined {
 
   // Flush logs before page unload
   const handleBeforeUnload = () => {
-    flushLogs().catch(() => { });
+    flushLogs().catch(() => {});
   };
   window.addEventListener("beforeunload", handleBeforeUnload);
 

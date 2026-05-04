@@ -32,7 +32,14 @@ import {
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { QuickActions, type QuickAction } from "@/components/ui/quick-actions";
 import { useTableKeyboardNav } from "@/hooks/useTableKeyboardNav";
-import { ChevronLeft, ChevronRight, Search, AlertTriangle, AlignJustify, List } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  AlertTriangle,
+  AlignJustify,
+  List,
+} from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -79,7 +86,8 @@ function createActionsColumn<TData, TValue>(
     id: "_actions",
     header: () => null,
     cell: ({ row }: { row: Row<TData> }) => {
-      const isVisible = hoveredRowIndex === row.index || focusedRowIndex === row.index;
+      const isVisible =
+        hoveredRowIndex === row.index || focusedRowIndex === row.index;
       return (
         <div data-quick-actions className="flex justify-end">
           <QuickActions
@@ -122,7 +130,9 @@ export function DataTable<TData, TValue>({
     pageIndex: 0,
     pageSize: 25,
   });
-  const [hoveredRowIndex, setHoveredRowIndex] = React.useState<number | null>(null);
+  const [hoveredRowIndex, setHoveredRowIndex] = React.useState<number | null>(
+    null
+  );
   const deferredSearch = React.useDeferredValue(searchValue);
 
   // Density styling
@@ -164,6 +174,11 @@ export function DataTable<TData, TValue>({
     return [...filteredColumns, actionsColumn];
   }, [columns, quickActions, hoveredRowIndex, focusedRowIndex]);
 
+  // TanStack Table's useReactTable returns functions that React
+  // Compiler can't safely memoize. The library-level fix is upstream
+  // — until it lands, we silence the lint here. The runtime impact
+  // is benign: the table re-renders cheaply on parent state changes.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns: columnsWithActions,
@@ -225,7 +240,7 @@ export function DataTable<TData, TValue>({
       target.closest("button") ||
       target.closest("a") ||
       target.closest('[role="menuitem"]') ||
-      target.closest('[data-quick-actions]')
+      target.closest("[data-quick-actions]")
     ) {
       return;
     }
@@ -270,7 +285,9 @@ export function DataTable<TData, TValue>({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setTableDensity(isCompact ? "comfortable" : "compact")}
+                onClick={() =>
+                  setTableDensity(isCompact ? "comfortable" : "compact")
+                }
                 className="h-8 px-2"
               >
                 {isCompact ? (
@@ -296,8 +313,8 @@ export function DataTable<TData, TValue>({
         <div
           className={cn(
             shouldVirtualScroll &&
-            isShowingAllRows &&
-            "overflow-auto scrollbar-thin"
+              isShowingAllRows &&
+              "overflow-auto scrollbar-thin"
           )}
           style={
             shouldVirtualScroll && isShowingAllRows
@@ -309,21 +326,24 @@ export function DataTable<TData, TValue>({
             <TableHeader
               className={cn(
                 shouldVirtualScroll &&
-                isShowingAllRows &&
-                "sticky top-0 bg-background z-10"
+                  isShowingAllRows &&
+                  "sticky top-0 bg-background z-10"
               )}
             >
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => {
                     return (
-                      <TableHead key={header.id} className={cn(headerHeight, cellPadding)}>
+                      <TableHead
+                        key={header.id}
+                        className={cn(headerHeight, cellPadding)}
+                      >
                         {header.isPlaceholder
                           ? null
                           : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
                       </TableHead>
                     );
                   })}
@@ -346,7 +366,11 @@ export function DataTable<TData, TValue>({
                         isFocused && "ring-2 ring-ring ring-inset",
                         "relative group"
                       )}
-                      onClick={isClickable ? (e) => handleRowClick(row.original, e) : undefined}
+                      onClick={
+                        isClickable
+                          ? (e) => handleRowClick(row.original, e)
+                          : undefined
+                      }
                       onMouseEnter={() => setHoveredRowIndex(index)}
                       onMouseLeave={() => setHoveredRowIndex(null)}
                     >

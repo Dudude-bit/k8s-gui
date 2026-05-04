@@ -1,8 +1,18 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { commands } from "@/lib/commands";
-import type { DebugConfig, DebugOperation, DebugResult } from "@/generated/types";
+import type {
+  DebugConfig,
+  DebugOperation,
+  DebugResult,
+} from "@/generated/types";
 
-export type DebugOperationState = "idle" | "creating" | "polling" | "ready" | "failed" | "timeout";
+export type DebugOperationState =
+  | "idle"
+  | "creating"
+  | "polling"
+  | "ready"
+  | "failed"
+  | "timeout";
 
 interface UseDebugOperationOptions {
   onReady: (result: DebugResult) => void;
@@ -37,46 +47,49 @@ export function useDebugOperation({
     }
   }, []);
 
-  const startPolling = useCallback((op: DebugOperation) => {
-    cleanup();
-    isCancelledRef.current = false;
-    setElapsedSeconds(0);
+  const startPolling = useCallback(
+    (op: DebugOperation) => {
+      cleanup();
+      isCancelledRef.current = false;
+      setElapsedSeconds(0);
 
-    elapsedIntervalRef.current = setInterval(() => {
-      setElapsedSeconds((prev) => prev + 1);
-    }, 1000);
+      elapsedIntervalRef.current = setInterval(() => {
+        setElapsedSeconds((prev) => prev + 1);
+      }, 1000);
 
-    const poll = async () => {
-      if (isCancelledRef.current) return;
-
-      try {
-        const status = await commands.getDebugStatus(op.id);
-
+      const poll = async () => {
         if (isCancelledRef.current) return;
 
-        if (status.type === "ready") {
-          cleanup();
-          setState("ready");
-          onReady(status.result);
-        } else if (status.type === "failed") {
-          cleanup();
-          setState("failed");
-          onError(status.error);
-        } else if (status.type === "timeout") {
-          cleanup();
-          setState("timeout");
-          onTimeout(op);
-        } else if (status.type === "pending") {
-          setStatusReason(status.reason);
-        }
-      } catch (err) {
-        console.error("Failed to get debug status:", err);
-      }
-    };
+        try {
+          const status = await commands.getDebugStatus(op.id);
 
-    poll();
-    pollIntervalRef.current = setInterval(poll, pollInterval);
-  }, [cleanup, pollInterval, onReady, onError, onTimeout]);
+          if (isCancelledRef.current) return;
+
+          if (status.type === "ready") {
+            cleanup();
+            setState("ready");
+            onReady(status.result);
+          } else if (status.type === "failed") {
+            cleanup();
+            setState("failed");
+            onError(status.error);
+          } else if (status.type === "timeout") {
+            cleanup();
+            setState("timeout");
+            onTimeout(op);
+          } else if (status.type === "pending") {
+            setStatusReason(status.reason);
+          }
+        } catch (err) {
+          console.error("Failed to get debug status:", err);
+        }
+      };
+
+      poll();
+      pollIntervalRef.current = setInterval(poll, pollInterval);
+    },
+    [cleanup, pollInterval, onReady, onError, onTimeout]
+  );
 
   const startEphemeral = useCallback(
     async (podName: string, namespace: string, config: DebugConfig) => {

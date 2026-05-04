@@ -16,7 +16,11 @@ interface NodeBadgeProps {
  * Generates a stable color based on the node name hash, making it easy to
  * visually identify pods running on the same node.
  */
-export function NodeBadge({ nodeName, className, maxWidth = "max-w-[200px]" }: NodeBadgeProps) {
+export function NodeBadge({
+  nodeName,
+  className,
+  maxWidth = "max-w-[200px]",
+}: NodeBadgeProps) {
   const { theme } = useThemeStore();
   const hue = React.useMemo(() => hashString(nodeName) % 360, [nodeName]);
 

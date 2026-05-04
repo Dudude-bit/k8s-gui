@@ -11,7 +11,10 @@ interface HelmStatusBannerProps {
   minimal?: boolean;
 }
 
-export function HelmStatusBanner({ className, minimal = false }: HelmStatusBannerProps) {
+export function HelmStatusBanner({
+  className,
+  minimal = false,
+}: HelmStatusBannerProps) {
   const { helm, isChecking, checkHelmAvailability } = useDependenciesStore();
 
   // Don't show banner if helm is available or not yet checked
@@ -21,7 +24,12 @@ export function HelmStatusBanner({ className, minimal = false }: HelmStatusBanne
 
   if (minimal) {
     return (
-      <div className={cn("flex items-center gap-2 text-sm text-yellow-600 dark:text-yellow-500", className)}>
+      <div
+        className={cn(
+          "flex items-center gap-2 text-sm text-yellow-600 dark:text-yellow-500",
+          className
+        )}
+      >
         <AlertTriangle className="h-4 w-4" />
         <span>Helm CLI not found.</span>
         <Link to="/settings" className="underline hover:no-underline">
@@ -32,7 +40,10 @@ export function HelmStatusBanner({ className, minimal = false }: HelmStatusBanne
   }
 
   return (
-    <Alert variant="default" className={cn("mb-4 border-yellow-500/50 bg-yellow-500/5", className)}>
+    <Alert
+      variant="default"
+      className={cn("mb-4 border-yellow-500/50 bg-yellow-500/5", className)}
+    >
       <Terminal className="h-4 w-4" />
       <AlertTitle className="flex items-center justify-between">
         <span>Helm CLI not found</span>
@@ -58,12 +69,11 @@ export function HelmStatusBanner({ className, minimal = false }: HelmStatusBanne
           <li>Manage Helm repositories</li>
         </ul>
         <p className="text-sm">
-          <strong>Note:</strong> Viewing releases and their details still works using the Kubernetes API.
+          <strong>Note:</strong> Viewing releases and their details still works
+          using the Kubernetes API.
         </p>
         {helm.error && (
-          <p className="text-xs text-muted-foreground">
-            Error: {helm.error}
-          </p>
+          <p className="text-xs text-muted-foreground">Error: {helm.error}</p>
         )}
         <div className="flex gap-2 mt-3">
           <Button variant="default" size="sm" asChild>

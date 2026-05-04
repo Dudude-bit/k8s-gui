@@ -32,7 +32,9 @@ export function LinkedResource({
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className={`text-destructive flex items-center gap-1 ${className}`}>
+          <span
+            className={`text-destructive flex items-center gap-1 ${className}`}
+          >
             <AlertTriangle className="h-3 w-3" />
             {displayText}
           </span>

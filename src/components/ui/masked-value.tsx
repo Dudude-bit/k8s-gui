@@ -38,10 +38,12 @@ export function MaskedValue({
   if (compact) {
     return (
       <div className={cn("flex items-center gap-1", className)}>
-        <span className={cn(
-          "font-mono text-xs break-all",
-          !isRevealed && "text-muted-foreground italic"
-        )}>
+        <span
+          className={cn(
+            "font-mono text-xs break-all",
+            !isRevealed && "text-muted-foreground italic"
+          )}
+        >
           {isLoading ? "Loading..." : displayValue}
         </span>
         {onToggleReveal && (

@@ -54,12 +54,18 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { commands } from "@/lib/commands";
-import type { HelmRelease, HelmRevision, HelmChartSearchResult, HelmInstallOptions } from "@/generated/types";
+import type {
+  HelmRelease,
+  HelmRevision,
+  HelmChartSearchResult,
+  HelmInstallOptions,
+} from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { cn } from "@/lib/utils";
 
 // Generate stable row ID for Helm releases
-const getHelmReleaseRowId = (row: HelmRelease) => `${row.source}-${row.namespace}-${row.name}`;
+const getHelmReleaseRowId = (row: HelmRelease) =>
+  `${row.source}-${row.namespace}-${row.name}`;
 
 // Source icon component
 function SourceIcon({ source }: { source: string }) {
@@ -95,7 +101,9 @@ export function Helm() {
     release: HelmRelease;
     revision: number;
   } | null>(null);
-  const [uninstallTarget, setUninstallTarget] = useState<HelmRelease | null>(null);
+  const [uninstallTarget, setUninstallTarget] = useState<HelmRelease | null>(
+    null
+  );
   const [historyDialog, setHistoryDialog] = useState<HelmRelease | null>(null);
   const [selectedNamespace, setSelectedNamespace] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<string>("releases");
@@ -108,11 +116,14 @@ export function Helm() {
 
   // Chart search state
   const [searchKeyword, setSearchKeyword] = useState("");
-  const [searchResults, setSearchResults] = useState<HelmChartSearchResult[]>([]);
+  const [searchResults, setSearchResults] = useState<HelmChartSearchResult[]>(
+    []
+  );
   const [isSearching, setIsSearching] = useState(false);
 
   // Install dialog state
-  const [installChart, setInstallChart] = useState<HelmChartSearchResult | null>(null);
+  const [installChart, setInstallChart] =
+    useState<HelmChartSearchResult | null>(null);
   const [installReleaseName, setInstallReleaseName] = useState("");
   const [installNamespace, setInstallNamespace] = useState("default");
   const [installVersion, setInstallVersion] = useState("");
@@ -169,16 +180,16 @@ export function Helm() {
     queryKey: ["helm-history", historyDialog?.name, historyDialog?.namespace],
     queryFn: async () => {
       if (!historyDialog) return [];
-      return await commands.getHelmHistory(historyDialog.name, historyDialog.namespace);
+      return await commands.getHelmHistory(
+        historyDialog.name,
+        historyDialog.namespace
+      );
     },
     enabled: !!historyDialog,
   });
 
   // Fetch Helm repositories
-  const {
-    data: repositories = [],
-    isLoading: reposLoading,
-  } = useQuery({
+  const { data: repositories = [], isLoading: reposLoading } = useQuery({
     queryKey: ["helm-repos"],
     queryFn: async () => {
       try {
@@ -194,13 +205,22 @@ export function Helm() {
 
   // Rollback mutation
   const rollbackMutation = useMutation({
-    mutationFn: async ({ name, namespace, revision }: { name: string; namespace: string; revision: number }) => {
+    mutationFn: async ({
+      name,
+      namespace,
+      revision,
+    }: {
+      name: string;
+      namespace: string;
+      revision: number;
+    }) => {
       return await commands.helmRollback(name, namespace, revision);
     },
     onSuccess: () => {
       toast({
         title: "Rollback initiated",
-        description: "The release is being rolled back to the previous revision.",
+        description:
+          "The release is being rolled back to the previous revision.",
       });
       queryClient.invalidateQueries({ queryKey: ["helm-releases-native"] });
       setRollbackTarget(null);
@@ -216,7 +236,13 @@ export function Helm() {
 
   // Uninstall mutation
   const uninstallMutation = useMutation({
-    mutationFn: async ({ name, namespace }: { name: string; namespace: string }) => {
+    mutationFn: async ({
+      name,
+      namespace,
+    }: {
+      name: string;
+      namespace: string;
+    }) => {
       return await commands.helmUninstall(name, namespace);
     },
     onSuccess: () => {
@@ -455,7 +481,9 @@ export function Helm() {
             <ActionMenu>
               <DropdownMenuItem
                 onClick={() =>
-                  navigate(`/helm/${release.source}/${release.namespace}/${release.name}`)
+                  navigate(
+                    `/helm/${release.source}/${release.namespace}/${release.name}`
+                  )
                 }
               >
                 <FileCode className="mr-2 h-4 w-4" />
@@ -603,7 +631,10 @@ export function Helm() {
         <TabsContent value="releases" className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Select value={selectedNamespace} onValueChange={setSelectedNamespace}>
+              <Select
+                value={selectedNamespace}
+                onValueChange={setSelectedNamespace}
+              >
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="All namespaces" />
                 </SelectTrigger>
@@ -623,7 +654,9 @@ export function Helm() {
               onClick={() => refetch()}
               disabled={isLoading}
             >
-              <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+              <RefreshCw
+                className={cn("h-4 w-4", isLoading && "animate-spin")}
+              />
             </Button>
           </div>
 
@@ -634,7 +667,9 @@ export function Helm() {
             searchPlaceholder="Search releases..."
             searchKey="name"
             getRowId={getHelmReleaseRowId}
-            getRowHref={(row) => `/helm/${row.source}/${row.namespace}/${row.name}`}
+            getRowHref={(row) =>
+              `/helm/${row.source}/${row.namespace}/${row.name}`
+            }
           />
         </TabsContent>
 
@@ -650,7 +685,10 @@ export function Helm() {
                 className="pl-9"
               />
             </div>
-            <Button onClick={handleSearchCharts} disabled={isSearching || !searchKeyword.trim()}>
+            <Button
+              onClick={handleSearchCharts}
+              disabled={isSearching || !searchKeyword.trim()}
+            >
               {isSearching ? (
                 <RefreshCw className="h-4 w-4 animate-spin" />
               ) : (
@@ -676,15 +714,24 @@ export function Helm() {
                     <th className="text-left p-3 font-medium">Version</th>
                     <th className="text-left p-3 font-medium">App Version</th>
                     <th className="text-left p-3 font-medium">Description</th>
-                    <th className="text-right p-3 font-medium w-[100px]">Actions</th>
+                    <th className="text-right p-3 font-medium w-[100px]">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {searchResults.map((chart) => (
-                    <tr key={`${chart.name}-${chart.version}`} className="border-b last:border-0">
+                    <tr
+                      key={`${chart.name}-${chart.version}`}
+                      className="border-b last:border-0"
+                    >
                       <td className="p-3 font-medium">{chart.name}</td>
-                      <td className="p-3 text-muted-foreground">{chart.version}</td>
-                      <td className="p-3 text-muted-foreground">{chart.appVersion || "-"}</td>
+                      <td className="p-3 text-muted-foreground">
+                        {chart.version}
+                      </td>
+                      <td className="p-3 text-muted-foreground">
+                        {chart.appVersion || "-"}
+                      </td>
                       <td className="p-3 text-muted-foreground text-sm truncate max-w-[300px]">
                         {chart.description || "-"}
                       </td>
@@ -694,7 +741,9 @@ export function Helm() {
                           size="sm"
                           onClick={() => {
                             setInstallChart(chart);
-                            setInstallReleaseName(chart.name.split("/").pop() || chart.name);
+                            setInstallReleaseName(
+                              chart.name.split("/").pop() || chart.name
+                            );
                             setInstallVersion(chart.version);
                           }}
                         >
@@ -722,13 +771,15 @@ export function Helm() {
                 onClick={() => updateReposMutation.mutate()}
                 disabled={updateReposMutation.isPending}
               >
-                <RefreshCw className={cn("h-4 w-4 mr-2", updateReposMutation.isPending && "animate-spin")} />
+                <RefreshCw
+                  className={cn(
+                    "h-4 w-4 mr-2",
+                    updateReposMutation.isPending && "animate-spin"
+                  )}
+                />
                 Update All
               </Button>
-              <Button
-                size="sm"
-                onClick={() => setAddRepoDialogOpen(true)}
-              >
+              <Button size="sm" onClick={() => setAddRepoDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Repository
               </Button>
@@ -736,12 +787,16 @@ export function Helm() {
           </div>
 
           {reposLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading repositories...</div>
+            <div className="text-center py-8 text-muted-foreground">
+              Loading repositories...
+            </div>
           ) : repositories.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <FolderGit2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No repositories configured</p>
-              <p className="text-sm">Add a Helm chart repository to get started</p>
+              <p className="text-sm">
+                Add a Helm chart repository to get started
+              </p>
             </div>
           ) : (
             <div className="border rounded-lg">
@@ -750,7 +805,9 @@ export function Helm() {
                   <tr className="border-b bg-muted/50">
                     <th className="text-left p-3 font-medium">Name</th>
                     <th className="text-left p-3 font-medium">URL</th>
-                    <th className="text-right p-3 font-medium w-[100px]">Actions</th>
+                    <th className="text-right p-3 font-medium w-[100px]">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -795,7 +852,9 @@ export function Helm() {
         onNameChange={setNewRepoName}
         url={newRepoUrl}
         onUrlChange={setNewRepoUrl}
-        onAdd={() => addRepoMutation.mutate({ name: newRepoName, url: newRepoUrl })}
+        onAdd={() =>
+          addRepoMutation.mutate({ name: newRepoName, url: newRepoUrl })
+        }
         isAdding={addRepoMutation.isPending}
       />
 
@@ -969,9 +1028,7 @@ function HistoryDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-background rounded-lg shadow-lg w-full max-w-2xl max-h-[80vh] overflow-hidden">
         <div className="p-4 border-b flex items-center justify-between">
-          <h2 className="text-lg font-semibold">
-            History: {release.name}
-          </h2>
+          <h2 className="text-lg font-semibold">History: {release.name}</h2>
           <Button variant="ghost" size="sm" onClick={onClose}>
             ✕
           </Button>
@@ -1006,7 +1063,9 @@ function HistoryDialog({
                     </td>
                     <td className="p-2 text-muted-foreground">{rev.chart}</td>
                     <td className="p-2 text-muted-foreground">
-                      {rev.updated ? new Date(rev.updated).toLocaleString() : "-"}
+                      {rev.updated
+                        ? new Date(rev.updated).toLocaleString()
+                        : "-"}
                     </td>
                     <td className="p-2 text-muted-foreground truncate max-w-[150px]">
                       {rev.description || "-"}

@@ -75,7 +75,10 @@ const isValidConnection = (source: ResourceKind, target: ResourceKind) => {
   if (source === ResourceType.Ingress && target === ResourceType.Service) {
     return true;
   }
-  if (source === ResourceType.Service && (target === ResourceType.Pod || target === ResourceType.Deployment)) {
+  if (
+    source === ResourceType.Service &&
+    (target === ResourceType.Pod || target === ResourceType.Deployment)
+  ) {
     return true;
   }
   return false;
@@ -224,6 +227,11 @@ export function InfrastructureBuilder() {
     (event: PointerEvent) => {
       const state = dragStateRef.current;
       window.removeEventListener("pointermove", handlePointerMove);
+      // `handlePointerUp` references itself for listener cleanup.
+      // Trips react-hooks/immutability's "accessed before declared"
+      // check; the runtime closure semantics are correct (the const
+      // exists by the time the listener fires).
+      // eslint-disable-next-line react-hooks/immutability
       window.removeEventListener("pointerup", handlePointerUp);
       document.body.style.userSelect = "";
       document.body.style.cursor = "";
@@ -729,7 +737,7 @@ export function InfrastructureBuilder() {
           ports: container?.ports || [],
           status:
             deployment.replicas?.available >=
-              (deployment.replicas?.desired ?? 1)
+            (deployment.replicas?.desired ?? 1)
               ? "Available"
               : "Progressing",
         });
@@ -863,14 +871,22 @@ export function InfrastructureBuilder() {
           replicas: 2,
           image: "nginx:latest",
         });
-        const service = addResource(ResourceType.Service, makePosition(1), namespace);
+        const service = addResource(
+          ResourceType.Service,
+          makePosition(1),
+          namespace
+        );
         updateNode(service.id, {
           name: `${appLabel}-svc`,
           labels: { app: appLabel },
           selectors: { app: appLabel },
           ports: [80],
         });
-        const ingress = addResource(ResourceType.Ingress, makePosition(2), namespace);
+        const ingress = addResource(
+          ResourceType.Ingress,
+          makePosition(2),
+          namespace
+        );
         updateNode(ingress.id, {
           name: `${appLabel}-ing`,
           serviceName: `${appLabel}-svc`,
@@ -895,7 +911,11 @@ export function InfrastructureBuilder() {
       if (templateId === "config-backed-app") {
         const suffix = crypto.randomUUID().slice(0, 4);
         const appLabel = `cfg-${suffix}`;
-        const config = addResource(ResourceType.ConfigMap, makePosition(0), namespace);
+        const config = addResource(
+          ResourceType.ConfigMap,
+          makePosition(0),
+          namespace
+        );
         updateNode(config.id, {
           name: `${appLabel}-config`,
           labels: { app: appLabel },
@@ -912,7 +932,11 @@ export function InfrastructureBuilder() {
           image: "nginx:latest",
           ports: [80],
         });
-        const service = addResource(ResourceType.Service, makePosition(2), namespace);
+        const service = addResource(
+          ResourceType.Service,
+          makePosition(2),
+          namespace
+        );
         updateNode(service.id, {
           name: `${appLabel}-svc`,
           selectors: { app: appLabel },
@@ -1110,10 +1134,11 @@ export function InfrastructureBuilder() {
               </div>
               {lastResult && (
                 <div
-                  className={`rounded-lg border border-border p-3 text-xs ${lastResult.success
-                    ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
-                    : "bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-200"
-                    }`}
+                  className={`rounded-lg border border-border p-3 text-xs ${
+                    lastResult.success
+                      ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
+                      : "bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-200"
+                  }`}
                 >
                   <div className="font-semibold">{lastResult.title}</div>
                   <pre className="mt-2 whitespace-pre-wrap">
@@ -1145,10 +1170,11 @@ export function InfrastructureBuilder() {
               </div>
               {lastResult && (
                 <div
-                  className={`rounded-lg border border-border p-3 text-xs ${lastResult.success
-                    ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
-                    : "bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-200"
-                    }`}
+                  className={`rounded-lg border border-border p-3 text-xs ${
+                    lastResult.success
+                      ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
+                      : "bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-200"
+                  }`}
                 >
                   <div className="font-semibold">{lastResult.title}</div>
                   <pre className="mt-2 whitespace-pre-wrap">

@@ -371,10 +371,16 @@ export function PortForwardManager() {
             <RefreshButton
               onRefresh={() => {
                 refreshSessions().catch((error) => {
-                  console.error("Failed to refresh port-forward sessions:", error);
+                  console.error(
+                    "Failed to refresh port-forward sessions:",
+                    error
+                  );
                 });
                 refreshConfigs().catch((error) => {
-                  console.error("Failed to refresh port-forward configs:", error);
+                  console.error(
+                    "Failed to refresh port-forward configs:",
+                    error
+                  );
                 });
               }}
               variant="outline"

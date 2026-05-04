@@ -2,8 +2,15 @@
  * Utility functions for creating CRD plugins
  */
 
-import type { CrdPlugin, CrdPluginColumn, CrdPluginStatusConfig } from "./types";
-import type { CustomResourceInfo, CustomResourceDetailInfo } from "@/generated/types";
+import type {
+  CrdPlugin,
+  CrdPluginColumn,
+  CrdPluginStatusConfig,
+} from "./types";
+import type {
+  CustomResourceInfo,
+  CustomResourceDetailInfo,
+} from "@/generated/types";
 
 /**
  * Create a matcher function that matches by API group
@@ -162,9 +169,7 @@ export function createColumn(
     id,
     header,
     accessor: (resource) => getValueByPath(resource, path),
-    cell: options?.formatter
-      ? (value) => options.formatter!(value)
-      : undefined,
+    cell: options?.formatter ? (value) => options.formatter!(value) : undefined,
     width: options?.width,
     sortable: options?.sortable ?? true,
   };
@@ -178,9 +183,15 @@ export function createColumn(
  */
 export function createStatusConfig(
   statusPath: string,
-  statusMap?: Record<string, "default" | "secondary" | "destructive" | "outline">
+  statusMap?: Record<
+    string,
+    "default" | "secondary" | "destructive" | "outline"
+  >
 ): CrdPluginStatusConfig {
-  const defaultMap: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  const defaultMap: Record<
+    string,
+    "default" | "secondary" | "destructive" | "outline"
+  > = {
     ready: "default",
     true: "default",
     running: "default",
@@ -240,7 +251,8 @@ export function createConditionStatusConfig(
     getVariant: (status) => {
       const normalized = status.toLowerCase();
       if (normalized === "ready" || normalized === "true") return "default";
-      if (normalized === "notready" || normalized === "false") return "destructive";
+      if (normalized === "notready" || normalized === "false")
+        return "destructive";
       return "secondary";
     },
   };

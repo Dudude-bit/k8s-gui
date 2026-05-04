@@ -48,7 +48,7 @@ export function PortForwardsTab({ onClose }: PortForwardsTabProps) {
     ])
   );
 
-  const getConfigKey = (config: typeof configs[0]) =>
+  const getConfigKey = (config: (typeof configs)[0]) =>
     `${config.context}:${config.pod}:${config.namespace}:${config.localPort}:${config.remotePort}`;
 
   const handleStart = async (configId: string) => {
@@ -134,8 +134,8 @@ export function PortForwardsTab({ onClose }: PortForwardsTabProps) {
                           isError
                             ? "fill-destructive text-destructive"
                             : isReconnecting
-                            ? "fill-yellow-500 text-yellow-500"
-                            : "fill-green-500 text-green-500"
+                              ? "fill-yellow-500 text-yellow-500"
+                              : "fill-green-500 text-green-500"
                         )}
                       />
                       <div className="min-w-0">
@@ -143,8 +143,8 @@ export function PortForwardsTab({ onClose }: PortForwardsTabProps) {
                           {session.pod}
                         </p>
                         <p className="text-xs text-muted-foreground truncate">
-                          {session.namespace} • :{session.localPort} →{" "}
-                          :{session.remotePort}
+                          {session.namespace} • :{session.localPort} → :
+                          {session.remotePort}
                         </p>
                       </div>
                     </div>
@@ -183,9 +183,7 @@ export function PortForwardsTab({ onClose }: PortForwardsTabProps) {
         {contextConfigs.length === 0 ? (
           <div className="text-center py-6 text-sm text-muted-foreground">
             <p>No port forwards configured</p>
-            <p className="text-xs mt-1">
-              Create one in Settings or from a Pod
-            </p>
+            <p className="text-xs mt-1">Create one in Settings or from a Pod</p>
           </div>
         ) : (
           <ScrollArea className="max-h-[250px]">
@@ -213,7 +211,8 @@ export function PortForwardsTab({ onClose }: PortForwardsTabProps) {
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground truncate">
-                        {config.pod} • :{config.localPort} → :{config.remotePort}
+                        {config.pod} • :{config.localPort} → :
+                        {config.remotePort}
                       </p>
                     </div>
                     <Button

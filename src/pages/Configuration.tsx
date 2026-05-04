@@ -7,7 +7,10 @@ import { InfrastructureBuilder } from "@/pages/InfrastructureBuilder";
 export function Configuration() {
   return (
     <Routes>
-      <Route path={toPlural(ResourceType.ConfigMap)} element={<ConfigMapList />} />
+      <Route
+        path={toPlural(ResourceType.ConfigMap)}
+        element={<ConfigMapList />}
+      />
       <Route path={toPlural(ResourceType.Secret)} element={<SecretList />} />
       <Route path="builder" element={<InfrastructureBuilder />} />
       <Route index element={<ConfigMapList />} />

@@ -227,8 +227,7 @@ export function useBackgroundJob() {
       completeJob(jobId);
       return result;
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unknown error";
+      const message = error instanceof Error ? error.message : "Unknown error";
       failJob(jobId, message);
       throw error;
     }

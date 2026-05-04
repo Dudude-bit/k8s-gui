@@ -31,16 +31,15 @@ import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { ContainerCard } from "@/components/resources/ContainerCard";
 import { RelatedResources } from "@/components/resources/RelatedResources";
-import { ResourceDetailLayout, InfoCard, InfoRow } from "@/components/resources/ResourceDetailLayout";
+import {
+  ResourceDetailLayout,
+  InfoCard,
+  InfoRow,
+} from "@/components/resources/ResourceDetailLayout";
 import { useToast } from "@/components/ui/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { usePortForwardStore } from "@/stores/portForwardStore";
-import {
-  RefreshCw,
-  Activity,
-  Trash2,
-  Server,
-} from "lucide-react";
+import { RefreshCw, Activity, Trash2, Server } from "lucide-react";
 import { MetricCard } from "@/components/ui/metric-card";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { parseCPU, parseMemory } from "@/lib/k8s-quantity";
@@ -115,15 +114,21 @@ export function PodDetail() {
     setActiveTab,
     refetch,
     copyYaml,
-    deleteMutation
+    deleteMutation,
   } = useResourceDetail<PodInfo>({
     resourceKind: ResourceType.Pod,
     fetchResource: (name, namespace) => commands.getPod(name, namespace),
-    deleteResource: (name, namespace) => commands.deletePod(name, namespace, null),
+    deleteResource: (name, namespace) =>
+      commands.deletePod(name, namespace, null),
   });
 
+  // Cache last non-empty labels so the editor doesn't blank out
+  // during a re-fetch. Genuine async-data-into-snapshot pattern;
+  // not derivable since we want to preserve the previous snapshot
+  // through transient empty fetches.
   useEffect(() => {
     if (pod?.labels && Object.keys(pod.labels).length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSavedLabels(pod.labels);
     }
   }, [pod?.labels]);
@@ -209,7 +214,7 @@ export function PodDetail() {
       try {
         await commands.restartPod(name, namespace || null);
       } catch (err) {
-        throw new Error(normalizeTauriError(err));
+        throw new Error(normalizeTauriError(err), { cause: err });
       }
     },
     onSuccess: () => {
@@ -385,11 +390,11 @@ export function PodDetail() {
   const activePortForwards =
     pod && portForwardSessions
       ? portForwardSessions.filter(
-        (session) =>
-          session.context === currentContext &&
-          session.pod === pod.name &&
-          session.namespace === pod.namespace
-      )
+          (session) =>
+            session.context === currentContext &&
+            session.pod === pod.name &&
+            session.namespace === pod.namespace
+        )
       : [];
 
   return (
@@ -403,32 +408,34 @@ export function PodDetail() {
       onBack={() => navigate(-1)}
       activeTab={activeTab}
       onTabChange={setActiveTab}
-      badges={pod?.status.phase ? <StatusBadge status={pod.status.phase} /> : null}
-
+      badges={
+        pod?.status.phase ? <StatusBadge status={pod.status.phase} /> : null
+      }
       // Replacement Pod Logic
-      onFindReplacement={savedLabels ? () =>
-        findReplacementPod().then((replacement) => {
-          if (replacement) {
-            toast({
-              title: "Found replacement pod",
-              description: `Switching to ${replacement.name}`,
-            });
-            navigate(
-              `/${toPlural(ResourceType.Pod)}/${replacement.namespace}/${replacement.name}`,
-              { replace: true }
-            );
-          } else {
-            toast({
-              title: "No replacement found",
-              description: "No other running pods with matching labels",
-              variant: "destructive",
-            });
-          }
-        })
-        : undefined
+      onFindReplacement={
+        savedLabels
+          ? () =>
+              findReplacementPod().then((replacement) => {
+                if (replacement) {
+                  toast({
+                    title: "Found replacement pod",
+                    description: `Switching to ${replacement.name}`,
+                  });
+                  navigate(
+                    `/${toPlural(ResourceType.Pod)}/${replacement.namespace}/${replacement.name}`,
+                    { replace: true }
+                  );
+                } else {
+                  toast({
+                    title: "No replacement found",
+                    description: "No other running pods with matching labels",
+                    variant: "destructive",
+                  });
+                }
+              })
+          : undefined
       }
       isSearchingReplacement={isSearchingReplacement}
-
       actions={
         <>
           <Button
@@ -454,7 +461,12 @@ export function PodDetail() {
             onClick={() => restartMutation.mutate()}
             disabled={restartMutation.isPending || !pod}
           >
-            <RefreshCw className={cn("mr-2 h-4 w-4", restartMutation.isPending && "animate-spin")} />
+            <RefreshCw
+              className={cn(
+                "mr-2 h-4 w-4",
+                restartMutation.isPending && "animate-spin"
+              )}
+            />
             Restart
           </Button>
           <Button
@@ -475,9 +487,11 @@ export function PodDetail() {
           content: (
             <div className="space-y-4">
               {/* Labels and Annotations */}
-              {pod && <LabelsDisplay labels={pod.labels} className="col-span-full" />}
+              {pod && (
+                <LabelsDisplay labels={pod.labels} className="col-span-full" />
+              )}
             </div>
-          )
+          ),
         },
         {
           id: "containers",
@@ -495,7 +509,7 @@ export function PodDetail() {
                 />
               ))}
             </div>
-          ) : null
+          ) : null,
         },
         {
           id: "logs",
@@ -508,27 +522,29 @@ export function PodDetail() {
                 containers={pod.containers.map((c) => c.name)}
               />
             </div>
-          ) : null
+          ) : null,
         },
         {
           id: "yaml",
           label: "YAML",
-          content: <YamlTabContent
-            yaml={yaml}
-            onCopy={copyYaml}
-            title={pod?.name || "Pod YAML"}
-            resourceKind={ResourceType.Pod}
-            resourceName={pod?.name || name || ""}
-            namespace={pod?.namespace || namespace}
-          />
+          content: (
+            <YamlTabContent
+              yaml={yaml}
+              onCopy={copyYaml}
+              title={pod?.name || "Pod YAML"}
+              resourceKind={ResourceType.Pod}
+              resourceName={pod?.name || name || ""}
+              namespace={pod?.namespace || namespace}
+            />
+          ),
         },
         {
           id: "conditions",
           label: "Conditions",
-          content: <ConditionsDisplay
-            conditions={pod?.status.conditions || []}
-          />
-        }
+          content: (
+            <ConditionsDisplay conditions={pod?.status.conditions || []} />
+          ),
+        },
       ]}
     >
       {podStatus?.status !== "available" && (
@@ -548,7 +564,9 @@ export function PodDetail() {
             <InfoRow label="Phase" value={pod.status.phase} />
             <InfoRow
               label="Started"
-              value={pod.createdAt ? new Date(pod.createdAt).toLocaleString() : "-"}
+              value={
+                pod.createdAt ? new Date(pod.createdAt).toLocaleString() : "-"
+              }
             />
             <InfoRow label="Restart Count" value={pod.restartCount} />
           </InfoCard>
@@ -559,8 +577,16 @@ export function PodDetail() {
               <MetricCard
                 title="CPU Usage"
                 used={podWithMetrics.cpuMillicores}
-                request={podWithMetrics.cpuRequests ? parseCPU(podWithMetrics.cpuRequests) : null}
-                limit={podWithMetrics.cpuLimits ? parseCPU(podWithMetrics.cpuLimits) : null}
+                request={
+                  podWithMetrics.cpuRequests
+                    ? parseCPU(podWithMetrics.cpuRequests)
+                    : null
+                }
+                limit={
+                  podWithMetrics.cpuLimits
+                    ? parseCPU(podWithMetrics.cpuLimits)
+                    : null
+                }
                 type="cpu"
                 showProgressBar
               />
@@ -568,8 +594,16 @@ export function PodDetail() {
               <MetricCard
                 title="Memory Usage"
                 used={podWithMetrics.memoryBytes}
-                request={podWithMetrics.memoryRequests ? parseMemory(podWithMetrics.memoryRequests) : null}
-                limit={podWithMetrics.memoryLimits ? parseMemory(podWithMetrics.memoryLimits) : null}
+                request={
+                  podWithMetrics.memoryRequests
+                    ? parseMemory(podWithMetrics.memoryRequests)
+                    : null
+                }
+                limit={
+                  podWithMetrics.memoryLimits
+                    ? parseMemory(podWithMetrics.memoryLimits)
+                    : null
+                }
                 type="memory"
                 showProgressBar
               />
@@ -770,7 +804,8 @@ export function PodDetail() {
                     >
                       <div>
                         <div className="font-medium">
-                          {session.localPort} → {session.pod}:{session.remotePort}
+                          {session.localPort} → {session.pod}:
+                          {session.remotePort}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {portForwardStatusBySession[session.id]?.message ||

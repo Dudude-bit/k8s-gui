@@ -80,10 +80,7 @@ export function BackgroundJobsTab() {
           <ScrollArea className="max-h-[150px]">
             <div className="space-y-2">
               {activeJobs.map((job) => (
-                <div
-                  key={job.id}
-                  className="rounded-md border p-3 space-y-2"
-                >
+                <div key={job.id} className="rounded-md border p-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
                       <JobStatusIcon job={job} />

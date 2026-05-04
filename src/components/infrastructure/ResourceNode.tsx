@@ -13,13 +13,15 @@ const KIND_BADGE_CLASS: Record<ResourceNodeData["kind"], string> = {
   [ResourceType.Pod]: "badge-pod",
   [ResourceType.Deployment]: "badge-deployment",
   [ResourceType.Service]: "badge-service",
-  [ResourceType.Ingress]: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200",
+  [ResourceType.Ingress]:
+    "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200",
   [ResourceType.ConfigMap]: "badge-configmap",
   [ResourceType.Secret]: "badge-secret",
 };
 
 export function ResourceNode({ data, selected }: NodeProps<ResourceNodeData>) {
-  const showSourceHandle = data.kind === ResourceType.Ingress || data.kind === ResourceType.Service;
+  const showSourceHandle =
+    data.kind === ResourceType.Ingress || data.kind === ResourceType.Service;
   const showTargetHandle =
     data.kind === ResourceType.Service ||
     data.kind === ResourceType.Pod ||

@@ -24,7 +24,9 @@ const virtualServiceColumns: CrdPluginColumn[] = [
     id: "hosts",
     header: "Hosts",
     accessor: (resource) => {
-      const hosts = getValueByPath(resource, "spec.hosts") as string[] | undefined;
+      const hosts = getValueByPath(resource, "spec.hosts") as
+        | string[]
+        | undefined;
       return hosts ?? [];
     },
     cell: (value) => {
@@ -39,7 +41,9 @@ const virtualServiceColumns: CrdPluginColumn[] = [
     id: "gateways",
     header: "Gateways",
     accessor: (resource) => {
-      const gateways = getValueByPath(resource, "spec.gateways") as string[] | undefined;
+      const gateways = getValueByPath(resource, "spec.gateways") as
+        | string[]
+        | undefined;
       return gateways ?? [];
     },
     cell: (value) => {
@@ -53,10 +57,13 @@ const virtualServiceColumns: CrdPluginColumn[] = [
     id: "httpRoutes",
     header: "HTTP Routes",
     accessor: (resource) => {
-      const http = getValueByPath(resource, "spec.http") as unknown[] | undefined;
+      const http = getValueByPath(resource, "spec.http") as
+        | unknown[]
+        | undefined;
       return http?.length ?? 0;
     },
-    cell: (value) => (typeof value === "number" && value > 0 ? `${value}` : "-"),
+    cell: (value) =>
+      typeof value === "number" && value > 0 ? `${value}` : "-",
     width: 100,
     sortable: true,
   },
@@ -67,7 +74,8 @@ const virtualServiceColumns: CrdPluginColumn[] = [
       const tcp = getValueByPath(resource, "spec.tcp") as unknown[] | undefined;
       return tcp?.length ?? 0;
     },
-    cell: (value) => (typeof value === "number" && value > 0 ? `${value}` : "-"),
+    cell: (value) =>
+      typeof value === "number" && value > 0 ? `${value}` : "-",
     width: 100,
     sortable: true,
   },
@@ -75,9 +83,11 @@ const virtualServiceColumns: CrdPluginColumn[] = [
     id: "destinations",
     header: "Destinations",
     accessor: (resource) => {
-      const http = getValueByPath(resource, "spec.http") as Array<{
-        route?: Array<{ destination?: { host: string } }>;
-      }> | undefined;
+      const http = getValueByPath(resource, "spec.http") as
+        | Array<{
+            route?: Array<{ destination?: { host: string } }>;
+          }>
+        | undefined;
 
       if (!http) return [];
 
@@ -119,7 +129,9 @@ const destinationRuleColumns: CrdPluginColumn[] = [
     id: "trafficPolicy",
     header: "Traffic Policy",
     accessor: (resource) => {
-      const policy = getValueByPath(resource, "spec.trafficPolicy") as Record<string, unknown> | undefined;
+      const policy = getValueByPath(resource, "spec.trafficPolicy") as
+        | Record<string, unknown>
+        | undefined;
       if (!policy) return "None";
 
       const features: string[] = [];
@@ -138,7 +150,9 @@ const destinationRuleColumns: CrdPluginColumn[] = [
     id: "subsets",
     header: "Subsets",
     accessor: (resource) => {
-      const subsets = getValueByPath(resource, "spec.subsets") as Array<{ name: string }> | undefined;
+      const subsets = getValueByPath(resource, "spec.subsets") as
+        | Array<{ name: string }>
+        | undefined;
       return subsets?.map((s) => s.name) ?? [];
     },
     cell: (value) => {
@@ -152,7 +166,9 @@ const destinationRuleColumns: CrdPluginColumn[] = [
     id: "exportTo",
     header: "Export To",
     accessor: (resource) => {
-      const exportTo = getValueByPath(resource, "spec.exportTo") as string[] | undefined;
+      const exportTo = getValueByPath(resource, "spec.exportTo") as
+        | string[]
+        | undefined;
       return exportTo ?? ["*"];
     },
     cell: (value) => {
@@ -174,7 +190,9 @@ const gatewayColumns: CrdPluginColumn[] = [
     id: "selector",
     header: "Selector",
     accessor: (resource) => {
-      const selector = getValueByPath(resource, "spec.selector") as Record<string, string> | undefined;
+      const selector = getValueByPath(resource, "spec.selector") as
+        | Record<string, string>
+        | undefined;
       if (!selector) return null;
 
       // Common pattern: istio: ingressgateway
@@ -192,10 +210,12 @@ const gatewayColumns: CrdPluginColumn[] = [
     id: "servers",
     header: "Servers",
     accessor: (resource) => {
-      const servers = getValueByPath(resource, "spec.servers") as Array<{
-        port?: { number?: number; protocol?: string };
-        hosts?: string[];
-      }> | undefined;
+      const servers = getValueByPath(resource, "spec.servers") as
+        | Array<{
+            port?: { number?: number; protocol?: string };
+            hosts?: string[];
+          }>
+        | undefined;
 
       if (!servers) return [];
 
@@ -218,9 +238,11 @@ const gatewayColumns: CrdPluginColumn[] = [
     id: "tlsEnabled",
     header: "TLS",
     accessor: (resource) => {
-      const servers = getValueByPath(resource, "spec.servers") as Array<{
-        tls?: { mode?: string };
-      }> | undefined;
+      const servers = getValueByPath(resource, "spec.servers") as
+        | Array<{
+            tls?: { mode?: string };
+          }>
+        | undefined;
 
       if (!servers) return false;
       return servers.some((s) => s.tls && s.tls.mode !== "PASSTHROUGH");
@@ -239,7 +261,9 @@ const serviceEntryColumns: CrdPluginColumn[] = [
     id: "hosts",
     header: "Hosts",
     accessor: (resource) => {
-      const hosts = getValueByPath(resource, "spec.hosts") as string[] | undefined;
+      const hosts = getValueByPath(resource, "spec.hosts") as
+        | string[]
+        | undefined;
       return hosts ?? [];
     },
     cell: (value) => {
@@ -270,10 +294,12 @@ const serviceEntryColumns: CrdPluginColumn[] = [
     id: "ports",
     header: "Ports",
     accessor: (resource) => {
-      const ports = getValueByPath(resource, "spec.ports") as Array<{
-        number?: number;
-        protocol?: string;
-      }> | undefined;
+      const ports = getValueByPath(resource, "spec.ports") as
+        | Array<{
+            number?: number;
+            protocol?: string;
+          }>
+        | undefined;
 
       if (!ports) return [];
       return ports.map((p) => `${p.protocol ?? "TCP"}:${p.number ?? "?"}`);
@@ -289,10 +315,13 @@ const serviceEntryColumns: CrdPluginColumn[] = [
     id: "endpoints",
     header: "Endpoints",
     accessor: (resource) => {
-      const endpoints = getValueByPath(resource, "spec.endpoints") as unknown[] | undefined;
+      const endpoints = getValueByPath(resource, "spec.endpoints") as
+        | unknown[]
+        | undefined;
       return endpoints?.length ?? 0;
     },
-    cell: (value) => (typeof value === "number" && value > 0 ? `${value}` : "-"),
+    cell: (value) =>
+      typeof value === "number" && value > 0 ? `${value}` : "-",
     width: 100,
     sortable: true,
   },
@@ -314,7 +343,9 @@ const authorizationPolicyColumns: CrdPluginColumn[] = [
     id: "selector",
     header: "Selector",
     accessor: (resource) => {
-      const selector = getValueByPath(resource, "spec.selector.matchLabels") as Record<string, string> | undefined;
+      const selector = getValueByPath(resource, "spec.selector.matchLabels") as
+        | Record<string, string>
+        | undefined;
       if (!selector) return "All workloads";
 
       return Object.entries(selector)
@@ -329,10 +360,13 @@ const authorizationPolicyColumns: CrdPluginColumn[] = [
     id: "rules",
     header: "Rules",
     accessor: (resource) => {
-      const rules = getValueByPath(resource, "spec.rules") as unknown[] | undefined;
+      const rules = getValueByPath(resource, "spec.rules") as
+        | unknown[]
+        | undefined;
       return rules?.length ?? 0;
     },
-    cell: (value) => (typeof value === "number" && value > 0 ? `${value} rules` : "No rules"),
+    cell: (value) =>
+      typeof value === "number" && value > 0 ? `${value} rules` : "No rules",
     width: 100,
     sortable: true,
   },

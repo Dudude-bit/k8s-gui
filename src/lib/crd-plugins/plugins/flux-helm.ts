@@ -8,7 +8,11 @@
  */
 
 import { Package } from "lucide-react";
-import type { CrdPlugin, CrdPluginColumn, CrdPluginStatusConfig } from "../types";
+import type {
+  CrdPlugin,
+  CrdPluginColumn,
+  CrdPluginStatusConfig,
+} from "../types";
 import { matchMultiple, getValueByPath } from "../utils";
 
 /**
@@ -82,10 +86,12 @@ const helmReleaseColumns: CrdPluginColumn[] = [
     id: "chart",
     header: "Chart",
     accessor: (resource) => {
-      const chartSpec = getValueByPath(resource, "spec.chart.spec") as {
-        chart?: string;
-        sourceRef?: { name: string };
-      } | undefined;
+      const chartSpec = getValueByPath(resource, "spec.chart.spec") as
+        | {
+            chart?: string;
+            sourceRef?: { name: string };
+          }
+        | undefined;
 
       return chartSpec?.chart ?? "-";
     },
@@ -98,13 +104,18 @@ const helmReleaseColumns: CrdPluginColumn[] = [
     header: "Version",
     accessor: (resource) => {
       // Try to get installed version from status first
-      const lastAppliedRevision = getValueByPath(resource, "status.lastAppliedRevision") as string | undefined;
+      const lastAppliedRevision = getValueByPath(
+        resource,
+        "status.lastAppliedRevision"
+      ) as string | undefined;
       if (lastAppliedRevision) return lastAppliedRevision;
 
       // Fall back to spec version
-      const chartSpec = getValueByPath(resource, "spec.chart.spec") as {
-        version?: string;
-      } | undefined;
+      const chartSpec = getValueByPath(resource, "spec.chart.spec") as
+        | {
+            version?: string;
+          }
+        | undefined;
 
       return chartSpec?.version ?? "*";
     },
@@ -116,9 +127,11 @@ const helmReleaseColumns: CrdPluginColumn[] = [
     id: "sourceRef",
     header: "Source",
     accessor: (resource) => {
-      const chartSpec = getValueByPath(resource, "spec.chart.spec") as {
-        sourceRef?: { kind?: string; name: string };
-      } | undefined;
+      const chartSpec = getValueByPath(resource, "spec.chart.spec") as
+        | {
+            sourceRef?: { kind?: string; name: string };
+          }
+        | undefined;
 
       if (!chartSpec?.sourceRef) return "-";
       const kind = chartSpec.sourceRef.kind ?? "HelmRepository";
@@ -187,7 +200,9 @@ const helmRepositoryColumns: CrdPluginColumn[] = [
     id: "type",
     header: "Type",
     accessor: (resource) => {
-      const repoType = getValueByPath(resource, "spec.type") as string | undefined;
+      const repoType = getValueByPath(resource, "spec.type") as
+        | string
+        | undefined;
       return repoType ?? "default";
     },
     cell: (value) => String(value ?? "-"),
@@ -205,7 +220,8 @@ const helmRepositoryColumns: CrdPluginColumn[] = [
   {
     id: "artifact",
     header: "Last Fetched",
-    accessor: (resource) => getValueByPath(resource, "status.artifact.lastUpdateTime"),
+    accessor: (resource) =>
+      getValueByPath(resource, "status.artifact.lastUpdateTime"),
     cell: (value) => {
       if (!value) return "-";
       const date = new Date(String(value));
@@ -251,7 +267,10 @@ const helmChartColumns: CrdPluginColumn[] = [
     header: "Version",
     accessor: (resource) => {
       // Try artifact version first (actual fetched version)
-      const artifactRevision = getValueByPath(resource, "status.artifact.revision") as string | undefined;
+      const artifactRevision = getValueByPath(
+        resource,
+        "status.artifact.revision"
+      ) as string | undefined;
       if (artifactRevision) return artifactRevision;
 
       // Fall back to spec version constraint
@@ -265,10 +284,12 @@ const helmChartColumns: CrdPluginColumn[] = [
     id: "sourceRef",
     header: "Source",
     accessor: (resource) => {
-      const sourceRef = getValueByPath(resource, "spec.sourceRef") as {
-        kind?: string;
-        name: string;
-      } | undefined;
+      const sourceRef = getValueByPath(resource, "spec.sourceRef") as
+        | {
+            kind?: string;
+            name: string;
+          }
+        | undefined;
 
       if (!sourceRef) return "-";
       return `${sourceRef.kind ?? "HelmRepository"}/${sourceRef.name}`;

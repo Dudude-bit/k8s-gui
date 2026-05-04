@@ -59,9 +59,14 @@ export function PortForwardDialog({
     name: "",
   });
 
-  // Pre-fill form when dialog opens with initialPort
+  // Pre-fill form when dialog opens with initialPort. Genuine
+  // sync-prop-into-state: caller's `initialPort` is the seed for an
+  // edit-in-progress form. A `key`-style remount via parent would
+  // be cleaner but every callsite currently controls the dialog's
+  // `open` state by hand.
   useEffect(() => {
     if (open && initialPort) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setForm((prev) => ({
         ...prev,
         localPort: String(initialPort),
@@ -71,9 +76,13 @@ export function PortForwardDialog({
     }
   }, [open, initialPort, portName, podName]);
 
-  // Reset form when dialog closes
+  // Reset form when dialog closes. Same justification as above —
+  // close transitions in this dialog are a stable place to wipe the
+  // form. Cleanest fix is a future `key={open ? id : "closed"}`
+  // refactor at every callsite.
   useEffect(() => {
     if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setForm({
         localPort: "",
         remotePort: "",

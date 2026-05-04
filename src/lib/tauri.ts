@@ -20,6 +20,8 @@ export async function invokeTyped<T>(
   } catch (error) {
     // Normalize error message before re-throwing
     const errorMessage = normalizeTauriError(error);
-    throw new Error(`Tauri command '${cmd}' failed: ${errorMessage}`);
+    throw new Error(`Tauri command '${cmd}' failed: ${errorMessage}`, {
+      cause: error,
+    });
   }
 }

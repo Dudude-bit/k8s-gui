@@ -35,7 +35,9 @@ const Configuration = lazy(() =>
   import("@/pages/Configuration").then((m) => ({ default: m.Configuration }))
 );
 const NodeList = lazy(() =>
-  import("@/components/resources/NodeList").then((m) => ({ default: m.NodeList }))
+  import("@/components/resources/NodeList").then((m) => ({
+    default: m.NodeList,
+  }))
 );
 const Events = lazy(() =>
   import("@/pages/Events").then((m) => ({ default: m.Events }))
@@ -67,22 +69,34 @@ const IngressDetail = lazy(() =>
   import("@/pages/IngressDetail").then((m) => ({ default: m.IngressDetail }))
 );
 const PersistentVolumeDetail = lazy(() =>
-  import("@/pages/PersistentVolumeDetail").then((m) => ({ default: m.PersistentVolumeDetail }))
+  import("@/pages/PersistentVolumeDetail").then((m) => ({
+    default: m.PersistentVolumeDetail,
+  }))
 );
 const PersistentVolumeClaimDetail = lazy(() =>
-  import("@/pages/PersistentVolumeClaimDetail").then((m) => ({ default: m.PersistentVolumeClaimDetail }))
+  import("@/pages/PersistentVolumeClaimDetail").then((m) => ({
+    default: m.PersistentVolumeClaimDetail,
+  }))
 );
 const StorageClassDetail = lazy(() =>
-  import("@/pages/StorageClassDetail").then((m) => ({ default: m.StorageClassDetail }))
+  import("@/pages/StorageClassDetail").then((m) => ({
+    default: m.StorageClassDetail,
+  }))
 );
 const EndpointsDetail = lazy(() =>
-  import("@/pages/EndpointsDetail").then((m) => ({ default: m.EndpointsDetail }))
+  import("@/pages/EndpointsDetail").then((m) => ({
+    default: m.EndpointsDetail,
+  }))
 );
 const StatefulSetDetail = lazy(() =>
-  import("@/pages/StatefulSetDetail").then((m) => ({ default: m.StatefulSetDetail }))
+  import("@/pages/StatefulSetDetail").then((m) => ({
+    default: m.StatefulSetDetail,
+  }))
 );
 const DaemonSetDetail = lazy(() =>
-  import("@/pages/DaemonSetDetail").then((m) => ({ default: m.DaemonSetDetail }))
+  import("@/pages/DaemonSetDetail").then((m) => ({
+    default: m.DaemonSetDetail,
+  }))
 );
 const JobDetail = lazy(() =>
   import("@/pages/JobDetail").then((m) => ({ default: m.JobDetail }))
@@ -97,10 +111,14 @@ const CrdDetail = lazy(() =>
   import("@/pages/CrdDetail").then((m) => ({ default: m.CrdDetail }))
 );
 const CustomResourceDetail = lazy(() =>
-  import("@/pages/CustomResourceDetail").then((m) => ({ default: m.CustomResourceDetail }))
+  import("@/pages/CustomResourceDetail").then((m) => ({
+    default: m.CustomResourceDetail,
+  }))
 );
 const ConfigMapDetail = lazy(() =>
-  import("@/pages/ConfigMapDetail").then((m) => ({ default: m.ConfigMapDetail }))
+  import("@/pages/ConfigMapDetail").then((m) => ({
+    default: m.ConfigMapDetail,
+  }))
 );
 const SecretDetail = lazy(() =>
   import("@/pages/SecretDetail").then((m) => ({ default: m.SecretDetail }))
@@ -128,7 +146,7 @@ export default function App() {
     const cleanup = setupFrontendLogger();
     return () => {
       // Flush any pending logs before cleanup
-      flushLogs().catch(() => { });
+      flushLogs().catch(() => {});
       cleanup?.();
     };
   }, []);
@@ -186,33 +204,90 @@ export default function App() {
             <Route path="storage/*" element={<Storage />} />
             <Route path="configuration/*" element={<Configuration />} />
             <Route path={toPlural(ResourceType.Node)} element={<NodeList />} />
-            <Route path={`${toPlural(ResourceType.Node)}/:name`} element={<NodeDetail />} />
+            <Route
+              path={`${toPlural(ResourceType.Node)}/:name`}
+              element={<NodeDetail />}
+            />
             <Route path="events" element={<Events />} />
             <Route path="helm" element={<Helm />} />
-            <Route path="helm/:source/:namespace/:name" element={<HelmDetail />} />
+            <Route
+              path="helm/:source/:namespace/:name"
+              element={<HelmDetail />}
+            />
             <Route path="settings" element={<Settings />} />
-            <Route path={`${toPlural(ResourceType.Pod)}/:namespace/:name`} element={<PodDetail />} />
+            <Route
+              path={`${toPlural(ResourceType.Pod)}/:namespace/:name`}
+              element={<PodDetail />}
+            />
             <Route
               path={`${toPlural(ResourceType.Deployment)}/:namespace/:name`}
               element={<DeploymentDetail />}
             />
-            <Route path={`${toPlural(ResourceType.Service)}/:namespace/:name`} element={<ServiceDetail />} />
-            <Route path={`${toPlural(ResourceType.Ingress)}/:namespace/:name`} element={<IngressDetail />} />
-            <Route path={`${toPlural(ResourceType.PersistentVolume)}/:name`} element={<PersistentVolumeDetail />} />
-            <Route path={`${toPlural(ResourceType.PersistentVolumeClaim)}/:namespace/:name`} element={<PersistentVolumeClaimDetail />} />
-            <Route path={`${toPlural(ResourceType.StorageClass)}/:name`} element={<StorageClassDetail />} />
-            <Route path={`${toPlural(ResourceType.Endpoints)}/:namespace/:name`} element={<EndpointsDetail />} />
-            <Route path={`${toPlural(ResourceType.StatefulSet)}/:namespace/:name`} element={<StatefulSetDetail />} />
-            <Route path={`${toPlural(ResourceType.DaemonSet)}/:namespace/:name`} element={<DaemonSetDetail />} />
-            <Route path={`${toPlural(ResourceType.Job)}/:namespace/:name`} element={<JobDetail />} />
-            <Route path={`${toPlural(ResourceType.CronJob)}/:namespace/:name`} element={<CronJobDetail />} />
-            <Route path={`${toPlural(ResourceType.ConfigMap)}/:namespace/:name`} element={<ConfigMapDetail />} />
-            <Route path={`${toPlural(ResourceType.Secret)}/:namespace/:name`} element={<SecretDetail />} />
+            <Route
+              path={`${toPlural(ResourceType.Service)}/:namespace/:name`}
+              element={<ServiceDetail />}
+            />
+            <Route
+              path={`${toPlural(ResourceType.Ingress)}/:namespace/:name`}
+              element={<IngressDetail />}
+            />
+            <Route
+              path={`${toPlural(ResourceType.PersistentVolume)}/:name`}
+              element={<PersistentVolumeDetail />}
+            />
+            <Route
+              path={`${toPlural(ResourceType.PersistentVolumeClaim)}/:namespace/:name`}
+              element={<PersistentVolumeClaimDetail />}
+            />
+            <Route
+              path={`${toPlural(ResourceType.StorageClass)}/:name`}
+              element={<StorageClassDetail />}
+            />
+            <Route
+              path={`${toPlural(ResourceType.Endpoints)}/:namespace/:name`}
+              element={<EndpointsDetail />}
+            />
+            <Route
+              path={`${toPlural(ResourceType.StatefulSet)}/:namespace/:name`}
+              element={<StatefulSetDetail />}
+            />
+            <Route
+              path={`${toPlural(ResourceType.DaemonSet)}/:namespace/:name`}
+              element={<DaemonSetDetail />}
+            />
+            <Route
+              path={`${toPlural(ResourceType.Job)}/:namespace/:name`}
+              element={<JobDetail />}
+            />
+            <Route
+              path={`${toPlural(ResourceType.CronJob)}/:namespace/:name`}
+              element={<CronJobDetail />}
+            />
+            <Route
+              path={`${toPlural(ResourceType.ConfigMap)}/:namespace/:name`}
+              element={<ConfigMapDetail />}
+            />
+            <Route
+              path={`${toPlural(ResourceType.Secret)}/:namespace/:name`}
+              element={<SecretDetail />}
+            />
             {/* CRD Routes */}
-            <Route path={toPlural(ResourceType.CustomResourceDefinition)} element={<Crds />} />
-            <Route path={`${toPlural(ResourceType.CustomResourceDefinition)}/:name`} element={<CrdDetail />} />
-            <Route path={`${toPlural(ResourceType.CustomResourceDefinition)}/:crdName/instances/:namespace/:name`} element={<CustomResourceDetail />} />
-            <Route path={`${toPlural(ResourceType.CustomResourceDefinition)}/:crdName/instances/:name`} element={<CustomResourceDetail />} />
+            <Route
+              path={toPlural(ResourceType.CustomResourceDefinition)}
+              element={<Crds />}
+            />
+            <Route
+              path={`${toPlural(ResourceType.CustomResourceDefinition)}/:name`}
+              element={<CrdDetail />}
+            />
+            <Route
+              path={`${toPlural(ResourceType.CustomResourceDefinition)}/:crdName/instances/:namespace/:name`}
+              element={<CustomResourceDetail />}
+            />
+            <Route
+              path={`${toPlural(ResourceType.CustomResourceDefinition)}/:crdName/instances/:name`}
+              element={<CustomResourceDetail />}
+            />
           </Route>
         </Routes>
         {/* Auth terminal modal - shown when interactive auth requires terminal input */}

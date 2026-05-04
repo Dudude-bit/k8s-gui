@@ -243,9 +243,9 @@ export const useInfrastructureBuilderStore = create<InfrastructureBuilderState>(
         const nodes = state.nodes.map((node) =>
           node.id === nodeId
             ? {
-              ...node,
-              data: { ...node.data, ...updates } as ResourceNodeData,
-            }
+                ...node,
+                data: { ...node.data, ...updates } as ResourceNodeData,
+              }
             : node
         );
         const next = { ...state, nodes };

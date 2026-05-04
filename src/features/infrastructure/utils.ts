@@ -261,10 +261,10 @@ export const parseManifestYaml = (text: string): ManifestParseResult => {
           const primary = isRecord(containers[0]) ? containers[0] : {};
           const ports = Array.isArray(primary.ports)
             ? primary.ports
-              .map((port) =>
-                toNumber(isRecord(port) ? port.containerPort : undefined, NaN)
-              )
-              .filter((port) => Number.isFinite(port))
+                .map((port) =>
+                  toNumber(isRecord(port) ? port.containerPort : undefined, NaN)
+                )
+                .filter((port) => Number.isFinite(port))
             : [];
           resources.push({
             kind,
@@ -299,10 +299,10 @@ export const parseManifestYaml = (text: string): ManifestParseResult => {
           const primary = isRecord(containers[0]) ? containers[0] : {};
           const ports = Array.isArray(primary.ports)
             ? primary.ports
-              .map((port) =>
-                toNumber(isRecord(port) ? port.containerPort : undefined, NaN)
-              )
-              .filter((port) => Number.isFinite(port))
+                .map((port) =>
+                  toNumber(isRecord(port) ? port.containerPort : undefined, NaN)
+                )
+                .filter((port) => Number.isFinite(port))
             : [];
           const status = isRecord(doc.status) ? doc.status : {};
           const desired = toNumber(spec.replicas, 1);
@@ -331,10 +331,10 @@ export const parseManifestYaml = (text: string): ManifestParseResult => {
           const spec = isRecord(doc.spec) ? doc.spec : {};
           const ports = Array.isArray(spec.ports)
             ? spec.ports
-              .map((port) =>
-                toNumber(isRecord(port) ? port.port : undefined, NaN)
-              )
-              .filter((port) => Number.isFinite(port))
+                .map((port) =>
+                  toNumber(isRecord(port) ? port.port : undefined, NaN)
+                )
+                .filter((port) => Number.isFinite(port))
             : [];
           resources.push({
             kind,
@@ -444,7 +444,10 @@ const withMetadata = (
   base.metadata = metadata;
 };
 
-const ensureApiVersion = (base: Record<string, unknown>, kind: ResourceKind) => {
+const ensureApiVersion = (
+  base: Record<string, unknown>,
+  kind: ResourceKind
+) => {
   base.apiVersion = base.apiVersion ?? getApiVersion(kind);
 };
 

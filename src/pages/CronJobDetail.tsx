@@ -11,7 +11,11 @@ import { Trash2, CalendarClock, RefreshCw, Pause, Play } from "lucide-react";
 import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { EnvironmentVariables } from "@/components/resources/EnvironmentVariables";
 import { RelatedResources } from "@/components/resources/RelatedResources";
-import { ResourceDetailLayout, InfoCard, InfoRow } from "@/components/resources/ResourceDetailLayout";
+import {
+  ResourceDetailLayout,
+  InfoCard,
+  InfoRow,
+} from "@/components/resources/ResourceDetailLayout";
 
 import { useResourceDetail } from "@/hooks";
 import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
@@ -76,7 +80,10 @@ export function CronJobDetail() {
       content: (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <InfoCard title="Schedule" icon={<CalendarClock className="h-4 w-4" />}>
+            <InfoCard
+              title="Schedule"
+              icon={<CalendarClock className="h-4 w-4" />}
+            >
               <div className="space-y-1">
                 <InfoRow
                   label="Schedule"
@@ -101,7 +108,9 @@ export function CronJobDetail() {
                 )}
                 <InfoRow
                   label="Created"
-                  value={<RealtimeAge timestamp={cronJob?.createdAt} fallback="-" />}
+                  value={
+                    <RealtimeAge timestamp={cronJob?.createdAt} fallback="-" />
+                  }
                 />
               </div>
             </InfoCard>
@@ -127,7 +136,9 @@ export function CronJobDetail() {
                 {cronJob?.lastSuccessfulTime && (
                   <InfoRow
                     label="Last Success"
-                    value={<RealtimeAge timestamp={cronJob.lastSuccessfulTime} />}
+                    value={
+                      <RealtimeAge timestamp={cronJob.lastSuccessfulTime} />
+                    }
                   />
                 )}
                 <InfoRow
@@ -264,14 +275,16 @@ export function CronJobDetail() {
     {
       id: "yaml",
       label: "YAML",
-      content: <YamlTabContent
-        yaml={yaml}
-        onCopy={copyYaml}
-        title={cronJob?.name || "CronJob YAML"}
-        resourceKind={ResourceType.CronJob}
-        resourceName={cronJob?.name || name || ""}
-        namespace={cronJob?.namespace || namespace}
-      />,
+      content: (
+        <YamlTabContent
+          yaml={yaml}
+          onCopy={copyYaml}
+          title={cronJob?.name || "CronJob YAML"}
+          resourceKind={ResourceType.CronJob}
+          resourceName={cronJob?.name || name || ""}
+          namespace={cronJob?.namespace || namespace}
+        />
+      ),
     },
   ];
 
@@ -297,11 +310,7 @@ export function CronJobDetail() {
       }
       actions={
         <>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-          >
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>

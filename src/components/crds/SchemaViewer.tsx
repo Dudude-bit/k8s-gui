@@ -1,5 +1,13 @@
 import { useState, useMemo } from "react";
-import { ChevronDown, ChevronRight, Hash, Type, List, Braces, ToggleLeft } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Hash,
+  Type,
+  List,
+  Braces,
+  ToggleLeft,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -90,12 +98,20 @@ function formatType(schema: SchemaProperty): string {
   return schema.type || "unknown";
 }
 
-function SchemaNode({ name, schema, required, level, defaultExpanded = false }: SchemaNodeProps) {
+function SchemaNode({
+  name,
+  schema,
+  required,
+  level,
+  defaultExpanded = false,
+}: SchemaNodeProps) {
   const [expanded, setExpanded] = useState(defaultExpanded || level < 2);
 
   const hasChildren = useMemo(() => {
     return (
-      (schema.type === "object" && schema.properties && Object.keys(schema.properties).length > 0) ||
+      (schema.type === "object" &&
+        schema.properties &&
+        Object.keys(schema.properties).length > 0) ||
       (schema.type === "array" && schema.items?.properties) ||
       schema.oneOf ||
       schema.anyOf ||
@@ -210,15 +226,22 @@ function SchemaNode({ name, schema, required, level, defaultExpanded = false }: 
         >
           {schema.minimum !== undefined && <span>min: {schema.minimum}</span>}
           {schema.maximum !== undefined && <span>max: {schema.maximum}</span>}
-          {schema.minLength !== undefined && <span>minLength: {schema.minLength}</span>}
-          {schema.maxLength !== undefined && <span>maxLength: {schema.maxLength}</span>}
+          {schema.minLength !== undefined && (
+            <span>minLength: {schema.minLength}</span>
+          )}
+          {schema.maxLength !== undefined && (
+            <span>maxLength: {schema.maxLength}</span>
+          )}
           {schema.pattern && <span>pattern: /{schema.pattern}/</span>}
         </div>
       )}
 
       {/* Children */}
       {expanded && hasChildren && (
-        <div className="border-l border-border ml-4" style={{ marginLeft: `${level * 16 + 16}px` }}>
+        <div
+          className="border-l border-border ml-4"
+          style={{ marginLeft: `${level * 16 + 16}px` }}
+        >
           {/* Object properties */}
           {childProperties.map(([propName, propSchema]) => (
             <SchemaNode
@@ -231,14 +254,16 @@ function SchemaNode({ name, schema, required, level, defaultExpanded = false }: 
           ))}
 
           {/* oneOf / anyOf / allOf */}
-          {(schema.oneOf || schema.anyOf || schema.allOf)?.map((subSchema, i) => (
-            <SchemaNode
-              key={i}
-              name={`option ${i + 1}`}
-              schema={subSchema}
-              level={level + 1}
-            />
-          ))}
+          {(schema.oneOf || schema.anyOf || schema.allOf)?.map(
+            (subSchema, i) => (
+              <SchemaNode
+                key={i}
+                name={`option ${i + 1}`}
+                schema={subSchema}
+                level={level + 1}
+              />
+            )
+          )}
 
           {/* Additional properties */}
           {schema.additionalProperties === true && (
@@ -284,8 +309,12 @@ export function SchemaViewer({ schema, title }: SchemaViewerProps) {
   }
 
   // Get the spec schema if available (common for CRDs)
-  const specSchema = parsedSchema.properties?.spec as SchemaProperty | undefined;
-  const statusSchema = parsedSchema.properties?.status as SchemaProperty | undefined;
+  const specSchema = parsedSchema.properties?.spec as
+    | SchemaProperty
+    | undefined;
+  const statusSchema = parsedSchema.properties?.status as
+    | SchemaProperty
+    | undefined;
 
   return (
     <div className="space-y-4">
@@ -300,16 +329,18 @@ export function SchemaViewer({ schema, title }: SchemaViewerProps) {
             </div>
             <div className="p-2">
               {specSchema.properties ? (
-                Object.entries(specSchema.properties).map(([name, propSchema]) => (
-                  <SchemaNode
-                    key={name}
-                    name={name}
-                    schema={propSchema}
-                    required={specSchema.required?.includes(name)}
-                    level={0}
-                    defaultExpanded={true}
-                  />
-                ))
+                Object.entries(specSchema.properties).map(
+                  ([name, propSchema]) => (
+                    <SchemaNode
+                      key={name}
+                      name={name}
+                      schema={propSchema}
+                      required={specSchema.required?.includes(name)}
+                      level={0}
+                      defaultExpanded={true}
+                    />
+                  )
+                )
               ) : (
                 <SchemaNode
                   name="spec"
@@ -330,21 +361,19 @@ export function SchemaViewer({ schema, title }: SchemaViewerProps) {
             </div>
             <div className="p-2">
               {statusSchema.properties ? (
-                Object.entries(statusSchema.properties).map(([name, propSchema]) => (
-                  <SchemaNode
-                    key={name}
-                    name={name}
-                    schema={propSchema}
-                    required={statusSchema.required?.includes(name)}
-                    level={0}
-                  />
-                ))
+                Object.entries(statusSchema.properties).map(
+                  ([name, propSchema]) => (
+                    <SchemaNode
+                      key={name}
+                      name={name}
+                      schema={propSchema}
+                      required={statusSchema.required?.includes(name)}
+                      level={0}
+                    />
+                  )
+                )
               ) : (
-                <SchemaNode
-                  name="status"
-                  schema={statusSchema}
-                  level={0}
-                />
+                <SchemaNode name="status" schema={statusSchema} level={0} />
               )}
             </div>
           </div>
@@ -353,16 +382,18 @@ export function SchemaViewer({ schema, title }: SchemaViewerProps) {
         {/* If no spec/status, show root properties */}
         {!specSchema && !statusSchema && parsedSchema.properties && (
           <div className="p-2">
-            {Object.entries(parsedSchema.properties).map(([name, propSchema]) => (
-              <SchemaNode
-                key={name}
-                name={name}
-                schema={propSchema as SchemaProperty}
-                required={parsedSchema.required?.includes(name)}
-                level={0}
-                defaultExpanded={true}
-              />
-            ))}
+            {Object.entries(parsedSchema.properties).map(
+              ([name, propSchema]) => (
+                <SchemaNode
+                  key={name}
+                  name={name}
+                  schema={propSchema as SchemaProperty}
+                  required={parsedSchema.required?.includes(name)}
+                  level={0}
+                  defaultExpanded={true}
+                />
+              )
+            )}
           </div>
         )}
 

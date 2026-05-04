@@ -29,17 +29,22 @@ function getPodStatusColor(phase: string): string {
 }
 
 export function MatchingPods({ namespace, selector }: MatchingPodsProps) {
-  const { data: pods, isLoading, error } = useQuery({
+  const {
+    data: pods,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["pods-by-selector", namespace, selector],
-    queryFn: () => commands.listPods({
-      namespace,
-      selector,
-      statusFilter: null,
-      nodeName: null,
-      labelSelector: null,
-      fieldSelector: null,
-      limit: null,
-    }),
+    queryFn: () =>
+      commands.listPods({
+        namespace,
+        selector,
+        statusFilter: null,
+        nodeName: null,
+        labelSelector: null,
+        fieldSelector: null,
+        limit: null,
+      }),
     enabled: Object.keys(selector).length > 0,
   });
 
@@ -60,11 +65,15 @@ export function MatchingPods({ namespace, selector }: MatchingPodsProps) {
   }
 
   // Count pods by status
-  const statusCounts = pods?.reduce((acc, pod) => {
-    const phase = pod.status.phase || "Unknown";
-    acc[phase] = (acc[phase] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>) || {};
+  const statusCounts =
+    pods?.reduce(
+      (acc, pod) => {
+        const phase = pod.status.phase || "Unknown";
+        acc[phase] = (acc[phase] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    ) || {};
 
   const statusSummary = Object.entries(statusCounts)
     .map(([phase, count]) => `${count} ${phase.toLowerCase()}`)
@@ -90,13 +99,19 @@ export function MatchingPods({ namespace, selector }: MatchingPodsProps) {
             <Skeleton className="h-10 w-full" />
           </div>
         ) : error ? (
-          <p className="text-destructive">Failed to load pods: {String(error)}</p>
+          <p className="text-destructive">
+            Failed to load pods: {String(error)}
+          </p>
         ) : pods && pods.length > 0 ? (
           <div className="space-y-2">
             {pods.map((pod) => (
               <Link
                 key={pod.uid}
-                to={getResourceDetailUrl(ResourceType.Pod, pod.name, pod.namespace)}
+                to={getResourceDetailUrl(
+                  ResourceType.Pod,
+                  pod.name,
+                  pod.namespace
+                )}
                 className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors"
               >
                 <div className="flex items-center gap-3">
@@ -107,7 +122,9 @@ export function MatchingPods({ namespace, selector }: MatchingPodsProps) {
                 </div>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   <span>{pod.status.phase}</span>
-                  {pod.podIp && <code className="font-mono text-xs">{pod.podIp}</code>}
+                  {pod.podIp && (
+                    <code className="font-mono text-xs">{pod.podIp}</code>
+                  )}
                 </div>
               </Link>
             ))}

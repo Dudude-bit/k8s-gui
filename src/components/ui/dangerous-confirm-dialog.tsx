@@ -59,7 +59,9 @@ export function DangerousConfirmDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
-      <AlertDialogContent aria-describedby={description ? undefined : undefined}>
+      <AlertDialogContent
+        aria-describedby={description ? undefined : undefined}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription className={description ? "" : "sr-only"}>

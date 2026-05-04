@@ -16,7 +16,11 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { commands } from "@/lib/commands";
 import { useEffect, useState } from "react";
-import { ResourceType, getDisplayPlural, getResourceListUrl } from "@/lib/resource-registry";
+import {
+  ResourceType,
+  getDisplayPlural,
+  getResourceListUrl,
+} from "@/lib/resource-registry";
 import { useUpdaterStore } from "@/stores/updaterStore";
 
 const navItems = [
@@ -26,12 +30,30 @@ const navItems = [
     label: "Workloads",
     path: "/workloads",
     children: [
-      { label: getDisplayPlural(ResourceType.Pod), path: getResourceListUrl(ResourceType.Pod) },
-      { label: getDisplayPlural(ResourceType.Deployment), path: getResourceListUrl(ResourceType.Deployment) },
-      { label: getDisplayPlural(ResourceType.StatefulSet), path: getResourceListUrl(ResourceType.StatefulSet) },
-      { label: getDisplayPlural(ResourceType.DaemonSet), path: getResourceListUrl(ResourceType.DaemonSet) },
-      { label: getDisplayPlural(ResourceType.Job), path: getResourceListUrl(ResourceType.Job) },
-      { label: getDisplayPlural(ResourceType.CronJob), path: getResourceListUrl(ResourceType.CronJob) },
+      {
+        label: getDisplayPlural(ResourceType.Pod),
+        path: getResourceListUrl(ResourceType.Pod),
+      },
+      {
+        label: getDisplayPlural(ResourceType.Deployment),
+        path: getResourceListUrl(ResourceType.Deployment),
+      },
+      {
+        label: getDisplayPlural(ResourceType.StatefulSet),
+        path: getResourceListUrl(ResourceType.StatefulSet),
+      },
+      {
+        label: getDisplayPlural(ResourceType.DaemonSet),
+        path: getResourceListUrl(ResourceType.DaemonSet),
+      },
+      {
+        label: getDisplayPlural(ResourceType.Job),
+        path: getResourceListUrl(ResourceType.Job),
+      },
+      {
+        label: getDisplayPlural(ResourceType.CronJob),
+        path: getResourceListUrl(ResourceType.CronJob),
+      },
     ],
   },
   {
@@ -39,9 +61,18 @@ const navItems = [
     label: "Network",
     path: "/network",
     children: [
-      { label: getDisplayPlural(ResourceType.Service), path: getResourceListUrl(ResourceType.Service) },
-      { label: getDisplayPlural(ResourceType.Ingress), path: getResourceListUrl(ResourceType.Ingress) },
-      { label: getDisplayPlural(ResourceType.Endpoints), path: getResourceListUrl(ResourceType.Endpoints) },
+      {
+        label: getDisplayPlural(ResourceType.Service),
+        path: getResourceListUrl(ResourceType.Service),
+      },
+      {
+        label: getDisplayPlural(ResourceType.Ingress),
+        path: getResourceListUrl(ResourceType.Ingress),
+      },
+      {
+        label: getDisplayPlural(ResourceType.Endpoints),
+        path: getResourceListUrl(ResourceType.Endpoints),
+      },
     ],
   },
   {
@@ -49,9 +80,18 @@ const navItems = [
     label: "Storage",
     path: "/storage",
     children: [
-      { label: getDisplayPlural(ResourceType.PersistentVolume), path: getResourceListUrl(ResourceType.PersistentVolume) },
-      { label: getDisplayPlural(ResourceType.PersistentVolumeClaim), path: getResourceListUrl(ResourceType.PersistentVolumeClaim) },
-      { label: getDisplayPlural(ResourceType.StorageClass), path: getResourceListUrl(ResourceType.StorageClass) },
+      {
+        label: getDisplayPlural(ResourceType.PersistentVolume),
+        path: getResourceListUrl(ResourceType.PersistentVolume),
+      },
+      {
+        label: getDisplayPlural(ResourceType.PersistentVolumeClaim),
+        path: getResourceListUrl(ResourceType.PersistentVolumeClaim),
+      },
+      {
+        label: getDisplayPlural(ResourceType.StorageClass),
+        path: getResourceListUrl(ResourceType.StorageClass),
+      },
     ],
   },
   {
@@ -59,14 +99,32 @@ const navItems = [
     label: "Configuration",
     path: "/configuration",
     children: [
-      { label: getDisplayPlural(ResourceType.ConfigMap), path: getResourceListUrl(ResourceType.ConfigMap) },
-      { label: getDisplayPlural(ResourceType.Secret), path: getResourceListUrl(ResourceType.Secret) },
+      {
+        label: getDisplayPlural(ResourceType.ConfigMap),
+        path: getResourceListUrl(ResourceType.ConfigMap),
+      },
+      {
+        label: getDisplayPlural(ResourceType.Secret),
+        path: getResourceListUrl(ResourceType.Secret),
+      },
       { label: "Builder", path: "/configuration/builder" },
     ],
   },
-  { icon: Server, label: getDisplayPlural(ResourceType.Node), path: getResourceListUrl(ResourceType.Node) },
-  { icon: Activity, label: getDisplayPlural(ResourceType.Event), path: getResourceListUrl(ResourceType.Event) },
-  { icon: Puzzle, label: getDisplayPlural(ResourceType.CustomResourceDefinition), path: getResourceListUrl(ResourceType.CustomResourceDefinition) },
+  {
+    icon: Server,
+    label: getDisplayPlural(ResourceType.Node),
+    path: getResourceListUrl(ResourceType.Node),
+  },
+  {
+    icon: Activity,
+    label: getDisplayPlural(ResourceType.Event),
+    path: getResourceListUrl(ResourceType.Event),
+  },
+  {
+    icon: Puzzle,
+    label: getDisplayPlural(ResourceType.CustomResourceDefinition),
+    path: getResourceListUrl(ResourceType.CustomResourceDefinition),
+  },
   { icon: Package, label: "Helm", path: "/helm" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
@@ -103,6 +161,12 @@ export function Sidebar() {
       return;
     }
 
+    // Genuine union-of-user-intent-and-external-state pattern: the
+    // user can collapse parents manually, but route navigation must
+    // auto-expand the matching parent. Splitting into separate
+    // userExpanded / autoExpanded sets would require a state model
+    // refactor — left as a follow-up.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setExpandedItems((prev) => {
       const next = new Set(prev);
       activeParents.forEach((label) => next.add(label));

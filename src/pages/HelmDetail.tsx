@@ -402,16 +402,17 @@ export function HelmDetail() {
                           {rev.description || "-"}
                         </td>
                         <td className="p-2 text-right">
-                          {rev.revision < release.revision && helmCliAvailable && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setRollbackTarget(rev.revision)}
-                            >
-                              <RotateCcw className="h-3 w-3 mr-1" />
-                              Rollback
-                            </Button>
-                          )}
+                          {rev.revision < release.revision &&
+                            helmCliAvailable && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setRollbackTarget(rev.revision)}
+                              >
+                                <RotateCcw className="h-3 w-3 mr-1" />
+                                Rollback
+                              </Button>
+                            )}
                         </td>
                       </tr>
                     ))}

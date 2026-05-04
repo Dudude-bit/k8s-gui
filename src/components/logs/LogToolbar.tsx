@@ -135,7 +135,11 @@ export function LogToolbar({
           variant={autoScroll ? "secondary" : "ghost"}
           size="icon"
           onClick={onAutoScrollToggle}
-          title={autoScroll ? "Auto-scroll enabled (click to disable)" : "Enable auto-scroll"}
+          title={
+            autoScroll
+              ? "Auto-scroll enabled (click to disable)"
+              : "Enable auto-scroll"
+          }
         >
           <ArrowDown
             className={`h-4 w-4 ${!isAtBottom && !autoScroll ? "animate-bounce" : ""}`}

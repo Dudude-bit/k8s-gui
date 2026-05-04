@@ -54,7 +54,7 @@ export const LEVEL_BORDER_COLORS: Record<LogLevel, string> = {
 
 export const FORMAT_DESCRIPTIONS: Record<LogFormat, string> = {
   json: "Structured JSON log format with parsed fields",
-  logfmt: "Key=value pairs format (e.g., level=info msg=\"hello\")",
+  logfmt: 'Key=value pairs format (e.g., level=info msg="hello")',
   klog: "Kubernetes log format with severity prefix (I/W/E/F)",
   logback: "Java Logback format with timestamp and level",
   plain: "Plain text without structured formatting",

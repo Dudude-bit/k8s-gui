@@ -89,19 +89,13 @@ function extractErrorCode(error: unknown): ErrorCode {
   if (lowerMessage.includes("timeout")) {
     return ERROR_CODES.TIMEOUT;
   }
-  if (
-    lowerMessage.includes("network") ||
-    lowerMessage.includes("connection")
-  ) {
+  if (lowerMessage.includes("network") || lowerMessage.includes("connection")) {
     return ERROR_CODES.NETWORK;
   }
   if (lowerMessage.includes("kube") || lowerMessage.includes("kubernetes")) {
     return ERROR_CODES.KUBE_API;
   }
-  if (
-    lowerMessage.includes("invalid") ||
-    lowerMessage.includes("validation")
-  ) {
+  if (lowerMessage.includes("invalid") || lowerMessage.includes("validation")) {
     return ERROR_CODES.VALIDATION;
   }
 
@@ -146,10 +140,7 @@ export function normalizeError(
  * @param context - Optional context string
  * @returns Normalized error
  */
-export function reportError(
-  error: unknown,
-  context?: string
-): NormalizedError {
+export function reportError(error: unknown, context?: string): NormalizedError {
   const normalized = normalizeError(error, context);
 
   logError(normalized.message, {
@@ -223,4 +214,3 @@ export function normalizeTauriError(error: unknown): string {
   // Fallback
   return String(error);
 }
-

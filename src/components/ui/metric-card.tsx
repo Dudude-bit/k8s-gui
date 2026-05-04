@@ -103,7 +103,12 @@ export function MetricCard({
     }
   }
 
-  const metricType = type === "cpu" ? "cpu" : type === "memory" || type === "storage" ? "memory" : undefined;
+  const metricType =
+    type === "cpu"
+      ? "cpu"
+      : type === "memory" || type === "storage"
+        ? "memory"
+        : undefined;
   const colorVariant = getUtilizationColor(percentage, metricType);
 
   // Default icons based on type
@@ -156,9 +161,7 @@ export function MetricCard({
       <CardContent className="space-y-2">
         <div className="flex items-baseline justify-between">
           <span className="text-2xl font-bold">{usedDisplay}</span>
-          <span className="text-sm text-muted-foreground">
-            / {baseDisplay}
-          </span>
+          <span className="text-sm text-muted-foreground">/ {baseDisplay}</span>
         </div>
         {showProgressBar && percentage !== null && (
           <Progress

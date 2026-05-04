@@ -19,16 +19,20 @@ import { commands } from "@/lib/commands";
 import type { CustomResourceDetailInfo } from "@/generated/types";
 
 // Component to render spec/status as a tree
-function JsonTreeViewer({ data, depth = 0 }: { data: unknown; depth?: number }): ReactNode {
+function JsonTreeViewer({
+  data,
+  depth = 0,
+}: {
+  data: unknown;
+  depth?: number;
+}): ReactNode {
   if (data === null || data === undefined) {
     return <span className="text-muted-foreground">null</span>;
   }
 
   if (typeof data === "boolean") {
     return (
-      <Badge variant={data ? "default" : "secondary"}>
-        {String(data)}
-      </Badge>
+      <Badge variant={data ? "default" : "secondary"}>{String(data)}</Badge>
     );
   }
 
@@ -101,14 +105,11 @@ export function CustomResourceDetail() {
   const {
     data: resource,
     isLoading,
-        error,
+    error,
   } = useQuery({
     queryKey: ["custom-resource", decodedCrdName, namespace, name],
-    queryFn: () => commands.getCustomResource(
-      decodedCrdName,
-      name || "",
-      namespace || null
-    ),
+    queryFn: () =>
+      commands.getCustomResource(decodedCrdName, name || "", namespace || null),
     enabled: isConnected && !!decodedCrdName && !!name,
     staleTime: STALE_TIMES.resourceDetail,
     refetchInterval: REFRESH_INTERVALS.resourceDetail,
@@ -117,28 +118,32 @@ export function CustomResourceDetail() {
   // Fetch YAML
   const { data: yaml = "" } = useQuery({
     queryKey: ["custom-resource-yaml", decodedCrdName, namespace, name],
-    queryFn: () => commands.getCustomResourceYaml(
-      decodedCrdName,
-      name || "",
-      namespace || null
-    ),
+    queryFn: () =>
+      commands.getCustomResourceYaml(
+        decodedCrdName,
+        name || "",
+        namespace || null
+      ),
     enabled: isConnected && !!decodedCrdName && !!name,
     staleTime: STALE_TIMES.resourceDetail,
   });
 
   // Delete mutation
   const deleteMutation = useMutation({
-    mutationFn: () => commands.deleteCustomResource(
-      decodedCrdName,
-      name || "",
-      namespace || null
-    ),
+    mutationFn: () =>
+      commands.deleteCustomResource(
+        decodedCrdName,
+        name || "",
+        namespace || null
+      ),
     onSuccess: () => {
       toast({
         title: `${crdInfo?.kind || "Resource"} deleted`,
         description: `${name} has been deleted.`,
       });
-      queryClient.invalidateQueries({ queryKey: ["custom-resources", decodedCrdName] });
+      queryClient.invalidateQueries({
+        queryKey: ["custom-resources", decodedCrdName],
+      });
       navigate(-1);
     },
     onError: (error: Error) => {
@@ -201,8 +206,12 @@ export function CustomResourceDetail() {
                 </div>
                 {resource.resourceVersion && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Resource Version</span>
-                    <span className="font-mono">{resource.resourceVersion}</span>
+                    <span className="text-muted-foreground">
+                      Resource Version
+                    </span>
+                    <span className="font-mono">
+                      {resource.resourceVersion}
+                    </span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
@@ -260,7 +269,11 @@ export function CustomResourceDetail() {
               <CardContent>
                 <div className="flex flex-wrap gap-2">
                   {resource.finalizers.map((finalizer, index) => (
-                    <Badge key={index} variant="outline" className="font-mono text-xs">
+                    <Badge
+                      key={index}
+                      variant="outline"
+                      className="font-mono text-xs"
+                    >
                       {finalizer}
                     </Badge>
                   ))}
@@ -272,7 +285,10 @@ export function CustomResourceDetail() {
           {/* Labels & Annotations */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <LabelsDisplay labels={resource.labels || {}} title="Labels" />
-            <LabelsDisplay labels={resource.annotations || {}} title="Annotations" />
+            <LabelsDisplay
+              labels={resource.annotations || {}}
+              title="Annotations"
+            />
           </div>
 
           {/* CRD Link */}
@@ -287,7 +303,9 @@ export function CustomResourceDetail() {
                     <p className="font-medium">{decodedCrdName}</p>
                   </div>
                   <Button variant="outline" size="sm" asChild>
-                    <Link to={`/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(decodedCrdName)}`}>
+                    <Link
+                      to={`/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(decodedCrdName)}`}
+                    >
                       View CRD
                     </Link>
                   </Button>
@@ -318,21 +336,21 @@ export function CustomResourceDetail() {
     },
     ...(resource?.status != null
       ? [
-        {
-          id: "status",
-          label: "Status",
-          content: (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Status</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <JsonTreeViewer data={resource.status} />
-              </CardContent>
-            </Card>
-          ),
-        },
-      ]
+          {
+            id: "status",
+            label: "Status",
+            content: (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Status</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <JsonTreeViewer data={resource.status} />
+                </CardContent>
+              </Card>
+            ),
+          },
+        ]
       : []),
     {
       id: "yaml",
@@ -407,7 +425,9 @@ export function CustomResourceDetail() {
 }
 
 // Helper to extract status from resource
-function getStatusFromResource(resource: CustomResourceDetailInfo): string | null {
+function getStatusFromResource(
+  resource: CustomResourceDetailInfo
+): string | null {
   if (!resource.status || typeof resource.status !== "object") {
     return null;
   }

@@ -47,9 +47,7 @@ interface TerminalSessionState {
   /**
    * Add a new terminal session
    */
-  addSession: (
-    session: Omit<TerminalSessionEntry, "createdAt">
-  ) => void;
+  addSession: (session: Omit<TerminalSessionEntry, "createdAt">) => void;
 
   /**
    * Update an existing session
@@ -92,10 +90,7 @@ export const useTerminalSessionStore = create<TerminalSessionState>(
 
       set((state) => ({
         // Replace existing session with same ID or add new
-        sessions: [
-          ...state.sessions.filter((s) => s.id !== session.id),
-          entry,
-        ],
+        sessions: [...state.sessions.filter((s) => s.id !== session.id), entry],
       }));
     },
 
@@ -118,9 +113,8 @@ export const useTerminalSessionStore = create<TerminalSessionState>(
     },
 
     getActiveCount: () => {
-      return get().sessions.filter(
-        (session) => session.status === "connected"
-      ).length;
+      return get().sessions.filter((session) => session.status === "connected")
+        .length;
     },
 
     clearAll: () => {

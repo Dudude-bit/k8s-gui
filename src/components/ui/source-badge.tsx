@@ -23,12 +23,15 @@ interface SourceBadgeProps {
   linkable?: boolean;
 }
 
-const sourceConfig: Record<SourceType, {
-  label: string;
-  icon: React.ElementType;
-  variant: "default" | "secondary" | "outline" | "destructive";
-  color?: string;
-}> = {
+const sourceConfig: Record<
+  SourceType,
+  {
+    label: string;
+    icon: React.ElementType;
+    variant: "default" | "secondary" | "outline" | "destructive";
+    color?: string;
+  }
+> = {
   secret: {
     label: "Secret",
     icon: Lock,

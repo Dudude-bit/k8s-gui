@@ -25,7 +25,9 @@ const ingressRouteColumns: CrdPluginColumn[] = [
     id: "entryPoints",
     header: "Entry Points",
     accessor: (resource) => {
-      const entryPoints = getValueByPath(resource, "spec.entryPoints") as string[] | undefined;
+      const entryPoints = getValueByPath(resource, "spec.entryPoints") as
+        | string[]
+        | undefined;
       return entryPoints ?? [];
     },
     cell: (value) => {
@@ -39,7 +41,9 @@ const ingressRouteColumns: CrdPluginColumn[] = [
     id: "hosts",
     header: "Hosts",
     accessor: (resource) => {
-      const routes = getValueByPath(resource, "spec.routes") as Array<{ match?: string }> | undefined;
+      const routes = getValueByPath(resource, "spec.routes") as
+        | Array<{ match?: string }>
+        | undefined;
       if (!routes) return [];
 
       // Extract hosts from match rules like "Host(`example.com`)"
@@ -66,9 +70,11 @@ const ingressRouteColumns: CrdPluginColumn[] = [
     id: "services",
     header: "Services",
     accessor: (resource) => {
-      const routes = getValueByPath(resource, "spec.routes") as Array<{
-        services?: Array<{ name: string; port?: number }>;
-      }> | undefined;
+      const routes = getValueByPath(resource, "spec.routes") as
+        | Array<{
+            services?: Array<{ name: string; port?: number }>;
+          }>
+        | undefined;
 
       if (!routes) return [];
 
@@ -94,9 +100,11 @@ const ingressRouteColumns: CrdPluginColumn[] = [
     id: "middlewares",
     header: "Middlewares",
     accessor: (resource) => {
-      const routes = getValueByPath(resource, "spec.routes") as Array<{
-        middlewares?: Array<{ name: string }>;
-      }> | undefined;
+      const routes = getValueByPath(resource, "spec.routes") as
+        | Array<{
+            middlewares?: Array<{ name: string }>;
+          }>
+        | undefined;
 
       if (!routes) return 0;
 
@@ -110,7 +118,8 @@ const ingressRouteColumns: CrdPluginColumn[] = [
       }
       return middlewares.size;
     },
-    cell: (value) => (typeof value === "number" && value > 0 ? `${value}` : "-"),
+    cell: (value) =>
+      typeof value === "number" && value > 0 ? `${value}` : "-",
     width: 100,
     sortable: true,
   },
@@ -118,10 +127,12 @@ const ingressRouteColumns: CrdPluginColumn[] = [
     id: "tls",
     header: "TLS",
     accessor: (resource) => {
-      const tls = getValueByPath(resource, "spec.tls") as {
-        secretName?: string;
-        certResolver?: string;
-      } | undefined;
+      const tls = getValueByPath(resource, "spec.tls") as
+        | {
+            secretName?: string;
+            certResolver?: string;
+          }
+        | undefined;
 
       if (!tls) return "No";
       if (tls.certResolver) return `Resolver: ${tls.certResolver}`;
@@ -142,7 +153,9 @@ const middlewareColumns: CrdPluginColumn[] = [
     id: "type",
     header: "Type",
     accessor: (resource) => {
-      const spec = getValueByPath(resource, "spec") as Record<string, unknown> | undefined;
+      const spec = getValueByPath(resource, "spec") as
+        | Record<string, unknown>
+        | undefined;
       if (!spec) return "Unknown";
 
       // Detect middleware type based on spec fields
@@ -186,7 +199,9 @@ const middlewareColumns: CrdPluginColumn[] = [
     id: "details",
     header: "Details",
     accessor: (resource) => {
-      const spec = getValueByPath(resource, "spec") as Record<string, unknown> | undefined;
+      const spec = getValueByPath(resource, "spec") as
+        | Record<string, unknown>
+        | undefined;
       if (!spec) return null;
 
       // Extract relevant details based on type
@@ -199,11 +214,17 @@ const middlewareColumns: CrdPluginColumn[] = [
         return addPrefix.prefix;
       }
       if (spec.rateLimit) {
-        const rateLimit = spec.rateLimit as { average?: number; burst?: number };
+        const rateLimit = spec.rateLimit as {
+          average?: number;
+          burst?: number;
+        };
         return `${rateLimit.average ?? 0}/s, burst: ${rateLimit.burst ?? 0}`;
       }
       if (spec.redirectScheme) {
-        const redirect = spec.redirectScheme as { scheme?: string; permanent?: boolean };
+        const redirect = spec.redirectScheme as {
+          scheme?: string;
+          permanent?: boolean;
+        };
         return `→ ${redirect.scheme ?? "https"}${redirect.permanent ? " (301)" : " (302)"}`;
       }
       if (spec.basicAuth || spec.digestAuth || spec.forwardAuth) {
@@ -249,10 +270,13 @@ const tlsOptionColumns: CrdPluginColumn[] = [
     id: "cipherSuites",
     header: "Cipher Suites",
     accessor: (resource) => {
-      const cipherSuites = getValueByPath(resource, "spec.cipherSuites") as string[] | undefined;
+      const cipherSuites = getValueByPath(resource, "spec.cipherSuites") as
+        | string[]
+        | undefined;
       return cipherSuites?.length ?? 0;
     },
-    cell: (value) => (typeof value === "number" && value > 0 ? `${value} suites` : "Default"),
+    cell: (value) =>
+      typeof value === "number" && value > 0 ? `${value} suites` : "Default",
     width: 120,
     sortable: true,
   },

@@ -23,7 +23,7 @@ export function useClusterInfo() {
       try {
         return await commands.getClusterInfo(currentContext);
       } catch (err) {
-        throw new Error(normalizeTauriError(err));
+        throw new Error(normalizeTauriError(err), { cause: err });
       }
     },
     enabled: isConnected && !!currentContext,

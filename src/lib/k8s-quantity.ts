@@ -284,16 +284,17 @@ export function calculateUtilization(
  */
 export function getUtilizationColor(
   percentage: number | null,
-  type?: 'cpu' | 'memory'
+  type?: "cpu" | "memory"
 ): "default" | "secondary" | "destructive" {
   if (percentage === null) return "default";
 
   // Type-specific thresholds
-  const thresholds = type === 'cpu'
-    ? { warning: 80, critical: 95 }
-    : type === 'memory'
-      ? { warning: 70, critical: 85 }
-      : { warning: 70, critical: 90 }; // default when type not specified
+  const thresholds =
+    type === "cpu"
+      ? { warning: 80, critical: 95 }
+      : type === "memory"
+        ? { warning: 70, critical: 85 }
+        : { warning: 70, critical: 90 }; // default when type not specified
 
   if (percentage >= thresholds.critical) return "destructive";
   if (percentage >= thresholds.warning) return "secondary";

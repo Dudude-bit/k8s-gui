@@ -22,7 +22,7 @@
  * ```
  */
 export function getResourceRowId<
-  T extends { name: string; namespace?: string | null; uid?: string }
+  T extends { name: string; namespace?: string | null; uid?: string },
 >(row: T): string {
   // Prefer uid if available (unique within cluster)
   if ("uid" in row && row.uid) {

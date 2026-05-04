@@ -59,7 +59,9 @@ export const RealtimeCountdown = memo(function RealtimeCountdown({
   );
 
   if (!target) {
-    return <span className={cn("text-muted-foreground", className)}>{fallback}</span>;
+    return (
+      <span className={cn("text-muted-foreground", className)}>{fallback}</span>
+    );
   }
 
   const colorClass = showWarningColors

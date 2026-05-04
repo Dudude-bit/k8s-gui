@@ -13,13 +13,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  History,
-  Copy,
-  RotateCcw,
-  AlignLeft,
-  GitCompare,
-} from "lucide-react";
+import { History, Copy, RotateCcw, AlignLeft, GitCompare } from "lucide-react";
 import type { HistoryEntry } from "@/stores/yamlEditorStore";
 
 export interface YamlEditorToolbarProps {

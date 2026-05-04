@@ -31,7 +31,11 @@ export function LogStatusBar({
 
     if (formatCounts.size === 1) {
       const format = formatCounts.keys().next().value as LogFormat;
-      return { format, label: format, description: FORMAT_DESCRIPTIONS[format] };
+      return {
+        format,
+        label: format,
+        description: FORMAT_DESCRIPTIONS[format],
+      };
     }
 
     // Find dominant format

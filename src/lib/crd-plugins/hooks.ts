@@ -45,6 +45,13 @@ export function usePlugin(
  * ```
  */
 export function usePluginByCrdName(crdName: string): CrdPlugin | null {
+  // React Compiler can't preserve memoization here because
+  // `getPluginForCrd` returns a different reference each call (it's
+  // a registry lookup with side effects on mismatch). Manual useMemo
+  // is intentional — without it every consumer would re-render on
+  // every parent render. Lookup is cheap (string ops + Map.get) so
+  // the trade-off favours stable reference over recomputation cost.
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   return useMemo(() => {
     // Parse CRD name: plural.group (e.g., "certificates.cert-manager.io")
     const dotIndex = crdName.indexOf(".");

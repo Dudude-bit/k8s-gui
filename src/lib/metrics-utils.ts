@@ -1,5 +1,5 @@
 // src/lib/metrics-utils.ts
-import { formatCPU, formatMemory } from './k8s-quantity';
+import { formatCPU, formatMemory } from "./k8s-quantity";
 
 /**
  * Metrics calculation utilities
@@ -9,9 +9,9 @@ import { formatCPU, formatMemory } from './k8s-quantity';
  * Memory: warning at 70%, critical at 85% (OOMKill is dangerous)
  */
 
-export type MetricType = 'cpu' | 'memory';
-export type UtilizationLevel = 'normal' | 'warning' | 'critical';
-export type PercentageBase = 'limit' | 'request' | null;
+export type MetricType = "cpu" | "memory";
+export type UtilizationLevel = "normal" | "warning" | "critical";
+export type PercentageBase = "limit" | "request" | null;
 
 export interface MetricState {
   /** Raw value in base units (millicores for CPU, bytes for memory) */
@@ -59,13 +59,13 @@ export function getUtilizationLevel(
   percentage: number | null,
   type: MetricType
 ): UtilizationLevel {
-  if (percentage === null) return 'normal';
+  if (percentage === null) return "normal";
 
   const thresholds = getThresholds(type);
 
-  if (percentage >= thresholds.critical) return 'critical';
-  if (percentage >= thresholds.warning) return 'warning';
-  return 'normal';
+  if (percentage >= thresholds.critical) return "critical";
+  if (percentage >= thresholds.warning) return "warning";
+  return "normal";
 }
 
 /**
@@ -80,14 +80,14 @@ export function calculatePercentage(
   if (limit !== null && limit > 0) {
     return {
       percentage: Math.min(100, Math.max(0, (usage / limit) * 100)),
-      base: 'limit',
+      base: "limit",
     };
   }
 
   if (request !== null && request > 0) {
     return {
       percentage: Math.min(999, Math.max(0, (usage / request) * 100)),
-      base: 'request',
+      base: "request",
     };
   }
 
@@ -122,7 +122,7 @@ export function calculateMetricState(
     return null;
   }
 
-  const format = type === 'cpu' ? formatCPU : formatMemory;
+  const format = type === "cpu" ? formatCPU : formatMemory;
   const displayValue = format(usage);
 
   const { percentage, base } = calculatePercentage(usage, request, limit);
@@ -144,12 +144,12 @@ export function calculateMetricState(
  */
 export function getLevelColorClass(level: UtilizationLevel): string {
   switch (level) {
-    case 'critical':
-      return 'text-red-500';
-    case 'warning':
-      return 'text-yellow-500';
+    case "critical":
+      return "text-red-500";
+    case "warning":
+      return "text-yellow-500";
     default:
-      return 'text-green-500';
+      return "text-green-500";
   }
 }
 
@@ -158,14 +158,14 @@ export function getLevelColorClass(level: UtilizationLevel): string {
  */
 export function getLevelBadgeVariant(
   level: UtilizationLevel
-): 'destructive' | 'secondary' | 'outline' {
+): "destructive" | "secondary" | "outline" {
   switch (level) {
-    case 'critical':
-      return 'destructive';
-    case 'warning':
-      return 'secondary';
+    case "critical":
+      return "destructive";
+    case "warning":
+      return "secondary";
     default:
-      return 'outline';
+      return "outline";
   }
 }
 
@@ -174,11 +174,11 @@ export function getLevelBadgeVariant(
  */
 export function getLevelProgressClass(level: UtilizationLevel): string {
   switch (level) {
-    case 'critical':
-      return '[&>div]:bg-red-500';
-    case 'warning':
-      return '[&>div]:bg-yellow-500';
+    case "critical":
+      return "[&>div]:bg-red-500";
+    case "warning":
+      return "[&>div]:bg-yellow-500";
     default:
-      return '';
+      return "";
   }
 }

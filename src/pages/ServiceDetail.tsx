@@ -7,13 +7,16 @@ import {
   InfoCard,
   ResourceDetailLayout,
 } from "@/components/resources/ResourceDetailLayout";
-import { ServiceAccessInfo, MatchingPods, ServiceTypeBadge } from "@/components/network";
+import {
+  ServiceAccessInfo,
+  MatchingPods,
+  ServiceTypeBadge,
+} from "@/components/network";
 import { useResourceDetail } from "@/hooks";
 import { ResourceType } from "@/lib/resource-registry";
 import { Network, Globe, Server } from "lucide-react";
 import { commands } from "@/lib/commands";
 import type { ServiceInfo } from "@/generated/types";
-
 
 export function ServiceDetail() {
   const {
@@ -21,7 +24,7 @@ export function ServiceDetail() {
     namespace,
     resource: service,
     isLoading,
-        error,
+    error,
     yaml: serviceYaml,
     copyYaml,
     activeTab,
@@ -73,9 +76,7 @@ export function ServiceDetail() {
                     </span>
                   </div>
                   {port.nodePort && (
-                    <Badge variant="secondary">
-                      NodePort: {port.nodePort}
-                    </Badge>
+                    <Badge variant="secondary">NodePort: {port.nodePort}</Badge>
                   )}
                 </div>
               ))}

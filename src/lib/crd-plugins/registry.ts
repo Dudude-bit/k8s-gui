@@ -12,7 +12,11 @@
  *   const plugin = getPluginForCrd("cert-manager.io", "Certificate", "certificates");
  */
 
-import type { CrdPlugin, PluginRegistrationOptions, PluginMatch } from "./types";
+import type {
+  CrdPlugin,
+  PluginRegistrationOptions,
+  PluginMatch,
+} from "./types";
 
 // Internal plugin storage
 const plugins: Map<string, CrdPlugin> = new Map();
@@ -44,7 +48,9 @@ export function registerPlugin(
   rebuildSortedList();
 
   if (process.env.NODE_ENV === "development") {
-    console.log(`[CRD Plugins] Registered plugin: ${plugin.id} (${plugin.name})`);
+    console.log(
+      `[CRD Plugins] Registered plugin: ${plugin.id} (${plugin.name})`
+    );
   }
 }
 
@@ -171,9 +177,9 @@ export function getPluginsByCategory(): Record<string, CrdPlugin[]> {
   const categories: Record<string, CrdPlugin[]> = {
     "Certificate Management": [],
     "Service Mesh": [],
-    "GitOps": [],
-    "Ingress": [],
-    "Other": [],
+    GitOps: [],
+    Ingress: [],
+    Other: [],
   };
 
   for (const plugin of plugins.values()) {
@@ -183,9 +189,17 @@ export function getPluginsByCategory(): Record<string, CrdPlugin[]> {
       categories["Certificate Management"].push(plugin);
     } else if (id.includes("istio") || id.includes("linkerd")) {
       categories["Service Mesh"].push(plugin);
-    } else if (id.includes("flux") || id.includes("argo") || id.includes("helm")) {
+    } else if (
+      id.includes("flux") ||
+      id.includes("argo") ||
+      id.includes("helm")
+    ) {
       categories["GitOps"].push(plugin);
-    } else if (id.includes("traefik") || id.includes("nginx") || id.includes("ingress")) {
+    } else if (
+      id.includes("traefik") ||
+      id.includes("nginx") ||
+      id.includes("ingress")
+    ) {
       categories["Ingress"].push(plugin);
     } else {
       categories["Other"].push(plugin);

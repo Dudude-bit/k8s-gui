@@ -1,7 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
 import { ChevronRight, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getDisplayPlural, getResourceListUrl, isResourceType } from "@/lib/resource-registry";
+import {
+  getDisplayPlural,
+  getResourceListUrl,
+  isResourceType,
+} from "@/lib/resource-registry";
 
 interface BreadcrumbItem {
   label: string;
@@ -82,14 +86,18 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
   const location = useLocation();
 
   // Use provided items or auto-generate from path
-  const breadcrumbItems = items || generateBreadcrumbsFromPath(location.pathname);
+  const breadcrumbItems =
+    items || generateBreadcrumbsFromPath(location.pathname);
 
   if (breadcrumbItems.length === 0) return null;
 
   return (
     <nav
       aria-label="Breadcrumb"
-      className={cn("flex items-center text-sm text-muted-foreground", className)}
+      className={cn(
+        "flex items-center text-sm text-muted-foreground",
+        className
+      )}
     >
       <ol className="flex items-center gap-1">
         {/* Home link */}
@@ -114,7 +122,10 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
                 {item.label}
               </Link>
             ) : (
-              <span className="text-foreground font-medium truncate max-w-[200px]" title={item.label}>
+              <span
+                className="text-foreground font-medium truncate max-w-[200px]"
+                title={item.label}
+              >
                 {item.label}
               </span>
             )}

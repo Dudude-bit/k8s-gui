@@ -208,7 +208,8 @@ export function Settings() {
                     onClick={() => {
                       toast({
                         title: "Downloading update",
-                        description: "The app will restart automatically when ready",
+                        description:
+                          "The app will restart automatically when ready",
                       });
                       downloadAndInstall();
                     }}

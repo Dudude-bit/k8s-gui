@@ -7,9 +7,18 @@ import { StorageClassList } from "@/components/resources/StorageClassList";
 export function Storage() {
   return (
     <Routes>
-      <Route path={toPlural(ResourceType.PersistentVolume)} element={<PersistentVolumeList />} />
-      <Route path={toPlural(ResourceType.PersistentVolumeClaim)} element={<PersistentVolumeClaimList />} />
-      <Route path={toPlural(ResourceType.StorageClass)} element={<StorageClassList />} />
+      <Route
+        path={toPlural(ResourceType.PersistentVolume)}
+        element={<PersistentVolumeList />}
+      />
+      <Route
+        path={toPlural(ResourceType.PersistentVolumeClaim)}
+        element={<PersistentVolumeClaimList />}
+      />
+      <Route
+        path={toPlural(ResourceType.StorageClass)}
+        element={<StorageClassList />}
+      />
       <Route index element={<PersistentVolumeList />} />
     </Routes>
   );

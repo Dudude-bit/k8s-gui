@@ -27,7 +27,9 @@ export function PodTerminal({
 }: PodTerminalProps) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [unavailableReason, setUnavailableReason] = useState<string | null>(null);
+  const [unavailableReason, setUnavailableReason] = useState<string | null>(
+    null
+  );
   const [isConnecting, setIsConnecting] = useState(false);
   const connectAttemptRef = useRef(0);
   const sessionIdRef = useRef<string | null>(null);
@@ -55,7 +57,12 @@ export function PodTerminal({
     setUnavailableReason(null);
 
     try {
-      const sid = await commands.openPodShell(namespace, podName, containerName, null);
+      const sid = await commands.openPodShell(
+        namespace,
+        podName,
+        containerName,
+        null
+      );
 
       if (connectAttemptRef.current !== attemptId) {
         // Cleanup happened while connecting
@@ -93,8 +100,11 @@ export function PodTerminal({
     }
   }, [sessionId, removeSession]);
 
-  // Initial connection
+  // Initial connection: fire-and-forget async session startup, which
+  // ends up calling setSessionId inside. Genuine side-effect (talks
+  // to the backend); not derivable.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     connect();
 
     // Cleanup on unmount - use ref to get current sessionId
@@ -105,7 +115,7 @@ export function PodTerminal({
         commands.closeTerminal(sid).catch(() => {});
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Poll for pod status while connected
@@ -165,7 +175,8 @@ export function PodTerminal({
   }, [disconnect, onClose]);
 
   // Show reconnect button if not connected and not connecting
-  const showReconnect = !sessionId && !isConnecting && (error || unavailableReason);
+  const showReconnect =
+    !sessionId && !isConnecting && (error || unavailableReason);
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">

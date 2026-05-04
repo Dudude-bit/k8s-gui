@@ -7,7 +7,11 @@
 
 import type { ComponentType } from "react";
 import type { LucideIcon } from "lucide-react";
-import type { CustomResourceInfo, CustomResourceDetailInfo, PrinterColumn } from "@/generated/types";
+import type {
+  CustomResourceInfo,
+  CustomResourceDetailInfo,
+  PrinterColumn,
+} from "@/generated/types";
 
 /**
  * Props passed to custom list components
@@ -78,9 +82,13 @@ export interface CrdPluginColumn {
  */
 export interface CrdPluginStatusConfig {
   /** Function to determine status text */
-  getStatus: (resource: CustomResourceInfo | CustomResourceDetailInfo) => string | null;
+  getStatus: (
+    resource: CustomResourceInfo | CustomResourceDetailInfo
+  ) => string | null;
   /** Function to determine status variant */
-  getVariant: (status: string) => "default" | "secondary" | "destructive" | "outline";
+  getVariant: (
+    status: string
+  ) => "default" | "secondary" | "destructive" | "outline";
 }
 
 /**
@@ -94,7 +102,10 @@ export interface CrdPluginTab {
   /** Tab icon */
   icon?: LucideIcon;
   /** Tab content component */
-  component: ComponentType<{ resource: CustomResourceDetailInfo; crdName: string }>;
+  component: ComponentType<{
+    resource: CustomResourceDetailInfo;
+    crdName: string;
+  }>;
 }
 
 /**
@@ -110,9 +121,13 @@ export interface CrdPluginAction {
   /** Whether action is destructive */
   variant?: "default" | "destructive";
   /** Action handler */
-  handler: (resource: CustomResourceInfo | CustomResourceDetailInfo) => void | Promise<void>;
+  handler: (
+    resource: CustomResourceInfo | CustomResourceDetailInfo
+  ) => void | Promise<void>;
   /** Whether action is available for this resource */
-  isAvailable?: (resource: CustomResourceInfo | CustomResourceDetailInfo) => boolean;
+  isAvailable?: (
+    resource: CustomResourceInfo | CustomResourceDetailInfo
+  ) => boolean;
 }
 
 /**
@@ -200,12 +215,16 @@ export interface CrdPlugin {
    * Transform function for list items
    * Can be used to enhance/modify the displayed data
    */
-  transformListItem?: (item: CustomResourceInfo) => CustomResourceInfo & Record<string, unknown>;
+  transformListItem?: (
+    item: CustomResourceInfo
+  ) => CustomResourceInfo & Record<string, unknown>;
 
   /**
    * Transform function for detail data
    */
-  transformDetail?: (detail: CustomResourceDetailInfo) => CustomResourceDetailInfo & Record<string, unknown>;
+  transformDetail?: (
+    detail: CustomResourceDetailInfo
+  ) => CustomResourceDetailInfo & Record<string, unknown>;
 }
 
 /**

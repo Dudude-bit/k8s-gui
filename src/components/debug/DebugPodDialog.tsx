@@ -21,7 +21,11 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Bug, Copy, Info, AlertTriangle, Clock, Loader2 } from "lucide-react";
-import type { DebugConfig, DebugOperation, DebugResult } from "@/generated/types";
+import type {
+  DebugConfig,
+  DebugOperation,
+  DebugResult,
+} from "@/generated/types";
 import { commands } from "@/lib/commands";
 import { useToast } from "@/components/ui/use-toast";
 import { isK8sVersionAtLeast } from "@/lib/utils";
@@ -65,7 +69,9 @@ export function DebugPodDialog({
   );
   const [selectedImage, setSelectedImage] = useState("busybox:latest");
   const [customImage, setCustomImage] = useState("");
-  const [targetContainer, setTargetContainer] = useState<string>(containers[0] || "");
+  const [targetContainer, setTargetContainer] = useState<string>(
+    containers[0] || ""
+  );
   const [shareProcesses, setShareProcesses] = useState(true);
 
   const image = selectedImage === "custom" ? customImage : selectedImage;
@@ -73,24 +79,31 @@ export function DebugPodDialog({
 
   // Timeout dialog state
   const [showTimeoutDialog, setShowTimeoutDialog] = useState(false);
-  const [timeoutOperation, setTimeoutOperation] = useState<DebugOperation | null>(null);
+  const [timeoutOperation, setTimeoutOperation] =
+    useState<DebugOperation | null>(null);
 
-  const handleReady = useCallback((result: DebugResult) => {
-    toast({
-      title: "Debug container ready",
-      description: `Container "${result.containerName}" is ready in pod "${result.podName}"`,
-    });
-    onDebugStart(result);
-    onOpenChange(false);
-  }, [toast, onDebugStart, onOpenChange]);
+  const handleReady = useCallback(
+    (result: DebugResult) => {
+      toast({
+        title: "Debug container ready",
+        description: `Container "${result.containerName}" is ready in pod "${result.podName}"`,
+      });
+      onDebugStart(result);
+      onOpenChange(false);
+    },
+    [toast, onDebugStart, onOpenChange]
+  );
 
-  const handleError = useCallback((error: string) => {
-    toast({
-      title: "Debug failed",
-      description: error,
-      variant: "destructive",
-    });
-  }, [toast]);
+  const handleError = useCallback(
+    (error: string) => {
+      toast({
+        title: "Debug failed",
+        description: error,
+        variant: "destructive",
+      });
+    },
+    [toast]
+  );
 
   const handleTimeout = useCallback((operation: DebugOperation) => {
     setTimeoutOperation(operation);
@@ -114,7 +127,10 @@ export function DebugPodDialog({
 
   const isPolling = state === "creating" || state === "polling";
   const timeoutSeconds = operation?.timeoutSeconds ?? 120;
-  const progressPercent = Math.min((elapsedSeconds / timeoutSeconds) * 100, 100);
+  const progressPercent = Math.min(
+    (elapsedSeconds / timeoutSeconds) * 100,
+    100
+  );
 
   const handleDebug = async () => {
     if (!isImageValid) {
@@ -163,7 +179,10 @@ export function DebugPodDialog({
   const handleDeletePod = async () => {
     if (timeoutOperation) {
       try {
-        await commands.deleteDebugPod(timeoutOperation.podName, timeoutOperation.namespace);
+        await commands.deleteDebugPod(
+          timeoutOperation.podName,
+          timeoutOperation.namespace
+        );
         toast({
           title: "Debug pod deleted",
           description: `Pod "${timeoutOperation.podName}" has been deleted`,
@@ -199,8 +218,8 @@ export function DebugPodDialog({
             </DialogTitle>
             <DialogDescription>
               The debug container in pod{" "}
-              <span className="font-medium">{timeoutOperation.podName}</span> did not
-              become ready within the timeout period.
+              <span className="font-medium">{timeoutOperation.podName}</span>{" "}
+              did not become ready within the timeout period.
             </DialogDescription>
           </DialogHeader>
 
@@ -223,9 +242,7 @@ export function DebugPodDialog({
             <Button variant="destructive" onClick={handleDeletePod}>
               Delete Pod
             </Button>
-            <Button onClick={handleKeepWaiting}>
-              Keep Waiting
-            </Button>
+            <Button onClick={handleKeepWaiting}>Keep Waiting</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -240,10 +257,13 @@ export function DebugPodDialog({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Loader2 className="h-5 w-5 animate-spin" />
-              {state === "creating" ? "Creating debug container..." : "Waiting for container..."}
+              {state === "creating"
+                ? "Creating debug container..."
+                : "Waiting for container..."}
             </DialogTitle>
             <DialogDescription>
-              Debug container for pod <span className="font-medium">{podName}</span>
+              Debug container for pod{" "}
+              <span className="font-medium">{podName}</span>
             </DialogDescription>
           </DialogHeader>
 
@@ -252,7 +272,9 @@ export function DebugPodDialog({
             <div className="rounded-md border p-3 bg-muted/30">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Status</span>
-                <span className="font-medium">{statusReason || "Initializing..."}</span>
+                <span className="font-medium">
+                  {statusReason || "Initializing..."}
+                </span>
               </div>
             </div>
 
@@ -288,8 +310,8 @@ export function DebugPodDialog({
             Debug Pod
           </DialogTitle>
           <DialogDescription>
-            Debug pod <span className="font-medium">{podName}</span> in namespace{" "}
-            <span className="font-medium">{namespace}</span>
+            Debug pod <span className="font-medium">{podName}</span> in
+            namespace <span className="font-medium">{namespace}</span>
           </DialogDescription>
         </DialogHeader>
 
@@ -322,7 +344,9 @@ export function DebugPodDialog({
                     <Bug className="h-4 w-4 text-muted-foreground" />
                     <span className="font-medium">Ephemeral Container</span>
                     {!supportsEphemeralContainers && (
-                      <span className="text-xs text-muted-foreground">(K8s 1.25+)</span>
+                      <span className="text-xs text-muted-foreground">
+                        (K8s 1.25+)
+                      </span>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
@@ -373,7 +397,10 @@ export function DebugPodDialog({
           {mode === "ephemeralContainer" && containers.length > 0 && (
             <div className="space-y-2">
               <Label htmlFor="target-container">Target Container</Label>
-              <Select value={targetContainer} onValueChange={setTargetContainer}>
+              <Select
+                value={targetContainer}
+                onValueChange={setTargetContainer}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select target container" />
                 </SelectTrigger>
@@ -413,9 +440,9 @@ export function DebugPodDialog({
             <Alert>
               <Info className="h-4 w-4" />
               <AlertDescription>
-                Ephemeral containers require Kubernetes 1.25+. Your cluster version
-                ({kubernetesVersion || "unknown"}) does not support this feature.
-                Use "Copy Pod" mode instead.
+                Ephemeral containers require Kubernetes 1.25+. Your cluster
+                version ({kubernetesVersion || "unknown"}) does not support this
+                feature. Use "Copy Pod" mode instead.
               </AlertDescription>
             </Alert>
           )}

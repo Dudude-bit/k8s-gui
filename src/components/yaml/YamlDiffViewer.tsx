@@ -145,7 +145,10 @@ export function YamlDiffViewer({
   }
 
   return (
-    <ScrollArea className={`h-[${height}] rounded-md border`} style={{ height }}>
+    <ScrollArea
+      className={`h-[${height}] rounded-md border`}
+      style={{ height }}
+    >
       <div className="p-2 font-mono text-xs">
         {diffLines.map((line, idx) => (
           <div

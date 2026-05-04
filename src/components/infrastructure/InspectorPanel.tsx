@@ -111,6 +111,11 @@ const ImageSearchInput = ({
   useEffect(() => {
     const query = value.trim();
     if (query.length < SEARCH_MIN_LENGTH) {
+      // Genuine reset-on-input-change: clear stale search state when
+      // the user shortens the query below the threshold. Could be
+      // derived from `value` at render time but `results` is also
+      // mutated by the async fetch below, so it has to live in state.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setResults([]);
       setStatus("idle");
       return;
@@ -138,7 +143,7 @@ const ImageSearchInput = ({
         }
         setResults(response);
         setStatus("idle");
-      } catch (error) {
+      } catch {
         if (cancelled) {
           return;
         }
@@ -329,17 +334,24 @@ export function InspectorPanel({
 
   // Initialise form state ONLY when the selected node changes (by id).
   // Depending on `node` or `node.data` would reset the form on every edit,
-  // which is the opposite of what the inspector should do.
+  // which is the opposite of what the inspector should do. The setState
+  // calls below are a deliberate reset-on-selection-change — `key`-style
+  // remount via parent would be cleaner but requires a layout change.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!node) {
       return;
     }
     setLabelRows(recordToRows(node.data.labels));
     setSelectorRows(
-      node.data.kind === ResourceType.Service ? recordToRows(node.data.selectors) : []
+      node.data.kind === ResourceType.Service
+        ? recordToRows(node.data.selectors)
+        : []
     );
     setConfigMapRows(
-      node.data.kind === ResourceType.ConfigMap ? recordToRows(node.data.data) : []
+      node.data.kind === ResourceType.ConfigMap
+        ? recordToRows(node.data.data)
+        : []
     );
     setSecretRows(
       node.data.kind === ResourceType.Secret ? recordToRows(node.data.data) : []
@@ -355,6 +367,7 @@ export function InspectorPanel({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node?.id]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!node) {
     return (

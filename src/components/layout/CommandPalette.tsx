@@ -6,7 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { useClusterStore } from "@/stores/clusterStore";
 import { commands } from "@/lib/commands";
-import type { ResourceListItem, ResourceQuery, RecentItem } from "@/generated/types";
+import type {
+  ResourceListItem,
+  ResourceQuery,
+  RecentItem,
+} from "@/generated/types";
 import { ResourceType, toPlural, getScope } from "@/lib/resource-registry";
 import { getResourceDetailUrl } from "@/lib/navigation-utils";
 import {
@@ -85,7 +89,6 @@ const quickCommands = [
   { icon: Network, label: "Create Service" },
 ];
 
-
 interface ResourceResult {
   kind: string;
   name: string;
@@ -138,15 +141,17 @@ export function CommandPalette() {
   const handleSelect = useCallback(
     (path: string, name?: string, kind?: string, namespace?: string) => {
       if (name && kind) {
-        commands.addRecentItem({
-          name,
-          kind,
-          path,
-          namespace: namespace ?? null,
-          timestamp: Date.now(),
-        }).catch(() => {
-          // Ignore errors saving recent item
-        });
+        commands
+          .addRecentItem({
+            name,
+            kind,
+            path,
+            namespace: namespace ?? null,
+            timestamp: Date.now(),
+          })
+          .catch(() => {
+            // Ignore errors saving recent item
+          });
       }
       setOpen(false);
       requestAnimationFrame(() => {
@@ -156,11 +161,18 @@ export function CommandPalette() {
     [navigate]
   );
 
+  // Reset palette state on every open/close transition. Genuine
+  // sync-prop-into-state — `key`-style remount via parent would be
+  // cleaner but the palette is mounted at the app root.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (open) {
-      commands.getRecentItems().then(setRecentItems).catch(() => {
-        setRecentItems([]);
-      });
+      commands
+        .getRecentItems()
+        .then(setRecentItems)
+        .catch(() => {
+          setRecentItems([]);
+        });
     } else {
       setSearchQuery("");
       setResourceResults([]);
@@ -169,6 +181,7 @@ export function CommandPalette() {
     }
   }, [open]);
 
+  // Debounced search — clear results state while building a new query.
   useEffect(() => {
     if (!open || !isConnected) {
       setResourceResults([]);
@@ -311,7 +324,13 @@ export function CommandPalette() {
     // Recent items (only when no query)
     if (!hasQuery && recentItems.length > 0) {
       recentItems.forEach((item) => {
-        items.push({ type: "recent", path: item.path, name: item.name, kind: item.kind, namespace: item.namespace ?? undefined });
+        items.push({
+          type: "recent",
+          path: item.path,
+          name: item.name,
+          kind: item.kind,
+          namespace: item.namespace ?? undefined,
+        });
       });
     }
 
@@ -327,16 +346,29 @@ export function CommandPalette() {
 
     // Resource results
     resourceResults.forEach((item) => {
-      items.push({ type: "resource", path: item.path, name: item.name, kind: item.kind, namespace: item.namespace });
+      items.push({
+        type: "resource",
+        path: item.path,
+        name: item.name,
+        kind: item.kind,
+        namespace: item.namespace,
+      });
     });
 
     return items;
-  }, [hasQuery, recentItems, filteredNavigation, filteredQuickCommands, resourceResults]);
+  }, [
+    hasQuery,
+    recentItems,
+    filteredNavigation,
+    filteredQuickCommands,
+    resourceResults,
+  ]);
 
   // Reset selection when items change
   useEffect(() => {
     setSelectedIndex(0);
   }, [allItems.length]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Keyboard navigation
   const handleKeyDown = useCallback(
@@ -361,7 +393,9 @@ export function CommandPalette() {
   // Scroll selected item into view
   useEffect(() => {
     if (resultsRef.current) {
-      const selected = resultsRef.current.querySelector(`[data-index="${selectedIndex}"]`);
+      const selected = resultsRef.current.querySelector(
+        `[data-index="${selectedIndex}"]`
+      );
       if (selected) {
         selected.scrollIntoView({ block: "nearest" });
       }
@@ -406,7 +440,14 @@ export function CommandPalette() {
                     key={item.path}
                     type="button"
                     data-index={idx}
-                    onClick={() => handleSelect(item.path, item.name, item.kind, item.namespace ?? undefined)}
+                    onClick={() =>
+                      handleSelect(
+                        item.path,
+                        item.name,
+                        item.kind,
+                        item.namespace ?? undefined
+                      )
+                    }
                     className={`flex w-full items-center rounded-sm px-2 py-2 text-sm hover:bg-accent ${selectedIndex === idx ? "bg-accent" : ""}`}
                   >
                     <span className="font-medium">{item.name}</span>
@@ -454,7 +495,10 @@ export function CommandPalette() {
                 Quick Actions
               </div>
               {filteredQuickCommands.map((action, idx) => {
-                const globalIdx = (!hasQuery ? recentItems.length : 0) + filteredNavigation.length + idx;
+                const globalIdx =
+                  (!hasQuery ? recentItems.length : 0) +
+                  filteredNavigation.length +
+                  idx;
                 return (
                   <button
                     key={action.label}
@@ -473,8 +517,8 @@ export function CommandPalette() {
 
           {(filteredNavigation.length > 0 ||
             filteredQuickCommands.length > 0) && (
-              <div className="my-2 h-px bg-border" />
-            )}
+            <div className="my-2 h-px bg-border" />
+          )}
 
           <div className="space-y-1">
             <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
@@ -512,7 +556,10 @@ export function CommandPalette() {
             {isConnected &&
               !isSearching &&
               (() => {
-                let resourceIdx = (!hasQuery ? recentItems.length : 0) + filteredNavigation.length + filteredQuickCommands.length;
+                let resourceIdx =
+                  (!hasQuery ? recentItems.length : 0) +
+                  filteredNavigation.length +
+                  filteredQuickCommands.length;
                 return Object.entries(groupedResources).map(([kind, items]) => (
                   <div key={kind} className="space-y-1">
                     {items.map((item) => {
@@ -522,7 +569,14 @@ export function CommandPalette() {
                           key={`${kind}-${item.namespace ?? "cluster"}-${item.name}`}
                           type="button"
                           data-index={globalIdx}
-                          onClick={() => handleSelect(item.path, item.name, kind, item.namespace)}
+                          onClick={() =>
+                            handleSelect(
+                              item.path,
+                              item.name,
+                              kind,
+                              item.namespace
+                            )
+                          }
                           className={`flex w-full items-center rounded-sm px-2 py-2 text-sm hover:bg-accent ${selectedIndex === globalIdx ? "bg-accent" : ""}`}
                         >
                           <span className="font-medium">{item.name}</span>
@@ -555,7 +609,9 @@ export function CommandPalette() {
               <span>select</span>
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono">esc</kbd>
+              <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono">
+                esc
+              </kbd>
               <span>close</span>
             </span>
           </div>

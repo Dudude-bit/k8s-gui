@@ -12,7 +12,11 @@ interface TlsBadgeProps {
   showIcon?: boolean;
 }
 
-export function TlsBadge({ tlsHosts, hasCatchAllTls, showIcon = false }: TlsBadgeProps) {
+export function TlsBadge({
+  tlsHosts,
+  hasCatchAllTls,
+  showIcon = false,
+}: TlsBadgeProps) {
   const explicitCount = tlsHosts.length;
   const hasTls = explicitCount > 0 || hasCatchAllTls;
 

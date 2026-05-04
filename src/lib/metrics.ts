@@ -1,5 +1,10 @@
-import type { PodMetrics, NodeMetrics, PodInfo, NodeInfo } from "@/generated/types";
-import { parseCPU, parseMemory } from './k8s-quantity';
+import type {
+  PodMetrics,
+  NodeMetrics,
+  PodInfo,
+  NodeInfo,
+} from "@/generated/types";
+import { parseCPU, parseMemory } from "./k8s-quantity";
 
 export interface PodWithMetrics extends PodInfo {
   cpuMillicores: number | null;
@@ -146,9 +151,7 @@ export function getTopPodsByMemory(
   limit: number = 5
 ): Array<{ name: string; namespace: string; memoryBytes: number }> {
   return pods
-    .filter(
-      (pod) => pod.memoryBytes !== null && pod.memoryBytes !== undefined
-    )
+    .filter((pod) => pod.memoryBytes !== null && pod.memoryBytes !== undefined)
     .map((pod) => ({
       name: pod.name,
       namespace: pod.namespace ?? "default",
@@ -158,9 +161,10 @@ export function getTopPodsByMemory(
     .slice(0, limit);
 }
 
-function matchPodNamePrefix<
-  T extends { name: string; namespace: string },
->(resource: T, pod: PodInfo): boolean {
+function matchPodNamePrefix<T extends { name: string; namespace: string }>(
+  resource: T,
+  pod: PodInfo
+): boolean {
   return (
     pod.namespace === resource.namespace &&
     pod.name.startsWith(resource.name + "-")
@@ -194,7 +198,11 @@ export function matchCronJobPods<T extends { name: string; namespace: string }>(
 }
 
 export function matchDeploymentPods<
-  T extends { name: string; namespace: string; labels?: Record<string, string> },
+  T extends {
+    name: string;
+    namespace: string;
+    labels?: Record<string, string>;
+  },
 >(deployment: T, pod: PodInfo): boolean {
   if (pod.namespace !== deployment.namespace) {
     return false;

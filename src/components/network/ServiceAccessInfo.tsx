@@ -33,8 +33,8 @@ export function ServiceAccessInfo({ service }: ServiceAccessInfoProps) {
     });
   }
 
-  if (service.type === "NodePort" && service.ports.some(p => p.nodePort)) {
-    const nodePort = service.ports.find(p => p.nodePort)?.nodePort;
+  if (service.type === "NodePort" && service.ports.some((p) => p.nodePort)) {
+    const nodePort = service.ports.find((p) => p.nodePort)?.nodePort;
     accessItems.push({
       label: "External (NodePort)",
       url: `<any-node-ip>:${nodePort}`,
@@ -108,7 +108,9 @@ export function ServiceAccessInfo({ service }: ServiceAccessInfoProps) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => window.open(item.url, "_blank", "noreferrer")}
+                    onClick={() =>
+                      window.open(item.url, "_blank", "noreferrer")
+                    }
                     title="Open in Browser"
                   >
                     <ExternalLink className="h-4 w-4" />
@@ -122,10 +124,12 @@ export function ServiceAccessInfo({ service }: ServiceAccessInfoProps) {
         {service.type === "ClusterIP" && (
           <div className="mt-4 p-3 rounded-lg bg-muted/50 border">
             <p className="text-sm text-muted-foreground">
-              <strong>ClusterIP</strong> services are only accessible from within the cluster.
-              Use port-forward for local development:
+              <strong>ClusterIP</strong> services are only accessible from
+              within the cluster. Use port-forward for local development:
               <code className="ml-1 text-xs bg-muted px-1 rounded">
-                kubectl port-forward svc/{service.name} {service.ports[0]?.port || 8080}:{service.ports[0]?.port || 8080}
+                kubectl port-forward svc/{service.name}{" "}
+                {service.ports[0]?.port || 8080}:
+                {service.ports[0]?.port || 8080}
               </code>
             </p>
           </div>

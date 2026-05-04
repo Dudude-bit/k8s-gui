@@ -48,16 +48,13 @@ export function ClusterOverview() {
   const { data: clusterInfo, isLoading: isLoadingCluster } = useClusterInfo();
 
   // Single efficient stats call with smooth transitions
-  const {
-    data: stats,
-    isLoading: isLoadingStats,
-  } = useQuery({
+  const { data: stats, isLoading: isLoadingStats } = useQuery({
     queryKey: ["overview-stats", currentContext, currentNamespace],
     queryFn: async () => {
       try {
         return await commands.getClusterStats(currentNamespace);
       } catch (err) {
-        throw new Error(normalizeTauriError(err));
+        throw new Error(normalizeTauriError(err), { cause: err });
       }
     },
     enabled: isConnected,
@@ -67,12 +64,16 @@ export function ClusterOverview() {
     refetchOnWindowFocus: false,
   });
 
-  const { clusterMetrics, clusterStatus, podMetrics: allPodMetrics, podStatus } =
-    useMetrics({
-      namespace: null,
-      includeNodes: false,
-      enabled: isConnected,
-    });
+  const {
+    clusterMetrics,
+    clusterStatus,
+    podMetrics: allPodMetrics,
+    podStatus,
+  } = useMetrics({
+    namespace: null,
+    includeNodes: false,
+    enabled: isConnected,
+  });
 
   // Get all pods
   const { data: allPods = [] } = useQuery({
@@ -90,7 +91,7 @@ export function ClusterOverview() {
         });
         return result;
       } catch (err) {
-        throw new Error(normalizeTauriError(err));
+        throw new Error(normalizeTauriError(err), { cause: err });
       }
     },
     enabled: isConnected,
@@ -299,9 +300,7 @@ export function ClusterOverview() {
       </div>
 
       {/* Cluster Resource Usage */}
-      {metricsStatus && (
-        <MetricsStatusBanner status={metricsStatus} />
-      )}
+      {metricsStatus && <MetricsStatusBanner status={metricsStatus} />}
       <div className="grid gap-4 md:grid-cols-2">
         <MetricCard
           title="Cluster CPU Usage"

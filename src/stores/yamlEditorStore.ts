@@ -198,13 +198,15 @@ export const useYamlEditorStore = create<YamlEditorState>((set, get) => ({
     });
 
     // Save to backend (fire and forget)
-    commands.addYamlHistoryEntry(key, {
-      timestamp: newEntry.timestamp,
-      content: newEntry.content,
-      label: newEntry.label ?? null,
-    }).catch((error) => {
-      console.error("Failed to save YAML history entry:", error);
-    });
+    commands
+      .addYamlHistoryEntry(key, {
+        timestamp: newEntry.timestamp,
+        content: newEntry.content,
+        label: newEntry.label ?? null,
+      })
+      .catch((error) => {
+        console.error("Failed to save YAML history entry:", error);
+      });
   },
 
   restoreFromHistory: (timestamp) => {

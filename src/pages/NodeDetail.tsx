@@ -2,7 +2,11 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Server, Cpu, HardDrive, MemoryStick, Bug } from "lucide-react";
-import { formatKubernetesBytes, parseCPU, parseMemory } from "@/lib/k8s-quantity";
+import {
+  formatKubernetesBytes,
+  parseCPU,
+  parseMemory,
+} from "@/lib/k8s-quantity";
 import { MetricCard } from "@/components/ui/metric-card";
 import { ConditionsDisplay } from "@/components/resources/ConditionsDisplay";
 import { LabelsDisplay } from "@/components/resources/LabelsDisplay";
@@ -10,8 +14,15 @@ import { YamlTabContent } from "@/components/resources/YamlTabContent";
 import { useMemo, useState } from "react";
 import { commands } from "@/lib/commands";
 import { useResourceDetail } from "@/hooks";
-import { ResourceType, getResourceIcon, toPlural } from "@/lib/resource-registry";
-import { InfoRow, ResourceDetailLayout } from "@/components/resources/ResourceDetailLayout";
+import {
+  ResourceType,
+  getResourceIcon,
+  toPlural,
+} from "@/lib/resource-registry";
+import {
+  InfoRow,
+  ResourceDetailLayout,
+} from "@/components/resources/ResourceDetailLayout";
 import type { NodeInfo, DebugResult } from "@/generated/types";
 import { DebugNodeDialog } from "@/components/debug";
 import { Button } from "@/components/ui/button";
@@ -31,7 +42,7 @@ export function NodeDetail() {
     name,
     resource: node,
     isLoading,
-        error,
+    error,
     yaml: nodeYaml,
     copyYaml,
     activeTab,
@@ -91,12 +102,16 @@ export function NodeDetail() {
   };
 
   const getInternalIP = () => {
-    const internal = node?.status.addresses.find((a) => a.type === "InternalIP");
+    const internal = node?.status.addresses.find(
+      (a) => a.type === "InternalIP"
+    );
     return internal?.address || "-";
   };
 
   const getExternalIP = () => {
-    const external = node?.status.addresses.find((a) => a.type === "ExternalIP");
+    const external = node?.status.addresses.find(
+      (a) => a.type === "ExternalIP"
+    );
     return external?.address || "-";
   };
 
@@ -110,15 +125,25 @@ export function NodeDetail() {
             <CardTitle>Node Information</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
-            <InfoRow label="Internal IP" value={<span className="font-mono">{getInternalIP()}</span>} />
-            <InfoRow label="External IP" value={<span className="font-mono">{getExternalIP()}</span>} />
+            <InfoRow
+              label="Internal IP"
+              value={<span className="font-mono">{getInternalIP()}</span>}
+            />
+            <InfoRow
+              label="External IP"
+              value={<span className="font-mono">{getExternalIP()}</span>}
+            />
             <InfoRow label="Kubernetes Version" value={node?.version} />
             <InfoRow label="Container Runtime" value={node?.containerRuntime} />
             <InfoRow label="OS" value={node?.os} />
             <InfoRow label="Architecture" value={node?.arch} />
             <InfoRow
               label="Created"
-              value={node?.createdAt ? new Date(node.createdAt).toLocaleString() : "-"}
+              value={
+                node?.createdAt
+                  ? new Date(node.createdAt).toLocaleString()
+                  : "-"
+              }
             />
           </CardContent>
         </Card>
@@ -212,7 +237,9 @@ export function NodeDetail() {
         <MetricCard
           title="Memory Usage"
           used={nodeWithMetrics?.memoryBytes ?? null}
-          limit={node?.capacity.memory ? parseMemory(node.capacity.memory) : null}
+          limit={
+            node?.capacity.memory ? parseMemory(node.capacity.memory) : null
+          }
           type="memory"
           icon={<MemoryStick className="h-4 w-4" />}
           showProgressBar={true}

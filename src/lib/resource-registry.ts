@@ -17,27 +17,176 @@ import {
 } from "lucide-react";
 
 export type ResourceScope = "namespaced" | "cluster";
-export type ResourceCategory = "workloads" | "network" | "storage" | "configuration" | null;
+export type ResourceCategory =
+  | "workloads"
+  | "network"
+  | "storage"
+  | "configuration"
+  | null;
 
 export const RESOURCE_REGISTRY = [
-  { kind: "Pod", plural: "pods", displayPlural: "Pods", icon: Box, apiVersion: "v1", scope: "namespaced", category: "workloads" },
-  { kind: "Deployment", plural: "deployments", displayPlural: "Deployments", icon: Layers, apiVersion: "apps/v1", scope: "namespaced", category: "workloads" },
-  { kind: "StatefulSet", plural: "statefulsets", displayPlural: "StatefulSets", icon: Database, apiVersion: "apps/v1", scope: "namespaced", category: "workloads" },
-  { kind: "DaemonSet", plural: "daemonsets", displayPlural: "DaemonSets", icon: Server, apiVersion: "apps/v1", scope: "namespaced", category: "workloads" },
-  { kind: "Job", plural: "jobs", displayPlural: "Jobs", icon: Briefcase, apiVersion: "batch/v1", scope: "namespaced", category: "workloads" },
-  { kind: "CronJob", plural: "cronjobs", displayPlural: "CronJobs", icon: CalendarClock, apiVersion: "batch/v1", scope: "namespaced", category: "workloads" },
-  { kind: "ConfigMap", plural: "configmaps", displayPlural: "ConfigMaps", icon: FileText, apiVersion: "v1", scope: "namespaced", category: "configuration" },
-  { kind: "Secret", plural: "secrets", displayPlural: "Secrets", icon: KeyRound, apiVersion: "v1", scope: "namespaced", category: "configuration" },
-  { kind: "Service", plural: "services", displayPlural: "Services", icon: Network, apiVersion: "v1", scope: "namespaced", category: "network" },
-  { kind: "Ingress", plural: "ingresses", displayPlural: "Ingresses", icon: Globe, apiVersion: "networking.k8s.io/v1", scope: "namespaced", category: "network" },
-  { kind: "PersistentVolumeClaim", plural: "persistentvolumeclaims", displayPlural: "PVCs", icon: HardDrive, apiVersion: "v1", scope: "namespaced", category: "storage" },
-  { kind: "PersistentVolume", plural: "persistentvolumes", displayPlural: "Persistent Volumes", icon: HardDrive, apiVersion: "v1", scope: "cluster", category: "storage" },
-  { kind: "StorageClass", plural: "storageclasses", displayPlural: "Storage Classes", icon: Database, apiVersion: "storage.k8s.io/v1", scope: "cluster", category: "storage" },
-  { kind: "Endpoints", plural: "endpoints", displayPlural: "Endpoints", icon: Network, apiVersion: "v1", scope: "namespaced", category: "network" },
-  { kind: "Node", plural: "nodes", displayPlural: "Nodes", icon: Server, apiVersion: "v1", scope: "cluster", category: null },
-  { kind: "Event", plural: "events", displayPlural: "Events", icon: Activity, apiVersion: "v1", scope: "namespaced", category: null },
-  { kind: "Namespace", plural: "namespaces", displayPlural: "Namespaces", icon: FolderOpen, apiVersion: "v1", scope: "cluster", category: null },
-  { kind: "CustomResourceDefinition", plural: "customresourcedefinitions", displayPlural: "CRDs", icon: Puzzle, apiVersion: "apiextensions.k8s.io/v1", scope: "cluster", category: null },
+  {
+    kind: "Pod",
+    plural: "pods",
+    displayPlural: "Pods",
+    icon: Box,
+    apiVersion: "v1",
+    scope: "namespaced",
+    category: "workloads",
+  },
+  {
+    kind: "Deployment",
+    plural: "deployments",
+    displayPlural: "Deployments",
+    icon: Layers,
+    apiVersion: "apps/v1",
+    scope: "namespaced",
+    category: "workloads",
+  },
+  {
+    kind: "StatefulSet",
+    plural: "statefulsets",
+    displayPlural: "StatefulSets",
+    icon: Database,
+    apiVersion: "apps/v1",
+    scope: "namespaced",
+    category: "workloads",
+  },
+  {
+    kind: "DaemonSet",
+    plural: "daemonsets",
+    displayPlural: "DaemonSets",
+    icon: Server,
+    apiVersion: "apps/v1",
+    scope: "namespaced",
+    category: "workloads",
+  },
+  {
+    kind: "Job",
+    plural: "jobs",
+    displayPlural: "Jobs",
+    icon: Briefcase,
+    apiVersion: "batch/v1",
+    scope: "namespaced",
+    category: "workloads",
+  },
+  {
+    kind: "CronJob",
+    plural: "cronjobs",
+    displayPlural: "CronJobs",
+    icon: CalendarClock,
+    apiVersion: "batch/v1",
+    scope: "namespaced",
+    category: "workloads",
+  },
+  {
+    kind: "ConfigMap",
+    plural: "configmaps",
+    displayPlural: "ConfigMaps",
+    icon: FileText,
+    apiVersion: "v1",
+    scope: "namespaced",
+    category: "configuration",
+  },
+  {
+    kind: "Secret",
+    plural: "secrets",
+    displayPlural: "Secrets",
+    icon: KeyRound,
+    apiVersion: "v1",
+    scope: "namespaced",
+    category: "configuration",
+  },
+  {
+    kind: "Service",
+    plural: "services",
+    displayPlural: "Services",
+    icon: Network,
+    apiVersion: "v1",
+    scope: "namespaced",
+    category: "network",
+  },
+  {
+    kind: "Ingress",
+    plural: "ingresses",
+    displayPlural: "Ingresses",
+    icon: Globe,
+    apiVersion: "networking.k8s.io/v1",
+    scope: "namespaced",
+    category: "network",
+  },
+  {
+    kind: "PersistentVolumeClaim",
+    plural: "persistentvolumeclaims",
+    displayPlural: "PVCs",
+    icon: HardDrive,
+    apiVersion: "v1",
+    scope: "namespaced",
+    category: "storage",
+  },
+  {
+    kind: "PersistentVolume",
+    plural: "persistentvolumes",
+    displayPlural: "Persistent Volumes",
+    icon: HardDrive,
+    apiVersion: "v1",
+    scope: "cluster",
+    category: "storage",
+  },
+  {
+    kind: "StorageClass",
+    plural: "storageclasses",
+    displayPlural: "Storage Classes",
+    icon: Database,
+    apiVersion: "storage.k8s.io/v1",
+    scope: "cluster",
+    category: "storage",
+  },
+  {
+    kind: "Endpoints",
+    plural: "endpoints",
+    displayPlural: "Endpoints",
+    icon: Network,
+    apiVersion: "v1",
+    scope: "namespaced",
+    category: "network",
+  },
+  {
+    kind: "Node",
+    plural: "nodes",
+    displayPlural: "Nodes",
+    icon: Server,
+    apiVersion: "v1",
+    scope: "cluster",
+    category: null,
+  },
+  {
+    kind: "Event",
+    plural: "events",
+    displayPlural: "Events",
+    icon: Activity,
+    apiVersion: "v1",
+    scope: "namespaced",
+    category: null,
+  },
+  {
+    kind: "Namespace",
+    plural: "namespaces",
+    displayPlural: "Namespaces",
+    icon: FolderOpen,
+    apiVersion: "v1",
+    scope: "cluster",
+    category: null,
+  },
+  {
+    kind: "CustomResourceDefinition",
+    plural: "customresourcedefinitions",
+    displayPlural: "CRDs",
+    icon: Puzzle,
+    apiVersion: "apiextensions.k8s.io/v1",
+    scope: "cluster",
+    category: null,
+  },
 ] as const;
 
 export type ResourceKind = (typeof RESOURCE_REGISTRY)[number]["kind"];
@@ -55,7 +204,9 @@ const RESOURCE_BY_PLURAL = new Map<string, ResourceDefinition>(
 );
 
 export function toPlural(resourceKind: ResourceKind): string {
-  return RESOURCE_BY_KIND.get(resourceKind)?.plural ?? resourceKind.toLowerCase();
+  return (
+    RESOURCE_BY_KIND.get(resourceKind)?.plural ?? resourceKind.toLowerCase()
+  );
 }
 
 export function toKind(resourceType: string): ResourceKind | null {
@@ -73,9 +224,7 @@ export function isResourceType(value: string): value is ResourceKind {
   );
 }
 
-export function getResourceDefinition(
-  kind: ResourceKind
-): ResourceDefinition {
+export function getResourceDefinition(kind: ResourceKind): ResourceDefinition {
   return RESOURCE_BY_KIND.get(kind)!;
 }
 

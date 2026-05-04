@@ -46,7 +46,12 @@ export interface RegistryImportEntry {
 }
 
 export const DEFAULT_REGISTRIES: RegistryConfig[] = [
-  { id: "docker-hub", label: "Docker Hub", provider: "docker-hub", authType: "none" },
+  {
+    id: "docker-hub",
+    label: "Docker Hub",
+    provider: "docker-hub",
+    authType: "none",
+  },
 ];
 
 const ensureRegistryUrl = (input: string) => {
@@ -67,7 +72,10 @@ interface RegistryState {
   setSelectedRegistryId: (id: string) => void;
   refreshRegistries: () => Promise<void>;
   addRegistry: (config: Omit<RegistryConfig, "id">) => Promise<RegistryConfig>;
-  updateRegistry: (id: string, updates: Partial<RegistryConfig>) => Promise<void>;
+  updateRegistry: (
+    id: string,
+    updates: Partial<RegistryConfig>
+  ) => Promise<void>;
   removeRegistry: (id: string) => Promise<void>;
   ensureRegistryUrl: (input: string) => string;
 }
@@ -164,9 +172,7 @@ export const useRegistryStore = create<RegistryState>((set, get) => ({
       token: updated.token ?? null,
     });
 
-    const registries = get().registries.map((r) =>
-      r.id === id ? updated : r
-    );
+    const registries = get().registries.map((r) => (r.id === id ? updated : r));
     set({ registries });
   },
 
@@ -180,7 +186,7 @@ export const useRegistryStore = create<RegistryState>((set, get) => ({
     const registries = get().registries.filter((r) => r.id !== id);
     const selectedRegistryId =
       get().selectedRegistryId === id
-        ? registries[0]?.id ?? "docker-hub"
+        ? (registries[0]?.id ?? "docker-hub")
         : get().selectedRegistryId;
     set({ registries, selectedRegistryId });
   },

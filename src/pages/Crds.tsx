@@ -43,16 +43,13 @@ export function Crds() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [deleteTarget, setDeleteTarget] = useState<CrdListItem | null>(null);
 
-  const {
-    data: crdGroups = [],
-    isLoading,
-  } = useQuery({
+  const { data: crdGroups = [], isLoading } = useQuery({
     queryKey: ["crds", "grouped"],
     queryFn: async () => {
       try {
         return await commands.listCrds(true);
       } catch (err) {
-        throw new Error(normalizeTauriError(err));
+        throw new Error(normalizeTauriError(err), { cause: err });
       }
     },
     enabled: isConnected,
@@ -65,7 +62,7 @@ export function Crds() {
       try {
         await commands.deleteCrd(item.name);
       } catch (err) {
-        throw new Error(normalizeTauriError(err));
+        throw new Error(normalizeTauriError(err), { cause: err });
       }
     },
     onSuccess: (_, item) => {
@@ -130,7 +127,9 @@ export function Crds() {
         header: "Scope",
         cell: ({ row }) => (
           <Badge
-            variant={row.original.scope === "Namespaced" ? "default" : "secondary"}
+            variant={
+              row.original.scope === "Namespaced" ? "default" : "secondary"
+            }
           >
             {row.original.scope}
           </Badge>
@@ -168,13 +167,17 @@ export function Crds() {
         cell: ({ row }) => (
           <ActionMenu>
             <DropdownMenuItem asChild>
-              <Link to={`/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(row.original.name)}`}>
+              <Link
+                to={`/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(row.original.name)}`}
+              >
                 <Eye className="mr-2 h-4 w-4" />
                 View Details
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link to={`/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(row.original.name)}/instances`}>
+              <Link
+                to={`/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(row.original.name)}/instances`}
+              >
                 <List className="mr-2 h-4 w-4" />
                 View Instances
               </Link>
@@ -243,9 +246,7 @@ export function Crds() {
                     <ChevronRight className="h-4 w-4" />
                   )}
                   <Puzzle className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">
-                    {group.group || "core"}
-                  </span>
+                  <span className="font-medium">{group.group || "core"}</span>
                 </div>
                 <Badge variant="secondary">{group.crds.length} CRDs</Badge>
               </button>
@@ -260,7 +261,9 @@ export function Crds() {
                     searchPlaceholder="Search CRDs..."
                     searchKey="kind"
                     getRowId={getCrdRowId}
-                    getRowHref={(row) => `/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(row.name)}`}
+                    getRowHref={(row) =>
+                      `/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(row.name)}`
+                    }
                   />
                 </div>
               )}

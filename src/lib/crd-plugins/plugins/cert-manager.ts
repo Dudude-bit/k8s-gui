@@ -11,7 +11,11 @@
  */
 
 import { Shield } from "lucide-react";
-import type { CrdPlugin, CrdPluginColumn, CrdPluginStatusConfig } from "../types";
+import type {
+  CrdPlugin,
+  CrdPluginColumn,
+  CrdPluginStatusConfig,
+} from "../types";
 import { matchByGroup, getValueByPath, daysUntil } from "../utils";
 
 /**
@@ -92,7 +96,9 @@ const certificateColumns: CrdPluginColumn[] = [
     id: "dnsNames",
     header: "DNS Names",
     accessor: (resource) => {
-      const dnsNames = getValueByPath(resource, "spec.dnsNames") as string[] | undefined;
+      const dnsNames = getValueByPath(resource, "spec.dnsNames") as
+        | string[]
+        | undefined;
       return dnsNames?.length ?? 0;
     },
     cell: (value) => (typeof value === "number" ? `${value} names` : "-"),
@@ -142,7 +148,9 @@ const issuerColumns: CrdPluginColumn[] = [
     id: "type",
     header: "Type",
     accessor: (resource) => {
-      const spec = getValueByPath(resource, "spec") as Record<string, unknown> | undefined;
+      const spec = getValueByPath(resource, "spec") as
+        | Record<string, unknown>
+        | undefined;
       if (!spec) return "Unknown";
 
       // Detect issuer type based on spec fields
@@ -161,13 +169,17 @@ const issuerColumns: CrdPluginColumn[] = [
     id: "server",
     header: "Server/Details",
     accessor: (resource) => {
-      const spec = getValueByPath(resource, "spec") as Record<string, unknown> | undefined;
+      const spec = getValueByPath(resource, "spec") as
+        | Record<string, unknown>
+        | undefined;
       if (!spec) return null;
 
       if (spec.acme) {
         const acme = spec.acme as { server?: string };
         if (acme.server?.includes("letsencrypt.org")) {
-          return acme.server.includes("staging") ? "Let's Encrypt (Staging)" : "Let's Encrypt";
+          return acme.server.includes("staging")
+            ? "Let's Encrypt (Staging)"
+            : "Let's Encrypt";
         }
         return acme.server ?? null;
       }
@@ -271,7 +283,9 @@ export const certManagerPlugin: CrdPlugin = {
       | undefined;
 
     const readyCondition = conditions?.find((c) => c.type === "Ready");
-    const notAfter = getValueByPath(item, "status.notAfter") as string | undefined;
+    const notAfter = getValueByPath(item, "status.notAfter") as
+      | string
+      | undefined;
 
     return {
       ...item,

@@ -9,28 +9,37 @@ import { ResourceKind, toPlural } from "./resource-registry";
 
 export const queryKeys = {
   // Resource lists
-  resources: (type: ResourceKind, namespace?: string | null): string[] =>
-    [toPlural(type), namespace ?? "all"],
+  resources: (type: ResourceKind, namespace?: string | null): string[] => [
+    toPlural(type),
+    namespace ?? "all",
+  ],
 
   // Resource detail
-  resourceDetail: (type: ResourceKind, namespace: string, name: string): string[] =>
-    [toPlural(type), namespace, name],
+  resourceDetail: (
+    type: ResourceKind,
+    namespace: string,
+    name: string
+  ): string[] => [toPlural(type), namespace, name],
 
   // Metrics
   metrics: {
-    pods: (namespace?: string | null): string[] =>
-      ["metrics", "pods", namespace ?? "all"],
+    pods: (namespace?: string | null): string[] => [
+      "metrics",
+      "pods",
+      namespace ?? "all",
+    ],
     nodes: (): string[] => ["metrics", "nodes"],
     cluster: (): string[] => ["metrics", "cluster"],
   },
 
   // Events
-  events: (namespace?: string | null): string[] =>
-    ["events", namespace ?? "all"],
+  events: (namespace?: string | null): string[] => [
+    "events",
+    namespace ?? "all",
+  ],
 
   // Pods (special case - used by multiple components)
-  pods: (namespace?: string | null): string[] =>
-    ["pods", namespace ?? "all"],
+  pods: (namespace?: string | null): string[] => ["pods", namespace ?? "all"],
 
   // Namespaces
   namespaces: (): string[] => ["namespaces"],
@@ -40,10 +49,17 @@ export const queryKeys = {
 
   // Helm
   helm: {
-    releases: (namespace?: string | null): string[] =>
-      ["helm", "releases", namespace ?? "all"],
-    release: (namespace: string, name: string): string[] =>
-      ["helm", "releases", namespace, name],
+    releases: (namespace?: string | null): string[] => [
+      "helm",
+      "releases",
+      namespace ?? "all",
+    ],
+    release: (namespace: string, name: string): string[] => [
+      "helm",
+      "releases",
+      namespace,
+      name,
+    ],
   },
 
   // CRDs
@@ -54,5 +70,11 @@ export const queryKeys = {
     version: string,
     plural: string,
     namespace?: string | null
-  ): string[] => ["customResources", group, version, plural, namespace ?? "all"],
+  ): string[] => [
+    "customResources",
+    group,
+    version,
+    plural,
+    namespace ?? "all",
+  ],
 };

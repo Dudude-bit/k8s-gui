@@ -1072,12 +1072,7 @@ export interface ResourceFilters {
   limit: number | null;
 }
 
-export type LogFormat =
-  | "plain"
-  | "json"
-  | "logfmt"
-  | "klog"
-  | "logback";
+export type LogFormat = "plain" | "json" | "logfmt" | "klog" | "logback";
 
 export type LogLevel =
   | "debug"
@@ -1094,20 +1089,17 @@ export type EnvVarSourceType =
   | "resourceFieldRef";
 
 export type DebugStatus =
-  | { type: "pending", reason: string }
-  | { type: "ready", result: DebugResult }
-  | { type: "failed", error: string }
+  | { type: "pending"; reason: string }
+  | { type: "ready"; result: DebugResult }
+  | { type: "failed"; error: string }
   | { type: "timeout" };
 
-export type DebugOperationType =
-  | "ephemeral"
-  | "copyPod"
-  | "nodeDebug";
+export type DebugOperationType = "ephemeral" | "copyPod" | "nodeDebug";
 
 export type ContainerState =
   | { type: "running" }
-  | { type: "waiting", reason: string | null }
-  | { type: "terminated", exit_code: number; reason: string | null }
+  | { type: "waiting"; reason: string | null }
+  | { type: "terminated"; exit_code: number; reason: string | null }
   | { type: "unknown" };
 
 export type MetricsStatusKind =
@@ -1115,4 +1107,3 @@ export type MetricsStatusKind =
   | "notInstalled"
   | "forbidden"
   | "error";
-

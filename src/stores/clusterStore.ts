@@ -65,7 +65,10 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
       // Restore saved cluster preferences and auto-connect
       try {
         const prefs = await commands.getClusterPreferences();
-        if (prefs.lastContext && contexts.some((c) => c.name === prefs.lastContext)) {
+        if (
+          prefs.lastContext &&
+          contexts.some((c) => c.name === prefs.lastContext)
+        ) {
           // Restore saved namespace if available
           const savedNamespace = prefs.namespaces[prefs.lastContext];
           if (savedNamespace) {
@@ -161,9 +164,11 @@ export const useClusterStore = create<ClusterState>((set, get) => ({
         pendingContext: null,
       });
       // Save selected cluster on successful connection
-      commands.saveClusterPreferences(connectedContext, null, null).catch(() => {
-        // Ignore errors saving preferences - not critical
-      });
+      commands
+        .saveClusterPreferences(connectedContext, null, null)
+        .catch(() => {
+          // Ignore errors saving preferences - not critical
+        });
     } catch (error) {
       if (get().connectionAttemptId !== attemptId) {
         return;

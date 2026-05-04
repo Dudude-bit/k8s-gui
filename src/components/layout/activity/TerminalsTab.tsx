@@ -1,12 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Terminal,
-  Circle,
-  ExternalLink,
-  AlertCircle,
-} from "lucide-react";
+import { Terminal, Circle, ExternalLink, AlertCircle } from "lucide-react";
 import { useTerminalSessionStore } from "@/stores/terminalSessionStore";
 import { useClusterStore } from "@/stores/clusterStore";
 import { cn } from "@/lib/utils";
@@ -46,9 +41,7 @@ export function TerminalsTab({ onClose }: TerminalsTabProps) {
       <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
         <Terminal className="h-8 w-8 mb-2 opacity-50" />
         <p>No active terminal sessions</p>
-        <p className="text-xs mt-1">
-          Open a terminal from any Pod detail page
-        </p>
+        <p className="text-xs mt-1">Open a terminal from any Pod detail page</p>
       </div>
     );
   }
@@ -88,10 +81,10 @@ export function TerminalsTab({ onClose }: TerminalsTabProps) {
                         isConnected
                           ? "fill-green-500 text-green-500"
                           : isError
-                          ? "fill-destructive text-destructive"
-                          : isConnecting
-                          ? "fill-yellow-500 text-yellow-500"
-                          : "fill-muted text-muted"
+                            ? "fill-destructive text-destructive"
+                            : isConnecting
+                              ? "fill-yellow-500 text-yellow-500"
+                              : "fill-muted text-muted"
                       )}
                     />
                   </div>
