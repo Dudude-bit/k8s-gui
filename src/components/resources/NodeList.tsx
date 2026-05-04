@@ -53,6 +53,7 @@ export function NodeList() {
     subscribe: subscribeNodes,
     queryKey,
     onError: handleWatchError,
+    onRecovered: useCallback(() => setWatchFailed(false), []),
   });
 
   const { nodeMetrics, nodeStatus } = useMetrics({

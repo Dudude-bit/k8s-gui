@@ -177,6 +177,7 @@ export function IngressList() {
     subscribe,
     queryKey,
     onError: handleWatchError,
+    onRecovered: useCallback(() => setWatchFailed(false), []),
   });
 
   const quickActions = useMemo<

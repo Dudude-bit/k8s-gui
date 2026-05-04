@@ -166,6 +166,7 @@ export function createResourceListPage<T extends ListableResource>(
       subscribe,
       queryKey,
       onError: handleWatchError,
+      onRecovered: useCallback(() => setWatchFailed(false), []),
     });
 
     const deleter = config.deleter;

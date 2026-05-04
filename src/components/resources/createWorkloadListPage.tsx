@@ -134,6 +134,7 @@ export function createWorkloadListPage<T extends Workload>(
       subscribe,
       queryKey,
       onError: handleWatchError,
+      onRecovered: useCallback(() => setWatchFailed(false), []),
     });
 
     const dataWithMetrics = useMemo(

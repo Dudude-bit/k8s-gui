@@ -319,6 +319,74 @@ describe("useResourceWatch", () => {
     ]);
   });
 
+  it("calls onRecovered exactly once when a non-failed event follows a failed one", async () => {
+    const client = new QueryClient();
+    client.setQueryData<Item[]>(["configmaps", "default"], []);
+    const onError = vi.fn();
+    const onRecovered = vi.fn();
+
+    renderHook(
+      () =>
+        useResourceWatch<Item>({
+          enabled: true,
+          subscribe: subscribeMock,
+          queryKey: ["configmaps", "default"],
+          onError,
+          onRecovered,
+        }),
+      { wrapper: makeWrapper(client) }
+    );
+
+    await waitFor(() => {
+      expect(subscribedCalls).toHaveLength(1);
+    });
+
+    // Watch fails, then recovers, then keeps receiving applied events.
+    emitFailed("stream-cm-1", "transient");
+    emit("stream-cm-1", "applied", { name: "x", namespace: "default" });
+    emit("stream-cm-1", "applied", { name: "y", namespace: "default" });
+
+    await waitFor(() => {
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onRecovered).toHaveBeenCalledTimes(1);
+    });
+
+    // Cache reflects both applied events.
+    expect(
+      client.getQueryData<Item[]>(["configmaps", "default"])!.map((i) => i.name)
+    ).toEqual(["x", "y"]);
+  });
+
+  it("calls onRecovered again on a second failure→recovery cycle", async () => {
+    const client = new QueryClient();
+    const onRecovered = vi.fn();
+
+    renderHook(
+      () =>
+        useResourceWatch<Item>({
+          enabled: true,
+          subscribe: subscribeMock,
+          queryKey: ["configmaps", "default"],
+          onError: vi.fn(),
+          onRecovered,
+        }),
+      { wrapper: makeWrapper(client) }
+    );
+
+    await waitFor(() => {
+      expect(subscribedCalls).toHaveLength(1);
+    });
+
+    emitFailed("stream-cm-1", "first");
+    emit("stream-cm-1", "applied", { name: "a" });
+    emitFailed("stream-cm-1", "second");
+    emit("stream-cm-1", "applied", { name: "b" });
+
+    await waitFor(() => {
+      expect(onRecovered).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it("calls unsubscribeResourceWatch on unmount", async () => {
     const client = new QueryClient();
     const { unmount } = renderHook(

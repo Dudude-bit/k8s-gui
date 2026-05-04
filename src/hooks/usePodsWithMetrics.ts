@@ -89,6 +89,7 @@ export function usePodsWithMetrics(options?: UsePodsWithMetricsOptions) {
     subscribe: subscribePods,
     queryKey,
     onError: handleWatchError,
+    onRecovered: useCallback(() => setWatchFailed(false), []),
   });
 
   const {

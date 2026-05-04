@@ -37,6 +37,13 @@ interface UseResourceWatchOptions {
    * (show a toast, fall back to polling, etc.).
    */
   onError?: (error: string) => void;
+  /**
+   * Called once when a non-failed event arrives after a failed one —
+   * the watcher recovered. Consumers use this to flip their
+   * watchFailed state back to false, which stops the polling
+   * fallback and reverts to pure-watch updates.
+   */
+  onRecovered?: () => void;
 }
 
 /**
@@ -52,14 +59,22 @@ interface UseResourceWatchOptions {
  */
 export function useResourceWatch<
   T extends { name: string; namespace?: string | null },
->({ enabled, subscribe, queryKey, onError }: UseResourceWatchOptions) {
+>({
+  enabled,
+  subscribe,
+  queryKey,
+  onError,
+  onRecovered,
+}: UseResourceWatchOptions) {
   const queryClient = useQueryClient();
-  // Latest onError captured via ref so flipping a useState in the
-  // callback doesn't tear down the subscription.
+  // Latest callbacks captured via refs so flipping a useState in
+  // either callback doesn't tear down the subscription.
   const onErrorRef = useRef(onError);
+  const onRecoveredRef = useRef(onRecovered);
   useEffect(() => {
     onErrorRef.current = onError;
-  }, [onError]);
+    onRecoveredRef.current = onRecovered;
+  }, [onError, onRecovered]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -67,6 +82,11 @@ export function useResourceWatch<
     let active = true;
     let streamId: string | null = null;
     let unlisten: (() => void) | null = null;
+    // Tracks whether the most recent stream state was a failure so a
+    // following non-failed event can fire `onRecovered` exactly once
+    // per failure→recovery transition (instead of on every successful
+    // event).
+    let inFailedState = false;
 
     const teardown = async () => {
       active = false;
@@ -100,8 +120,13 @@ export function useResourceWatch<
             const payload = event.payload;
             if (payload.stream_id !== id) return;
             if (payload.op === "failed") {
+              inFailedState = true;
               onErrorRef.current?.(payload.error ?? "Resource watch failed");
               return;
+            }
+            if (inFailedState) {
+              inFailedState = false;
+              onRecoveredRef.current?.();
             }
             applyEvent<T>(queryClient, queryKey, payload);
           }
