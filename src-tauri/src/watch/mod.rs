@@ -21,6 +21,8 @@ use crate::utils::generate_id;
 use dashmap::DashMap;
 use futures::StreamExt;
 use k8s_openapi::{ClusterResourceScope, NamespaceResourceScope};
+use kube::core::DynamicObject;
+use kube::discovery::ApiResource;
 use kube::runtime::watcher::{watcher, Config as WatcherConfig, Event};
 use kube::{Api, Client};
 use serde::Serialize;
@@ -147,6 +149,30 @@ impl WatchManager {
         self.spawn_watcher(api, kind_label, namespace, transform)
     }
 
+    /// Subscribe to changes on a runtime-discovered custom resource.
+    /// Used for CRDs where the type isn't known at compile time —
+    /// caller passes the resolved `ApiResource` (group/version/kind/
+    /// plural) and a transform that converts each `DynamicObject` to
+    /// the shape the frontend cache holds (`CustomResourceInfo`).
+    pub fn subscribe_custom_resource<F, U>(
+        &self,
+        client: Client,
+        api_resource: ApiResource,
+        kind_label: &str,
+        namespace: Option<String>,
+        transform: F,
+    ) -> String
+    where
+        F: Fn(&DynamicObject) -> Option<U> + Send + Sync + 'static,
+        U: Serialize,
+    {
+        let api: Api<DynamicObject> = match &namespace {
+            Some(ns) => Api::namespaced_with(client, ns, &api_resource),
+            None => Api::all_with(client, &api_resource),
+        };
+        self.spawn_watcher(api, kind_label, namespace, transform)
+    }
+
     /// Cluster-scoped sibling of `subscribe`. For resources like
     /// Node, Namespace, PersistentVolume, StorageClass that don't
     /// belong to any single namespace.
@@ -182,7 +208,7 @@ impl WatchManager {
         transform: F,
     ) -> String
     where
-        K: kube::Resource<DynamicType = ()>
+        K: kube::Resource
             + Clone
             + std::fmt::Debug
             + serde::de::DeserializeOwned

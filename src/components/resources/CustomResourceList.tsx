@@ -15,11 +15,15 @@ import { ResourceList } from "@/components/resources/ResourceList";
 import type { CustomResourceInfo, PrinterColumn } from "@/generated/types";
 import { REFRESH_INTERVALS, STALE_TIMES } from "@/lib/refresh";
 import { getResourceRowId } from "@/lib/table-utils";
+import { useResourceWatch } from "@/hooks/useResourceWatch";
+import { useToast } from "@/components/ui/use-toast";
+import { useState } from "react";
 
 interface CustomResourceListProps {
   crdName: string;
   crdKind: string;
   crdGroup: string; // API group (e.g., "cert-manager.io")
+  crdVersion: string; // Storage version (e.g., "v1") — used by the watch subscription
   crdPlural: string; // Plural name (e.g., "certificates")
   scope: "Namespaced" | "Cluster";
   printerColumns?: PrinterColumn[];
@@ -33,6 +37,7 @@ export function CustomResourceList({
   crdName,
   crdKind,
   crdGroup,
+  crdVersion,
   crdPlural,
   scope,
   printerColumns = [],
@@ -155,10 +160,51 @@ export function CustomResourceList({
     return cols;
   }, [crdKind, scope, printerColumns, plugin, getDetailPath]);
 
+  // Real-time updates via the resource-watch subsystem. Same pattern
+  // as the other migrated lists: watch events update the cache via
+  // setQueryData; if the watch fails (typically because the kubeconfig
+  // user lacks the `watch` verb on the CRD), the toast fires and
+  // refetchInterval falls back to its default 2s.
+  const queryKey = useMemo(
+    () => ["custom-resources", crdName, namespace ?? "all"] as const,
+    [crdName, namespace]
+  );
+  const subscribeCustomResource = useCallback(
+    () =>
+      commands.subscribeCustomResourceWatch(
+        crdGroup,
+        crdVersion,
+        crdKind,
+        crdPlural,
+        namespace || null
+      ),
+    [crdGroup, crdVersion, crdKind, crdPlural, namespace]
+  );
+  const { toast } = useToast();
+  const [watchFailed, setWatchFailed] = useState(false);
+  const handleWatchError = useCallback(
+    (err: string) => {
+      if (watchFailed) return;
+      setWatchFailed(true);
+      toast({
+        title: "Real-time updates unavailable",
+        description: `${crdKind}: falling back to periodic refresh. ${err}`,
+      });
+    },
+    [toast, watchFailed, crdKind]
+  );
+  useResourceWatch<CustomResourceListItem>({
+    enabled: true,
+    subscribe: subscribeCustomResource,
+    queryKey: [...queryKey],
+    onError: handleWatchError,
+    onRecovered: useCallback(() => setWatchFailed(false), []),
+  });
+
   return (
     <ResourceList<CustomResourceListItem>
       title={(count) => `${crdKind} Instances (${count})`}
-      queryKey={["custom-resources", crdName, namespace ?? "all"]}
+      queryKey={[...queryKey]}
       getRowId={getResourceRowId}
       queryFn={async () => {
         const result = await commands.listCustomResources(
@@ -186,7 +232,7 @@ export function CustomResourceList({
         resourceType: crdKind,
       }}
       staleTime={STALE_TIMES.resourceList}
-      refetchInterval={REFRESH_INTERVALS.resourceList}
+      refetchInterval={watchFailed ? REFRESH_INTERVALS.resourceList : false}
       searchKey="name"
       searchPlaceholder={`Search ${crdKind}...`}
       embedded={embedded}

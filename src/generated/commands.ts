@@ -1243,6 +1243,22 @@ export async function subscribeStorageclassWatch(): Promise<string> {
   return invoke<string>("subscribe_storageclass_watch");
 }
 
+export async function subscribeCustomResourceWatch(
+  group: string,
+  version: string,
+  kind: string,
+  plural: string,
+  namespace: string | null
+): Promise<string> {
+  return invoke<string>("subscribe_custom_resource_watch", {
+    group,
+    version,
+    kind,
+    plural,
+    namespace,
+  });
+}
+
 export async function resourceWatchSubscribed(streamId: string): Promise<void> {
   return invoke<void>("resource_watch_subscribed", { streamId });
 }

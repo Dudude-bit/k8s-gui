@@ -276,6 +276,7 @@ fn main() {
             commands::watch::subscribe_node_watch,
             commands::watch::subscribe_persistentvolume_watch,
             commands::watch::subscribe_storageclass_watch,
+            commands::watch::subscribe_custom_resource_watch,
             commands::watch::resource_watch_subscribed,
             commands::watch::unsubscribe_resource_watch,
             // kubectl commands

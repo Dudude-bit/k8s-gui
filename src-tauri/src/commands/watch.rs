@@ -161,6 +161,47 @@ subscribe_cluster!(
     "StorageClass"
 );
 
+// ----- Custom resources (runtime-discovered CRDs) -----
+
+/// Subscribe to changes on a custom resource defined by a CRD.
+/// Caller passes the resolved group/version/kind/plural — the same
+/// quartet the existing `list_custom_resources` command uses.
+/// Each event payload is the same `CustomResourceInfo` shape that
+/// command returns, so the frontend hook plugs directly into the
+/// existing `["custom-resources", crdName, namespace]` query cache.
+#[tauri::command]
+pub fn subscribe_custom_resource_watch(
+    group: String,
+    version: String,
+    kind: String,
+    plural: String,
+    namespace: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<String> {
+    let client = current_client(&state)?;
+    let namespace = normalize_optional_namespace(namespace);
+
+    let api_resource = kube::discovery::ApiResource {
+        group: group.clone(),
+        version: version.clone(),
+        api_version: if group.is_empty() {
+            version.clone()
+        } else {
+            format!("{group}/{version}")
+        },
+        kind: kind.clone(),
+        plural,
+    };
+
+    Ok(state.watch_manager.subscribe_custom_resource(
+        client,
+        api_resource,
+        &kind,
+        namespace,
+        |obj| Some(crate::commands::crds::dynamic_object_to_custom_resource_info(obj)),
+    ))
+}
+
 // ----- Lifecycle -----
 
 /// Signal that the frontend has registered its `resource-event`

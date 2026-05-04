@@ -29,13 +29,14 @@ export function CrdDetail() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
 
-  const goBack = () => navigate(`/${toPlural(ResourceType.CustomResourceDefinition)}`);
+  const goBack = () =>
+    navigate(`/${toPlural(ResourceType.CustomResourceDefinition)}`);
 
   // Fetch CRD details
   const {
     data: crd,
     isLoading,
-        error,
+    error,
   } = useQuery({
     queryKey: ["crd", decodedName],
     queryFn: async () => {
@@ -43,7 +44,7 @@ export function CrdDetail() {
       try {
         return await commands.getCrd(decodedName);
       } catch (err) {
-        throw new Error(normalizeTauriError(err));
+        throw new Error(normalizeTauriError(err), { cause: err });
       }
     },
     enabled: !!decodedName,
@@ -57,7 +58,7 @@ export function CrdDetail() {
       try {
         return await commands.getCrdYaml(decodedName);
       } catch (err) {
-        throw new Error(normalizeTauriError(err));
+        throw new Error(normalizeTauriError(err), { cause: err });
       }
     },
     enabled: !!decodedName && activeTab === "yaml",
@@ -70,7 +71,7 @@ export function CrdDetail() {
       try {
         await commands.deleteCrd(decodedName);
       } catch (err) {
-        throw new Error(normalizeTauriError(err));
+        throw new Error(normalizeTauriError(err), { cause: err });
       }
     },
     onSuccess: () => {
@@ -129,7 +130,9 @@ export function CrdDetail() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Scope</p>
-                <Badge variant={crd.scope === "Namespaced" ? "default" : "secondary"}>
+                <Badge
+                  variant={crd.scope === "Namespaced" ? "default" : "secondary"}
+                >
                   {crd.scope}
                 </Badge>
               </div>
@@ -198,14 +201,20 @@ export function CrdDetail() {
                   <tbody>
                     {crd.versions.map((version) => (
                       <tr key={version.name} className="border-b last:border-0">
-                        <td className="py-2 px-3 font-medium">{version.name}</td>
+                        <td className="py-2 px-3 font-medium">
+                          {version.name}
+                        </td>
                         <td className="py-2 px-3">
-                          <Badge variant={version.served ? "default" : "secondary"}>
+                          <Badge
+                            variant={version.served ? "default" : "secondary"}
+                          >
                             {version.served ? "Yes" : "No"}
                           </Badge>
                         </td>
                         <td className="py-2 px-3">
-                          <Badge variant={version.storage ? "default" : "secondary"}>
+                          <Badge
+                            variant={version.storage ? "default" : "secondary"}
+                          >
                             {version.storage ? "Yes" : "No"}
                           </Badge>
                         </td>
@@ -218,9 +227,13 @@ export function CrdDetail() {
                         </td>
                         <td className="py-2 px-3">
                           {version.additionalPrinterColumns.length > 0 ? (
-                            <span>{version.additionalPrinterColumns.length} columns</span>
+                            <span>
+                              {version.additionalPrinterColumns.length} columns
+                            </span>
                           ) : (
-                            <span className="text-muted-foreground">Default</span>
+                            <span className="text-muted-foreground">
+                              Default
+                            </span>
                           )}
                         </td>
                       </tr>
@@ -305,6 +318,7 @@ export function CrdDetail() {
           crdName={crd.name}
           crdKind={crd.kind}
           crdGroup={crd.group}
+          crdVersion={storageVersion?.name ?? crd.versions[0]?.name ?? "v1"}
           crdPlural={crd.plural}
           scope={crd.scope as "Namespaced" | "Cluster"}
           printerColumns={storageVersion?.additionalPrinterColumns}
@@ -348,7 +362,9 @@ export function CrdDetail() {
         namespace={undefined}
         statusBadge={
           crd && (
-            <Badge variant={crd.scope === "Namespaced" ? "default" : "secondary"}>
+            <Badge
+              variant={crd.scope === "Namespaced" ? "default" : "secondary"}
+            >
               {crd.scope}
             </Badge>
           )
@@ -363,7 +379,9 @@ export function CrdDetail() {
         actions={
           <>
             <Button variant="outline" size="sm" asChild>
-              <Link to={`/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(decodedName || "")}/instances`}>
+              <Link
+                to={`/${toPlural(ResourceType.CustomResourceDefinition)}/${encodeURIComponent(decodedName || "")}/instances`}
+              >
                 <List className="h-4 w-4 mr-2" />
                 View Instances
               </Link>

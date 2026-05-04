@@ -294,7 +294,7 @@ impl From<&CustomResourceDefinition> for CrdDetailInfo {
     }
 }
 
-fn dynamic_object_to_custom_resource_info(obj: &DynamicObject) -> CustomResourceInfo {
+pub fn dynamic_object_to_custom_resource_info(obj: &DynamicObject) -> CustomResourceInfo {
     let owner_refs: Vec<OwnerReferenceInfo> = obj
         .metadata
         .owner_references
