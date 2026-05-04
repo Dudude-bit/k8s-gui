@@ -33,10 +33,20 @@ export interface BadgeProps
 const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
   ({ className, variant, ...props }, ref) => {
     return (
-      <div ref={ref} className={cn(badgeVariants({ variant }), className)} {...props} />
+      <div
+        ref={ref}
+        className={cn(badgeVariants({ variant }), className)}
+        {...props}
+      />
     );
   }
 );
 Badge.displayName = "Badge";
 
+// Co-locating `badgeVariants` with the Badge component breaks
+// fast-refresh in dev (each save remounts the whole module).
+// Splitting into badge-variants.ts would force every consumer to
+// take a second import for marginal HMR gain. Same trade-off
+// documented in quick-actions.tsx.
+// eslint-disable-next-line react-refresh/only-export-components
 export { Badge, badgeVariants };
