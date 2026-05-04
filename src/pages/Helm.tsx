@@ -1,102 +1,38 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
-import { useClusterStore } from "@/stores/clusterStore";
-import { useDependenciesStore } from "@/stores/dependenciesStore";
-import { DataTable } from "@/components/ui/data-table";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ConnectClusterEmptyState } from "@/components/ui/connect-cluster-empty-state";
+import { DangerousConfirmDialog } from "@/components/ui/dangerous-confirm-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/components/ui/use-toast";
 import {
   HelmStatusBanner,
   HelmInstallDialog,
   HelmUpgradeDialog,
   HelmAddRepoDialog,
+  HelmHistoryDialog,
+  HelmReleasesTab,
+  HelmChartsTab,
+  HelmRepositoriesTab,
 } from "@/components/helm";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { DangerousConfirmDialog } from "@/components/ui/dangerous-confirm-dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ColumnDef } from "@tanstack/react-table";
-import { useToast } from "@/components/ui/use-toast";
-import {
-  RefreshCw,
-  Trash2,
-  History,
-  FileCode,
-  RotateCcw,
-  Package,
-  Anchor,
-  PauseCircle,
-  PlayCircle,
-  ExternalLink,
-  Plus,
-  FolderGit2,
-  Search,
-  ArrowUpCircle,
-  Download,
-} from "lucide-react";
-import {
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ActionMenu } from "@/components/ui/action-menu";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Package, Search, FolderGit2 } from "lucide-react";
 import { commands } from "@/lib/commands";
 import type {
   HelmRelease,
-  HelmRevision,
   HelmChartSearchResult,
   HelmInstallOptions,
 } from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
-import { cn } from "@/lib/utils";
-
-// Generate stable row ID for Helm releases
-const getHelmReleaseRowId = (row: HelmRelease) =>
-  `${row.source}-${row.namespace}-${row.name}`;
-
-// Source icon component
-function SourceIcon({ source }: { source: string }) {
-  if (source === "flux") {
-    return (
-      <Tooltip>
-        <TooltipTrigger>
-          <Anchor className="h-4 w-4 text-purple-500" />
-        </TooltipTrigger>
-        <TooltipContent>Flux CD HelmRelease</TooltipContent>
-      </Tooltip>
-    );
-  }
-  return (
-    <Tooltip>
-      <TooltipTrigger>
-        <Package className="h-4 w-4 text-blue-500" />
-      </TooltipTrigger>
-      <TooltipContent>Native Helm Release</TooltipContent>
-    </Tooltip>
-  );
-}
+import { useClusterStore } from "@/stores/clusterStore";
+import { useDependenciesStore } from "@/stores/dependenciesStore";
 
 export function Helm() {
-  const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isConnected } = useClusterStore();
   const { helm, checkHelmAvailability } = useDependenciesStore();
 
-  // State for dialogs
   const [rollbackTarget, setRollbackTarget] = useState<{
     release: HelmRelease;
     revision: number;
@@ -108,20 +44,17 @@ export function Helm() {
   const [selectedNamespace, setSelectedNamespace] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<string>("releases");
 
-  // Repository dialog state
   const [addRepoDialogOpen, setAddRepoDialogOpen] = useState(false);
   const [newRepoName, setNewRepoName] = useState("");
   const [newRepoUrl, setNewRepoUrl] = useState("");
   const [deleteRepoTarget, setDeleteRepoTarget] = useState<string | null>(null);
 
-  // Chart search state
   const [searchKeyword, setSearchKeyword] = useState("");
   const [searchResults, setSearchResults] = useState<HelmChartSearchResult[]>(
     []
   );
   const [isSearching, setIsSearching] = useState(false);
 
-  // Install dialog state
   const [installChart, setInstallChart] =
     useState<HelmChartSearchResult | null>(null);
   const [installReleaseName, setInstallReleaseName] = useState("");
@@ -131,20 +64,17 @@ export function Helm() {
   const [installCreateNs, setInstallCreateNs] = useState(false);
   const [installWait, setInstallWait] = useState(true);
 
-  // Upgrade dialog state
   const [upgradeTarget, setUpgradeTarget] = useState<HelmRelease | null>(null);
   const [upgradeVersion, setUpgradeVersion] = useState("");
   const [upgradeValues, setUpgradeValues] = useState("");
   const [upgradeWait, setUpgradeWait] = useState(true);
 
-  // Check helm availability on mount
   useEffect(() => {
     if (isConnected && !helm) {
       checkHelmAvailability();
     }
   }, [isConnected, helm, checkHelmAvailability]);
 
-  // Fetch namespaces for filter
   const { data: namespaces = [] } = useQuery({
     queryKey: ["namespaces"],
     queryFn: async () => {
@@ -156,7 +86,6 @@ export function Helm() {
 
   const helmCliAvailable = helm?.available ?? false;
 
-  // Fetch native Helm releases
   const {
     data: releases = [],
     isLoading,
@@ -172,10 +101,9 @@ export function Helm() {
       }
     },
     enabled: isConnected,
-    refetchInterval: 30000, // Auto-refresh every 30 seconds
+    refetchInterval: 30000,
   });
 
-  // Fetch history for dialog
   const { data: historyData = [], isLoading: historyLoading } = useQuery({
     queryKey: ["helm-history", historyDialog?.name, historyDialog?.namespace],
     queryFn: async () => {
@@ -188,14 +116,12 @@ export function Helm() {
     enabled: !!historyDialog,
   });
 
-  // Fetch Helm repositories
   const { data: repositories = [], isLoading: reposLoading } = useQuery({
     queryKey: ["helm-repos"],
     queryFn: async () => {
       try {
         return await commands.listHelmRepos();
       } catch (err) {
-        // Return empty if helm not available
         console.error("Failed to list repos:", err);
         return [];
       }
@@ -203,7 +129,6 @@ export function Helm() {
     enabled: helmCliAvailable,
   });
 
-  // Rollback mutation
   const rollbackMutation = useMutation({
     mutationFn: async ({
       name,
@@ -213,9 +138,7 @@ export function Helm() {
       name: string;
       namespace: string;
       revision: number;
-    }) => {
-      return await commands.helmRollback(name, namespace, revision);
-    },
+    }) => commands.helmRollback(name, namespace, revision),
     onSuccess: () => {
       toast({
         title: "Rollback initiated",
@@ -234,7 +157,6 @@ export function Helm() {
     },
   });
 
-  // Uninstall mutation
   const uninstallMutation = useMutation({
     mutationFn: async ({
       name,
@@ -242,9 +164,7 @@ export function Helm() {
     }: {
       name: string;
       namespace: string;
-    }) => {
-      return await commands.helmUninstall(name, namespace);
-    },
+    }) => commands.helmUninstall(name, namespace),
     onSuccess: () => {
       toast({
         title: "Release uninstalled",
@@ -262,11 +182,9 @@ export function Helm() {
     },
   });
 
-  // Add repository mutation
   const addRepoMutation = useMutation({
-    mutationFn: async ({ name, url }: { name: string; url: string }) => {
-      return await commands.addHelmRepo(name, url);
-    },
+    mutationFn: async ({ name, url }: { name: string; url: string }) =>
+      commands.addHelmRepo(name, url),
     onSuccess: () => {
       toast({
         title: "Repository added",
@@ -286,11 +204,8 @@ export function Helm() {
     },
   });
 
-  // Remove repository mutation
   const removeRepoMutation = useMutation({
-    mutationFn: async (name: string) => {
-      return await commands.removeHelmRepo(name);
-    },
+    mutationFn: async (name: string) => commands.removeHelmRepo(name),
     onSuccess: () => {
       toast({
         title: "Repository removed",
@@ -308,11 +223,8 @@ export function Helm() {
     },
   });
 
-  // Update repositories mutation
   const updateReposMutation = useMutation({
-    mutationFn: async () => {
-      return await commands.updateHelmRepos();
-    },
+    mutationFn: async () => commands.updateHelmRepos(),
     onSuccess: () => {
       toast({
         title: "Repositories updated",
@@ -329,7 +241,6 @@ export function Helm() {
     },
   });
 
-  // Search charts handler
   const handleSearchCharts = async () => {
     if (!searchKeyword.trim()) return;
     setIsSearching(true);
@@ -347,11 +258,9 @@ export function Helm() {
     }
   };
 
-  // Install chart mutation
   const installMutation = useMutation({
-    mutationFn: async (options: HelmInstallOptions) => {
-      return await commands.helmInstall(options);
-    },
+    mutationFn: async (options: HelmInstallOptions) =>
+      commands.helmInstall(options),
     onSuccess: () => {
       toast({
         title: "Chart installed",
@@ -375,11 +284,9 @@ export function Helm() {
     },
   });
 
-  // Upgrade release mutation
   const upgradeMutation = useMutation({
-    mutationFn: async (options: HelmInstallOptions) => {
-      return await commands.helmUpgrade(options);
-    },
+    mutationFn: async (options: HelmInstallOptions) =>
+      commands.helmUpgrade(options),
     onSuccess: () => {
       toast({
         title: "Release upgraded",
@@ -399,206 +306,6 @@ export function Helm() {
       });
     },
   });
-
-  // Columns definition
-  const columns: ColumnDef<HelmRelease>[] = useMemo(
-    () => [
-      {
-        accessorKey: "source",
-        header: "Source",
-        cell: ({ row }) => <SourceIcon source={row.original.source} />,
-        size: 70,
-      },
-      {
-        accessorKey: "name",
-        header: "Name",
-        cell: ({ row }) => (
-          <button
-            className="font-medium text-primary hover:underline text-left"
-            onClick={() =>
-              navigate(
-                `/helm/${row.original.source}/${row.original.namespace}/${row.original.name}`
-              )
-            }
-          >
-            {row.original.name}
-          </button>
-        ),
-      },
-      {
-        accessorKey: "namespace",
-        header: "Namespace",
-      },
-      {
-        accessorKey: "revision",
-        header: "Rev",
-        size: 60,
-      },
-      {
-        accessorKey: "status",
-        header: "Status",
-        cell: ({ row }) => {
-          const status = row.original.status;
-          const suspended = row.original.suspended;
-          return (
-            <div className="flex items-center gap-1.5">
-              <StatusBadge status={suspended ? "suspended" : status} showDot />
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: "chart",
-        header: "Chart",
-        cell: ({ row }) => (
-          <span className="text-muted-foreground">{row.original.chart}</span>
-        ),
-      },
-      {
-        accessorKey: "appVersion",
-        header: "App Version",
-        cell: ({ row }) => row.original.appVersion || "-",
-      },
-      {
-        accessorKey: "updated",
-        header: "Updated",
-        cell: ({ row }) => {
-          if (!row.original.updated) return "-";
-          const date = new Date(row.original.updated);
-          if (isNaN(date.getTime())) return row.original.updated;
-          return date.toLocaleString();
-        },
-      },
-      {
-        id: "actions",
-        size: 50,
-        cell: ({ row }) => {
-          const release = row.original;
-          const isNative = release.source === "native";
-          const isFlux = release.source === "flux";
-
-          return (
-            <ActionMenu>
-              <DropdownMenuItem
-                onClick={() =>
-                  navigate(
-                    `/helm/${release.source}/${release.namespace}/${release.name}`
-                  )
-                }
-              >
-                <FileCode className="mr-2 h-4 w-4" />
-                View Details
-              </DropdownMenuItem>
-
-              <DropdownMenuItem onClick={() => setHistoryDialog(release)}>
-                <History className="mr-2 h-4 w-4" />
-                View History
-              </DropdownMenuItem>
-
-              <DropdownMenuSeparator />
-
-              {isNative && (
-                <>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <DropdownMenuItem
-                        disabled={!helmCliAvailable}
-                        onClick={() => {
-                          setUpgradeTarget(release);
-                          setUpgradeVersion("");
-                          setUpgradeValues("");
-                        }}
-                      >
-                        <ArrowUpCircle className="mr-2 h-4 w-4" />
-                        Upgrade
-                      </DropdownMenuItem>
-                    </TooltipTrigger>
-                    {!helmCliAvailable && (
-                      <TooltipContent>Helm CLI required</TooltipContent>
-                    )}
-                  </Tooltip>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <DropdownMenuItem
-                        disabled={!helmCliAvailable}
-                        onClick={() => {
-                          if (release.revision > 1) {
-                            setRollbackTarget({
-                              release,
-                              revision: release.revision - 1,
-                            });
-                          }
-                        }}
-                      >
-                        <RotateCcw className="mr-2 h-4 w-4" />
-                        Rollback
-                      </DropdownMenuItem>
-                    </TooltipTrigger>
-                    {!helmCliAvailable && (
-                      <TooltipContent>Helm CLI required</TooltipContent>
-                    )}
-                  </Tooltip>
-
-                  <DropdownMenuSeparator />
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <DropdownMenuItem
-                        disabled={!helmCliAvailable}
-                        className="text-destructive"
-                        onClick={() => setUninstallTarget(release)}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Uninstall
-                      </DropdownMenuItem>
-                    </TooltipTrigger>
-                    {!helmCliAvailable && (
-                      <TooltipContent>Helm CLI required</TooltipContent>
-                    )}
-                  </Tooltip>
-                </>
-              )}
-
-              {isFlux && (
-                <>
-                  <DropdownMenuItem disabled>
-                    {release.suspended ? (
-                      <>
-                        <PlayCircle className="mr-2 h-4 w-4" />
-                        Resume
-                      </>
-                    ) : (
-                      <>
-                        <PauseCircle className="mr-2 h-4 w-4" />
-                        Suspend
-                      </>
-                    )}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem disabled>
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Reconcile
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() =>
-                      navigate(
-                        `/crds/helm.toolkit.fluxcd.io/helmreleases/${release.namespace}/${release.name}`
-                      )
-                    }
-                  >
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    View CRD
-                  </DropdownMenuItem>
-                </>
-              )}
-            </ActionMenu>
-          );
-        },
-      },
-    ],
-    [navigate, helmCliAvailable]
-  );
 
   if (!isConnected) {
     return <ConnectClusterEmptyState resourceLabel="Helm releases" />;
@@ -628,223 +335,60 @@ export function Helm() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="releases" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Select
-                value={selectedNamespace}
-                onValueChange={setSelectedNamespace}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="All namespaces" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All namespaces</SelectItem>
-                  {namespaces.map((ns) => (
-                    <SelectItem key={ns} value={ns}>
-                      {ns}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => refetch()}
-              disabled={isLoading}
-            >
-              <RefreshCw
-                className={cn("h-4 w-4", isLoading && "animate-spin")}
-              />
-            </Button>
-          </div>
-
-          <DataTable
-            columns={columns}
-            data={releases}
+        <TabsContent value="releases">
+          <HelmReleasesTab
+            releases={releases}
             isLoading={isLoading}
-            searchPlaceholder="Search releases..."
-            searchKey="name"
-            getRowId={getHelmReleaseRowId}
-            getRowHref={(row) =>
-              `/helm/${row.source}/${row.namespace}/${row.name}`
-            }
+            helmCliAvailable={helmCliAvailable}
+            namespaces={namespaces}
+            selectedNamespace={selectedNamespace}
+            onNamespaceChange={setSelectedNamespace}
+            onRefetch={() => refetch()}
+            onShowHistory={setHistoryDialog}
+            onUpgrade={(release) => {
+              setUpgradeTarget(release);
+              setUpgradeVersion("");
+              setUpgradeValues("");
+            }}
+            onRollback={(release) => {
+              if (release.revision > 1) {
+                setRollbackTarget({
+                  release,
+                  revision: release.revision - 1,
+                });
+              }
+            }}
+            onUninstall={setUninstallTarget}
           />
         </TabsContent>
 
-        <TabsContent value="charts" className="space-y-4">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search charts (e.g., nginx, redis, postgresql)..."
-                value={searchKeyword}
-                onChange={(e) => setSearchKeyword(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearchCharts()}
-                className="pl-9"
-              />
-            </div>
-            <Button
-              onClick={handleSearchCharts}
-              disabled={isSearching || !searchKeyword.trim()}
-            >
-              {isSearching ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
-              ) : (
-                "Search"
-              )}
-            </Button>
-          </div>
-
-          {searchResults.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Search for Helm charts</p>
-              <p className="text-sm">
-                Add repositories first, then search for available charts
-              </p>
-            </div>
-          ) : (
-            <div className="border rounded-lg">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    <th className="text-left p-3 font-medium">Chart</th>
-                    <th className="text-left p-3 font-medium">Version</th>
-                    <th className="text-left p-3 font-medium">App Version</th>
-                    <th className="text-left p-3 font-medium">Description</th>
-                    <th className="text-right p-3 font-medium w-[100px]">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {searchResults.map((chart) => (
-                    <tr
-                      key={`${chart.name}-${chart.version}`}
-                      className="border-b last:border-0"
-                    >
-                      <td className="p-3 font-medium">{chart.name}</td>
-                      <td className="p-3 text-muted-foreground">
-                        {chart.version}
-                      </td>
-                      <td className="p-3 text-muted-foreground">
-                        {chart.appVersion || "-"}
-                      </td>
-                      <td className="p-3 text-muted-foreground text-sm truncate max-w-[300px]">
-                        {chart.description || "-"}
-                      </td>
-                      <td className="p-3 text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setInstallChart(chart);
-                            setInstallReleaseName(
-                              chart.name.split("/").pop() || chart.name
-                            );
-                            setInstallVersion(chart.version);
-                          }}
-                        >
-                          <Download className="h-4 w-4 mr-1" />
-                          Install
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+        <TabsContent value="charts">
+          <HelmChartsTab
+            searchKeyword={searchKeyword}
+            onSearchKeywordChange={setSearchKeyword}
+            results={searchResults}
+            isSearching={isSearching}
+            onSearch={handleSearchCharts}
+            onInstall={(chart) => {
+              setInstallChart(chart);
+              setInstallReleaseName(chart.name.split("/").pop() || chart.name);
+              setInstallVersion(chart.version);
+            }}
+          />
         </TabsContent>
 
-        <TabsContent value="repositories" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              Manage Helm chart repositories
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => updateReposMutation.mutate()}
-                disabled={updateReposMutation.isPending}
-              >
-                <RefreshCw
-                  className={cn(
-                    "h-4 w-4 mr-2",
-                    updateReposMutation.isPending && "animate-spin"
-                  )}
-                />
-                Update All
-              </Button>
-              <Button size="sm" onClick={() => setAddRepoDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Repository
-              </Button>
-            </div>
-          </div>
-
-          {reposLoading ? (
-            <div className="text-center py-8 text-muted-foreground">
-              Loading repositories...
-            </div>
-          ) : repositories.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <FolderGit2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No repositories configured</p>
-              <p className="text-sm">
-                Add a Helm chart repository to get started
-              </p>
-            </div>
-          ) : (
-            <div className="border rounded-lg">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    <th className="text-left p-3 font-medium">Name</th>
-                    <th className="text-left p-3 font-medium">URL</th>
-                    <th className="text-right p-3 font-medium w-[100px]">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {repositories.map((repo) => (
-                    <tr key={repo.name} className="border-b last:border-0">
-                      <td className="p-3 font-medium">{repo.name}</td>
-                      <td className="p-3 text-muted-foreground">
-                        <a
-                          href={repo.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="hover:underline inline-flex items-center gap-1"
-                        >
-                          {repo.url}
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </td>
-                      <td className="p-3 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => setDeleteRepoTarget(repo.name)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+        <TabsContent value="repositories">
+          <HelmRepositoriesTab
+            repositories={repositories}
+            isLoading={reposLoading}
+            isUpdating={updateReposMutation.isPending}
+            onUpdateAll={() => updateReposMutation.mutate()}
+            onAddRepoClick={() => setAddRepoDialogOpen(true)}
+            onDeleteRepo={setDeleteRepoTarget}
+          />
         </TabsContent>
       </Tabs>
 
-      {/* Add Repository Dialog */}
       <HelmAddRepoDialog
         open={addRepoDialogOpen}
         onClose={() => setAddRepoDialogOpen(false)}
@@ -858,7 +402,6 @@ export function Helm() {
         isAdding={addRepoMutation.isPending}
       />
 
-      {/* Delete Repository Confirmation */}
       <ConfirmDialog
         open={deleteRepoTarget !== null}
         onOpenChange={(open) => {
@@ -876,7 +419,6 @@ export function Helm() {
         }}
       />
 
-      {/* Install Chart Dialog */}
       <HelmInstallDialog
         chart={installChart}
         onClose={() => setInstallChart(null)}
@@ -910,7 +452,6 @@ export function Helm() {
         isInstalling={installMutation.isPending}
       />
 
-      {/* Upgrade Release Dialog */}
       <HelmUpgradeDialog
         release={upgradeTarget}
         onClose={() => setUpgradeTarget(null)}
@@ -937,9 +478,8 @@ export function Helm() {
         isUpgrading={upgradeMutation.isPending}
       />
 
-      {/* History Dialog */}
       {historyDialog && (
-        <HistoryDialog
+        <HelmHistoryDialog
           release={historyDialog}
           history={historyData}
           isLoading={historyLoading}
@@ -952,7 +492,6 @@ export function Helm() {
         />
       )}
 
-      {/* Rollback confirmation */}
       <ConfirmDialog
         open={rollbackTarget !== null}
         onOpenChange={(open) => {
@@ -978,7 +517,6 @@ export function Helm() {
         }}
       />
 
-      {/* Uninstall confirmation (dangerous) */}
       <DangerousConfirmDialog
         open={uninstallTarget !== null}
         onOpenChange={(open) => {
@@ -1002,93 +540,6 @@ export function Helm() {
           }
         }}
       />
-    </div>
-  );
-}
-
-// History Dialog component
-interface HistoryDialogProps {
-  release: HelmRelease;
-  history: HelmRevision[];
-  isLoading: boolean;
-  helmCliAvailable: boolean;
-  onClose: () => void;
-  onRollback: (revision: number) => void;
-}
-
-function HistoryDialog({
-  release,
-  history,
-  isLoading,
-  helmCliAvailable,
-  onClose,
-  onRollback,
-}: HistoryDialogProps) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-background rounded-lg shadow-lg w-full max-w-2xl max-h-[80vh] overflow-hidden">
-        <div className="p-4 border-b flex items-center justify-between">
-          <h2 className="text-lg font-semibold">History: {release.name}</h2>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            ✕
-          </Button>
-        </div>
-        <div className="p-4 overflow-y-auto max-h-[60vh]">
-          {isLoading ? (
-            <div className="text-center text-muted-foreground py-8">
-              Loading history...
-            </div>
-          ) : history.length === 0 ? (
-            <div className="text-center text-muted-foreground py-8">
-              No history found
-            </div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-2">Rev</th>
-                  <th className="text-left p-2">Status</th>
-                  <th className="text-left p-2">Chart</th>
-                  <th className="text-left p-2">Updated</th>
-                  <th className="text-left p-2">Description</th>
-                  <th className="text-right p-2"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((rev) => (
-                  <tr key={rev.revision} className="border-b last:border-0">
-                    <td className="p-2 font-medium">{rev.revision}</td>
-                    <td className="p-2">
-                      <StatusBadge status={rev.status} />
-                    </td>
-                    <td className="p-2 text-muted-foreground">{rev.chart}</td>
-                    <td className="p-2 text-muted-foreground">
-                      {rev.updated
-                        ? new Date(rev.updated).toLocaleString()
-                        : "-"}
-                    </td>
-                    <td className="p-2 text-muted-foreground truncate max-w-[150px]">
-                      {rev.description || "-"}
-                    </td>
-                    <td className="p-2 text-right">
-                      {rev.revision < release.revision && helmCliAvailable && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onRollback(rev.revision)}
-                        >
-                          <RotateCcw className="h-3 w-3 mr-1" />
-                          Rollback
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

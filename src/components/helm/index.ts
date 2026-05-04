@@ -11,3 +11,8 @@ export {
   HelmAddRepoDialog,
   type HelmAddRepoDialogProps,
 } from "./HelmAddRepoDialog";
+export { HelmHistoryDialog } from "./HelmHistoryDialog";
+export { HelmReleasesTab } from "./HelmReleasesTab";
+export { HelmChartsTab } from "./HelmChartsTab";
+export { HelmRepositoriesTab } from "./HelmRepositoriesTab";
+export { SourceIcon } from "./SourceIcon";
