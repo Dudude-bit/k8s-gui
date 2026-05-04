@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 import { Node } from "reactflow";
 import {
   ResourceNodeData,
@@ -23,16 +22,13 @@ import {
 } from "@/components/ui/tooltip";
 import { useInfrastructureBuilderStore } from "@/stores/infrastructureBuilderStore";
 import { useClusterStore } from "@/stores/clusterStore";
-import { DEFAULT_REGISTRIES, useRegistryStore } from "@/stores/registryStore";
 import { useQuery } from "@tanstack/react-query";
-import { Trash2, Plus, HelpCircle } from "lucide-react";
+import { HelpCircle } from "lucide-react";
 import { commands } from "@/lib/commands";
-import type {
-  RegistryImageResult,
-  RegistrySearchRequest,
-} from "@/generated/types";
 import { normalizeTauriError } from "@/lib/error-utils";
 import { ResourceType } from "@/lib/resource-registry";
+import { ImageSearchInput } from "./ImageSearchInput";
+import { KeyValueRowsEditor, type KeyValueRow } from "./KeyValueRowsEditor";
 
 const SERVICE_TYPE_OPTIONS = ["ClusterIP", "NodePort", "LoadBalancer"] as const;
 const SERVICE_SESSION_AFFINITY_OPTIONS = ["None", "ClientIP"] as const;
@@ -49,224 +45,12 @@ const SECRET_TYPE_OPTIONS = [
   "kubernetes.io/ssh-auth",
   "kubernetes.io/service-account-token",
 ] as const;
-const SEARCH_MIN_LENGTH = 2;
-
-interface KeyValueRow {
-  key: string;
-  value: string;
-}
-
 interface InspectorPanelProps {
   node: Node<ResourceNodeData> | null;
   onUpdate: (nodeId: string, updates: Partial<ResourceNodeData>) => void;
   onRemove: (nodeId: string) => void;
   onOpenYaml: () => void;
 }
-const ImageSearchInput = ({
-  id,
-  value,
-  onChange,
-  placeholder,
-}: {
-  id: string;
-  value: string;
-  onChange: (nextValue: string) => void;
-  placeholder?: string;
-}) => {
-  const [results, setResults] = useState<RegistryImageResult[]>([]);
-  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
-  const [focused, setFocused] = useState(false);
-  const registries = useRegistryStore((state) => state.registries);
-  const selectedRegistryId = useRegistryStore(
-    (state) => state.selectedRegistryId
-  );
-  const setSelectedRegistryId = useRegistryStore(
-    (state) => state.setSelectedRegistryId
-  );
-  const blurTimeoutRef = useRef<number | null>(null);
-
-  const availableRegistries = registries.length
-    ? registries
-    : DEFAULT_REGISTRIES;
-  const selectedRegistry = useMemo(() => {
-    return (
-      availableRegistries.find(
-        (registry) => registry.id === selectedRegistryId
-      ) ?? availableRegistries[0]
-    );
-  }, [availableRegistries, selectedRegistryId]);
-
-  useEffect(() => {
-    if (
-      !availableRegistries.some(
-        (registry) => registry.id === selectedRegistryId
-      )
-    ) {
-      setSelectedRegistryId(
-        availableRegistries[0]?.id ?? DEFAULT_REGISTRIES[0].id
-      );
-    }
-  }, [availableRegistries, selectedRegistryId, setSelectedRegistryId]);
-
-  useEffect(() => {
-    const query = value.trim();
-    if (query.length < SEARCH_MIN_LENGTH) {
-      // Genuine reset-on-input-change: clear stale search state when
-      // the user shortens the query below the threshold. Could be
-      // derived from `value` at render time but `results` is also
-      // mutated by the async fetch below, so it has to live in state.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setResults([]);
-      setStatus("idle");
-      return;
-    }
-    let cancelled = false;
-    const timeoutId = window.setTimeout(async () => {
-      setStatus("loading");
-      try {
-        const request: RegistrySearchRequest = {
-          query,
-          registry: {
-            ...selectedRegistry,
-            baseUrl: selectedRegistry.baseUrl || null,
-            host: selectedRegistry.host || null,
-            project: selectedRegistry.project || null,
-            accountId: selectedRegistry.accountId || null,
-            region: selectedRegistry.region || null,
-          },
-          auth: null,
-          useSavedAuth: true,
-        };
-        const response = await commands.searchRegistryImages(request);
-        if (cancelled) {
-          return;
-        }
-        setResults(response);
-        setStatus("idle");
-      } catch {
-        if (cancelled) {
-          return;
-        }
-        setResults([]);
-        setStatus("error");
-      }
-    }, 350);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeoutId);
-    };
-  }, [value, selectedRegistry]);
-
-  useEffect(() => {
-    return () => {
-      if (blurTimeoutRef.current !== null) {
-        window.clearTimeout(blurTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const handleFocus = () => {
-    if (blurTimeoutRef.current !== null) {
-      window.clearTimeout(blurTimeoutRef.current);
-    }
-    setFocused(true);
-  };
-
-  const handleBlur = () => {
-    if (blurTimeoutRef.current !== null) {
-      window.clearTimeout(blurTimeoutRef.current);
-    }
-    blurTimeoutRef.current = window.setTimeout(() => setFocused(false), 150);
-  };
-
-  const showResults =
-    focused &&
-    value.trim().length >= SEARCH_MIN_LENGTH &&
-    (status !== "idle" || results.length > 0);
-
-  return (
-    <div className="space-y-2">
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <Label className="text-xs text-muted-foreground">Registry</Label>
-          <Link to="/settings" className="text-xs text-primary hover:underline">
-            Manage
-          </Link>
-        </div>
-        <Select
-          value={selectedRegistryId}
-          onValueChange={setSelectedRegistryId}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select registry" />
-          </SelectTrigger>
-          <SelectContent>
-            {availableRegistries.map((registry) => (
-              <SelectItem key={registry.id} value={registry.id}>
-                {registry.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <Input
-        id={id}
-        value={value}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-      />
-      {showResults && (
-        <div className="rounded-md border border-border bg-popover p-2 text-sm shadow-sm">
-          {status === "loading" && (
-            <div className="px-2 py-1 text-xs text-muted-foreground">
-              Searching {selectedRegistry.label}...
-            </div>
-          )}
-          {status === "error" && (
-            <div className="px-2 py-1 text-xs text-destructive">
-              Search failed. Check registry settings.
-            </div>
-          )}
-          {status === "idle" && results.length === 0 && (
-            <div className="px-2 py-1 text-xs text-muted-foreground">
-              No matches found.
-            </div>
-          )}
-          {results.map((result) => (
-            <button
-              key={result.id}
-              type="button"
-              className="flex w-full flex-col gap-1 rounded-md px-2 py-1.5 text-left hover:bg-muted"
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => {
-                onChange(result.name);
-                setFocused(false);
-              }}
-            >
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <span>{result.name}</span>
-                {result.isOfficial && (
-                  <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-500">
-                    Official
-                  </span>
-                )}
-              </div>
-              {result.description && (
-                <span className="text-xs text-muted-foreground">
-                  {result.description}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
 
 export function InspectorPanel({
   node,
@@ -491,64 +275,14 @@ export function InspectorPanel({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="resource-labels">Labels</Label>
-          <div className="space-y-2">
-            {labelRows.map((row, index) => (
-              <div
-                key={`${row.key}-${index}`}
-                className="flex items-center gap-2"
-              >
-                <Input
-                  placeholder="key"
-                  value={row.key}
-                  onChange={(event) => {
-                    const next = labelRows.map((item, idx) =>
-                      idx === index
-                        ? { ...item, key: event.target.value }
-                        : item
-                    );
-                    setLabelRows(next);
-                    onUpdate(node.id, { labels: rowsToRecord(next) });
-                  }}
-                />
-                <Input
-                  placeholder="value"
-                  value={row.value}
-                  onChange={(event) => {
-                    const next = labelRows.map((item, idx) =>
-                      idx === index
-                        ? { ...item, value: event.target.value }
-                        : item
-                    );
-                    setLabelRows(next);
-                    onUpdate(node.id, { labels: rowsToRecord(next) });
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    const next = labelRows.filter((_, idx) => idx !== index);
-                    setLabelRows(next);
-                    onUpdate(node.id, { labels: rowsToRecord(next) });
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                setLabelRows((prev) => [...prev, { key: "", value: "" }])
-              }
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add label
-            </Button>
-          </div>
+          <KeyValueRowsEditor
+            rows={labelRows}
+            onChange={(next) => {
+              setLabelRows(next);
+              onUpdate(node.id, { labels: rowsToRecord(next) });
+            }}
+            itemLabel="label"
+          />
         </div>
       </div>
 
@@ -695,66 +429,14 @@ export function InspectorPanel({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="service-selectors">Selectors</Label>
-            <div className="space-y-2">
-              {selectorRows.map((row, index) => (
-                <div
-                  key={`${row.key}-${index}`}
-                  className="flex items-center gap-2"
-                >
-                  <Input
-                    placeholder="key"
-                    value={row.key}
-                    onChange={(event) => {
-                      const next = selectorRows.map((item, idx) =>
-                        idx === index
-                          ? { ...item, key: event.target.value }
-                          : item
-                      );
-                      setSelectorRows(next);
-                      onUpdate(node.id, { selectors: rowsToRecord(next) });
-                    }}
-                  />
-                  <Input
-                    placeholder="value"
-                    value={row.value}
-                    onChange={(event) => {
-                      const next = selectorRows.map((item, idx) =>
-                        idx === index
-                          ? { ...item, value: event.target.value }
-                          : item
-                      );
-                      setSelectorRows(next);
-                      onUpdate(node.id, { selectors: rowsToRecord(next) });
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      const next = selectorRows.filter(
-                        (_, idx) => idx !== index
-                      );
-                      setSelectorRows(next);
-                      onUpdate(node.id, { selectors: rowsToRecord(next) });
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setSelectorRows((prev) => [...prev, { key: "", value: "" }])
-                }
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add selector
-              </Button>
-            </div>
+            <KeyValueRowsEditor
+              rows={selectorRows}
+              onChange={(next) => {
+                setSelectorRows(next);
+                onUpdate(node.id, { selectors: rowsToRecord(next) });
+              }}
+              itemLabel="selector"
+            />
           </div>
         </div>
       )}
@@ -849,66 +531,14 @@ export function InspectorPanel({
       {node.data.kind === ResourceType.ConfigMap && (
         <div className="space-y-1.5">
           <Label>Data</Label>
-          <div className="space-y-2">
-            {configMapRows.map((row, index) => (
-              <div
-                key={`${row.key}-${index}`}
-                className="flex items-center gap-2"
-              >
-                <Input
-                  placeholder="key"
-                  value={row.key}
-                  onChange={(event) => {
-                    const next = configMapRows.map((item, idx) =>
-                      idx === index
-                        ? { ...item, key: event.target.value }
-                        : item
-                    );
-                    setConfigMapRows(next);
-                    onUpdate(node.id, { data: rowsToRecord(next) });
-                  }}
-                />
-                <Input
-                  placeholder="value"
-                  value={row.value}
-                  onChange={(event) => {
-                    const next = configMapRows.map((item, idx) =>
-                      idx === index
-                        ? { ...item, value: event.target.value }
-                        : item
-                    );
-                    setConfigMapRows(next);
-                    onUpdate(node.id, { data: rowsToRecord(next) });
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    const next = configMapRows.filter(
-                      (_, idx) => idx !== index
-                    );
-                    setConfigMapRows(next);
-                    onUpdate(node.id, { data: rowsToRecord(next) });
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                setConfigMapRows((prev) => [...prev, { key: "", value: "" }])
-              }
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add entry
-            </Button>
-          </div>
+          <KeyValueRowsEditor
+            rows={configMapRows}
+            onChange={(next) => {
+              setConfigMapRows(next);
+              onUpdate(node.id, { data: rowsToRecord(next) });
+            }}
+            itemLabel="entry"
+          />
         </div>
       )}
 
@@ -953,64 +583,14 @@ export function InspectorPanel({
           </div>
           <div className="space-y-1.5">
             <Label>Data</Label>
-            <div className="space-y-2">
-              {secretRows.map((row, index) => (
-                <div
-                  key={`${row.key}-${index}`}
-                  className="flex items-center gap-2"
-                >
-                  <Input
-                    placeholder="key"
-                    value={row.key}
-                    onChange={(event) => {
-                      const next = secretRows.map((item, idx) =>
-                        idx === index
-                          ? { ...item, key: event.target.value }
-                          : item
-                      );
-                      setSecretRows(next);
-                      onUpdate(node.id, { data: rowsToRecord(next) });
-                    }}
-                  />
-                  <Input
-                    placeholder="value"
-                    value={row.value}
-                    onChange={(event) => {
-                      const next = secretRows.map((item, idx) =>
-                        idx === index
-                          ? { ...item, value: event.target.value }
-                          : item
-                      );
-                      setSecretRows(next);
-                      onUpdate(node.id, { data: rowsToRecord(next) });
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      const next = secretRows.filter((_, idx) => idx !== index);
-                      setSecretRows(next);
-                      onUpdate(node.id, { data: rowsToRecord(next) });
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setSecretRows((prev) => [...prev, { key: "", value: "" }])
-                }
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add entry
-              </Button>
-            </div>
+            <KeyValueRowsEditor
+              rows={secretRows}
+              onChange={(next) => {
+                setSecretRows(next);
+                onUpdate(node.id, { data: rowsToRecord(next) });
+              }}
+              itemLabel="entry"
+            />
           </div>
         </div>
       )}
