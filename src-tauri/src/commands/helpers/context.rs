@@ -18,32 +18,13 @@ pub struct ResourceContext {
 }
 
 impl ResourceContext {
-    /// Create context from state. If `require_namespace` is true, defaults to "default".
-    fn from_state(
-        state: &State<'_, AppState>,
-        namespace: Option<String>,
-        require_namespace: bool,
-    ) -> Result<Self> {
-        let context = state
-            .get_current_context()
-            .ok_or_else(|| Error::Internal(crate::error::messages::NO_CLUSTER.to_string()))?;
-
-        let client = state
-            .client_manager
-            .get_client(&context)
-            .ok_or_else(|| Error::Internal(crate::error::messages::NO_CLIENT.to_string()))
-            .map(|c| (*c).clone())?;
-
-        let namespace = if require_namespace {
-            Some(normalize_optional_namespace(namespace).unwrap_or_else(|| "default".to_string()))
-        } else {
-            normalize_optional_namespace(namespace)
-        };
-
-        Ok(ResourceContext { client, namespace })
-    }
-
-    /// Create context from `AppState` directly (useful outside Tauri commands).
+    /// Create context from `AppState`. If `require_namespace` is true,
+    /// defaults to `"default"`.
+    ///
+    /// Both Tauri command callers (which hold `tauri::State<'_, AppState>`)
+    /// and non-Tauri callers (which hold `&AppState` directly) flow through
+    /// this one constructor — `State<'_, T>` derefs to `&T`, so the
+    /// `for_command` / `for_list` wrappers just borrow the inner state.
     fn from_app_state(
         state: &AppState,
         namespace: Option<String>,
@@ -79,12 +60,12 @@ impl ResourceContext {
 
     /// For single-resource commands (get/delete) - requires namespace, defaults to "default"
     pub fn for_command(state: &State<'_, AppState>, namespace: Option<String>) -> Result<Self> {
-        Self::from_state(state, namespace, true)
+        Self::from_app_state(state, namespace, true)
     }
 
     /// For list commands - namespace is optional (None = all namespaces)
     pub fn for_list(state: &State<'_, AppState>, namespace: Option<String>) -> Result<Self> {
-        Self::from_state(state, namespace, false)
+        Self::from_app_state(state, namespace, false)
     }
 
     /// For list commands without Tauri state - namespace is optional (None = all namespaces)
