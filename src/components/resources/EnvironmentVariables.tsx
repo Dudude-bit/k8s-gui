@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { useQueries } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -90,10 +91,6 @@ export function EnvironmentVariables({
     new Set()
   );
   const [isExpanded, setIsExpanded] = useState(true);
-  const [secretCache, setSecretCache] = useState<DataCache>({});
-  const [configMapCache, setConfigMapCache] = useState<DataCache>({});
-  const [loadingSecrets, setLoadingSecrets] = useState(false);
-  const [loadingConfigMaps, setLoadingConfigMaps] = useState(false);
   const [filter, setFilter] = useState<FilterOption>("all");
 
   const hasEnvVars = env.length > 0 || envFrom.length > 0;
@@ -160,80 +157,54 @@ export function EnvironmentVariables({
   const hasSecrets =
     secretEnvVars.length > 0 || envFrom.some((ef) => ef.secretRef);
 
-  // Fetch ConfigMap data on mount (not sensitive, load immediately)
-  useEffect(() => {
-    if (!namespace || allConfigMapNames.length === 0) return;
+  // Per-name parallel queries via useQueries. See VolumeMounts.tsx
+  // for the reasoning behind staleTime: Infinity + retry: false +
+  // silent ?? {} fallback — same shape applies here. The original
+  // `loadingConfigMaps` / `loadingSecrets` were single booleans (any
+  // in-flight); we derive them from `.some(isFetching)` to preserve
+  // that semantic.
+  const configMapQueries = useQueries({
+    queries: allConfigMapNames.map((name) => ({
+      queryKey: ["configmap-data", namespace, name] as const,
+      queryFn: () => commands.getConfigmapData(name, namespace!),
+      enabled: !!namespace,
+      staleTime: Infinity,
+      retry: false,
+    })),
+  });
 
-    const configMapsToFetch = allConfigMapNames.filter(
-      (name) => !(name in configMapCache)
-    );
-    if (configMapsToFetch.length === 0) return;
+  const secretQueries = useQueries({
+    queries: allSecretNames.map((name) => ({
+      queryKey: ["secret-data", namespace, name] as const,
+      queryFn: () => commands.getSecretData(name, namespace!),
+      enabled: !!namespace && showSecrets,
+      staleTime: Infinity,
+      retry: false,
+    })),
+  });
 
-    // Genuine side-effect: async network fetch + a started-request
-    // flag, same shape as VolumeMounts. TanStack-Query migration is
-    // tracked separately.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoadingConfigMaps(true);
+  const configMapCache = useMemo<DataCache>(() => {
+    const cache: DataCache = {};
+    allConfigMapNames.forEach((name, i) => {
+      const q = configMapQueries[i];
+      if (q?.data) cache[name] = q.data;
+      else if (q?.isError) cache[name] = {};
+    });
+    return cache;
+  }, [allConfigMapNames, configMapQueries]);
 
-    Promise.all(
-      configMapsToFetch.map(async (cmName) => {
-        try {
-          const data = await commands.getConfigmapData(cmName, namespace);
-          return { name: cmName, data };
-        } catch {
-          return { name: cmName, data: {} };
-        }
-      })
-    )
-      .then((results) => {
-        setConfigMapCache((prev: DataCache) => {
-          const newCache = { ...prev };
-          for (const result of results) {
-            newCache[result.name] = result.data;
-          }
-          return newCache;
-        });
-      })
-      .finally(() => {
-        setLoadingConfigMaps(false);
-      });
-  }, [namespace, allConfigMapNames, configMapCache]);
+  const secretCache = useMemo<DataCache>(() => {
+    const cache: DataCache = {};
+    allSecretNames.forEach((name, i) => {
+      const q = secretQueries[i];
+      if (q?.data) cache[name] = q.data;
+      else if (q?.isError) cache[name] = {};
+    });
+    return cache;
+  }, [allSecretNames, secretQueries]);
 
-  // Fetch secret data when showSecrets is enabled
-  useEffect(() => {
-    if (!showSecrets || !namespace || allSecretNames.length === 0) return;
-
-    const secretsToFetch = allSecretNames.filter(
-      (name) => !(name in secretCache)
-    );
-    if (secretsToFetch.length === 0) return;
-
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoadingSecrets(true);
-
-    Promise.all(
-      secretsToFetch.map(async (secretName) => {
-        try {
-          const data = await commands.getSecretData(secretName, namespace);
-          return { name: secretName, data };
-        } catch {
-          return { name: secretName, data: {} };
-        }
-      })
-    )
-      .then((results) => {
-        setSecretCache((prev: DataCache) => {
-          const newCache = { ...prev };
-          for (const result of results) {
-            newCache[result.name] = result.data;
-          }
-          return newCache;
-        });
-      })
-      .finally(() => {
-        setLoadingSecrets(false);
-      });
-  }, [showSecrets, namespace, allSecretNames, secretCache]);
+  const loadingConfigMaps = configMapQueries.some((q) => q.isFetching);
+  const loadingSecrets = secretQueries.some((q) => q.isFetching);
 
   // Build expanded env vars list including envFrom-sourced variables
   const expandedEnvVars = useMemo((): ExpandedEnvVar[] => {

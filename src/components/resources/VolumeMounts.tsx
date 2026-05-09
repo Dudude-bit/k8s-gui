@@ -5,7 +5,8 @@
  * for Secret and ConfigMap volumes.
  */
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { useQueries } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -259,12 +260,6 @@ function VolumeMountItem({
 export function VolumeMounts({ volumes, namespace }: VolumeMountsProps) {
   const [showSecrets, setShowSecrets] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
-  const [secretCache, setSecretCache] = useState<DataCache>({});
-  const [configMapCache, setConfigMapCache] = useState<DataCache>({});
-  const [loadingSecrets, setLoadingSecrets] = useState<Set<string>>(new Set());
-  const [loadingConfigMaps, setLoadingConfigMaps] = useState<Set<string>>(
-    new Set()
-  );
 
   const hasVolumes = volumes.length > 0;
 
@@ -289,84 +284,69 @@ export function VolumeMounts({ volumes, namespace }: VolumeMountsProps) {
     };
   }, [volumes]);
 
-  // Fetch ConfigMap data on mount (not sensitive, load immediately).
-  //
-  // Genuine side-effect: async network fetch + a loading-state flag.
-  // The setLoadingConfigMaps below is the "I just started this
-  // request" marker, not derived state. Migrating to TanStack Query
-  // would replace the manual flag with `useQuery`'s built-in
-  // isLoading; tracked separately.
-  useEffect(() => {
-    if (!namespace || configMapNames.length === 0) return;
+  // Per-name parallel queries via useQueries. Each ConfigMap/Secret
+  // gets its own queryKey so a slow one doesn't block fast ones (the
+  // previous Promise.all blocked on the slowest), and cache survives
+  // navigation away and back. staleTime: Infinity matches the prior
+  // behaviour of "fetched once per session" — these reflect data on
+  // the cluster that doesn't change frequently. retry: false + the
+  // ?? {} fallback below keep the original silent-error behaviour
+  // (a missing/forbidden CM shows as empty, not a toast).
+  const configMapQueries = useQueries({
+    queries: configMapNames.map((name) => ({
+      queryKey: ["configmap-data", namespace, name] as const,
+      queryFn: () => commands.getConfigmapData(name, namespace!),
+      enabled: !!namespace,
+      staleTime: Infinity,
+      retry: false,
+    })),
+  });
 
-    const configMapsToFetch = configMapNames.filter(
-      (name) => !(name in configMapCache)
-    );
-    if (configMapsToFetch.length === 0) return;
+  const secretQueries = useQueries({
+    queries: secretNames.map((name) => ({
+      queryKey: ["secret-data", namespace, name] as const,
+      queryFn: () => commands.getSecretData(name, namespace!),
+      enabled: !!namespace && showSecrets,
+      staleTime: Infinity,
+      retry: false,
+    })),
+  });
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoadingConfigMaps(new Set(configMapsToFetch));
+  const configMapCache = useMemo<DataCache>(() => {
+    const cache: DataCache = {};
+    configMapNames.forEach((name, i) => {
+      const q = configMapQueries[i];
+      if (q?.data) cache[name] = q.data;
+      else if (q?.isError) cache[name] = {};
+    });
+    return cache;
+  }, [configMapNames, configMapQueries]);
 
-    Promise.all(
-      configMapsToFetch.map(async (cmName) => {
-        try {
-          const data = await commands.getConfigmapData(cmName, namespace);
-          return { name: cmName, data };
-        } catch {
-          return { name: cmName, data: {} };
-        }
-      })
-    )
-      .then((results) => {
-        setConfigMapCache((prev: DataCache) => {
-          const newCache = { ...prev };
-          for (const result of results) {
-            newCache[result.name] = result.data;
-          }
-          return newCache;
-        });
-      })
-      .finally(() => {
-        setLoadingConfigMaps(new Set());
-      });
-  }, [namespace, configMapNames, configMapCache]);
+  const secretCache = useMemo<DataCache>(() => {
+    const cache: DataCache = {};
+    secretNames.forEach((name, i) => {
+      const q = secretQueries[i];
+      if (q?.data) cache[name] = q.data;
+      else if (q?.isError) cache[name] = {};
+    });
+    return cache;
+  }, [secretNames, secretQueries]);
 
-  // Fetch secret data when showSecrets is enabled.
-  // Same genuine side-effect shape as the ConfigMap fetcher above —
-  // the setLoadingSecrets is a request-started marker, not derived
-  // state. Same TanStack Query migration path applies.
-  useEffect(() => {
-    if (!showSecrets || !namespace || secretNames.length === 0) return;
+  const loadingConfigMaps = useMemo<Set<string>>(() => {
+    const set = new Set<string>();
+    configMapNames.forEach((name, i) => {
+      if (configMapQueries[i]?.isFetching) set.add(name);
+    });
+    return set;
+  }, [configMapNames, configMapQueries]);
 
-    const secretsToFetch = secretNames.filter((name) => !(name in secretCache));
-    if (secretsToFetch.length === 0) return;
-
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoadingSecrets(new Set(secretsToFetch));
-
-    Promise.all(
-      secretsToFetch.map(async (secretName) => {
-        try {
-          const data = await commands.getSecretData(secretName, namespace);
-          return { name: secretName, data };
-        } catch {
-          return { name: secretName, data: {} };
-        }
-      })
-    )
-      .then((results) => {
-        setSecretCache((prev: DataCache) => {
-          const newCache = { ...prev };
-          for (const result of results) {
-            newCache[result.name] = result.data;
-          }
-          return newCache;
-        });
-      })
-      .finally(() => {
-        setLoadingSecrets(new Set());
-      });
-  }, [showSecrets, namespace, secretNames, secretCache]);
+  const loadingSecrets = useMemo<Set<string>>(() => {
+    const set = new Set<string>();
+    secretNames.forEach((name, i) => {
+      if (secretQueries[i]?.isFetching) set.add(name);
+    });
+    return set;
+  }, [secretNames, secretQueries]);
 
   return (
     <Card>
