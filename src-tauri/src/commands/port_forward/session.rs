@@ -1,19 +1,22 @@
-//! Pod port-forward commands
+//! Live port-forward sessions: bind a local TCP port, accept
+//! connections, copy bytes through `kube::Api::portforward`. Owns
+//! the `PortForwardCleanup` Drop guard that ensures the session and
+//! control map entries are removed on every exit including
+//! panic-unwind.
 
 use crate::commands::helpers::ResourceContext;
-use crate::commands::settings::save_config;
-use crate::config::{AppConfig, PortForwardConfig as StoredPortForwardConfig};
 use crate::error::{Error, Result};
 use crate::state::{AppEvent, AppState, PortForwardSession};
 use crate::utils::require_namespace;
 use dashmap::DashMap;
 use kube::Api;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::State;
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use tokio::time::{sleep, Duration};
+
+use super::types::{emit_port_forward_status, PortForwardRequest, PortForwardSessionInfo};
 
 /// RAII guard that removes a port-forward's entries from both the
 /// session and control maps when dropped — including on panic-unwind
@@ -35,149 +38,7 @@ impl Drop for PortForwardCleanup {
     }
 }
 
-/// Port-forward request payload
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PortForwardRequest {
-    pub local_port: u16,
-    pub remote_port: u16,
-    pub auto_reconnect: bool,
-}
-
-/// Active port-forward session info
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PortForwardSessionInfo {
-    pub id: String,
-    pub context: String,
-    pub pod: String,
-    pub namespace: String,
-    pub local_port: u16,
-    pub remote_port: u16,
-    pub auto_reconnect: bool,
-    pub created_at: String,
-}
-
-/// Saved port-forward config payload
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PortForwardConfigPayload {
-    pub context: String,
-    pub name: String,
-    pub pod: String,
-    pub namespace: String,
-    pub local_port: u16,
-    pub remote_port: u16,
-    pub auto_reconnect: bool,
-    pub auto_start: bool,
-}
-
-/// Saved port-forward config info
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PortForwardConfigInfo {
-    pub id: String,
-    pub context: String,
-    pub name: String,
-    pub pod: String,
-    pub namespace: String,
-    pub local_port: u16,
-    pub remote_port: u16,
-    pub auto_reconnect: bool,
-    pub auto_start: bool,
-    pub created_at: String,
-}
-
-fn normalize_port_forward_config(
-    payload: PortForwardConfigPayload,
-    id: String,
-    created_at: String,
-) -> Result<StoredPortForwardConfig> {
-    let context = payload.context.trim();
-    if context.is_empty() {
-        return Err(Error::InvalidInput("Context is required".to_string()));
-    }
-    let pod = payload.pod.trim();
-    if pod.is_empty() {
-        return Err(Error::InvalidInput("Pod name is required".to_string()));
-    }
-    let namespace = payload.namespace.trim();
-    if namespace.is_empty() {
-        return Err(Error::InvalidInput("Namespace is required".to_string()));
-    }
-    if payload.local_port == 0 || payload.remote_port == 0 {
-        return Err(Error::InvalidInput(
-            "Ports must be greater than 0".to_string(),
-        ));
-    }
-
-    let name = payload.name.trim();
-    let name = if name.is_empty() {
-        format!("{pod}:{}", payload.remote_port)
-    } else {
-        name.to_string()
-    };
-
-    Ok(StoredPortForwardConfig {
-        id,
-        context: context.to_string(),
-        name,
-        pod: pod.to_string(),
-        namespace: namespace.to_string(),
-        local_port: payload.local_port,
-        remote_port: payload.remote_port,
-        auto_reconnect: payload.auto_reconnect,
-        auto_start: payload.auto_start,
-        created_at,
-    })
-}
-
-fn map_config(config: &StoredPortForwardConfig) -> PortForwardConfigInfo {
-    PortForwardConfigInfo {
-        id: config.id.clone(),
-        context: config.context.clone(),
-        name: config.name.clone(),
-        pod: config.pod.clone(),
-        namespace: config.namespace.clone(),
-        local_port: config.local_port,
-        remote_port: config.remote_port,
-        auto_reconnect: config.auto_reconnect,
-        auto_start: config.auto_start,
-        created_at: config.created_at.clone(),
-    }
-}
-
-fn config_key(config: &StoredPortForwardConfig) -> String {
-    format!(
-        "{}:{}:{}:{}:{}",
-        config.context, config.namespace, config.pod, config.local_port, config.remote_port
-    )
-}
-
-/// Helper for emitting port-forward status events
-fn emit_port_forward_status(
-    event_tx: &tokio::sync::broadcast::Sender<AppEvent>,
-    session_id: &str,
-    pod: &str,
-    namespace: &str,
-    local_port: u16,
-    remote_port: u16,
-    status: &str,
-    message: Option<String>,
-    attempt: Option<u32>,
-) {
-    let _ = event_tx.send(AppEvent::PortForwardStatus {
-        id: session_id.to_string(),
-        pod: pod.to_string(),
-        namespace: namespace.to_string(),
-        local_port,
-        remote_port,
-        status: status.to_string(),
-        message,
-        attempt,
-    });
-}
-
+#[allow(clippy::too_many_arguments)]
 async fn forward_connection(
     pod: String,
     namespace: String,
@@ -298,7 +159,7 @@ pub async fn port_forward_pod(
     let session_id = crate::utils::generate_id("pf");
     let created_at = chrono::Utc::now();
 
-    let session = crate::state::PortForwardSession {
+    let session = PortForwardSession {
         id: session_id.clone(),
         context: context.clone(),
         pod: pod.clone(),
@@ -456,88 +317,6 @@ pub fn list_port_forwards(state: State<'_, AppState>) -> Result<Vec<PortForwardS
         .collect();
 
     Ok(sessions)
-}
-
-/// List saved port-forward configs
-#[tauri::command]
-pub fn list_port_forward_configs() -> Result<Vec<PortForwardConfigInfo>> {
-    let config = AppConfig::load()?;
-    Ok(config.port_forward.configs.iter().map(map_config).collect())
-}
-
-/// Create a saved port-forward config
-#[tauri::command]
-pub fn create_port_forward_config(
-    payload: PortForwardConfigPayload,
-) -> Result<PortForwardConfigInfo> {
-    let mut app_config = AppConfig::load()?;
-    let created_at = chrono::Utc::now().to_rfc3339();
-    let id = crate::utils::generate_id("pf-config");
-    let config = normalize_port_forward_config(payload, id, created_at)?;
-
-    let key = config_key(&config);
-    if app_config
-        .port_forward
-        .configs
-        .iter()
-        .any(|existing| config_key(existing) == key)
-    {
-        return Err(Error::InvalidInput(
-            "Port-forward config already exists".to_string(),
-        ));
-    }
-
-    app_config.port_forward.configs.push(config.clone());
-    save_config(&app_config)?;
-    Ok(map_config(&config))
-}
-
-/// Update an existing port-forward config
-#[tauri::command]
-pub fn update_port_forward_config(
-    id: String,
-    payload: PortForwardConfigPayload,
-) -> Result<PortForwardConfigInfo> {
-    let mut app_config = AppConfig::load()?;
-    let index = app_config
-        .port_forward
-        .configs
-        .iter()
-        .position(|item| item.id == id)
-        .ok_or_else(|| Error::InvalidInput("Port-forward config not found".to_string()))?;
-
-    let created_at = app_config.port_forward.configs[index].created_at.clone();
-    let updated = normalize_port_forward_config(payload, id.clone(), created_at)?;
-    let key = config_key(&updated);
-    if app_config
-        .port_forward
-        .configs
-        .iter()
-        .any(|existing| existing.id != id && config_key(existing) == key)
-    {
-        return Err(Error::InvalidInput(
-            "Port-forward config already exists".to_string(),
-        ));
-    }
-
-    app_config.port_forward.configs[index] = updated.clone();
-    save_config(&app_config)?;
-    Ok(map_config(&updated))
-}
-
-/// Delete a saved port-forward config
-#[tauri::command]
-pub fn delete_port_forward_config(id: String) -> Result<()> {
-    let mut app_config = AppConfig::load()?;
-    let before = app_config.port_forward.configs.len();
-    app_config.port_forward.configs.retain(|item| item.id != id);
-    if before == app_config.port_forward.configs.len() {
-        return Err(Error::InvalidInput(
-            "Port-forward config not found".to_string(),
-        ));
-    }
-    save_config(&app_config)?;
-    Ok(())
 }
 
 #[cfg(test)]
