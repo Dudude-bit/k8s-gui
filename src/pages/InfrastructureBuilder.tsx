@@ -48,6 +48,8 @@ import {
 } from "@/features/infrastructure/types";
 import { useImportFromCluster } from "@/features/infrastructure/useImportFromCluster";
 import { applyInfrastructureTemplate } from "@/features/infrastructure/templates";
+import { usePaletteDragDrop } from "@/features/infrastructure/usePaletteDragDrop";
+import { useBuilderKeyboardShortcuts } from "@/features/infrastructure/useBuilderKeyboardShortcuts";
 import {
   RefreshCw,
   CheckCircle2,
@@ -123,14 +125,6 @@ export function InfrastructureBuilder() {
   } | null>(null);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const addCounterRef = useRef(0);
-  const dragGhostRef = useRef<HTMLDivElement | null>(null);
-  const dragStateRef = useRef<{
-    kind: ResourceKind;
-    startX: number;
-    startY: number;
-    moved: boolean;
-  } | null>(null);
-  const suppressClickRef = useRef(false);
 
   const editorTheme = useMemo(() => {
     if (theme === "dark") {
@@ -196,97 +190,12 @@ export function InfrastructureBuilder() {
     [reactFlowInstance]
   );
 
-  const handlePointerMove = useCallback((event: PointerEvent) => {
-    const state = dragStateRef.current;
-    if (!state) {
-      return;
-    }
-    const deltaX = event.clientX - state.startX;
-    const deltaY = event.clientY - state.startY;
-    if (!state.moved && Math.hypot(deltaX, deltaY) > 6) {
-      state.moved = true;
-    }
-    if (dragGhostRef.current) {
-      dragGhostRef.current.style.left = `${event.clientX + 12}px`;
-      dragGhostRef.current.style.top = `${event.clientY + 12}px`;
-    }
-  }, []);
-
-  const handlePointerUp = useCallback(
-    (event: PointerEvent) => {
-      const state = dragStateRef.current;
-      window.removeEventListener("pointermove", handlePointerMove);
-      // `handlePointerUp` references itself for listener cleanup.
-      // Trips react-hooks/immutability's "accessed before declared"
-      // check; the runtime closure semantics are correct (the const
-      // exists by the time the listener fires).
-      // eslint-disable-next-line react-hooks/immutability
-      window.removeEventListener("pointerup", handlePointerUp);
-      document.body.style.userSelect = "";
-      document.body.style.cursor = "";
-
-      if (state && state.moved && reactFlowWrapper.current) {
-        const bounds = reactFlowWrapper.current.getBoundingClientRect();
-        const inside =
-          event.clientX >= bounds.left &&
-          event.clientX <= bounds.right &&
-          event.clientY >= bounds.top &&
-          event.clientY <= bounds.bottom;
-        if (inside) {
-          const position = toFlowPosition({
-            x: event.clientX,
-            y: event.clientY,
-          });
-          addResource(state.kind, position, currentNamespace || "default");
-        }
-      }
-
-      suppressClickRef.current = state?.moved ?? false;
-      if (dragGhostRef.current) {
-        dragGhostRef.current.remove();
-        dragGhostRef.current = null;
-      }
-      dragStateRef.current = null;
-    },
-    [addResource, currentNamespace, handlePointerMove, toFlowPosition]
-  );
-
-  const handlePalettePointerDown = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>, kind: ResourceKind) => {
-      if (event.button !== 0) {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-
-      dragStateRef.current = {
-        kind,
-        startX: event.clientX,
-        startY: event.clientY,
-        moved: false,
-      };
-      suppressClickRef.current = false;
-      if (!dragGhostRef.current) {
-        const ghost = document.createElement("div");
-        ghost.className =
-          "pointer-events-none fixed z-[9999] -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-semibold shadow-md";
-        ghost.textContent = kind;
-        ghost.style.left = `${event.clientX + 12}px`;
-        ghost.style.top = `${event.clientY + 12}px`;
-        document.body.appendChild(ghost);
-        dragGhostRef.current = ghost;
-      } else {
-        dragGhostRef.current.textContent = kind;
-        dragGhostRef.current.style.left = `${event.clientX + 12}px`;
-        dragGhostRef.current.style.top = `${event.clientY + 12}px`;
-      }
-      document.body.style.userSelect = "none";
-      document.body.style.cursor = "grabbing";
-      window.addEventListener("pointermove", handlePointerMove);
-      window.addEventListener("pointerup", handlePointerUp);
-    },
-    [handlePointerMove, handlePointerUp]
-  );
+  const { handlePalettePointerDown, suppressClickRef } = usePaletteDragDrop({
+    reactFlowWrapper,
+    toFlowPosition,
+    addResource,
+    currentNamespace,
+  });
 
   const handleAddResource = useCallback(
     (kind: ResourceKind) => {
@@ -317,7 +226,7 @@ export function InfrastructureBuilder() {
       }
       handleAddResource(kind);
     },
-    [handleAddResource]
+    [handleAddResource, suppressClickRef]
   );
 
   const handleSelectionChange = useCallback(
@@ -359,94 +268,15 @@ export function InfrastructureBuilder() {
     addCounterRef.current = 0;
   }, [clearCanvas]);
 
-  useEffect(() => {
-    if (mode !== "visual") {
-      return;
-    }
-
-    const isTextInput = (target: EventTarget | null) => {
-      if (!(target instanceof HTMLElement)) {
-        return false;
-      }
-      const tag = target.tagName.toLowerCase();
-      return (
-        tag === "input" ||
-        tag === "textarea" ||
-        tag === "select" ||
-        target.isContentEditable
-      );
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (isTextInput(event.target)) {
-        return;
-      }
-
-      if (event.key === "Delete" || event.key === "Backspace") {
-        event.preventDefault();
-        handleDeleteSelection();
-        return;
-      }
-
-      const isSelectAll =
-        (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a";
-      if (isSelectAll) {
-        event.preventDefault();
-        const selectedNodes = nodes.map((node) => ({
-          ...node,
-          selected: true,
-        }));
-        const selectedEdges = edges.map((edge) => ({
-          ...edge,
-          selected: true,
-        }));
-        setNodes(selectedNodes);
-        setEdges(selectedEdges);
-        setSelection({ nodes: selectedNodes, edges: selectedEdges });
-        return;
-      }
-
-      const isInvert =
-        (event.metaKey || event.ctrlKey) &&
-        event.shiftKey &&
-        event.key.toLowerCase() === "i";
-      if (isInvert) {
-        event.preventDefault();
-        const invertedNodes = nodes.map((node) => ({
-          ...node,
-          selected: !node.selected,
-        }));
-        const invertedEdges = edges.map((edge) => ({
-          ...edge,
-          selected: !edge.selected,
-        }));
-        setNodes(invertedNodes);
-        setEdges(invertedEdges);
-        setSelection({
-          nodes: invertedNodes.filter((node) => node.selected),
-          edges: invertedEdges.filter((edge) => edge.selected),
-        });
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [edges, handleDeleteSelection, mode, nodes, setEdges, setNodes]);
-
-  useEffect(() => {
-    return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      document.body.style.userSelect = "";
-      document.body.style.cursor = "";
-      if (dragGhostRef.current) {
-        dragGhostRef.current.remove();
-        dragGhostRef.current = null;
-      }
-    };
-  }, [handlePointerMove, handlePointerUp]);
+  useBuilderKeyboardShortcuts({
+    enabled: mode === "visual",
+    nodes,
+    edges,
+    setNodes,
+    setEdges,
+    setSelection,
+    onDeleteSelection: handleDeleteSelection,
+  });
 
   const handleConnect = useCallback(
     (connection: Connection) => {
