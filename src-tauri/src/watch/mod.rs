@@ -14,6 +14,14 @@
 //! emitting events. Without the gate the initial `restarted` event
 //! (which the watcher always emits before its first applied burst)
 //! could land in the void.
+//!
+//! - `session`: WatchSession bookkeeping + RAII cleanup guard
+//! - `event`:   kube watcher Event → AppEvent::ResourceWatchEvent
+
+mod event;
+mod session;
+
+pub use session::WatchSession;
 
 use crate::error::{Error, Result};
 use crate::state::{AppEvent, WatchOp};
@@ -23,53 +31,14 @@ use futures::StreamExt;
 use k8s_openapi::{ClusterResourceScope, NamespaceResourceScope};
 use kube::core::DynamicObject;
 use kube::discovery::ApiResource;
-use kube::runtime::watcher::{watcher, Config as WatcherConfig, Event};
+use kube::runtime::watcher::{watcher, Config as WatcherConfig};
 use kube::{Api, Client};
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::{broadcast, oneshot};
 
-/// Live watch session bookkeeping. Stored in `WatchManager` so the
-/// `unsubscribe` and `mark_subscribed` Tauri commands can find a
-/// session by its stream id.
-pub struct WatchSession {
-    pub id: String,
-    pub kind: String,
-    pub namespace: Option<String>,
-    /// Cancel signal to the watcher task.
-    cancel_tx: Option<oneshot::Sender<()>>,
-    /// Subscribe gate. Released by `mark_subscribed` once the
-    /// frontend has registered `listen("resource-event")`.
-    subscribe_tx: Option<oneshot::Sender<()>>,
-}
-
-impl WatchSession {
-    pub fn close(&mut self) {
-        if let Some(tx) = self.cancel_tx.take() {
-            let _ = tx.send(());
-        }
-    }
-
-    pub fn mark_subscribed(&mut self) {
-        if let Some(tx) = self.subscribe_tx.take() {
-            let _ = tx.send(());
-        }
-    }
-}
-
-/// RAII guard that removes a watch session entry on every spawn-task
-/// exit path — natural completion, error return, panic-unwind. Same
-/// pattern as `LogStreamCleanup` and `PortForwardCleanup`.
-struct WatchCleanup {
-    sessions: Arc<DashMap<String, WatchSession>>,
-    key: String,
-}
-
-impl Drop for WatchCleanup {
-    fn drop(&mut self) {
-        self.sessions.remove(&self.key);
-    }
-}
+use event::emit_event;
+use session::WatchCleanup;
 
 /// Manages all active resource watches.
 pub struct WatchManager {
@@ -329,51 +298,6 @@ impl WatchManager {
 
         stream_id
     }
-}
-
-/// Emit a single watcher event to the broadcast channel. Centralised
-/// so the op-tag logic lives in one place. `transform` converts a
-/// resource of kind `K` to whatever shape the frontend cache expects.
-fn emit_event<K, F, U>(
-    event_tx: &broadcast::Sender<AppEvent>,
-    stream_id: &str,
-    event: Event<K>,
-    transform: &F,
-) where
-    F: Fn(&K) -> Option<U>,
-    U: Serialize,
-{
-    match event {
-        Event::Apply(obj) => send(event_tx, stream_id, WatchOp::Applied, transform(&obj)),
-        Event::Delete(obj) => {
-            send(event_tx, stream_id, WatchOp::Deleted, transform(&obj));
-        }
-        Event::Init => {
-            // Ignore — `InitApply` events follow and `InitDone` ends
-            // the resync. We only emit a `restarted` once below.
-        }
-        Event::InitApply(obj) => {
-            send(event_tx, stream_id, WatchOp::Applied, transform(&obj));
-        }
-        Event::InitDone => {
-            send::<()>(event_tx, stream_id, WatchOp::Restarted, None);
-        }
-    }
-}
-
-fn send<U: Serialize>(
-    event_tx: &broadcast::Sender<AppEvent>,
-    stream_id: &str,
-    op: WatchOp,
-    obj: Option<U>,
-) {
-    let resource = obj.and_then(|o| serde_json::to_value(&o).ok());
-    let _ = event_tx.send(AppEvent::ResourceWatchEvent {
-        stream_id: stream_id.to_string(),
-        op,
-        resource,
-        error: None,
-    });
 }
 
 #[cfg(test)]
