@@ -144,8 +144,25 @@ impl From<&CustomResourceDefinition> for CrdDetailInfo {
     }
 }
 
-pub fn dynamic_object_to_custom_resource_info(obj: &DynamicObject) -> CustomResourceInfo {
-    let owner_refs: Vec<OwnerReferenceInfo> = obj
+/// Fields shared by `CustomResourceInfo` and `CustomResourceDetailInfo`.
+/// Extracted into one struct so the two `dynamic_object_to_*` functions
+/// don't duplicate the metadata-extraction logic.
+struct CommonResourceFields {
+    name: String,
+    namespace: Option<String>,
+    uid: String,
+    api_version: String,
+    kind: String,
+    spec: serde_json::Value,
+    status: Option<serde_json::Value>,
+    labels: std::collections::BTreeMap<String, String>,
+    annotations: std::collections::BTreeMap<String, String>,
+    created_at: Option<chrono::DateTime<chrono::Utc>>,
+    owner_references: Vec<OwnerReferenceInfo>,
+}
+
+fn extract_common_fields(obj: &DynamicObject) -> CommonResourceFields {
+    let owner_references = obj
         .metadata
         .owner_references
         .as_ref()
@@ -162,14 +179,7 @@ pub fn dynamic_object_to_custom_resource_info(obj: &DynamicObject) -> CustomReso
         })
         .unwrap_or_default();
 
-    let spec = obj
-        .data
-        .get("spec")
-        .cloned()
-        .unwrap_or(serde_json::Value::Null);
-    let status = obj.data.get("status").cloned();
-
-    CustomResourceInfo {
+    CommonResourceFields {
         name: obj.name_any(),
         namespace: obj.namespace(),
         uid: obj.metadata.uid.clone().unwrap_or_default(),
@@ -183,8 +193,12 @@ pub fn dynamic_object_to_custom_resource_info(obj: &DynamicObject) -> CustomReso
             .as_ref()
             .map(|t| t.kind.clone())
             .unwrap_or_default(),
-        spec,
-        status,
+        spec: obj
+            .data
+            .get("spec")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null),
+        status: obj.data.get("status").cloned(),
         labels: obj.labels().clone(),
         annotations: obj
             .annotations()
@@ -193,60 +207,41 @@ pub fn dynamic_object_to_custom_resource_info(obj: &DynamicObject) -> CustomReso
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect(),
         created_at: obj.creation_timestamp().map(|t| t.0),
-        owner_references: owner_refs,
+        owner_references,
+    }
+}
+
+pub fn dynamic_object_to_custom_resource_info(obj: &DynamicObject) -> CustomResourceInfo {
+    let f = extract_common_fields(obj);
+    CustomResourceInfo {
+        name: f.name,
+        namespace: f.namespace,
+        uid: f.uid,
+        api_version: f.api_version,
+        kind: f.kind,
+        spec: f.spec,
+        status: f.status,
+        labels: f.labels,
+        annotations: f.annotations,
+        created_at: f.created_at,
+        owner_references: f.owner_references,
     }
 }
 
 pub(super) fn dynamic_object_to_detail_info(obj: &DynamicObject) -> CustomResourceDetailInfo {
-    let owner_refs: Vec<OwnerReferenceInfo> = obj
-        .metadata
-        .owner_references
-        .as_ref()
-        .map(|refs| {
-            refs.iter()
-                .map(|r| OwnerReferenceInfo {
-                    api_version: r.api_version.clone(),
-                    kind: r.kind.clone(),
-                    name: r.name.clone(),
-                    uid: r.uid.clone(),
-                    controller: r.controller,
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-
-    let spec = obj
-        .data
-        .get("spec")
-        .cloned()
-        .unwrap_or(serde_json::Value::Null);
-    let status = obj.data.get("status").cloned();
-
+    let f = extract_common_fields(obj);
     CustomResourceDetailInfo {
-        name: obj.name_any(),
-        namespace: obj.namespace(),
-        uid: obj.metadata.uid.clone().unwrap_or_default(),
-        api_version: obj
-            .types
-            .as_ref()
-            .map(|t| t.api_version.clone())
-            .unwrap_or_default(),
-        kind: obj
-            .types
-            .as_ref()
-            .map(|t| t.kind.clone())
-            .unwrap_or_default(),
-        spec,
-        status,
-        labels: obj.labels().clone(),
-        annotations: obj
-            .annotations()
-            .iter()
-            .filter(|(k, _)| !k.starts_with("kubectl.kubernetes.io"))
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect(),
-        created_at: obj.creation_timestamp().map(|t| t.0),
-        owner_references: owner_refs,
+        name: f.name,
+        namespace: f.namespace,
+        uid: f.uid,
+        api_version: f.api_version,
+        kind: f.kind,
+        spec: f.spec,
+        status: f.status,
+        labels: f.labels,
+        annotations: f.annotations,
+        created_at: f.created_at,
+        owner_references: f.owner_references,
         finalizers: obj.metadata.finalizers.clone().unwrap_or_default(),
         resource_version: obj.metadata.resource_version.clone(),
     }
