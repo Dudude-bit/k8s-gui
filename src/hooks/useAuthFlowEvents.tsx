@@ -5,7 +5,6 @@ import { open } from "@tauri-apps/plugin-shell";
 import { useToast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { commands } from "@/lib/commands";
-import { useClusterStore } from "@/stores/clusterStore";
 
 interface AuthUrlRequestedPayload {
   context: string;

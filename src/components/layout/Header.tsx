@@ -97,8 +97,17 @@ export function Header() {
   };
 
   const handleRetryConnection = async () => {
-    const targetContext = errorContext || currentContext || undefined;
-    await loadContexts();
+    const targetContext = errorContext || currentContext;
+    if (!targetContext) return;
+    // Don't call loadContexts() here — it has a side-effect that fires
+    // its own connect(prefs.lastContext) without awaiting, which races
+    // with this explicit retry: clusterStore.connect's
+    // "already authenticating" guard then no-ops the second call and
+    // the user sees no visible reconnect happen. The backend
+    // `connect_cluster` already drops the cached client, reloads the
+    // kubeconfig, and re-runs prepare_kubeconfig_for_context — so a
+    // bare `connect(target)` is a full clean retry, including a fresh
+    // auth-modal spawn if the user landed on an exec/oidc context.
     await connect(targetContext);
   };
 
@@ -168,7 +177,7 @@ export function Header() {
             </TooltipContent>
           </Tooltip>
 
-          {error && !isLoading && (errorContext || currentContext) && (
+          {(errorContext || currentContext) && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <RefreshButton
@@ -178,7 +187,11 @@ export function Header() {
                   size="icon"
                 />
               </TooltipTrigger>
-              <TooltipContent side="bottom">Retry connection</TooltipContent>
+              <TooltipContent side="bottom">
+                {error
+                  ? "Retry connection"
+                  : "Reconnect (force re-authentication)"}
+              </TooltipContent>
             </Tooltip>
           )}
         </div>
