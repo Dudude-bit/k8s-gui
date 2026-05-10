@@ -21,8 +21,25 @@ pre-commit:
       run: npx prettier --check {staged_files}
 
 pre-push:
+  parallel: true
   commands:
+    # `glob:` is REQUIRED on each command — lefthook's pre-push default
+    # is "skip if no matching files" and without a glob it treats the
+    # implicit filter as empty, silently skipping every command. This
+    # is exactly what masked the v2.1.0 release: 90 `__cmd__X not
+    # found` errors compiled clean in `cargo test --lib` but the bin
+    # build was never run pre-push because the hook itself skipped.
     frontend-tests:
+      glob: "*.{ts,tsx}"
       run: npm test
     rust-tests:
-      run: cargo test --manifest-path src-tauri/Cargo.toml
+      glob: "*.rs"
+      run: cargo test --manifest-path src-tauri/Cargo.toml --lib
+    # Catches `tauri::generate_handler!` macro expansion failures
+    # (the v2.1.0 release CI failure) and any other bin-only compile
+    # error. `cargo check` skips codegen + linking — ~3 s warm,
+    # ~30-50 s after dependency invalidation. Far cheaper than full
+    # `cargo test` of the bin.
+    rust-check-bin:
+      glob: "*.rs"
+      run: cargo check --manifest-path src-tauri/Cargo.toml --bin k8s-gui
