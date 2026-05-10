@@ -135,3 +135,284 @@ pub enum AppEvent {
     /// Error occurred
     Error { code: String, message: String },
 }
+
+impl AppEvent {
+    /// Tauri event channel name. Frontend `listen("...")` subscribes
+    /// per-channel.
+    #[must_use]
+    pub fn channel(&self) -> &'static str {
+        match self {
+            AppEvent::LogBatch { .. } => "log-batch",
+            AppEvent::ResourceWatchEvent { .. } => "resource-event",
+            AppEvent::TerminalOutput { .. } => "terminal-output",
+            AppEvent::TerminalClosed { .. } => "terminal-closed",
+            AppEvent::PortForwardStatus { .. } => "port-forward-status",
+            AppEvent::ConnectionStatusChanged { .. } => "connection-status",
+            AppEvent::AuthUrlRequested { .. } => "auth-url-requested",
+            AppEvent::AuthFlowCompleted { .. } => "auth-flow-completed",
+            AppEvent::AuthFlowCancelled { .. } => "auth-flow-cancelled",
+            AppEvent::AuthTerminalSessionCreated { .. } => "auth-terminal-session-created",
+            AppEvent::ResourceCreated { .. } => "resource-created",
+            AppEvent::ResourceUpdated { .. } => "resource-updated",
+            AppEvent::ResourceDeleted { .. } => "resource-deleted",
+            AppEvent::Error { .. } => "app-error",
+        }
+    }
+
+    /// Frontend-facing payload. We DON'T `serde_json::to_value(self)`
+    /// because `AppEvent` is `#[serde(tag = "type", content = "data")]` —
+    /// that would wrap each payload in `{ "type": ..., "data": {...} }`
+    /// and force every frontend listener to dig through `event.payload.data.*`.
+    /// Each variant explicitly returns the flat object the frontend hooks
+    /// expect (`event.payload.session_id`, etc.).
+    ///
+    /// **Adding a new variant?** You MUST extend this match — the
+    /// `#[deny(non_exhaustive_omitted_patterns)]` style enforced by the
+    /// exhaustive match below means a new variant fails to compile until
+    /// it has a payload, and the unit test below fails until the payload
+    /// is structurally flat (no `type` wrapper key).
+    #[must_use]
+    pub fn payload(&self) -> serde_json::Value {
+        match self {
+            AppEvent::LogBatch { stream_id, lines } => serde_json::json!({
+                "stream_id": stream_id,
+                "lines": lines,
+            }),
+            AppEvent::ResourceWatchEvent {
+                stream_id,
+                op,
+                resource,
+                error,
+            } => serde_json::json!({
+                "stream_id": stream_id,
+                "op": op,
+                "resource": resource,
+                "error": error,
+            }),
+            AppEvent::TerminalOutput { session_id, data } => serde_json::json!({
+                "session_id": session_id,
+                "data": data,
+            }),
+            AppEvent::TerminalClosed { session_id, status } => serde_json::json!({
+                "session_id": session_id,
+                "status": status,
+            }),
+            AppEvent::PortForwardStatus {
+                id,
+                pod,
+                namespace,
+                local_port,
+                remote_port,
+                status,
+                message,
+                attempt,
+            } => serde_json::json!({
+                "id": id,
+                "pod": pod,
+                "namespace": namespace,
+                "local_port": local_port,
+                "remote_port": remote_port,
+                "status": status,
+                "message": message,
+                "attempt": attempt,
+            }),
+            AppEvent::ConnectionStatusChanged { context, connected } => serde_json::json!({
+                "context": context,
+                "connected": connected,
+            }),
+            AppEvent::AuthUrlRequested {
+                context,
+                url,
+                flow,
+                session_id,
+            } => serde_json::json!({
+                "context": context,
+                "url": url,
+                "flow": flow,
+                "session_id": session_id,
+            }),
+            AppEvent::AuthFlowCompleted {
+                session_id,
+                context,
+                success,
+                message,
+            } => serde_json::json!({
+                "session_id": session_id,
+                "context": context,
+                "success": success,
+                "message": message,
+            }),
+            AppEvent::AuthFlowCancelled {
+                session_id,
+                context,
+                message,
+            } => serde_json::json!({
+                "session_id": session_id,
+                "context": context,
+                "message": message,
+            }),
+            AppEvent::AuthTerminalSessionCreated {
+                auth_session_id,
+                terminal_session_id,
+                context,
+                command,
+            } => serde_json::json!({
+                "auth_session_id": auth_session_id,
+                "terminal_session_id": terminal_session_id,
+                "context": context,
+                "command": command,
+            }),
+            AppEvent::ResourceCreated {
+                kind,
+                name,
+                namespace,
+            }
+            | AppEvent::ResourceUpdated {
+                kind,
+                name,
+                namespace,
+            }
+            | AppEvent::ResourceDeleted {
+                kind,
+                name,
+                namespace,
+            } => serde_json::json!({
+                "kind": kind,
+                "name": name,
+                "namespace": namespace,
+            }),
+            AppEvent::Error { code, message } => serde_json::json!({
+                "code": code,
+                "message": message,
+            }),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every `AppEvent` payload must be a flat object — no `type`
+    /// wrapper key, no `data` nesting. The frontend hooks read fields
+    /// like `event.payload.context` directly; the `#[serde(tag, content)]`
+    /// representation that `serde_json::to_value(self)` would produce
+    /// instead sits one level deeper and silently breaks every consumer.
+    /// The bug we hit in v2.1.0 was exactly this for
+    /// `AuthTerminalSessionCreated` — modal opened with empty
+    /// context/command and a `terminalSessionId: undefined` that
+    /// disconnected the inner terminal. This test pins the contract.
+    #[test]
+    fn payload_is_flat_object_for_every_variant() {
+        let samples = [
+            AppEvent::AuthTerminalSessionCreated {
+                auth_session_id: "auth-1".into(),
+                terminal_session_id: "term-1".into(),
+                context: "infra-nbg4".into(),
+                command: "kubectl oidc-login".into(),
+            },
+            AppEvent::AuthUrlRequested {
+                context: "infra-nbg4".into(),
+                url: "https://example".into(),
+                flow: "exec".into(),
+                session_id: Some("auth-1".into()),
+            },
+            AppEvent::AuthFlowCompleted {
+                session_id: "auth-1".into(),
+                context: "infra-nbg4".into(),
+                success: true,
+                message: None,
+            },
+            AppEvent::ConnectionStatusChanged {
+                context: "minikube".into(),
+                connected: true,
+            },
+            AppEvent::ResourceCreated {
+                kind: "Pod".into(),
+                name: "p".into(),
+                namespace: "default".into(),
+            },
+            AppEvent::Error {
+                code: "X".into(),
+                message: "y".into(),
+            },
+        ];
+
+        for event in &samples {
+            let payload = event.payload();
+            let obj = payload
+                .as_object()
+                .unwrap_or_else(|| panic!("{} payload was not a JSON object", event.channel()));
+            assert!(
+                !obj.contains_key("type"),
+                "{} payload looks tagged-enum-wrapped (has `type` key) — frontend reads fields at top level",
+                event.channel()
+            );
+            assert!(
+                !obj.contains_key("data"),
+                "{} payload looks tagged-enum-wrapped (has `data` key)",
+                event.channel()
+            );
+        }
+    }
+
+    /// Specific guard for the v2.1.0 bug: every field consumed by the
+    /// frontend's `<AuthTerminal>` modal must be present at the top
+    /// level of the payload.
+    #[test]
+    fn auth_terminal_session_created_payload_is_flat_with_modal_fields() {
+        let event = AppEvent::AuthTerminalSessionCreated {
+            auth_session_id: "auth-1".into(),
+            terminal_session_id: "term-1".into(),
+            context: "infra-nbg4".into(),
+            command: "kubectl oidc-login get-token".into(),
+        };
+        let payload = event.payload();
+
+        assert_eq!(
+            payload.get("auth_session_id").and_then(|v| v.as_str()),
+            Some("auth-1"),
+        );
+        assert_eq!(
+            payload.get("terminal_session_id").and_then(|v| v.as_str()),
+            Some("term-1"),
+        );
+        assert_eq!(
+            payload.get("context").and_then(|v| v.as_str()),
+            Some("infra-nbg4"),
+        );
+        assert_eq!(
+            payload.get("command").and_then(|v| v.as_str()),
+            Some("kubectl oidc-login get-token"),
+        );
+    }
+
+    #[test]
+    fn channel_names_are_kebab_case() {
+        // Tauri convention. Frontend listens on these strings.
+        let cases = [
+            (
+                AppEvent::AuthTerminalSessionCreated {
+                    auth_session_id: String::new(),
+                    terminal_session_id: String::new(),
+                    context: String::new(),
+                    command: String::new(),
+                },
+                "auth-terminal-session-created",
+            ),
+            (
+                AppEvent::AuthUrlRequested {
+                    context: String::new(),
+                    url: String::new(),
+                    flow: String::new(),
+                    session_id: None,
+                },
+                "auth-url-requested",
+            ),
+        ];
+
+        for (event, expected) in cases {
+            assert_eq!(event.channel(), expected);
+        }
+    }
+}

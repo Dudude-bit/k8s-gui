@@ -37,126 +37,23 @@ fn main() {
             // Initialize application state
             let state = AppState::new()?;
 
-            // Subscribe to events and forward to frontend
+            // Subscribe to events and forward to frontend.
+            //
+            // The per-variant `event.channel()` and `event.payload()` are
+            // defined alongside the `AppEvent` enum in `state::events`.
+            // Inlining the routing here previously diverged from the enum
+            // — a new `AuthTerminalSessionCreated` variant got an
+            // `event_name` mapping but no explicit payload, falling
+            // through to a `serde_json::to_value(&event)` default that
+            // wrapped the data under `{ "type": ..., "data": {...} }` and
+            // silently broke the frontend modal (v2.1.0 bug).
             let mut event_rx = state.subscribe();
             let app_handle = app.handle().clone();
 
             tauri::async_runtime::spawn(async move {
-                use k8s_gui_lib::state::AppEvent;
-
                 while let Ok(event) = event_rx.recv().await {
-                    let event_name = match &event {
-                        AppEvent::LogBatch { .. } => "log-batch",
-                        AppEvent::ResourceWatchEvent { .. } => "resource-event",
-                        AppEvent::TerminalOutput { .. } => "terminal-output",
-                        AppEvent::TerminalClosed { .. } => "terminal-closed",
-                        AppEvent::PortForwardStatus { .. } => "port-forward-status",
-                        AppEvent::ConnectionStatusChanged { .. } => "connection-status",
-                        AppEvent::AuthUrlRequested { .. } => "auth-url-requested",
-                        AppEvent::AuthFlowCompleted { .. } => "auth-flow-completed",
-                        AppEvent::AuthFlowCancelled { .. } => "auth-flow-cancelled",
-                        AppEvent::AuthTerminalSessionCreated { .. } => {
-                            "auth-terminal-session-created"
-                        }
-                        AppEvent::ResourceCreated { .. } => "resource-created",
-                        AppEvent::ResourceUpdated { .. } => "resource-updated",
-                        AppEvent::ResourceDeleted { .. } => "resource-deleted",
-                        AppEvent::Error { .. } => "app-error",
-                    };
-
-                    // Transform event payload for frontend
-                    let payload = match &event {
-                        AppEvent::LogBatch { stream_id, lines } => {
-                            serde_json::json!({
-                                "stream_id": stream_id,
-                                "lines": lines,
-                            })
-                        }
-                        AppEvent::ResourceWatchEvent {
-                            stream_id,
-                            op,
-                            resource,
-                            error,
-                        } => {
-                            serde_json::json!({
-                                "stream_id": stream_id,
-                                "op": op,
-                                "resource": resource,
-                                "error": error,
-                            })
-                        }
-                        AppEvent::TerminalOutput { session_id, data } => {
-                            serde_json::json!({
-                                "session_id": session_id,
-                                "data": data
-                            })
-                        }
-                        AppEvent::TerminalClosed { session_id, status } => {
-                            serde_json::json!({
-                                "session_id": session_id,
-                                "status": status
-                            })
-                        }
-                        AppEvent::PortForwardStatus {
-                            id,
-                            pod,
-                            namespace,
-                            local_port,
-                            remote_port,
-                            status,
-                            message,
-                            attempt,
-                        } => {
-                            serde_json::json!({
-                                "id": id,
-                                "pod": pod,
-                                "namespace": namespace,
-                                "local_port": local_port,
-                                "remote_port": remote_port,
-                                "status": status,
-                                "message": message,
-                                "attempt": attempt
-                            })
-                        }
-                        AppEvent::AuthUrlRequested {
-                            context,
-                            url,
-                            flow,
-                            session_id,
-                        } => {
-                            serde_json::json!({
-                                "context": context,
-                                "url": url,
-                                "flow": flow,
-                                "session_id": session_id
-                            })
-                        }
-                        AppEvent::AuthFlowCompleted {
-                            session_id,
-                            context,
-                            success,
-                            message,
-                        } => {
-                            serde_json::json!({
-                                "session_id": session_id,
-                                "context": context,
-                                "success": success,
-                                "message": message
-                            })
-                        }
-                        AppEvent::AuthFlowCancelled {
-                            session_id,
-                            context,
-                            message,
-                        } => {
-                            serde_json::json!({
-                                "session_id": session_id,
-                                "context": context,
-                                "message": message
-                            })
-                        }
-                        _ => serde_json::to_value(&event).unwrap_or_default(),
-                    };
+                    let event_name = event.channel();
+                    let payload = event.payload();
 
                     if let Err(e) = app_handle.emit(event_name, payload) {
                         tracing::error!("Failed to emit event {}: {}", event_name, e);
