@@ -8,12 +8,7 @@ mod auth;
 mod search;
 mod types;
 
-pub use auth::{
-    delete_registry_credentials, get_registry_auth_status, import_docker_config,
-    set_registry_credentials,
-};
-pub use search::search_registry_images;
-pub use types::{
-    RegistryAuth, RegistryAuthStatus, RegistryConfig, RegistryImageResult, RegistryImportEntry,
-    RegistrySearchRequest,
-};
+// Glob re-exports — see commands/crds/mod.rs.
+pub use auth::*;
+pub use search::*;
+pub use types::*;

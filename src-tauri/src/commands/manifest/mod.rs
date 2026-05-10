@@ -11,7 +11,9 @@ mod parse;
 
 use serde::{Deserialize, Serialize};
 
-pub use commands::{apply_manifest, delete_manifest, get_manifest, validate_manifest};
+// Glob re-export — see commands/crds/mod.rs for why
+// `pub use commands::*` is needed instead of named.
+pub use commands::*;
 
 /// Result of manifest operation (validate or apply)
 #[derive(Debug, Clone, Serialize, Deserialize)]

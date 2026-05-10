@@ -12,12 +12,13 @@ mod crd;
 mod instance;
 mod types;
 
-pub use convert::dynamic_object_to_custom_resource_info;
-pub use crd::{delete_crd, get_crd, get_crd_schema, get_crd_yaml, list_crds};
-pub use instance::{
-    delete_custom_resource, get_custom_resource, get_custom_resource_yaml, list_custom_resources,
-};
-pub use types::{
-    CrdAcceptedNames, CrdCondition, CrdDetailInfo, CrdGroup, CrdInfo, CrdVersionInfo,
-    CustomResourceDetailInfo, CustomResourceInfo, OwnerReferenceInfo, PrinterColumn,
-};
+// Glob re-exports — `#[tauri::command]` generates a sibling `__cmd__X`
+// item next to each command function. The `tauri::generate_handler!`
+// macro in main.rs looks up `__cmd__X` in the module path it was given,
+// so the named re-exports `pub use crd::{X}` weren't enough — they
+// brought `X` but not its `__cmd__X` neighbour. Glob `pub use crd::*`
+// re-exports both. Same shape applied to every command-bearing split.
+pub use convert::*;
+pub use crd::*;
+pub use instance::*;
+pub use types::*;

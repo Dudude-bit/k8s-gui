@@ -10,11 +10,7 @@ mod config;
 mod session;
 mod types;
 
-pub use config::{
-    create_port_forward_config, delete_port_forward_config, list_port_forward_configs,
-    update_port_forward_config,
-};
-pub use session::{list_port_forwards, port_forward_pod, stop_port_forward};
-pub use types::{
-    PortForwardConfigInfo, PortForwardConfigPayload, PortForwardRequest, PortForwardSessionInfo,
-};
+// Glob re-exports — see commands/crds/mod.rs.
+pub use config::*;
+pub use session::*;
+pub use types::*;
