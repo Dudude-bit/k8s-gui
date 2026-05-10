@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -20,13 +20,26 @@ import { BackgroundJobsTab } from "./activity/BackgroundJobsTab";
 export function ActivityPanel() {
   const [open, setOpen] = useState(false);
 
-  // Get counts for badge
+  // Get counts for badge.
+  //
+  // IMPORTANT: every Zustand selector here returns a *raw* slice
+  // (`state.sessions`, `state.jobs`) so its result is reference-stable
+  // across renders. Filtering happens in useMemo below. Returning a
+  // freshly-built array from inside the selector — e.g. `state.jobs
+  // .filter(...)` — fails Zustand 5's `useSyncExternalStore` snapshot
+  // contract: each render produces a new array reference, React thinks
+  // state changed, re-renders, calls the selector again → infinite
+  // loop with React error #185 ("Maximum update depth exceeded").
   const portForwardSessions = usePortForwardStore((state) => state.sessions);
   const terminalSessions = useTerminalSessionStore((state) => state.sessions);
-  const activeJobs = useBackgroundJobStore((state) =>
-    state.jobs.filter(
-      (job) => job.status === "pending" || job.status === "running"
-    )
+  const jobs = useBackgroundJobStore((state) => state.jobs);
+
+  const activeJobs = useMemo(
+    () =>
+      jobs.filter(
+        (job) => job.status === "pending" || job.status === "running"
+      ),
+    [jobs]
   );
 
   const activeTerminals = terminalSessions.filter(
