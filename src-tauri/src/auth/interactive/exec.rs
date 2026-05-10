@@ -26,12 +26,45 @@ pub(super) async fn run_exec_auth(
     exec: &ExecConfig,
     exec_cluster: Option<ExecAuthCluster>,
 ) -> Result<ExecCredentialStatus> {
-    // Try native cloud authentication first
-    if let Some(result) = try_native_cloud_auth(exec, context).await {
+    // Create the auth session BEFORE attempting native auth so a
+    // concurrent `disconnect_cluster` (or any caller of
+    // `cancel_auth_sessions_for_context`) can interrupt this attempt.
+    //
+    // Without this, native GCP/Azure auth's ADC retries
+    // (5+ seconds for `gcp_auth::ConfigDefaultCredentials` looking for
+    // application default credentials, then `MetadataServiceAccount`)
+    // ran past the user switching contexts. The `AuthTerminalSessionCreated`
+    // event emitted at the end fired after the user already had a new
+    // context active → orphan modal stuck on whatever cluster they
+    // landed on.
+    let (session_id, mut cancel_rx) = state.create_auth_session(context, "exec");
+
+    // Race native cloud auth against the cancel signal. Dropping the
+    // native_auth future at the select branch aborts gcp_auth's HTTP
+    // retries at the next .await point — no orphan task left running.
+    let native_result = tokio::select! {
+        result = try_native_cloud_auth(exec, context) => result,
+        _ = &mut cancel_rx => {
+            state.remove_auth_session(&session_id);
+            state.emit(AppEvent::AuthFlowCancelled {
+                session_id: session_id.clone(),
+                context: context.to_string(),
+                message: Some("Authentication cancelled.".to_string()),
+            });
+            return Err(Error::Auth(AuthError::Kubeconfig(
+                "Authentication cancelled".to_string(),
+            )));
+        }
+    };
+
+    if let Some(result) = native_result {
+        // Native auth succeeded — drop the holding session, no terminal
+        // ever spawned, no event sent to the frontend.
+        state.remove_auth_session(&session_id);
         return result;
     }
 
-    let (session_id, mut cancel_rx) = state.create_auth_session(context, "exec");
+    // Native skipped/failed → fall through to spawned exec terminal.
     let (browser_script, url_file, bin_dir) = match create_browser_script(&session_id) {
         Ok(paths) => paths,
         Err(err) => {
