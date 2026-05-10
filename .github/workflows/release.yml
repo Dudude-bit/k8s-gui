@@ -53,6 +53,33 @@ jobs:
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
+      - name: Extract release notes for tag
+        id: changelog
+        shell: bash
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${TAG#v}"
+          # Extract the section under `## [VERSION]` (excluding the
+          # heading line itself) up to the next `## [` heading
+          # (exclusive). Falls back to the whole file if the section
+          # is missing so we never ship an empty body silently.
+          NOTES=$(awk -v v="$VERSION" '
+            /^## \[/ {
+              if (in_section) exit
+              if ($0 ~ "^## \\[" v "\\]") { in_section = 1; next }
+            }
+            in_section { print }
+          ' CHANGELOG.md)
+          if [ -z "$NOTES" ]; then
+            echo "::warning::No CHANGELOG section for $VERSION; using full file"
+            NOTES=$(cat CHANGELOG.md)
+          fi
+          {
+            echo "notes<<__RELEASE_NOTES_EOF__"
+            echo "$NOTES"
+            echo "__RELEASE_NOTES_EOF__"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Setup Tauri build environment
         uses: ./.github/actions/setup-tauri
         with:
@@ -72,7 +99,10 @@ jobs:
         with:
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
           releaseName: ${{ github.event.inputs.tag || github.ref_name }}
-          releaseBodyPath: CHANGELOG.md
+          # tauri-action 0.6+ replaced `releaseBodyPath` (a file path)
+          # with `releaseBody` (a string). Body comes from the
+          # changelog-extraction step above.
+          releaseBody: ${{ steps.changelog.outputs.notes }}
           releaseDraft: true
           prerelease: false
           includeUpdaterJson: true
