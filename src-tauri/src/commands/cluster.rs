@@ -163,6 +163,21 @@ pub async fn connect_cluster(context: String, state: State<'_, AppState>) -> Res
 /// Disconnect from a cluster
 #[tauri::command]
 pub fn disconnect_cluster(context: String, state: State<'_, AppState>) -> Result<()> {
+    // Cancel any in-flight auth sessions for this context. Without this
+    // a sequence like `gke (auth modal open) → minikube (no auth needed)`
+    // leaves the gke modal stuck because nothing emits AuthFlowCancelled
+    // for the orphaned session — clusterStore.connect issues
+    // `disconnect_cluster(previous)` precisely here, and the modal only
+    // closes on cancel/completed events.
+    let cancelled_sessions = state.cancel_auth_sessions_for_context(&context);
+    for session_id in cancelled_sessions {
+        state.emit(crate::state::AppEvent::AuthFlowCancelled {
+            session_id,
+            context: context.clone(),
+            message: Some("Authentication cancelled — switched away.".to_string()),
+        });
+    }
+
     state.client_manager.disconnect(&context);
     state.remove_session(&context);
 
