@@ -22,10 +22,10 @@ import { commands } from "@/lib/commands";
 import { normalizeTauriError } from "@/lib/error-utils";
 
 const EMPTY_PROFILE: GcpProfile = {
-  description: null,
-  serviceAccountKeyPath: null,
-  gcloudPath: null,
-  defaultProject: null,
+  description: undefined,
+  serviceAccountKeyPath: undefined,
+  gcloudPath: undefined,
+  defaultProject: undefined,
   preferNativeAuth: true,
 };
 
@@ -218,7 +218,7 @@ export function GcpProfilesSection() {
                 onChange={(e) =>
                   setEditingProfile((prev) => ({
                     ...prev,
-                    description: e.target.value || null,
+                    description: e.target.value || undefined,
                   }))
                 }
                 placeholder="e.g., Production GKE clusters"
@@ -232,7 +232,7 @@ export function GcpProfilesSection() {
                   onChange={(e) =>
                     setEditingProfile((prev) => ({
                       ...prev,
-                      serviceAccountKeyPath: e.target.value || null,
+                      serviceAccountKeyPath: e.target.value || undefined,
                     }))
                   }
                   placeholder="Leave empty to use ADC"
@@ -255,7 +255,7 @@ export function GcpProfilesSection() {
                 onChange={(e) =>
                   setEditingProfile((prev) => ({
                     ...prev,
-                    defaultProject: e.target.value || null,
+                    defaultProject: e.target.value || undefined,
                   }))
                 }
                 placeholder="GCP Project ID"

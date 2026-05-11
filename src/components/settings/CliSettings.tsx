@@ -70,8 +70,8 @@ export function CliSettings() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       await commands.saveCliPaths({
-        helmPath: helmPath || null,
-        kubectlPath: kubectlPath || null,
+        helmPath: helmPath || undefined,
+        kubectlPath: kubectlPath || undefined,
       });
     },
     onSuccess: async () => {

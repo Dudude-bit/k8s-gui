@@ -208,8 +208,8 @@ class LogQueueImpl {
     const batchEntries = entries.map((entry) => ({
       level: entry.level,
       message: entry.message,
-      context: entry.context ?? null,
-      data: entry.data !== undefined ? entry.data : null,
+      context: entry.context ?? undefined,
+      data: entry.data,
       timestamp: entry.timestamp,
     }));
 

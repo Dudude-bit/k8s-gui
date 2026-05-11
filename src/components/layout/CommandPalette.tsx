@@ -146,7 +146,7 @@ export function CommandPalette() {
             name,
             kind,
             path,
-            namespace: namespace ?? null,
+            namespace: namespace ?? undefined,
             timestamp: Date.now(),
           })
           .catch(() => {

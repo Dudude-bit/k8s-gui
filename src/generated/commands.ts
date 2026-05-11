@@ -86,6 +86,251 @@ import type {
   YamlHistoryEntryDto,
 } from "./types";
 
+export async function listRegistryConfigs(): Promise<RegistryConfigInfo[]> {
+  return invoke<RegistryConfigInfo[]>("list_registry_configs");
+}
+
+export async function saveRegistryConfig(
+  id: string,
+  configEntry: RegistryConfigInfo
+): Promise<void> {
+  return invoke<void>("save_registry_config", { id, configEntry });
+}
+
+export async function deleteRegistryConfig(id: string): Promise<void> {
+  return invoke<void>("delete_registry_config", { id });
+}
+
+export async function listGcpProfiles(): Promise<GcpProfileInfo[]> {
+  return invoke<GcpProfileInfo[]>("list_gcp_profiles");
+}
+
+export async function getGcpProfile(name: string): Promise<GcpProfile | null> {
+  return invoke<GcpProfile | null>("get_gcp_profile", { name });
+}
+
+export async function saveGcpProfile(
+  name: string,
+  profile: GcpProfile
+): Promise<void> {
+  return invoke<void>("save_gcp_profile", { name, profile });
+}
+
+export async function deleteGcpProfile(name: string): Promise<void> {
+  return invoke<void>("delete_gcp_profile", { name });
+}
+
+export async function testGcpProfile(name: string): Promise<string> {
+  return invoke<string>("test_gcp_profile", { name });
+}
+
+export async function listAzureProfiles(): Promise<AzureProfileInfo[]> {
+  return invoke<AzureProfileInfo[]>("list_azure_profiles");
+}
+
+export async function getAzureProfile(
+  name: string
+): Promise<AzureProfile | null> {
+  return invoke<AzureProfile | null>("get_azure_profile", { name });
+}
+
+export async function saveAzureProfile(
+  name: string,
+  profile: AzureProfile
+): Promise<void> {
+  return invoke<void>("save_azure_profile", { name, profile });
+}
+
+export async function deleteAzureProfile(name: string): Promise<void> {
+  return invoke<void>("delete_azure_profile", { name });
+}
+
+export async function testAzureProfile(name: string): Promise<string> {
+  return invoke<string>("test_azure_profile", { name });
+}
+
+export async function listContextBindings(): Promise<ContextBindingInfo[]> {
+  return invoke<ContextBindingInfo[]>("list_context_bindings");
+}
+
+export async function getContextBinding(
+  context: string
+): Promise<ContextBinding> {
+  return invoke<ContextBinding>("get_context_binding", { context });
+}
+
+export async function saveContextBinding(
+  context: string,
+  binding: ContextBinding
+): Promise<void> {
+  return invoke<void>("save_context_binding", { context, binding });
+}
+
+export async function deleteContextBinding(context: string): Promise<void> {
+  return invoke<void>("delete_context_binding", { context });
+}
+
+export async function getCliPaths(): Promise<CliPathsConfig> {
+  return invoke<CliPathsConfig>("get_cli_paths");
+}
+
+export async function saveCliPaths(cliPaths: CliPathsConfig): Promise<void> {
+  return invoke<void>("save_cli_paths", { cliPaths });
+}
+
+export async function getAppInfo(): Promise<AppInfo> {
+  return invoke<AppInfo>("get_app_info");
+}
+
+export async function getThemeConfig(): Promise<ThemeConfig> {
+  return invoke<ThemeConfig>("get_theme_config");
+}
+
+export async function saveThemeConfig(theme: ThemeConfig): Promise<void> {
+  return invoke<void>("save_theme_config", { theme });
+}
+
+export async function getYamlHistory(
+  resourceKey: string
+): Promise<YamlHistoryEntryDto[]> {
+  return invoke<YamlHistoryEntryDto[]>("get_yaml_history", { resourceKey });
+}
+
+export async function addYamlHistoryEntry(
+  resourceKey: string,
+  entry: YamlHistoryEntryDto
+): Promise<void> {
+  return invoke<void>("add_yaml_history_entry", { resourceKey, entry });
+}
+
+export async function getAllYamlHistory(): Promise<
+  Record<string, YamlHistoryEntryDto[]>
+> {
+  return invoke<Record<string, YamlHistoryEntryDto[]>>("get_all_yaml_history");
+}
+
+export async function getInfrastructureState(
+  context: string
+): Promise<InfrastructureBuilderStateDto> {
+  return invoke<InfrastructureBuilderStateDto>("get_infrastructure_state", {
+    context,
+  });
+}
+
+export async function saveInfrastructureState(
+  context: string,
+  state: InfrastructureBuilderStateDto
+): Promise<void> {
+  return invoke<void>("save_infrastructure_state", { context, state });
+}
+
+export async function clearInfrastructureState(context: string): Promise<void> {
+  return invoke<void>("clear_infrastructure_state", { context });
+}
+
+export async function getRecentItems(): Promise<RecentItem[]> {
+  return invoke<RecentItem[]>("get_recent_items");
+}
+
+export async function addRecentItem(item: RecentItem): Promise<void> {
+  return invoke<void>("add_recent_item", { item });
+}
+
+export async function getUpdaterSettings(): Promise<UpdaterConfig> {
+  return invoke<UpdaterConfig>("get_updater_settings");
+}
+
+export async function saveUpdaterSettings(
+  settings: UpdaterConfig
+): Promise<void> {
+  return invoke<void>("save_updater_settings", { settings });
+}
+
+export async function getClusterPreferences(): Promise<ClusterPreferences> {
+  return invoke<ClusterPreferences>("get_cluster_preferences");
+}
+
+export async function saveClusterPreferences(
+  lastContext: string | null,
+  context: string | null,
+  namespace: string | null
+): Promise<void> {
+  return invoke<void>("save_cluster_preferences", {
+    lastContext,
+    context,
+    namespace,
+  });
+}
+
+export async function listCustomResources(
+  crdName: string,
+  namespace: string | null,
+  labelSelector: string | null,
+  limit: number | null
+): Promise<CustomResourceInfo[]> {
+  return invoke<CustomResourceInfo[]>("list_custom_resources", {
+    crdName,
+    namespace,
+    labelSelector,
+    limit,
+  });
+}
+
+export async function getCustomResource(
+  crdName: string,
+  name: string,
+  namespace: string | null
+): Promise<CustomResourceDetailInfo> {
+  return invoke<CustomResourceDetailInfo>("get_custom_resource", {
+    crdName,
+    name,
+    namespace,
+  });
+}
+
+export async function getCustomResourceYaml(
+  crdName: string,
+  name: string,
+  namespace: string | null
+): Promise<string> {
+  return invoke<string>("get_custom_resource_yaml", {
+    crdName,
+    name,
+    namespace,
+  });
+}
+
+export async function deleteCustomResource(
+  crdName: string,
+  name: string,
+  namespace: string | null
+): Promise<void> {
+  return invoke<void>("delete_custom_resource", { crdName, name, namespace });
+}
+
+export async function listCrds(grouped: boolean | null): Promise<CrdGroup[]> {
+  return invoke<CrdGroup[]>("list_crds", { grouped });
+}
+
+export async function getCrd(name: string): Promise<CrdDetailInfo> {
+  return invoke<CrdDetailInfo>("get_crd", { name });
+}
+
+export async function getCrdYaml(name: string): Promise<string> {
+  return invoke<string>("get_crd_yaml", { name });
+}
+
+export async function deleteCrd(name: string): Promise<void> {
+  return invoke<void>("delete_crd", { name });
+}
+
+export async function getCrdSchema(
+  name: string,
+  version: string | null
+): Promise<unknown> {
+  return invoke<unknown>("get_crd_schema", { name, version });
+}
+
 export async function listStatefulsets(
   filters: ResourceFilters | null
 ): Promise<StatefulSetInfo[]> {
@@ -198,37 +443,6 @@ export async function listEvents(
   filters: EventFilters | null
 ): Promise<EventInfo[]> {
   return invoke<EventInfo[]>("list_events", { filters });
-}
-
-export async function importDockerConfig(): Promise<RegistryImportEntry[]> {
-  return invoke<RegistryImportEntry[]>("import_docker_config");
-}
-
-export async function setRegistryCredentials(
-  registryId: string,
-  auth: RegistryAuth
-): Promise<void> {
-  return invoke<void>("set_registry_credentials", { registryId, auth });
-}
-
-export async function deleteRegistryCredentials(
-  registryId: string
-): Promise<void> {
-  return invoke<void>("delete_registry_credentials", { registryId });
-}
-
-export async function getRegistryAuthStatus(
-  registryId: string
-): Promise<RegistryAuthStatus | null> {
-  return invoke<RegistryAuthStatus | null>("get_registry_auth_status", {
-    registryId,
-  });
-}
-
-export async function searchRegistryImages(
-  request: RegistrySearchRequest
-): Promise<RegistryImageResult[]> {
-  return invoke<RegistryImageResult[]>("search_registry_images", { request });
 }
 
 export async function portForwardPod(
@@ -406,83 +620,6 @@ export async function debugKubectlPlugins(): Promise<unknown> {
   return invoke<unknown>("debug_kubectl_plugins");
 }
 
-export async function listConfigmaps(
-  filters: ResourceFilters | null
-): Promise<ConfigMapInfo[]> {
-  return invoke<ConfigMapInfo[]>("list_configmaps", { filters });
-}
-
-export async function getConfigmap(
-  name: string,
-  namespace: string | null
-): Promise<ConfigMapInfo> {
-  return invoke<ConfigMapInfo>("get_configmap", { name, namespace });
-}
-
-export async function getConfigmapData(
-  name: string,
-  namespace: string | null
-): Promise<Record<string, string>> {
-  return invoke<Record<string, string>>("get_configmap_data", {
-    name,
-    namespace,
-  });
-}
-
-export async function deleteConfigmap(
-  name: string,
-  namespace: string | null
-): Promise<void> {
-  return invoke<void>("delete_configmap", { name, namespace });
-}
-
-export async function listSecrets(
-  filters: SecretFilters | null
-): Promise<SecretInfo[]> {
-  return invoke<SecretInfo[]>("list_secrets", { filters });
-}
-
-export async function getSecret(
-  name: string,
-  namespace: string | null
-): Promise<SecretInfo> {
-  return invoke<SecretInfo>("get_secret", { name, namespace });
-}
-
-export async function getSecretData(
-  name: string,
-  namespace: string | null
-): Promise<Record<string, string>> {
-  return invoke<Record<string, string>>("get_secret_data", { name, namespace });
-}
-
-export async function getSecretYaml(
-  name: string,
-  namespace: string | null,
-  redact: boolean
-): Promise<string> {
-  return invoke<string>("get_secret_yaml", { name, namespace, redact });
-}
-
-export async function deleteSecret(
-  name: string,
-  namespace: string | null
-): Promise<void> {
-  return invoke<void>("delete_secret", { name, namespace });
-}
-
-export async function getResourceReferences(
-  resourceType: string,
-  name: string,
-  namespace: string | null
-): Promise<ResourceReferences> {
-  return invoke<ResourceReferences>("get_resource_references", {
-    resourceType,
-    name,
-    namespace,
-  });
-}
-
 export async function listPods(filters: PodFilters | null): Promise<PodInfo[]> {
   return invoke<PodInfo[]>("list_pods", { filters });
 }
@@ -509,86 +646,65 @@ export async function restartPod(
   return invoke<void>("restart_pod", { name, namespace });
 }
 
-export async function checkHelmAvailability(): Promise<CliAvailability> {
-  return invoke<CliAvailability>("check_helm_availability");
+export async function checkKubectlAvailability(): Promise<CliAvailability> {
+  return invoke<CliAvailability>("check_kubectl_availability");
 }
 
-export async function listHelmReleasesNative(
+export async function subscribeCustomResourceWatch(
+  group: string,
+  version: string,
+  kind: string,
+  plural: string,
   namespace: string | null
-): Promise<HelmRelease[]> {
-  return invoke<HelmRelease[]>("list_helm_releases_native", { namespace });
-}
-
-export async function getHelmReleaseDetail(
-  name: string,
-  namespace: string,
-  revision: number | null
-): Promise<HelmReleaseDetail> {
-  return invoke<HelmReleaseDetail>("get_helm_release_detail", {
-    name,
+): Promise<string> {
+  return invoke<string>("subscribe_custom_resource_watch", {
+    group,
+    version,
+    kind,
+    plural,
     namespace,
-    revision,
   });
 }
 
-export async function getHelmHistory(
-  name: string,
-  namespace: string
-): Promise<HelmRevision[]> {
-  return invoke<HelmRevision[]>("get_helm_history", { name, namespace });
+export async function resourceWatchSubscribed(streamId: string): Promise<void> {
+  return invoke<void>("resource_watch_subscribed", { streamId });
 }
 
-export async function helmRollback(
-  name: string,
-  namespace: string,
-  revision: number
-): Promise<string> {
-  return invoke<string>("helm_rollback", { name, namespace, revision });
+export async function unsubscribeResourceWatch(
+  streamId: string
+): Promise<void> {
+  return invoke<void>("unsubscribe_resource_watch", { streamId });
 }
 
-export async function helmUninstall(
-  name: string,
-  namespace: string
-): Promise<string> {
-  return invoke<string>("helm_uninstall", { name, namespace });
+export async function importDockerConfig(): Promise<RegistryImportEntry[]> {
+  return invoke<RegistryImportEntry[]>("import_docker_config");
 }
 
-export async function listHelmRepos(): Promise<HelmRepository[]> {
-  return invoke<HelmRepository[]>("list_helm_repos");
+export async function setRegistryCredentials(
+  registryId: string,
+  auth: RegistryAuth
+): Promise<void> {
+  return invoke<void>("set_registry_credentials", { registryId, auth });
 }
 
-export async function addHelmRepo(name: string, url: string): Promise<string> {
-  return invoke<string>("add_helm_repo", { name, url });
+export async function deleteRegistryCredentials(
+  registryId: string
+): Promise<void> {
+  return invoke<void>("delete_registry_credentials", { registryId });
 }
 
-export async function removeHelmRepo(name: string): Promise<string> {
-  return invoke<string>("remove_helm_repo", { name });
+export async function getRegistryAuthStatus(
+  registryId: string
+): Promise<RegistryAuthStatus | null> {
+  return invoke<RegistryAuthStatus | null>("get_registry_auth_status", {
+    registryId,
+  });
 }
 
-export async function updateHelmRepos(): Promise<string> {
-  return invoke<string>("update_helm_repos");
-}
-
-export async function helmSearchCharts(
-  keyword: string
-): Promise<HelmChartSearchResult[]> {
-  return invoke<HelmChartSearchResult[]>("helm_search_charts", { keyword });
-}
-
-export async function helmInstall(
-  options: HelmInstallOptions
-): Promise<string> {
-  return invoke<string>("helm_install", { options });
-}
-
-export async function helmUpgrade(
-  options: HelmInstallOptions
-): Promise<string> {
-  return invoke<string>("helm_upgrade", { options });
-}
-
-export async function checkKubectlAvailability(): Promise<CliAvailability> {
-  return invoke<CliAvailability>("check_kubectl_availability");
+export async function searchRegistryImages(
+  request: RegistrySearchRequest
+): Promise<RegistryImageResult[]> {
+  return invoke<RegistryImageResult[]>("search_registry_images", { request });
 }
 
 export async function listNodes(
@@ -682,144 +798,10 @@ export async function getClusterStats(
   return invoke<ClusterStats>("get_cluster_stats", { namespace });
 }
 
-export async function debugPodEphemeral(
-  podName: string,
-  namespace: string | null,
-  config: DebugConfig
-): Promise<DebugOperation> {
-  return invoke<DebugOperation>("debug_pod_ephemeral", {
-    podName,
-    namespace,
-    config,
-  });
-}
-
-export async function debugPodCopy(
-  podName: string,
-  namespace: string | null,
-  config: DebugConfig
-): Promise<DebugOperation> {
-  return invoke<DebugOperation>("debug_pod_copy", {
-    podName,
-    namespace,
-    config,
-  });
-}
-
-export async function debugNode(
-  nodeName: string,
-  namespace: string | null,
-  config: DebugConfig
-): Promise<DebugOperation> {
-  return invoke<DebugOperation>("debug_node", { nodeName, namespace, config });
-}
-
-export async function deleteDebugPod(
-  podName: string,
-  namespace: string | null
-): Promise<void> {
-  return invoke<void>("delete_debug_pod", { podName, namespace });
-}
-
-export async function listDebugPods(
-  namespace: string | null
-): Promise<DebugResult[]> {
-  return invoke<DebugResult[]>("list_debug_pods", { namespace });
-}
-
-export async function getDebugStatus(
-  operationId: string
-): Promise<DebugStatus> {
-  return invoke<DebugStatus>("get_debug_status", { operationId });
-}
-
-export async function extendDebugTimeout(
-  operationId: string,
-  additionalSeconds: number | null
-): Promise<void> {
-  return invoke<void>("extend_debug_timeout", {
-    operationId,
-    additionalSeconds,
-  });
-}
-
-export async function cancelDebugOperation(operationId: string): Promise<void> {
-  return invoke<void>("cancel_debug_operation", { operationId });
-}
-
 export async function listResources(
   query: ResourceQuery
 ): Promise<ResourceListItem[]> {
   return invoke<ResourceListItem[]>("list_resources", { query });
-}
-
-export async function listCrds(grouped: boolean | null): Promise<CrdGroup[]> {
-  return invoke<CrdGroup[]>("list_crds", { grouped });
-}
-
-export async function getCrd(name: string): Promise<CrdDetailInfo> {
-  return invoke<CrdDetailInfo>("get_crd", { name });
-}
-
-export async function getCrdYaml(name: string): Promise<string> {
-  return invoke<string>("get_crd_yaml", { name });
-}
-
-export async function deleteCrd(name: string): Promise<void> {
-  return invoke<void>("delete_crd", { name });
-}
-
-export async function getCrdSchema(
-  name: string,
-  version: string | null
-): Promise<unknown> {
-  return invoke<unknown>("get_crd_schema", { name, version });
-}
-
-export async function listCustomResources(
-  crdName: string,
-  namespace: string | null,
-  labelSelector: string | null,
-  limit: number | null
-): Promise<CustomResourceInfo[]> {
-  return invoke<CustomResourceInfo[]>("list_custom_resources", {
-    crdName,
-    namespace,
-    labelSelector,
-    limit,
-  });
-}
-
-export async function getCustomResource(
-  crdName: string,
-  name: string,
-  namespace: string | null
-): Promise<CustomResourceDetailInfo> {
-  return invoke<CustomResourceDetailInfo>("get_custom_resource", {
-    crdName,
-    name,
-    namespace,
-  });
-}
-
-export async function getCustomResourceYaml(
-  crdName: string,
-  name: string,
-  namespace: string | null
-): Promise<string> {
-  return invoke<string>("get_custom_resource_yaml", {
-    crdName,
-    name,
-    namespace,
-  });
-}
-
-export async function deleteCustomResource(
-  crdName: string,
-  name: string,
-  namespace: string | null
-): Promise<void> {
-  return invoke<void>("delete_custom_resource", { crdName, name, namespace });
 }
 
 export async function listDeployments(
@@ -885,182 +867,6 @@ export async function getRolloutStatus(
   return invoke<RolloutStatus>("get_rollout_status", { name, namespace });
 }
 
-export async function getAppInfo(): Promise<AppInfo> {
-  return invoke<AppInfo>("get_app_info");
-}
-
-export async function listGcpProfiles(): Promise<GcpProfileInfo[]> {
-  return invoke<GcpProfileInfo[]>("list_gcp_profiles");
-}
-
-export async function getGcpProfile(name: string): Promise<GcpProfile | null> {
-  return invoke<GcpProfile | null>("get_gcp_profile", { name });
-}
-
-export async function saveGcpProfile(
-  name: string,
-  profile: GcpProfile
-): Promise<void> {
-  return invoke<void>("save_gcp_profile", { name, profile });
-}
-
-export async function deleteGcpProfile(name: string): Promise<void> {
-  return invoke<void>("delete_gcp_profile", { name });
-}
-
-export async function testGcpProfile(name: string): Promise<string> {
-  return invoke<string>("test_gcp_profile", { name });
-}
-
-export async function listAzureProfiles(): Promise<AzureProfileInfo[]> {
-  return invoke<AzureProfileInfo[]>("list_azure_profiles");
-}
-
-export async function getAzureProfile(
-  name: string
-): Promise<AzureProfile | null> {
-  return invoke<AzureProfile | null>("get_azure_profile", { name });
-}
-
-export async function saveAzureProfile(
-  name: string,
-  profile: AzureProfile
-): Promise<void> {
-  return invoke<void>("save_azure_profile", { name, profile });
-}
-
-export async function deleteAzureProfile(name: string): Promise<void> {
-  return invoke<void>("delete_azure_profile", { name });
-}
-
-export async function testAzureProfile(name: string): Promise<string> {
-  return invoke<string>("test_azure_profile", { name });
-}
-
-export async function listContextBindings(): Promise<ContextBindingInfo[]> {
-  return invoke<ContextBindingInfo[]>("list_context_bindings");
-}
-
-export async function getContextBinding(
-  context: string
-): Promise<ContextBinding> {
-  return invoke<ContextBinding>("get_context_binding", { context });
-}
-
-export async function saveContextBinding(
-  context: string,
-  binding: ContextBinding
-): Promise<void> {
-  return invoke<void>("save_context_binding", { context, binding });
-}
-
-export async function deleteContextBinding(context: string): Promise<void> {
-  return invoke<void>("delete_context_binding", { context });
-}
-
-export async function getCliPaths(): Promise<CliPathsConfig> {
-  return invoke<CliPathsConfig>("get_cli_paths");
-}
-
-export async function saveCliPaths(cliPaths: CliPathsConfig): Promise<void> {
-  return invoke<void>("save_cli_paths", { cliPaths });
-}
-
-export async function listRegistryConfigs(): Promise<RegistryConfigInfo[]> {
-  return invoke<RegistryConfigInfo[]>("list_registry_configs");
-}
-
-export async function saveRegistryConfig(
-  id: string,
-  configEntry: RegistryConfigInfo
-): Promise<void> {
-  return invoke<void>("save_registry_config", { id, configEntry });
-}
-
-export async function deleteRegistryConfig(id: string): Promise<void> {
-  return invoke<void>("delete_registry_config", { id });
-}
-
-export async function getThemeConfig(): Promise<ThemeConfig> {
-  return invoke<ThemeConfig>("get_theme_config");
-}
-
-export async function saveThemeConfig(theme: ThemeConfig): Promise<void> {
-  return invoke<void>("save_theme_config", { theme });
-}
-
-export async function getYamlHistory(
-  resourceKey: string
-): Promise<YamlHistoryEntryDto[]> {
-  return invoke<YamlHistoryEntryDto[]>("get_yaml_history", { resourceKey });
-}
-
-export async function addYamlHistoryEntry(
-  resourceKey: string,
-  entry: YamlHistoryEntryDto
-): Promise<void> {
-  return invoke<void>("add_yaml_history_entry", { resourceKey, entry });
-}
-
-export async function getAllYamlHistory(): Promise<
-  Record<string, YamlHistoryEntryDto[]>
-> {
-  return invoke<Record<string, YamlHistoryEntryDto[]>>("get_all_yaml_history");
-}
-
-export async function getInfrastructureState(
-  context: string
-): Promise<InfrastructureBuilderStateDto> {
-  return invoke<InfrastructureBuilderStateDto>("get_infrastructure_state", {
-    context,
-  });
-}
-
-export async function saveInfrastructureState(
-  context: string,
-  state: InfrastructureBuilderStateDto
-): Promise<void> {
-  return invoke<void>("save_infrastructure_state", { context, state });
-}
-
-export async function clearInfrastructureState(context: string): Promise<void> {
-  return invoke<void>("clear_infrastructure_state", { context });
-}
-
-export async function getRecentItems(): Promise<RecentItem[]> {
-  return invoke<RecentItem[]>("get_recent_items");
-}
-
-export async function addRecentItem(item: RecentItem): Promise<void> {
-  return invoke<void>("add_recent_item", { item });
-}
-
-export async function getUpdaterSettings(): Promise<UpdaterConfig> {
-  return invoke<UpdaterConfig>("get_updater_settings");
-}
-
-export async function saveUpdaterSettings(
-  settings: UpdaterConfig
-): Promise<void> {
-  return invoke<void>("save_updater_settings", { settings });
-}
-
-export async function getClusterPreferences(): Promise<ClusterPreferences> {
-  return invoke<ClusterPreferences>("get_cluster_preferences");
-}
-
-export async function saveClusterPreferences(
-  lastContext: string | null,
-  context: string | null,
-  namespace: string | null
-): Promise<void> {
-  return invoke<void>("save_cluster_preferences", {
-    lastContext,
-    context,
-    namespace,
-  });
-}
-
 export async function listIngresses(
   filters: ResourceFilters | null
 ): Promise<IngressInfo[]> {
@@ -1101,6 +907,161 @@ export async function deleteEndpoints(
   return invoke<void>("delete_endpoints", { name, namespace });
 }
 
+export async function getResourceReferences(
+  resourceType: string,
+  name: string,
+  namespace: string | null
+): Promise<ResourceReferences> {
+  return invoke<ResourceReferences>("get_resource_references", {
+    resourceType,
+    name,
+    namespace,
+  });
+}
+
+export async function listConfigmaps(
+  filters: ResourceFilters | null
+): Promise<ConfigMapInfo[]> {
+  return invoke<ConfigMapInfo[]>("list_configmaps", { filters });
+}
+
+export async function getConfigmap(
+  name: string,
+  namespace: string | null
+): Promise<ConfigMapInfo> {
+  return invoke<ConfigMapInfo>("get_configmap", { name, namespace });
+}
+
+export async function getConfigmapData(
+  name: string,
+  namespace: string | null
+): Promise<Record<string, string>> {
+  return invoke<Record<string, string>>("get_configmap_data", {
+    name,
+    namespace,
+  });
+}
+
+export async function deleteConfigmap(
+  name: string,
+  namespace: string | null
+): Promise<void> {
+  return invoke<void>("delete_configmap", { name, namespace });
+}
+
+export async function listSecrets(
+  filters: SecretFilters | null
+): Promise<SecretInfo[]> {
+  return invoke<SecretInfo[]>("list_secrets", { filters });
+}
+
+export async function getSecret(
+  name: string,
+  namespace: string | null
+): Promise<SecretInfo> {
+  return invoke<SecretInfo>("get_secret", { name, namespace });
+}
+
+export async function getSecretData(
+  name: string,
+  namespace: string | null
+): Promise<Record<string, string>> {
+  return invoke<Record<string, string>>("get_secret_data", { name, namespace });
+}
+
+export async function getSecretYaml(
+  name: string,
+  namespace: string | null,
+  redact: boolean
+): Promise<string> {
+  return invoke<string>("get_secret_yaml", { name, namespace, redact });
+}
+
+export async function deleteSecret(
+  name: string,
+  namespace: string | null
+): Promise<void> {
+  return invoke<void>("delete_secret", { name, namespace });
+}
+
+export async function listHelmReleasesNative(
+  namespace: string | null
+): Promise<HelmRelease[]> {
+  return invoke<HelmRelease[]>("list_helm_releases_native", { namespace });
+}
+
+export async function getHelmReleaseDetail(
+  name: string,
+  namespace: string,
+  revision: number | null
+): Promise<HelmReleaseDetail> {
+  return invoke<HelmReleaseDetail>("get_helm_release_detail", {
+    name,
+    namespace,
+    revision,
+  });
+}
+
+export async function getHelmHistory(
+  name: string,
+  namespace: string
+): Promise<HelmRevision[]> {
+  return invoke<HelmRevision[]>("get_helm_history", { name, namespace });
+}
+
+export async function checkHelmAvailability(): Promise<CliAvailability> {
+  return invoke<CliAvailability>("check_helm_availability");
+}
+
+export async function helmRollback(
+  name: string,
+  namespace: string,
+  revision: number
+): Promise<string> {
+  return invoke<string>("helm_rollback", { name, namespace, revision });
+}
+
+export async function helmUninstall(
+  name: string,
+  namespace: string
+): Promise<string> {
+  return invoke<string>("helm_uninstall", { name, namespace });
+}
+
+export async function listHelmRepos(): Promise<HelmRepository[]> {
+  return invoke<HelmRepository[]>("list_helm_repos");
+}
+
+export async function addHelmRepo(name: string, url: string): Promise<string> {
+  return invoke<string>("add_helm_repo", { name, url });
+}
+
+export async function removeHelmRepo(name: string): Promise<string> {
+  return invoke<string>("remove_helm_repo", { name });
+}
+
+export async function updateHelmRepos(): Promise<string> {
+  return invoke<string>("update_helm_repos");
+}
+
+export async function helmSearchCharts(
+  keyword: string
+): Promise<HelmChartSearchResult[]> {
+  return invoke<HelmChartSearchResult[]>("helm_search_charts", { keyword });
+}
+
+export async function helmInstall(
+  options: HelmInstallOptions
+): Promise<string> {
+  return invoke<string>("helm_install", { options });
+}
+
+export async function helmUpgrade(
+  options: HelmInstallOptions
+): Promise<string> {
+  return invoke<string>("helm_upgrade", { options });
+}
+
 export async function listContexts(): Promise<ContextInfo[]> {
   return invoke<ContextInfo[]>("list_contexts");
 }
@@ -1129,6 +1090,10 @@ export async function streamPodLogs(config: StreamLogConfig): Promise<string> {
   return invoke<string>("stream_pod_logs", { config });
 }
 
+export async function logStreamSubscribed(streamId: string): Promise<void> {
+  return invoke<void>("log_stream_subscribed", { streamId });
+}
+
 export async function getPodLogs(
   podName: string,
   namespace: string | null,
@@ -1151,8 +1116,69 @@ export async function stopLogStream(streamId: string): Promise<void> {
   return invoke<void>("stop_log_stream", { streamId });
 }
 
-export async function logStreamSubscribed(streamId: string): Promise<void> {
-  return invoke<void>("log_stream_subscribed", { streamId });
+export async function debugPodEphemeral(
+  podName: string,
+  namespace: string | null,
+  config: DebugConfig
+): Promise<DebugOperation> {
+  return invoke<DebugOperation>("debug_pod_ephemeral", {
+    podName,
+    namespace,
+    config,
+  });
+}
+
+export async function debugPodCopy(
+  podName: string,
+  namespace: string | null,
+  config: DebugConfig
+): Promise<DebugOperation> {
+  return invoke<DebugOperation>("debug_pod_copy", {
+    podName,
+    namespace,
+    config,
+  });
+}
+
+export async function debugNode(
+  nodeName: string,
+  namespace: string | null,
+  config: DebugConfig
+): Promise<DebugOperation> {
+  return invoke<DebugOperation>("debug_node", { nodeName, namespace, config });
+}
+
+export async function deleteDebugPod(
+  podName: string,
+  namespace: string | null
+): Promise<void> {
+  return invoke<void>("delete_debug_pod", { podName, namespace });
+}
+
+export async function listDebugPods(
+  namespace: string | null
+): Promise<DebugResult[]> {
+  return invoke<DebugResult[]>("list_debug_pods", { namespace });
+}
+
+export async function getDebugStatus(
+  operationId: string
+): Promise<DebugStatus> {
+  return invoke<DebugStatus>("get_debug_status", { operationId });
+}
+
+export async function extendDebugTimeout(
+  operationId: string,
+  additionalSeconds: number | null
+): Promise<void> {
+  return invoke<void>("extend_debug_timeout", {
+    operationId,
+    additionalSeconds,
+  });
+}
+
+export async function cancelDebugOperation(operationId: string): Promise<void> {
+  return invoke<void>("cancel_debug_operation", { operationId });
 }
 
 export async function subscribeConfigmapWatch(
@@ -1241,30 +1267,4 @@ export async function subscribePersistentvolumeWatch(): Promise<string> {
 
 export async function subscribeStorageclassWatch(): Promise<string> {
   return invoke<string>("subscribe_storageclass_watch");
-}
-
-export async function subscribeCustomResourceWatch(
-  group: string,
-  version: string,
-  kind: string,
-  plural: string,
-  namespace: string | null
-): Promise<string> {
-  return invoke<string>("subscribe_custom_resource_watch", {
-    group,
-    version,
-    kind,
-    plural,
-    namespace,
-  });
-}
-
-export async function resourceWatchSubscribed(streamId: string): Promise<void> {
-  return invoke<void>("resource_watch_subscribed", { streamId });
-}
-
-export async function unsubscribeResourceWatch(
-  streamId: string
-): Promise<void> {
-  return invoke<void>("unsubscribe_resource_watch", { streamId });
 }

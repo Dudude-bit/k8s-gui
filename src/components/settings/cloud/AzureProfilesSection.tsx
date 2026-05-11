@@ -21,11 +21,11 @@ import { commands } from "@/lib/commands";
 import { normalizeTauriError } from "@/lib/error-utils";
 
 const EMPTY_PROFILE: AzureProfile = {
-  description: null,
-  azPath: null,
-  kubeloginPath: null,
-  defaultSubscription: null,
-  tenantId: null,
+  description: undefined,
+  azPath: undefined,
+  kubeloginPath: undefined,
+  defaultSubscription: undefined,
+  tenantId: undefined,
   useCliFallback: false,
   preferNativeAuth: true,
 };
@@ -206,7 +206,7 @@ export function AzureProfilesSection() {
                 onChange={(e) =>
                   setEditingProfile((prev) => ({
                     ...prev,
-                    description: e.target.value || null,
+                    description: e.target.value || undefined,
                   }))
                 }
                 placeholder="e.g., Production AKS clusters"
@@ -219,7 +219,7 @@ export function AzureProfilesSection() {
                 onChange={(e) =>
                   setEditingProfile((prev) => ({
                     ...prev,
-                    tenantId: e.target.value || null,
+                    tenantId: e.target.value || undefined,
                   }))
                 }
                 placeholder="Azure AD Tenant ID"
@@ -232,7 +232,7 @@ export function AzureProfilesSection() {
                 onChange={(e) =>
                   setEditingProfile((prev) => ({
                     ...prev,
-                    defaultSubscription: e.target.value || null,
+                    defaultSubscription: e.target.value || undefined,
                   }))
                 }
                 placeholder="Azure Subscription ID"

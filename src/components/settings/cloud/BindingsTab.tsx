@@ -26,8 +26,8 @@ import { commands } from "@/lib/commands";
 import { normalizeTauriError } from "@/lib/error-utils";
 
 const EMPTY_BINDING: ContextBinding = {
-  gcpProfile: null,
-  azureProfile: null,
+  gcpProfile: undefined,
+  azureProfile: undefined,
 };
 
 export function BindingsTab() {
@@ -220,7 +220,7 @@ export function BindingsTab() {
                 onValueChange={(value) =>
                   setEditingBinding((prev) => ({
                     ...prev,
-                    gcpProfile: value === "__none__" ? null : value,
+                    gcpProfile: value === "__none__" ? undefined : value,
                   }))
                 }
               >
@@ -244,7 +244,7 @@ export function BindingsTab() {
                 onValueChange={(value) =>
                   setEditingBinding((prev) => ({
                     ...prev,
-                    azureProfile: value === "__none__" ? null : value,
+                    azureProfile: value === "__none__" ? undefined : value,
                   }))
                 }
               >

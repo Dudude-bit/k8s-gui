@@ -202,7 +202,7 @@ export const useYamlEditorStore = create<YamlEditorState>((set, get) => ({
       .addYamlHistoryEntry(key, {
         timestamp: newEntry.timestamp,
         content: newEntry.content,
-        label: newEntry.label ?? null,
+        label: newEntry.label ?? undefined,
       })
       .catch((error) => {
         console.error("Failed to save YAML history entry:", error);
