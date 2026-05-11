@@ -42,6 +42,14 @@ pub struct AuthExecAdapter {
     /// Liveness flag flipped by the wait-thread when the child exits.
     is_alive: Arc<std::sync::atomic::AtomicBool>,
 
+    /// Last exit code returned by the child, populated by the wait
+    /// thread on process termination. `None` while the child is
+    /// alive or if waiting failed before the status was readable.
+    /// Surfacing this to the auth flow is the only way to tell apart
+    /// "plugin produced no JSON because it crashed with status 1" from
+    /// "plugin produced no JSON because it exited 0 with empty output."
+    last_exit_status: Arc<Mutex<Option<i32>>>,
+
     /// Collected output for ExecCredential JSON parsing. The PTY stream
     /// contains both prompts and the final JSON; downstream `serde_json`
     /// extracts the credential payload from the buffer's tail.
@@ -60,6 +68,7 @@ impl AuthExecAdapter {
             output_rx: None,
             _shutdown_tx: None,
             is_alive: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            last_exit_status: Arc::new(Mutex::new(None)),
             collected_stdout: Arc::new(Mutex::new(Vec::new())),
         }
     }
@@ -69,6 +78,14 @@ impl AuthExecAdapter {
     /// process exits, so contention is nil.
     pub fn collected_stdout(&self) -> Arc<Mutex<Vec<u8>>> {
         self.collected_stdout.clone()
+    }
+
+    /// Get a handle to the child's last exit status. `None` until the
+    /// child has terminated. Used by the auth flow to enrich error
+    /// messages when JSON extraction fails ("plugin exited 1 with 6
+    /// bytes: \"foo\\n\\r\"" is debuggable; "no JSON" alone is not).
+    pub fn last_exit_status(&self) -> Arc<Mutex<Option<i32>>> {
+        self.last_exit_status.clone()
     }
 }
 
@@ -146,12 +163,19 @@ impl TerminalAdapter for AuthExecAdapter {
 
         // Wait thread: blocks on child.wait() so we can flip is_alive
         // when the process exits, without polling try_wait every tick.
+        // We also capture the exit status so the auth flow can include
+        // it in error messages when no JSON ExecCredential turned up.
         let (shutdown_tx, _shutdown_rx) = mpsc::channel::<()>(1);
         self.is_alive
             .store(true, std::sync::atomic::Ordering::SeqCst);
         let alive = self.is_alive.clone();
+        let exit_handle = self.last_exit_status.clone();
         std::thread::spawn(move || {
-            let _ = child.wait();
+            let status = child.wait();
+            if let Ok(s) = status {
+                let mut slot = exit_handle.lock();
+                *slot = Some(s.exit_code() as i32);
+            }
             alive.store(false, std::sync::atomic::Ordering::SeqCst);
         });
 
@@ -425,6 +449,62 @@ mod tests {
         assert!(
             text.contains("OVERRIDE=from-explicit"),
             "explicit env did not override inherited value; got {text:?}"
+        );
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn last_exit_status_captures_zero_for_clean_exit() {
+        // After the child exits successfully, `last_exit_status` must
+        // return Some(0). Before this lands, the wait thread did
+        // `let _ = child.wait()` and threw the status on the floor —
+        // making it impossible for the auth flow to tell apart
+        // "plugin exited 0 with empty stdout" from "plugin crashed
+        // with a non-zero status and a tiny error message".
+        let mut adapter = AuthExecAdapter::new(
+            "/bin/sh".into(),
+            vec!["-c".into(), "exit 0".into()],
+            HashMap::new(),
+        );
+        let status_handle = adapter.last_exit_status();
+
+        adapter.connect().await.expect("spawn");
+        let _ = drain(&mut adapter, Duration::from_secs(2)).await;
+        // Give the wait thread a tick to record the exit before close.
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        adapter.close().await.expect("close");
+
+        let status = *status_handle.lock();
+        assert_eq!(
+            status,
+            Some(0),
+            "expected Some(0) after clean exit, got {status:?}"
+        );
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn last_exit_status_captures_nonzero_exit_code() {
+        // Plugins like kubectl-oidc_login fail with non-zero exit
+        // codes when env preconditions aren't met. We need to surface
+        // that to the user. `exit 42` produces status 42.
+        let mut adapter = AuthExecAdapter::new(
+            "/bin/sh".into(),
+            vec!["-c".into(), "exit 42".into()],
+            HashMap::new(),
+        );
+        let status_handle = adapter.last_exit_status();
+
+        adapter.connect().await.expect("spawn");
+        let _ = drain(&mut adapter, Duration::from_secs(2)).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        adapter.close().await.expect("close");
+
+        let status = *status_handle.lock();
+        assert_eq!(
+            status,
+            Some(42),
+            "expected Some(42) after exit 42, got {status:?}"
         );
     }
 

@@ -97,6 +97,7 @@ pub(super) async fn run_exec_auth(
 
     // Extract collected_stdout Arc before moving adapter
     let collected_stdout = adapter.collected_stdout();
+    let last_exit_status = adapter.last_exit_status();
 
     let terminal_session_id = state
         .terminal_manager
@@ -199,10 +200,21 @@ pub(super) async fn run_exec_auth(
     // fails with "expected value at line 2 column 1" because the
     // bytes don't start at the `{`. `extract_exec_credential`
     // locates the actual JSON object inside the buffer.
+    // On failure we tack on the child's exit code and the first
+    // few bytes of stdout escaped. Without this enrichment the user
+    // sees only "no JSON object found in N bytes" and has no way to
+    // tell apart "plugin exited 0 with whitespace", "plugin exited 1
+    // with an error string", or "plugin printed something
+    // machine-parseable that our extractor happens to choke on."
     let creds: ExecCredential =
         crate::auth::interactive::cred::extract_exec_credential(&stdout_data).map_err(|msg| {
+            let exit_str = match *last_exit_status.lock() {
+                Some(code) => format!("exit code {code}"),
+                None => "exit code unknown".to_string(),
+            };
+            let preview = preview_bytes(&stdout_data, 200);
             Error::Auth(AuthError::Kubeconfig(format!(
-                "Invalid exec credentials: {msg}"
+                "Invalid exec credentials ({exit_str}): {msg}. Stdout preview: {preview}"
             )))
         })?;
     let status = creds.status.ok_or_else(|| {
@@ -328,6 +340,39 @@ async fn read_auth_url(path: &PathBuf) -> Result<String> {
     Ok(contents.trim().to_string())
 }
 
+/// Render up to `max_bytes` of `data` as a debuggable preview string:
+/// printable bytes pass through, others become `\xNN` escapes (with the
+/// common ones — newline, return, tab — using their conventional `\n`
+/// `\r` `\t` forms). Truncates with a "+N more" tail.
+///
+/// Used to enrich `Invalid exec credentials` error messages with the
+/// actual bytes the auth plugin printed. Without this, "no JSON object
+/// found in 6 bytes" is indistinguishable from any of: PTY init noise,
+/// a one-line plugin error, a truncated JSON header, or an empty
+/// terminal response.
+fn preview_bytes(data: &[u8], max_bytes: usize) -> String {
+    let truncated = data.len() > max_bytes;
+    let slice = &data[..data.len().min(max_bytes)];
+    let mut out = String::with_capacity(slice.len() + 4);
+    out.push('"');
+    for &b in slice {
+        match b {
+            b'\\' => out.push_str("\\\\"),
+            b'"' => out.push_str("\\\""),
+            b'\n' => out.push_str("\\n"),
+            b'\r' => out.push_str("\\r"),
+            b'\t' => out.push_str("\\t"),
+            0x20..=0x7e => out.push(b as char),
+            other => out.push_str(&format!("\\x{:02x}", other)),
+        }
+    }
+    out.push('"');
+    if truncated {
+        out.push_str(&format!(" (+{} more bytes)", data.len() - max_bytes));
+    }
+    out
+}
+
 fn create_browser_script(session_id: &str) -> Result<(PathBuf, PathBuf, PathBuf)> {
     let mut dir = std::env::temp_dir();
     dir.push("k8s-gui-auth");
@@ -436,4 +481,57 @@ fn cleanup_auth_artifacts(script_path: &PathBuf, url_file: &PathBuf, bin_dir: &P
     let _ = std::fs::remove_file(script_path);
     let _ = std::fs::remove_file(url_file);
     let _ = std::fs::remove_dir_all(bin_dir);
+}
+
+#[cfg(test)]
+mod preview_tests {
+    use super::preview_bytes;
+
+    #[test]
+    fn prints_printable_ascii_as_is() {
+        assert_eq!(preview_bytes(b"hello", 100), "\"hello\"");
+    }
+
+    #[test]
+    fn escapes_common_control_chars() {
+        assert_eq!(preview_bytes(b"a\nb\rc\td", 100), "\"a\\nb\\rc\\td\"");
+    }
+
+    #[test]
+    fn escapes_non_printable_bytes_as_hex() {
+        // PTY init sequences are often non-printable. Hex escape lets
+        // a human eyeball "\\x1b[0m" and recognise it.
+        assert_eq!(
+            preview_bytes(&[0x1b, b'[', b'0', b'm'], 100),
+            "\"\\x1b[0m\""
+        );
+    }
+
+    #[test]
+    fn escapes_backslash_and_double_quote() {
+        assert_eq!(preview_bytes(b"a\"b\\c", 100), "\"a\\\"b\\\\c\"");
+    }
+
+    #[test]
+    fn truncates_with_suffix_when_over_limit() {
+        let data = vec![b'x'; 250];
+        let preview = preview_bytes(&data, 200);
+        assert!(
+            preview.ends_with("(+50 more bytes)"),
+            "expected truncation suffix; got {preview:?}"
+        );
+        // 200 'x' chars between the surrounding quotes.
+        assert!(preview.starts_with(&format!("\"{}\"", "x".repeat(200))));
+    }
+
+    #[test]
+    fn reproduces_a_realistic_6_byte_pty_payload() {
+        // The actual production failure: 6 bytes of stdout, no JSON.
+        // If those 6 bytes are "\\x1b[0m\\n" (ANSI reset + newline =
+        // 5 bytes) the preview should let a human see it at a glance.
+        // Adjust if the bug is different — at least we'll know.
+        let bytes = b"\x1b[0m\n";
+        let preview = preview_bytes(bytes, 200);
+        assert_eq!(preview, "\"\\x1b[0m\\n\"");
+    }
 }
