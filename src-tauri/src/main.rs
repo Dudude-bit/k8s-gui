@@ -215,6 +215,10 @@ fn main() {
             // CLI paths
             commands::settings::get_cli_paths,
             commands::settings::save_cli_paths,
+            // Kubeconfig override
+            commands::settings::get_kubeconfig_path,
+            commands::settings::set_kubeconfig_path,
+            commands::settings::clear_kubeconfig_path,
             // Registry configurations
             commands::settings::list_registry_configs,
             commands::settings::save_registry_config,

@@ -8,13 +8,23 @@ use crate::client::{ClusterInfo, ContextInfo};
 use crate::error::Result;
 use crate::state::AppState;
 
+/// Read the persisted kubeconfig override path from AppConfig. Returns
+/// None on read failure (treated as "no override") so a corrupted
+/// config file doesn't lock the user out of the default `~/.kube/config`
+/// path entirely.
+fn read_kubeconfig_override() -> Option<std::path::PathBuf> {
+    crate::commands::settings::helpers::read_config(|c| c.kubernetes.kubeconfig_path.clone())
+        .ok()
+        .flatten()
+}
+
 /// List all available Kubernetes contexts
 #[tauri::command]
 pub async fn list_contexts(state: State<'_, AppState>) -> Result<Vec<ContextInfo>> {
     // Ensure kubeconfig is loaded
     state
         .client_manager
-        .load_kubeconfig()
+        .load_kubeconfig_resolved(read_kubeconfig_override())
         .await
         .map_err(|e| crate::error::Error::Config(e.to_string()))?;
 
@@ -30,7 +40,7 @@ pub async fn list_contexts(state: State<'_, AppState>) -> Result<Vec<ContextInfo
 pub async fn get_current_context(state: State<'_, AppState>) -> Result<Option<String>> {
     state
         .client_manager
-        .load_kubeconfig()
+        .load_kubeconfig_resolved(read_kubeconfig_override())
         .await
         .map_err(|e| crate::error::Error::Config(e.to_string()))?;
 
@@ -52,7 +62,7 @@ pub async fn switch_context(context: String, state: State<'_, AppState>) -> Resu
     // Load kubeconfig if not already loaded
     state
         .client_manager
-        .load_kubeconfig()
+        .load_kubeconfig_resolved(read_kubeconfig_override())
         .await
         .map_err(|e| crate::error::Error::Config(e.to_string()))?;
 
@@ -97,7 +107,7 @@ pub async fn connect_cluster(context: String, state: State<'_, AppState>) -> Res
     // Load kubeconfig if not already loaded
     state
         .client_manager
-        .load_kubeconfig()
+        .load_kubeconfig_resolved(read_kubeconfig_override())
         .await
         .map_err(|e| crate::error::Error::Config(e.to_string()))?;
 

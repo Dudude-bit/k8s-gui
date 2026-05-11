@@ -15,7 +15,7 @@ help:
 
 # Generate ts types from tauri commands
 gen-entities-tauri:
-	$(MISE_EXEC) tauri-ts-generator generate --config tauri-codegen.toml --verbose
+	$(MISE_EXEC) tauri-ts-generator generate --verbose
 
 # Generate base icon and all Tauri icon assets
 gen-icons:

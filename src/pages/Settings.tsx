@@ -20,6 +20,7 @@ import { PortForwardManager } from "@/components/port-forward/PortForwardManager
 import { RegistrySettings } from "@/components/registry/RegistrySettings";
 import { CloudProfiles } from "@/components/settings/CloudProfiles";
 import { CliSettings } from "@/components/settings/CliSettings";
+import { KubeconfigSettings } from "@/components/settings/KubeconfigSettings";
 import { Download, RefreshCw, AlertCircle } from "lucide-react";
 
 export function Settings() {
@@ -117,6 +118,9 @@ export function Settings() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Kubeconfig */}
+      <KubeconfigSettings />
 
       {/* Cloud Profiles */}
       <CloudProfiles />

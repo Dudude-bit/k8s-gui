@@ -178,6 +178,18 @@ export async function saveCliPaths(cliPaths: CliPathsConfig): Promise<void> {
   return invoke<void>("save_cli_paths", { cliPaths });
 }
 
+export async function getKubeconfigPath(): Promise<string | null> {
+  return invoke<string | null>("get_kubeconfig_path");
+}
+
+export async function setKubeconfigPath(path: string): Promise<void> {
+  return invoke<void>("set_kubeconfig_path", { path });
+}
+
+export async function clearKubeconfigPath(): Promise<void> {
+  return invoke<void>("clear_kubeconfig_path");
+}
+
 export async function getAppInfo(): Promise<AppInfo> {
   return invoke<AppInfo>("get_app_info");
 }

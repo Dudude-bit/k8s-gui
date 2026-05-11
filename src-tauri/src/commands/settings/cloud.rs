@@ -260,3 +260,75 @@ pub async fn save_cli_paths(cli_paths: CliPathsConfig) -> Result<()> {
 
     Ok(())
 }
+
+// ============================================================================
+// Kubeconfig path override
+// ============================================================================
+
+/// Return the persisted kubeconfig override path. `None` means "use
+/// default lookup" (i.e. $KUBECONFIG or ~/.kube/config).
+#[tauri::command]
+pub fn get_kubeconfig_path() -> Result<Option<String>> {
+    read_config(|config| {
+        config
+            .kubernetes
+            .kubeconfig_path
+            .as_ref()
+            .map(|p| p.to_string_lossy().to_string())
+    })
+}
+
+/// Persist a kubeconfig override path. Validates the path resolves and
+/// parses as a kubeconfig file (so the user can't save garbage that
+/// would brick the next startup). Empty string clears the override.
+#[tauri::command]
+pub async fn set_kubeconfig_path(
+    path: String,
+    state: tauri::State<'_, crate::state::AppState>,
+) -> Result<()> {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return clear_kubeconfig_path(state).await;
+    }
+    let path_buf = std::path::PathBuf::from(trimmed);
+
+    // Validate via the same canonicalize-and-parse pipeline the real
+    // loader uses. If this rejects, we don't touch persisted state —
+    // the user keeps whatever they had before.
+    state
+        .client_manager
+        .load_kubeconfig_from_path(path_buf.clone())
+        .await
+        .map_err(|e| crate::error::Error::Config(format!("Invalid kubeconfig path: {e}")))?;
+
+    with_config(|config| {
+        config.kubernetes.kubeconfig_path = Some(path_buf);
+    })?;
+
+    // Drop any cached clients / current context — they were bound to
+    // the previous kubeconfig and would now point at the wrong cluster.
+    state.client_manager.disconnect_all();
+    state.set_current_context(None);
+
+    Ok(())
+}
+
+/// Clear the kubeconfig override, reverting to default lookup.
+#[tauri::command]
+pub async fn clear_kubeconfig_path(state: tauri::State<'_, crate::state::AppState>) -> Result<()> {
+    with_config(|config| {
+        config.kubernetes.kubeconfig_path = None;
+    })?;
+
+    // Re-load using the now-cleared override (i.e. default lookup) so
+    // subsequent list_contexts sees the right cluster set immediately.
+    state
+        .client_manager
+        .load_kubeconfig_resolved(None)
+        .await
+        .map_err(|e| crate::error::Error::Config(e.to_string()))?;
+    state.client_manager.disconnect_all();
+    state.set_current_context(None);
+
+    Ok(())
+}
