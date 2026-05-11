@@ -169,7 +169,23 @@ export function useGenericTerminalSession({
         // to start reading from the adapter — without this signal the
         // I/O loop blocks (or, after the 60s safety timeout, fires into
         // the void). See `terminal::manager::create_session`.
-        await commands.terminalSubscribed(sessionId);
+        //
+        // A failure HERE is benign: the listeners are installed and
+        // will catch whatever events do fire. The most likely cause
+        // is a race where the auth flow already finished (success or
+        // error) before we got to subscribe, so the backend removed
+        // the session and `mark_subscribed` returns "Session not
+        // found". Surfacing that as "Failed to setup terminal
+        // listeners" is misleading — the listeners are fine. Log and
+        // move on.
+        try {
+          await commands.terminalSubscribed(sessionId);
+        } catch (subscribeErr) {
+          console.warn(
+            "terminalSubscribed rejected (session likely closed already, listeners still installed):",
+            subscribeErr
+          );
+        }
       } catch (err) {
         console.error("Failed to setup terminal listeners:", err);
         if (isMountedRef.current) {

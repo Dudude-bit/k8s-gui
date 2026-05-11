@@ -102,4 +102,52 @@ describe("useGenericTerminalSession deferred-start handshake", () => {
 
     expect(subscribedCalls).toHaveLength(0);
   });
+
+  it("does not set error status when terminalSubscribed rejects after both listeners installed", async () => {
+    // Race in the wild: the auth flow can finish (success OR error)
+    // before the frontend reaches `terminalSubscribed`. The backend
+    // session is then gone and `mark_subscribed` errors with
+    // "Session not found" — but the listeners are still installed
+    // and will catch any TerminalOutput / TerminalClosed events that
+    // *do* fire. Showing "Failed to setup terminal listeners" in
+    // that case is misleading; the listeners are fine.
+    const { commands } = await import("@/lib/commands");
+    vi.mocked(commands.terminalSubscribed).mockRejectedValueOnce(
+      new Error("Session not found")
+    );
+
+    const { result } = renderHook(() =>
+      useGenericTerminalSession({
+        sessionId: "race-loser-session",
+      })
+    );
+
+    await waitFor(() => {
+      expect(vi.mocked(commands.terminalSubscribed)).toHaveBeenCalled();
+    });
+    // Let the rejection propagate through the catch.
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(result.current.status).not.toBe("error");
+    expect(result.current.error).toBeNull();
+  });
+
+  it("DOES set error status when listen() itself rejects (real Tauri IPC failure)", async () => {
+    // The flip side: if `listen()` itself fails — that's a genuine
+    // IPC problem, not a session-lifecycle race, and the user
+    // *should* see an error so they know events won't arrive.
+    const { listen } = await import("@tauri-apps/api/event");
+    vi.mocked(listen).mockRejectedValueOnce(new Error("IPC unavailable"));
+
+    const { result } = renderHook(() =>
+      useGenericTerminalSession({
+        sessionId: "ipc-broken-session",
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.status).toBe("error");
+    });
+    expect(result.current.error).toMatch(/listener/i);
+  });
 });

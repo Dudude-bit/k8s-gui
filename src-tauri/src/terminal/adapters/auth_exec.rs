@@ -347,6 +347,87 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn child_inherits_parent_process_env() {
+        // `portable_pty::CommandBuilder::new` ships an *empty*
+        // environment by default. Without inheriting the parent
+        // process env, kubectl exec-credential plugins (oidc-login,
+        // kubelogin, etc.) lose HOME/USER/XDG_CACHE_HOME and bail
+        // out before printing their `ExecCredential` JSON — the
+        // user sees "expected value at line 2 column 1" from
+        // serde_json because the buffer is empty or contains an
+        // error message instead of JSON.
+        //
+        // This test pins inheritance by setting a recognisable
+        // marker on the test process env and asserting the child
+        // can see it. If a future refactor accidentally clears env
+        // again, the assertion catches it.
+        let marker_value = format!("auth-exec-env-marker-{}", std::process::id());
+        // SAFETY: tests run single-threaded enough for this; the
+        // marker is unique per test process.
+        unsafe {
+            std::env::set_var("AUTH_EXEC_ENV_PROBE", &marker_value);
+        }
+
+        let mut adapter = AuthExecAdapter::new(
+            "/bin/sh".into(),
+            vec![
+                "-c".into(),
+                "printf 'PROBE=%s' \"$AUTH_EXEC_ENV_PROBE\"".into(),
+            ],
+            HashMap::new(),
+        );
+
+        adapter.connect().await.expect("spawn");
+        let drained = drain(&mut adapter, Duration::from_secs(2)).await;
+        adapter.close().await.expect("close");
+
+        let text = String::from_utf8_lossy(&drained);
+        let expected = format!("PROBE={marker_value}");
+        assert!(
+            text.contains(&expected),
+            "child did not inherit AUTH_EXEC_ENV_PROBE; got {text:?}, expected substring {expected:?}"
+        );
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn explicit_env_overrides_inherited_env() {
+        // If the caller passes an explicit value for an env var that
+        // also exists in the parent process, the explicit value wins.
+        // This matches how `auth/interactive/exec.rs` overrides PATH
+        // to prepend our kubectl shim directory.
+        unsafe {
+            std::env::set_var("AUTH_EXEC_OVERRIDE_PROBE", "from-parent");
+        }
+
+        let mut env = HashMap::new();
+        env.insert(
+            "AUTH_EXEC_OVERRIDE_PROBE".to_string(),
+            "from-explicit".to_string(),
+        );
+
+        let mut adapter = AuthExecAdapter::new(
+            "/bin/sh".into(),
+            vec![
+                "-c".into(),
+                "printf 'OVERRIDE=%s' \"$AUTH_EXEC_OVERRIDE_PROBE\"".into(),
+            ],
+            env,
+        );
+
+        adapter.connect().await.expect("spawn");
+        let drained = drain(&mut adapter, Duration::from_secs(2)).await;
+        adapter.close().await.expect("close");
+
+        let text = String::from_utf8_lossy(&drained);
+        assert!(
+            text.contains("OVERRIDE=from-explicit"),
+            "explicit env did not override inherited value; got {text:?}"
+        );
+    }
+
     #[tokio::test]
     async fn collected_stdout_still_captures_json_payload() {
         // The auth flow downstream parses JSON ExecCredential from

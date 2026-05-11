@@ -193,11 +193,18 @@ pub(super) async fn run_exec_auth(
         )));
     }
 
-    let creds: ExecCredential = serde_json::from_slice(&stdout_data).map_err(|e| {
-        Error::Auth(AuthError::Kubeconfig(format!(
-            "Invalid exec credentials: {e}"
-        )))
-    })?;
+    // Real-world PTY output mixes prompts, blank lines, and
+    // occasional ANSI control sequences with the final JSON
+    // ExecCredential. `serde_json::from_slice` on the raw buffer
+    // fails with "expected value at line 2 column 1" because the
+    // bytes don't start at the `{`. `extract_exec_credential`
+    // locates the actual JSON object inside the buffer.
+    let creds: ExecCredential =
+        crate::auth::interactive::cred::extract_exec_credential(&stdout_data).map_err(|msg| {
+            Error::Auth(AuthError::Kubeconfig(format!(
+                "Invalid exec credentials: {msg}"
+            )))
+        })?;
     let status = creds.status.ok_or_else(|| {
         Error::Auth(AuthError::Kubeconfig(
             "Exec credentials missing status".to_string(),
