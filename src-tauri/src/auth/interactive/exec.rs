@@ -20,6 +20,21 @@ use super::cred::{
     ExecTerminalParams,
 };
 
+/// How long the auth flow waits for the spawned exec plugin before
+/// giving up and killing the terminal session.
+///
+/// Deliberately LONGER than kubelogin / kubectl-oidc_login's own
+/// `--authentication-timeout-sec` default of 180 s. If our timeout
+/// fired first (it used to be exactly 180 s — a dead heat), we'd kill
+/// the plugin a beat before it printed its own diagnostic line
+/// ("authentication error: ... context deadline exceeded") — leaving
+/// the user with an empty terminal and a useless "no JSON" error
+/// instead of the plugin's actual reason. Outlasting the plugin's
+/// timeout lets that line land in our captured stdout and surface in
+/// the error message. The extra 30 s also covers the plugin's own
+/// post-timeout HTTP-server shutdown before it exits.
+const AUTH_FLOW_TIMEOUT_SECS: u64 = 210;
+
 pub(super) async fn run_exec_auth(
     state: &AppState,
     context: &str,
@@ -162,7 +177,7 @@ pub(super) async fn run_exec_auth(
                 return Err(Error::Auth(AuthError::Kubeconfig("Authentication cancelled".to_string())));
             }
         }
-        if started.elapsed() > Duration::from_secs(180) {
+        if started.elapsed() > Duration::from_secs(AUTH_FLOW_TIMEOUT_SECS) {
             state.terminal_manager.close_session(&terminal_session_id)?;
             cleanup_auth_artifacts(&browser_script, &url_file, &bin_dir);
             state.remove_auth_session(&session_id);
@@ -183,15 +198,25 @@ pub(super) async fn run_exec_auth(
     let stdout_data = collected_stdout.lock();
 
     if stdout_data.is_empty() {
+        // An interactive OIDC plugin (kubectl-oidc_login / kubelogin)
+        // under a PTY stays completely silent while it waits for the
+        // browser leg of the auth-code flow — it prints nothing until
+        // it either receives the callback or hits its own timeout.
+        // An empty buffer here therefore almost always means the user
+        // never completed (or never saw) the browser login, not that
+        // the plugin is broken.
+        let msg = "The authentication plugin produced no output. If this is an \
+             interactive OIDC plugin (kubectl-oidc_login / kubelogin), it was \
+             waiting for you to finish signing in through the browser — make \
+             sure the authentication URL opened and you completed the login."
+            .to_string();
         state.emit(AppEvent::AuthFlowCompleted {
             session_id,
             context: context.to_string(),
             success: false,
-            message: Some("No output from auth process".to_string()),
+            message: Some(msg.clone()),
         });
-        return Err(Error::Auth(AuthError::Kubeconfig(
-            "No output from auth process".to_string(),
-        )));
+        return Err(Error::Auth(AuthError::Kubeconfig(msg)));
     }
 
     // Real-world PTY output mixes prompts, blank lines, and
@@ -485,7 +510,24 @@ fn cleanup_auth_artifacts(script_path: &PathBuf, url_file: &PathBuf, bin_dir: &P
 
 #[cfg(test)]
 mod preview_tests {
-    use super::preview_bytes;
+    use super::{preview_bytes, AUTH_FLOW_TIMEOUT_SECS};
+
+    #[test]
+    fn auth_flow_timeout_outlasts_kubelogin_default() {
+        // kubelogin / kubectl-oidc_login default
+        // --authentication-timeout-sec is 180. Our loop timeout must
+        // be strictly greater, otherwise we race the plugin: killing
+        // it before it prints its own "context deadline exceeded"
+        // diagnostic leaves the user with an empty buffer and a
+        // useless "no JSON" error instead of the real reason.
+        const KUBELOGIN_DEFAULT_TIMEOUT_SECS: u64 = 180;
+        assert!(
+            AUTH_FLOW_TIMEOUT_SECS > KUBELOGIN_DEFAULT_TIMEOUT_SECS,
+            "auth flow timeout ({AUTH_FLOW_TIMEOUT_SECS}s) must outlast \
+             kubelogin's default ({KUBELOGIN_DEFAULT_TIMEOUT_SECS}s) so the \
+             plugin's own error message gets captured"
+        );
+    }
 
     #[test]
     fn prints_printable_ascii_as_is() {
